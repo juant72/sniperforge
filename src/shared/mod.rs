@@ -151,12 +151,11 @@ impl SharedServices {
     }
     
     /// Get shared services metrics
-    pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {
-        // Get metrics from each service
+    pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {        // Get metrics from each service
         let rpc_stats = self.rpc_pool.get_stats().await;
         let wallet_count = self.wallet_manager.list_wallets().await.len();
         let data_stats = self.data_feeds.get_stats().await;
-        let monitoring_stats = self.monitoring.get_stats().await;
+        let _monitoring_stats = self.monitoring.get_stats().await;
         
         // Get system metrics if available
         let (cpu_usage, memory_usage, uptime) = if let Some(system_metrics) = self.monitoring.get_latest_system_metrics().await {
