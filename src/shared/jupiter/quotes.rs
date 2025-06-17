@@ -161,7 +161,7 @@ impl QuoteEngine {
     }
 
     /// Check if a quote is still valid (not expired)
-    pub fn is_quote_valid(&self, quote: &JupiterQuote) -> bool {
+    pub fn is_quote_valid(&self, _quote: &JupiterQuote) -> bool {
         // Jupiter quotes are typically valid for ~30 seconds
         // We use a conservative 20 seconds
         true // For now, assume quotes are always valid

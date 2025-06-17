@@ -178,7 +178,7 @@ impl MonitoringSystem {
         system.refresh_all();
         
         let metrics = SystemMetrics {
-            cpu_usage_percent: system.global_cpu_info().cpu_usage() as f64,
+            cpu_usage_percent: system.global_cpu_usage() as f64,
             memory_usage_mb: (system.used_memory() / 1024 / 1024),
             memory_total_mb: (system.total_memory() / 1024 / 1024),
             disk_usage_percent: self.calculate_disk_usage(&system).await,
@@ -416,8 +416,8 @@ impl MonitoringSystem {
                 // Collect system metrics
                 let mut system = monitoring_system.write().await;
                 system.refresh_all();
-                  let metrics = SystemMetrics {
-                    cpu_usage_percent: system.global_cpu_info().cpu_usage() as f64,
+                let metrics = SystemMetrics {
+                    cpu_usage_percent: system.global_cpu_usage() as f64,
                     memory_usage_mb: (system.used_memory() / 1024 / 1024),
                     memory_total_mb: (system.total_memory() / 1024 / 1024),
                     disk_usage_percent: 0.0, // Placeholder

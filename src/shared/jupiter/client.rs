@@ -181,8 +181,9 @@ impl JupiterClient {
                         tokio::time::sleep(Duration::from_millis(1000 * attempts as u64)).await;
                         continue;
                     } else {
+                        let status = response.status();
                         let error_text = response.text().await.unwrap_or_default();
-                        return Err(anyhow!("HTTP error {}: {}", response.status(), error_text));
+                        return Err(anyhow!("HTTP error {}: {}", status, error_text));
                     }
                 }
                 Err(e) if attempts < max_attempts => {

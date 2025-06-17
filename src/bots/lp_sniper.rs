@@ -419,7 +419,7 @@ impl LpSniperBot {
         debug!("🔍 Monitoring pools for opportunities...");
         
         // Simulate finding an opportunity (very rarely)
-        if rand::thread_rng().gen::<f32>() < 0.001 { // 0.1% chance per cycle
+        if rand::rng().random::<f32>() < 0.001 { // 0.1% chance per cycle
             let mut metadata = HashMap::new();
             metadata.insert("source".to_string(), serde_json::Value::String("raydium".to_string()));
             metadata.insert("pool_age_seconds".to_string(), serde_json::Value::Number(serde_json::Number::from(30)));
@@ -520,7 +520,7 @@ impl LpSniperBot {
         let mut positions_to_close = Vec::new();
 
         for (index, position) in positions.iter_mut().enumerate() {            // Simulate price updates
-            let current_price = position.entry_price * (0.95 + rand::thread_rng().gen::<f64>() * 0.1); // ±5% variation
+            let current_price = position.entry_price * (0.95 + rand::rng().random::<f64>() * 0.1); // ±5% variation
             position.current_pnl_percent = ((current_price - position.entry_price) / position.entry_price) * 100.0;
 
             // Check stop loss
@@ -690,7 +690,7 @@ impl LpSniperBot {
     async fn get_real_market_price(&self, _pool_id: &Pubkey) -> Result<f64> {
         // TODO: Integrate with Jupiter API for real prices
         // For now, simulate realistic price
-        let base_price = 0.0001 + rand::thread_rng().gen::<f64>() * 0.001;
+        let base_price = 0.0001 + rand::rng().random::<f64>() * 0.001;
         Ok(base_price)
     }
 
@@ -718,11 +718,11 @@ impl LpSniperBot {
         
         // Simulate execution with realistic parameters
         let success_rate = if self.config.devnet_mode { 0.95 } else { 0.85 }; // Higher success rate on devnet
-        let is_successful = rand::thread_rng().gen::<f64>() < success_rate;
+        let is_successful = rand::rng().random::<f64>() < success_rate;
         
         if is_successful {
             let slippage = self.calculate_slippage(0.0001, amount);
-            let gas_fee = 0.000005 + rand::thread_rng().gen::<f64>() * 0.000010; // 5-15 microSOL
+            let gas_fee = 0.000005 + rand::rng().random::<f64>() * 0.000010; // 5-15 microSOL
             
             Ok(TradeExecutionResult {
                 success: true,
@@ -732,7 +732,7 @@ impl LpSniperBot {
                 gas_fee,
                 error_message: None,
                 is_paper_trade: false,
-                execution_time_ms: 50 + rand::thread_rng().gen_range(0..150),
+                execution_time_ms: 50 + rand::rng().random_range(0..150),
             })
         } else {
             Ok(TradeExecutionResult {
@@ -743,7 +743,7 @@ impl LpSniperBot {
                 gas_fee: 0.0,
                 error_message: Some("Transaction failed due to network conditions".to_string()),
                 is_paper_trade: false,
-                execution_time_ms: 2000 + rand::thread_rng().gen_range(0..1000),
+                execution_time_ms: 2000 + rand::rng().random_range(0..1000),
             })
         }
     }
@@ -837,7 +837,7 @@ impl LpSniperBot {
     async fn get_current_token_price(&self, _token_address: &Pubkey) -> Result<f64> {
         // TODO: Implement real price fetching
         // For now, simulate price movement
-        let random_change = rand::thread_rng().gen_range(-0.05..0.05); // ±5% random change
+        let random_change = rand::rng().random_range(-0.05..0.05); // ±5% random change
         Ok(100.0 * (1.0 + random_change))
     }
 }
