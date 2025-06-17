@@ -6,45 +6,17 @@ use tracing::{info, warn, error, debug};
 use solana_sdk::pubkey::Pubkey;
 use serde::{Serialize, Deserialize};
 use rand::Rng;
+use uuid::Uuid;
 
 use crate::config::Config;
 use crate::types::{
     BotType, BotStatus, BotConfig, BotMetrics, PoolInfo, PriceData, 
     TradingOpportunity, TradeResult, PlatformError, HealthStatus,
-    OpportunityType, RiskLevel, DexType, TokenInfo, BotId, TradeStatus
+    OpportunityType, RiskLevel, DexType, TokenInfo, BotId, TradeStatus,
+    TradeExecutionResult, ActivePosition, LpSniperConfig, BotCommand, BotEvent
 };
-use crate::shared::SharedServices;
+use crate::shared::{SharedServices, wallet_manager::WalletManager};
 use crate::platform::event_bus::{EventBus, EventType, PlatformEvent};
-
-/// Configuration specific to LP Sniper bot
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LpSniperConfig {
-    pub target_pools: Vec<String>, // Pool addresses to monitor
-    pub min_liquidity_usd: f64,
-    pub max_market_cap: f64,
-    pub slippage_tolerance: f64,
-    pub trade_amount_sol: f64,
-    pub stop_loss_percent: f64,
-    pub take_profit_percent: f64,
-    pub monitoring_interval_ms: u64,
-    pub enabled: bool,
-}
-
-impl Default for LpSniperConfig {
-    fn default() -> Self {
-        Self {
-            target_pools: vec![],
-            min_liquidity_usd: 10000.0,
-            max_market_cap: 1000000.0,
-            slippage_tolerance: 5.0,
-            trade_amount_sol: 0.1,
-            stop_loss_percent: 20.0,
-            take_profit_percent: 50.0,
-            monitoring_interval_ms: 1000,
-            enabled: true,
-        }
-    }
-}
 
 /// LP Sniper bot for detecting and trading new liquidity pools
 pub struct LpSniperBot {
@@ -59,40 +31,6 @@ pub struct LpSniperBot {
     command_rx: mpsc::UnboundedReceiver<BotCommand>,
     event_tx: mpsc::UnboundedSender<BotEvent>,
     shutdown_tx: mpsc::Sender<()>,
-}
-
-/// Active trading position
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ActivePosition {
-    pub pool_address: Pubkey,
-    pub token_address: Pubkey,
-    pub entry_price: f64,
-    pub amount_sol: f64,
-    pub entry_time: chrono::DateTime<chrono::Utc>,
-    pub stop_loss_price: f64,
-    pub take_profit_price: f64,
-    pub current_pnl_percent: f64,
-}
-
-/// Bot command types
-#[derive(Debug, Clone)]
-pub enum BotCommand {
-    Start,
-    Stop,
-    UpdateConfig(LpSniperConfig),
-    AddPool(Pubkey),
-    RemovePool(Pubkey),
-    ClosePosition(Pubkey),
-}
-
-/// Bot event types
-#[derive(Debug, Clone)]
-pub enum BotEvent {
-    StatusChanged(BotStatus),
-    PoolDetected(PoolInfo),
-    TradeExecuted(TradeResult),
-    PositionClosed(ActivePosition, f64),
-    Error(String),
 }
 
 impl LpSniperBot {
@@ -323,21 +261,22 @@ impl LpSniperBot {
                     let mut metrics_guard = metrics.write().await;
                     metrics_guard.last_activity = chrono::Utc::now();
                     metrics_guard.operations_count += 1;
-                }
-
-                // Monitor pools and look for opportunities
-                if let Err(e) = Self::monitor_pools_static(&config, shared_services.clone(), &active_positions, &event_tx).await {
+                }                // Monitor pools and look for opportunities
+                if let Err(e) = Self::monitor_pools_static(bot_id, &config, shared_services.clone(), &active_positions, &event_tx).await {
                     error!("❌ Error monitoring pools: {}", e);
                     
                     let mut status_guard = status.write().await;
                     *status_guard = BotStatus::Error(e.to_string());
                     
-                    let _ = event_tx.send(BotEvent::Error(e.to_string()));
+                    let _ = event_tx.send(BotEvent::Error { 
+                        bot_id: BotId(bot_id), 
+                        error: e.to_string() 
+                    });
                     break;
                 }
 
                 // Check existing positions
-                if let Err(e) = Self::check_positions_static(&config, &active_positions, &event_tx).await {
+                if let Err(e) = Self::check_positions_static(bot_id, &config, &active_positions, &event_tx).await {
                     error!("❌ Error checking positions: {}", e);
                 }
 
@@ -345,27 +284,33 @@ impl LpSniperBot {
             }
         });
     }    /// Check if bot should use real trading or simulation  
-    async fn should_use_real_trading(_shared_services: &Arc<SharedServices>) -> bool {
-        // For now, default to simulated trading until config access is added
-        false
-    }
+    async fn should_use_real_trading(_shared_services: &Arc<SharedServices>, config: &LpSniperConfig) -> bool {
+        // Check if devnet mode is enabled
+        if config.devnet_mode {
+            return true;
+        }
 
-    /// Monitor pools for trading opportunities (now with real data support)
+        // For mainnet, implement logic to check if real trading should be enabled
+        // This could be based on time, specific conditions, or manual override
+
+        false
+    }    /// Monitor pools for trading opportunities (now with real data support)
     async fn monitor_pools_static(
+        bot_id: Uuid,
         config: &LpSniperConfig,
         shared_services: Arc<SharedServices>,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
         event_tx: &mpsc::UnboundedSender<BotEvent>,
     ) -> Result<()> {
-        let use_real_data = Self::should_use_real_trading(&shared_services).await;
-        
-        if use_real_data {
-            Self::monitor_pools_real(config, shared_services, active_positions, event_tx).await
+        let use_real_data = Self::should_use_real_trading(&shared_services, config).await;
+          if use_real_data {
+            Self::monitor_pools_real(bot_id, config, shared_services, active_positions, event_tx).await
         } else {
-            Self::monitor_pools_simulated(config, active_positions, event_tx).await
+            Self::monitor_pools_simulated(bot_id, config, active_positions, event_tx).await
         }
     }    /// Monitor pools using real Solana data
     async fn monitor_pools_real(
+        bot_id: Uuid,
         config: &LpSniperConfig,
         shared_services: Arc<SharedServices>,
         _active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
@@ -399,7 +344,7 @@ impl LpSniperBot {
                             info!("   Pool: {}", pool_pubkey);
                             info!("   Estimated profit: ${:.2}", opportunity.estimated_profit_usd);
                             
-                            let _ = event_tx.send(BotEvent::PoolDetected(opportunity.pool_info));
+                            let _ = event_tx.send(BotEvent::OpportunityDetected(BotId(bot_id), opportunity.clone()));
                             
                             // TODO: Implement real trade execution in next phase
                             warn!("🚧 Real trade execution not yet implemented - would execute here");
@@ -448,18 +393,17 @@ impl LpSniperBot {
                 volume_24h_usd: Some(market_data.volume_24h_usd),
                 created_at: chrono::Utc::now(),
                 detected_at: chrono::Utc::now(),
-                is_new: true,
-            },
+                is_new: true,            },
             confidence_score: 0.75, // Would be calculated based on real metrics
             estimated_profit_usd: market_data.total_liquidity_usd * 0.02, // 2% of liquidity as estimated profit
+            estimated_price: 0.0001, // Would be calculated from real pool data
             risk_level: RiskLevel::Medium,
             expires_at: chrono::Utc::now() + chrono::Duration::minutes(10),
             metadata,
         }
-    }
-
-    /// Monitor pools using simulated data (original implementation)
+    }    /// Monitor pools using simulated data (original implementation)
     async fn monitor_pools_simulated(
+        bot_id: Uuid,
         config: &LpSniperConfig,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
         event_tx: &mpsc::UnboundedSender<BotEvent>,
@@ -506,30 +450,36 @@ impl LpSniperBot {
                     volume_24h_usd: Some(50000.0),
                     created_at: chrono::Utc::now(),
                     detected_at: chrono::Utc::now(),
-                    is_new: true,
-                },
+                    is_new: true,                },
                 confidence_score: 0.8,
                 estimated_profit_usd: 125.0, // 25% of $500
+                estimated_price: 0.0001, // Simulated token price
                 risk_level: RiskLevel::Medium,
                 expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
                 metadata,
             };
 
             info!("🎯 Trading opportunity detected: ${:.2} profit potential", 
-                  opportunity.estimated_profit_usd);
-            
-            // Simulate trade execution
+                  opportunity.estimated_profit_usd);            // Simulate trade execution
             let trade_result = TradeResult {
-                action_id: uuid::Uuid::new_v4(),
-                bot_id: BotId(uuid::Uuid::new_v4()),
-                signature: None,
+                id: uuid::Uuid::new_v4(),
+                bot_id: BotId(bot_id),
+                trade_type: crate::types::TradeType::Buy,
+                pool_id: opportunity.pool_info.pool_id,
+                token_in: opportunity.pool_info.token_a.mint, // SOL
+                token_out: opportunity.pool_info.token_b.mint, // Target token
+                amount_in: config.trade_amount_sol,
+                amount_out: config.trade_amount_sol * 1.05, // 5% more tokens
+                executed_price: opportunity.estimated_price,
+                slippage: 2.5,
+                gas_fee: 0.005, // 5000 lamports in SOL
+                timestamp: chrono::Utc::now(),
                 status: TradeStatus::Confirmed,
-                executed_at: Some(chrono::Utc::now()),
-                actual_amount_out: Some(((config.trade_amount_sol * 1.05) * 1_000_000_000.0) as u64), // Convert to lamports
-                actual_slippage_percent: Some(2.5),
-                gas_used: Some(5000),
-                profit_loss_usd: Some(25.0), // $25 profit
                 error_message: None,
+                metadata: serde_json::json!({
+                    "profit_loss_usd": 25.0,
+                    "is_simulation": true
+                }),
             };
 
             if trade_result.status == TradeStatus::Confirmed {
@@ -543,6 +493,9 @@ impl LpSniperBot {
                     stop_loss_price: 1.0 * (1.0 - config.slippage_tolerance / 100.0),
                     take_profit_price: 1.0 * (1.0 + (config.slippage_tolerance * 2.0) / 100.0),
                     current_pnl_percent: 0.0,
+                    is_paper_trade: true,  // Mark as paper trade
+                    wallet_used: "simulated_wallet".to_string(),
+                    transaction_hash: None,
                 };
 
                 {
@@ -550,16 +503,15 @@ impl LpSniperBot {
                     positions.push(position);
                 }
 
-                let _ = event_tx.send(BotEvent::TradeExecuted(trade_result));
+                let _ = event_tx.send(BotEvent::TradeExecuted(BotId(bot_id), trade_result));
                 info!("✅ Trade executed successfully");
             }
         }
 
         Ok(())
-    }
-
-    /// Check existing positions for stop loss/take profit (static version)
+    }    /// Check existing positions for stop loss/take profit (static version)
     async fn check_positions_static(
+        bot_id: Uuid,
         _config: &LpSniperConfig,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
         event_tx: &mpsc::UnboundedSender<BotEvent>,
@@ -595,7 +547,7 @@ impl LpSniperBot {
             let position = positions.remove(index);
             let pnl = position.current_pnl_percent;
             
-            let _ = event_tx.send(BotEvent::PositionClosed(position, pnl));
+            let _ = event_tx.send(BotEvent::PositionClosed(BotId(bot_id), position, pnl));
             info!("📊 Position closed with PnL: {:.2}%", pnl);
         }
 
@@ -609,7 +561,7 @@ impl LpSniperBot {
         
         for position in positions.drain(..) {
             info!("🔒 Closing position on shutdown: {}", position.token_address);
-            let _ = self.event_tx.send(BotEvent::PositionClosed(position, 0.0));
+            let _ = self.event_tx.send(BotEvent::PositionClosed(BotId(self.id), position, 0.0));
         }
 
         if closed_count > 0 {
@@ -634,5 +586,258 @@ impl LpSniperBot {
             }),
             None,
         ).await;
+    }
+
+    // ============================================================================
+    // TRADING EXECUTION METHODS (NEW)
+    // ============================================================================    /// Execute a buy trade (real or paper)
+    async fn execute_buy_trade(
+        &self,
+        opportunity: &TradingOpportunity,
+    ) -> Result<TradeExecutionResult> {
+        let _start_time = std::time::Instant::now();
+        
+        if self.config.paper_trading {
+            self.execute_paper_buy(opportunity).await
+        } else {
+            self.execute_real_buy(opportunity).await
+        }
+    }
+
+    /// Execute a real buy trade using wallet manager
+    async fn execute_real_buy(
+        &self,
+        opportunity: &TradingOpportunity,
+    ) -> Result<TradeExecutionResult> {
+        info!("💰 Executing REAL buy trade for pool: {}", opportunity.pool_info.pool_id);
+        
+        // Get wallet manager from shared services
+        let wallet_manager = self.shared_services.wallet_manager();
+        
+        // Check if trading wallet is available
+        let trade_amount = self.calculate_trade_amount().await?;
+        if !wallet_manager.is_wallet_available(&self.config.trading_wallet_name, trade_amount).await? {
+            return Ok(TradeExecutionResult {
+                success: false,
+                transaction_hash: None,
+                executed_price: 0.0,
+                slippage: 0.0,
+                gas_fee: 0.0,
+                error_message: Some("Trading wallet not available or insufficient balance".to_string()),
+                is_paper_trade: false,
+                execution_time_ms: 0,
+            });
+        }
+
+        // For now, simulate the trade until Jupiter integration is complete
+        // TODO: Replace with actual Jupiter API call
+        let execution_result = self.simulate_real_trade(opportunity, trade_amount, "buy").await?;
+        
+        // Record trade in wallet manager (virtual for now)
+        // TODO: Replace with actual transaction recording
+        info!("✅ Real buy trade simulated - amount: {} SOL", trade_amount);
+        
+        Ok(execution_result)
+    }
+
+    /// Execute a paper buy trade (simulation with real market data)
+    async fn execute_paper_buy(
+        &self,
+        opportunity: &TradingOpportunity,
+    ) -> Result<TradeExecutionResult> {
+        info!("📊 Executing PAPER buy trade for pool: {}", opportunity.pool_info.pool_id);
+        
+        let trade_amount = self.config.trade_amount_sol;
+        
+        // Get real market price from shared services
+        let market_price = self.get_real_market_price(&opportunity.pool_info.pool_id).await?;
+        
+        // Simulate slippage and execution
+        let slippage = self.calculate_slippage(market_price, trade_amount);
+        let executed_price = market_price * (1.0 + slippage / 100.0);
+        
+        info!("✅ Paper buy executed - price: {}, slippage: {:.2}%", executed_price, slippage);
+        
+        Ok(TradeExecutionResult {
+            success: true,
+            transaction_hash: None,
+            executed_price,
+            slippage,
+            gas_fee: 0.005, // Simulated gas fee
+            error_message: None,
+            is_paper_trade: true,
+            execution_time_ms: 100 + rand::thread_rng().gen_range(0..200), // Simulate latency
+        })
+    }
+
+    /// Calculate appropriate trade amount based on wallet balance and risk management
+    async fn calculate_trade_amount(&self) -> Result<f64> {
+        let wallet_manager = self.shared_services.wallet_manager();
+        
+        if let Some(balance) = wallet_manager.get_wallet_balance(&self.config.trading_wallet_name).await {
+            // Use risk_per_trade percentage of balance, but cap at configured trade_amount_sol
+            let risk_amount = balance * (self.config.risk_per_trade / 100.0);
+            let final_amount = risk_amount.min(self.config.trade_amount_sol);
+            
+            info!("💰 Calculated trade amount: {} SOL ({}% of {} SOL balance)", 
+                  final_amount, self.config.risk_per_trade, balance);
+            
+            Ok(final_amount)
+        } else {
+            Err(PlatformError::WalletManagement("Could not get wallet balance".to_string()).into())
+        }
+    }    /// Get real market price for a pool
+    async fn get_real_market_price(&self, _pool_id: &Pubkey) -> Result<f64> {
+        // TODO: Integrate with Jupiter API for real prices
+        // For now, simulate realistic price
+        let base_price = 0.0001 + rand::thread_rng().gen::<f64>() * 0.001;
+        Ok(base_price)
+    }
+
+    /// Calculate slippage based on trade size and market conditions
+    fn calculate_slippage(&self, _market_price: f64, trade_amount: f64) -> f64 {
+        // Simulate realistic slippage based on trade size
+        let base_slippage = 0.5; // 0.5% base slippage
+        let size_impact = trade_amount * 0.1; // 0.1% per SOL
+        let total_slippage = base_slippage + size_impact;
+        
+        total_slippage.min(self.config.slippage_tolerance)
+    }
+
+    /// Simulate a real trade execution (placeholder for Jupiter integration)
+    async fn simulate_real_trade(
+        &self,
+        opportunity: &TradingOpportunity,
+        amount: f64,
+        side: &str,
+    ) -> Result<TradeExecutionResult> {
+        info!("🔄 Simulating {} trade of {} SOL for pool: {}", side, amount, opportunity.pool_info.pool_id);
+        
+        // Simulate network delay
+        tokio::time::sleep(tokio::time::Duration::from_millis(50 + rand::thread_rng().gen_range(0..100))).await;
+        
+        // Simulate execution with realistic parameters
+        let success_rate = if self.config.devnet_mode { 0.95 } else { 0.85 }; // Higher success rate on devnet
+        let is_successful = rand::thread_rng().gen::<f64>() < success_rate;
+        
+        if is_successful {
+            let slippage = self.calculate_slippage(0.0001, amount);
+            let gas_fee = 0.000005 + rand::thread_rng().gen::<f64>() * 0.000010; // 5-15 microSOL
+            
+            Ok(TradeExecutionResult {
+                success: true,
+                transaction_hash: Some(format!("devnet_{}", uuid::Uuid::new_v4())),
+                executed_price: 0.0001 * (1.0 + slippage / 100.0),
+                slippage,
+                gas_fee,
+                error_message: None,
+                is_paper_trade: false,
+                execution_time_ms: 50 + rand::thread_rng().gen_range(0..150),
+            })
+        } else {
+            Ok(TradeExecutionResult {
+                success: false,
+                transaction_hash: None,
+                executed_price: 0.0,
+                slippage: 0.0,
+                gas_fee: 0.0,
+                error_message: Some("Transaction failed due to network conditions".to_string()),
+                is_paper_trade: false,
+                execution_time_ms: 2000 + rand::thread_rng().gen_range(0..1000),
+            })
+        }
+    }
+
+    /// Create and track a new position
+    async fn create_position(
+        &self,
+        opportunity: &TradingOpportunity,
+        execution_result: &TradeExecutionResult,
+    ) -> Result<()> {
+        if !execution_result.success {
+            return Ok(()); // Don't create position for failed trades
+        }
+
+        let position = ActivePosition {
+            pool_address: opportunity.pool_info.pool_id,
+            token_address: opportunity.pool_info.token_b.mint,
+            entry_price: execution_result.executed_price,
+            amount_sol: self.calculate_trade_amount().await?,
+            entry_time: chrono::Utc::now(),
+            stop_loss_price: execution_result.executed_price * (1.0 - self.config.stop_loss_percent / 100.0),
+            take_profit_price: execution_result.executed_price * (1.0 + self.config.take_profit_percent / 100.0),
+            current_pnl_percent: 0.0,
+            is_paper_trade: execution_result.is_paper_trade,
+            wallet_used: self.config.trading_wallet_name.clone(),
+            transaction_hash: execution_result.transaction_hash.clone(),
+        };
+
+        let mut positions = self.active_positions.write().await;
+        positions.push(position.clone());
+
+        info!("📈 New position created: {} SOL at price {}", 
+              position.amount_sol, position.entry_price);        // Notify about new position
+        let _ = self.event_tx.send(BotEvent::TradeExecuted(BotId(self.id), TradeResult {
+            id: uuid::Uuid::new_v4(),
+            bot_id: BotId(self.id),
+            trade_type: crate::types::TradeType::Buy,
+            pool_id: opportunity.pool_info.pool_id,
+            token_in: opportunity.pool_info.token_a.mint,
+            token_out: opportunity.pool_info.token_b.mint,
+            amount_in: position.amount_sol,
+            amount_out: position.amount_sol / execution_result.executed_price,
+            executed_price: execution_result.executed_price,
+            slippage: execution_result.slippage,
+            gas_fee: execution_result.gas_fee,
+            timestamp: chrono::Utc::now(),
+            status: if execution_result.success { TradeStatus::Completed } else { TradeStatus::Failed },
+            error_message: execution_result.error_message.clone(),
+            metadata: serde_json::json!({
+                "is_paper_trade": execution_result.is_paper_trade,
+                "wallet_used": position.wallet_used,
+                "transaction_hash": execution_result.transaction_hash
+            }),
+        }));
+
+        Ok(())
+    }
+
+    /// Monitor active positions for exit conditions
+    async fn monitor_positions(&self) -> Result<()> {
+        let mut positions = self.active_positions.write().await;
+        let mut positions_to_remove = Vec::new();
+
+        for (index, position) in positions.iter_mut().enumerate() {
+            // Update current price (mock implementation)
+            let current_price = self.get_current_token_price(&position.token_address).await?;
+            
+            // Calculate PnL
+            let price_change = (current_price - position.entry_price) / position.entry_price;
+            position.current_pnl_percent = price_change * 100.0;
+
+            // Check exit conditions
+            if current_price <= position.stop_loss_price {
+                info!("🛑 Stop loss triggered for position at {:.4}% loss", position.current_pnl_percent.abs());
+                positions_to_remove.push(index);
+            } else if current_price >= position.take_profit_price {
+                info!("🎯 Take profit triggered for position at {:.4}% profit", position.current_pnl_percent);
+                positions_to_remove.push(index);
+            }
+        }
+
+        // Remove closed positions
+        for &index in positions_to_remove.iter().rev() {
+            positions.remove(index);
+        }
+
+        Ok(())
+    }
+
+    /// Get current token price (mock implementation for now)
+    async fn get_current_token_price(&self, _token_address: &Pubkey) -> Result<f64> {
+        // TODO: Implement real price fetching
+        // For now, simulate price movement
+        let random_change = rand::thread_rng().gen_range(-0.05..0.05); // ±5% random change
+        Ok(100.0 * (1.0 + random_change))
     }
 }

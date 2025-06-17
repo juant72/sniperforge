@@ -51,6 +51,11 @@ impl BotId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
     }
+
+    /// Create a new BotId from an existing UUID
+    pub fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
 }
 
 impl std::fmt::Display for BotId {
@@ -141,7 +146,40 @@ pub struct LpSniperConfig {
     pub max_slippage_percent: f64,
     pub min_liquidity_usd: f64,
     pub max_pool_age_seconds: u64,
+    pub risk_per_trade: f64, // Percentage of wallet balance to risk per trade
+    pub stop_loss_percent: f64, // Stop loss percentage
+    pub take_profit_percent: f64, // Take profit percentage
+    pub trading_wallet_name: String, // Name of wallet to use for trading
+    pub devnet_mode: bool, // Whether to use devnet
+    pub monitoring_interval_ms: u64, // How often to check for opportunities
+    pub target_pools: Vec<String>, // Pool addresses to monitor
+    pub max_market_cap: f64, // Maximum market cap to consider
+    pub slippage_tolerance: f64, // Maximum acceptable slippage
+    pub paper_trading: bool, // Enable paper trading mode
     pub settings: HashMap<String, serde_json::Value>,
+}
+
+impl Default for LpSniperConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            trade_amount_sol: 0.1,
+            max_slippage_percent: 5.0,
+            min_liquidity_usd: 10000.0,
+            max_pool_age_seconds: 3600, // 1 hour
+            risk_per_trade: 5.0, // 5% of balance per trade
+            stop_loss_percent: 20.0,
+            take_profit_percent: 50.0,
+            trading_wallet_name: "trading".to_string(),
+            devnet_mode: true, // Default to devnet for safety
+            monitoring_interval_ms: 1000, // 1 second
+            target_pools: vec![],
+            max_market_cap: 1000000.0, // $1M max market cap
+            slippage_tolerance: 5.0,
+            paper_trading: false,
+            settings: HashMap::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,6 +273,7 @@ pub struct TradingOpportunity {
     pub pool_info: PoolInfo,
     pub confidence_score: f64,
     pub estimated_profit_usd: f64,
+    pub estimated_price: f64, // Estimated token price
     pub risk_level: RiskLevel,
     pub expires_at: DateTime<Utc>,
     pub metadata: HashMap<String, serde_json::Value>,
@@ -284,8 +323,40 @@ pub enum ActionType {
     MevExtraction,
 }
 
+/// Trade type for tracking different kinds of trades
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TradeType {
+    Buy,
+    Sell,
+    Swap,
+    AddLiquidity,
+    RemoveLiquidity,
+    Arbitrage,
+    MevExtraction,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeResult {
+    pub id: Uuid,                    // Add unique ID for trade result
+    pub bot_id: BotId,
+    pub trade_type: TradeType,       // Use TradeType instead of ActionType
+    pub pool_id: Pubkey,             // Add pool information
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
+    pub amount_in: f64,              // Change to f64 for easier handling
+    pub amount_out: f64,             // Change to f64 for easier handling
+    pub executed_price: f64,         // Add executed price
+    pub slippage: f64,               // Add slippage information
+    pub gas_fee: f64,                // Add gas fee in SOL
+    pub timestamp: DateTime<Utc>,    // Rename from executed_at for clarity
+    pub status: TradeStatus,
+    pub error_message: Option<String>,
+    pub metadata: serde_json::Value, // Add metadata for additional info
+}
+
+// Keep the old TradeResult for backward compatibility
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LegacyTradeResult {
     pub action_id: Uuid,
     pub bot_id: BotId,
     pub signature: Option<Signature>,
@@ -305,6 +376,36 @@ pub enum TradeStatus {
     Confirmed,
     Failed,
     Cancelled,
+    Completed, // Add Completed status
+}
+
+/// Result of a trade execution attempt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradeExecutionResult {
+    pub success: bool,
+    pub transaction_hash: Option<String>,
+    pub executed_price: f64,
+    pub slippage: f64,
+    pub gas_fee: f64,
+    pub error_message: Option<String>,
+    pub is_paper_trade: bool,
+    pub execution_time_ms: u64,
+}
+
+/// Represents an active trading position
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActivePosition {
+    pub pool_address: Pubkey,
+    pub token_address: Pubkey,
+    pub entry_price: f64,
+    pub amount_sol: f64,
+    pub entry_time: DateTime<Utc>,
+    pub stop_loss_price: f64,
+    pub take_profit_price: f64,
+    pub current_pnl_percent: f64,
+    pub is_paper_trade: bool,
+    pub wallet_used: String,
+    pub transaction_hash: Option<String>,
 }
 
 // ============================================================================
@@ -348,6 +449,7 @@ pub enum BotEvent {
     TradeExecuted(BotId, TradeResult),
     OpportunityDetected(BotId, TradingOpportunity),
     StatusChanged(BotStatus),
+    PositionClosed(BotId, ActivePosition, f64), // Added for position tracking
     Error { bot_id: BotId, error: String },
     MetricsUpdate { bot_id: BotId, metrics: BotMetrics },
 }

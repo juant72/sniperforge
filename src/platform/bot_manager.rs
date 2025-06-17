@@ -122,6 +122,16 @@ impl BotManager {
                     max_slippage_percent: 5.0,
                     min_liquidity_usd: 10000.0,
                     max_pool_age_seconds: 3600,
+                    risk_per_trade: 5.0, // Max 5% of balance per trade
+                    stop_loss_percent: 20.0, // 20% stop loss
+                    take_profit_percent: 50.0, // 50% take profit
+                    trading_wallet_name: "trading".to_string(), // Default wallet name
+                    devnet_mode: true, // Default to devnet for safety
+                    monitoring_interval_ms: 1000, // Check every second
+                    target_pools: vec![], // No specific pools by default
+                    max_market_cap: 1000000.0, // $1M max market cap
+                    slippage_tolerance: 5.0, // 5% slippage tolerance
+                    paper_trading: false, // Real trading by default in devnet
                     settings: HashMap::new(), // Empty for now
                 })).await?;
                 self.start_bot_instance(bot_id).await?;

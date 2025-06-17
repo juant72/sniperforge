@@ -38,7 +38,8 @@ mod platform_tests {
 #[cfg(test)]
 mod bot_tests {
     use super::*;
-    use sniperforge::bots::lp_sniper::{LpSniperBot, LpSniperConfig};
+    use sniperforge::bots::lp_sniper::LpSniperBot;
+    use sniperforge::types::LpSniperConfig;
     use sniperforge::shared::SharedServices;
     use sniperforge::platform::event_bus::EventBus;
     use sniperforge::config::Config;
