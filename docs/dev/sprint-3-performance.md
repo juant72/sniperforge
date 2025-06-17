@@ -148,7 +148,7 @@ impl PerformanceMonitor {
         counter!("concurrent_operations", 1);
     }
 }
-```
+```text
 
 ### Optimized Transaction Pipeline
 
@@ -192,7 +192,7 @@ impl OptimizedTransactionPipeline {
         }
     }
 }
-```
+```text
 
 ### Memory Pool Implementation
 
@@ -242,7 +242,7 @@ impl<T> MemoryPool<T> {
         }
     }
 }
-```
+```text
 
 ## 📊 Performance Targets
 
@@ -298,7 +298,7 @@ fn bench_transaction_pipeline(c: &mut Criterion) {
 
 criterion_group!(benches, bench_transaction_pipeline);
 criterion_main!(benches);
-```
+```text
 
 ### Load Testing Scenarios
 
@@ -342,7 +342,7 @@ impl PerformanceMetrics {
         }
     }
 }
-```
+```text
 
 ### Alerting Rules
 
@@ -374,7 +374,7 @@ groups:
       severity: warning
     annotations:
       summary: Error rate above 5%
-```
+```text
 
 ## 🔄 Optimization Methodology
 
@@ -426,7 +426,7 @@ impl LockFreeCounter {
         self.value.fetch_add(1)
     }
 }
-```
+```text
 
 ## 🎯 Success Criteria
 

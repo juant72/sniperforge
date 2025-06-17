@@ -26,7 +26,7 @@ SniperForge ha evolucionado hacia un **ecosistema multi-bot modular** que permit
 ├─────────────────────────────────────────────────────────────┤
 │  LP Sniper │ Arbitrage │ MEV Bot │ Copy Trade │ Grid Bot   │
 └─────────────────────────────────────────────────────────────┘
-```
+```text
 
 ## 🤖 Bot Types - Implementation Plan
 
@@ -42,7 +42,7 @@ pub struct LpSniperBot {
     executor: FastExecutor,        // Sub-50ms execution
     risk_manager: RiskManager,     // Position sizing, stop-loss
 }
-```
+```text
 
 **Features**:
 
@@ -60,7 +60,7 @@ pub struct ArbitrageBot {
     profitability: ProfitCalculator,// Gas costs, slippage analysis
     executor: ArbitrageExecutor,    // Multi-DEX execution
 }
-```
+```text
 
 **Features**:
 
@@ -78,7 +78,7 @@ pub struct CopyTradingBot {
     position_scaler: PositionScaler,  // Scale positions to our size
     execution_delay: DelayManager,    // Smart execution timing
 }
-```
+```text
 
 **Features**:
 
@@ -98,7 +98,7 @@ pub struct MEVProtectionBot {
     front_run_shield: FrontRunShield,   // Protection mechanisms
     stealth_executor: StealthExecutor,   // Hidden execution
 }
-```
+```text
 
 **Features**:
 
@@ -116,7 +116,7 @@ pub struct GridTradingBot {
     profit_tracker: ProfitTracker,       // Track grid profits
     rebalancer: GridRebalancer,          // Adjust grid parameters
 }
-```
+```text
 
 **Features**:
 
@@ -134,7 +134,7 @@ pub struct SentimentBot {
     signal_generator: SignalGenerator,   // Generate trading signals
     risk_filter: SentimentRiskFilter,    // Filter false signals
 }
-```
+```text
 
 **Features**:
 
@@ -167,7 +167,7 @@ impl BotManager {
     // Conflict resolution
     pub async fn resolve_conflicts(&self, conflicts: Vec<ResourceConflict>) -> Result<Resolution>;
 }
-```
+```text
 
 ### **2. Resource Coordinator - Shared Resources**
 
@@ -195,7 +195,7 @@ impl ResourceCoordinator {
     // Execution coordination
     pub async fn submit_transaction(&self, tx: Transaction, priority: Priority) -> Result<TransactionResult>;
 }
-```
+```text
 
 ### **3. Event Bus - Inter-Bot Communication**
 
@@ -228,7 +228,7 @@ impl EventBus {
     pub async fn subscribe(&self, event_type: EventType, handler: EventHandler) -> Result<SubscriptionId>;
     pub async fn unsubscribe(&self, subscription_id: SubscriptionId) -> Result<()>;
 }
-```
+```text
 
 ## 🔄 Bot Lifecycle Management
 
@@ -252,7 +252,7 @@ pub enum BotCommand {
     Configure(BotConfig),
     GetStatus,
 }
-```
+```text
 
 ### **Configuration Management**
 
@@ -274,7 +274,7 @@ pub struct RiskParameters {
     pub take_profit_percent: f64,
     pub daily_loss_limit_usd: f64,
 }
-```
+```text
 
 ## 📊 Multi-Bot Monitoring Dashboard
 
@@ -304,7 +304,7 @@ pub struct BotMetrics {
     pub last_trade_time: DateTime<Utc>,
     pub current_positions: Vec<Position>,
 }
-```
+```text
 
 ### **Alert System**
 
@@ -322,7 +322,7 @@ pub enum AlertType {
     PerformanceDegradation { bot_id: BotId, metric: String },
     ResourceExhaustion { resource_type: ResourceType, utilization_percent: f64 },
 }
-```
+```text
 
 ## 🎯 Implementation Roadmap
 

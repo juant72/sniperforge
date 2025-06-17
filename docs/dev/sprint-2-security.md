@@ -196,7 +196,7 @@ src/security/
 ├── rotation.rs             # Key rotation logic
 ├── validation.rs           # Input/output validation
 └── audit.rs               # Security audit logging
-```
+```text
 
 ### **Key Management Architecture**
 
@@ -227,7 +227,7 @@ struct SecretKey {
     key_data: [u8; 32],
     salt: [u8; 16],
 }
-```
+```text
 
 #### **RateLimitedClient** (security/rate_limiting.rs)
 
@@ -254,7 +254,7 @@ pub struct CircuitBreaker {
     threshold: u32,
     timeout: Duration,
 }
-```
+```text
 
 ### **Enhanced Dependencies**
 
@@ -277,7 +277,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 # Network security
 rustls = "0.21"
 webpki-roots = "0.23"
-```
+```text
 
 ---
 
@@ -293,7 +293,7 @@ webpki-roots = "0.23"
 12:00-13:00  LUNCH
 13:00-15:00  Integrate age encryption y zeroize
 15:00-17:00  Testing con real key data
-```
+```text
 
 #### **Martes - Key Rotation System**
 
@@ -303,7 +303,7 @@ webpki-roots = "0.23"
 12:00-13:00  LUNCH
 13:00-15:00  Key versioning y rollback mechanism
 15:00-17:00  Testing rotation scenarios
-```
+```text
 
 #### **Miércoles - Network Security**
 
@@ -313,7 +313,7 @@ webpki-roots = "0.23"
 12:00-13:00  LUNCH
 13:00-15:00  Connection pooling y failover
 15:00-17:00  Input/output validation framework
-```
+```text
 
 #### **Jueves - Monitoring Infrastructure**
 
@@ -323,7 +323,7 @@ webpki-roots = "0.23"
 12:00-13:00  LUNCH
 13:00-15:00  Prometheus metrics collection
 15:00-17:00  System resource monitoring
-```
+```text
 
 #### **Viernes - Integration & Testing**
 
@@ -334,7 +334,7 @@ webpki-roots = "0.23"
 13:00-15:00  Security audit y penetration testing
 15:00-16:00  Documentation update
 16:00-17:00  Sprint demo y security review
-```
+```text
 
 ---
 
@@ -378,7 +378,7 @@ async fn test_key_rotation() {
     // Verify old key can still be retrieved for grace period
     assert!(rotation_result.old_key_valid_until > Utc::now());
 }
-```
+```text
 
 #### **Network Security Tests**
 
@@ -424,7 +424,7 @@ async fn test_circuit_breaker() {
         CircuitBreakerStatus::Open
     );
 }
-```
+```text
 
 ### **Integration Tests**
 
@@ -518,7 +518,7 @@ high_error_rate_threshold = 5.0  # 5%
 high_latency_threshold_ms = 1000
 memory_usage_threshold = 80      # 80%
 disk_usage_threshold = 85        # 85%
-```
+```text
 
 ---
 

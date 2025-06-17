@@ -415,11 +415,9 @@ impl WalletManager {
 
         self.add_wallet(default_config).await?;
         Ok(())
-    }
-
-    /// Start balance monitoring task
+    }    /// Start balance monitoring task
     async fn start_balance_monitoring(&self) {
-        let wallets = self.wallets.clone();
+        let _wallets = self.wallets.clone();
         
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(30));

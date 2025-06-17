@@ -20,7 +20,7 @@ cargo --version
 # Instalar herramientas adicionales
 cargo install cargo-watch
 cargo install cargo-audit
-```
+```text
 
 ### Configuración Local
 
@@ -35,7 +35,7 @@ cp config/bots/raydium-lp-sniper.toml.example config/bots/raydium-lp-sniper.toml
 
 # Editar configuración para devnet
 vim config/global.toml
-```
+```text
 
 ### Ejecutar en Desarrollo
 
@@ -51,7 +51,7 @@ cargo run --bin raydium-lp-sniper -- --config config/dev.toml
 
 # Ejecutar en modo simulación
 SIMULATION_MODE=true cargo run --bin raydium-lp-sniper
-```
+```text
 
 ### Hot Reload para Desarrollo
 
@@ -61,7 +61,7 @@ cargo watch -x 'run --bin raydium-lp-sniper'
 
 # Con configuración específica
 cargo watch -x 'run --bin raydium-lp-sniper -- --config config/dev.toml'
-```
+```text
 
 ## 🐳 Despliegue con Docker
 
@@ -107,7 +107,7 @@ EXPOSE 9090
 
 # Comando por defecto
 CMD ["raydium-lp-sniper"]
-```
+```text
 
 ### Construcción de Imagen
 
@@ -121,7 +121,7 @@ docker build -t sniperforge/raydium-lp-sniper:v1.0.0 .
 # Para múltiples arquitecturas
 docker buildx build --platform linux/amd64,linux/arm64 \
   -t sniperforge/raydium-lp-sniper:latest --push .
-```
+```text
 
 ### Ejecución con Docker
 
@@ -144,7 +144,7 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/var/log/sniperforge \
   sniperforge/raydium-lp-sniper:latest
-```
+```text
 
 ## 🎼 Orquestación con Docker Compose
 
@@ -216,7 +216,7 @@ volumes:
 networks:
   sniperforge-net:
     driver: bridge
-```
+```text
 
 ### Variables de Entorno (.env)
 
@@ -226,7 +226,7 @@ SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 LOG_LEVEL=info
 SIMULATION_MODE=false
 GRAFANA_PASSWORD=secure_password_here
-```
+```text
 
 ### Ejecución del Stack Completo
 
@@ -245,7 +245,7 @@ docker-compose down
 
 # Parar y limpiar volúmenes
 docker-compose down -v
-```
+```text
 
 ## ☸️ Despliegue en Kubernetes
 
@@ -257,7 +257,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: sniperforge
-```
+```text
 
 ### ConfigMap
 
@@ -285,7 +285,7 @@ data:
     [risk]
     max_position_size_pct = 0.02
     max_concurrent_positions = 5
-```
+```text
 
 ### Secret
 
@@ -302,7 +302,7 @@ data:
   private-key: <base64-encoded-private-key>
   # Base64 encoded webhook URL
   webhook-url: <base64-encoded-webhook-url>
-```
+```text
 
 ### Deployment
 
@@ -386,7 +386,7 @@ spec:
   resources:
     requests:
       storage: 10Gi
-```
+```text
 
 ### Service
 
@@ -406,7 +406,7 @@ spec:
     name: metrics
   selector:
     app: raydium-lp-sniper
-```
+```text
 
 ### Despliegue en K8s
 
@@ -427,7 +427,7 @@ kubectl logs -f deployment/raydium-lp-sniper -n sniperforge
 
 # Port forward para debugging
 kubectl port-forward service/raydium-lp-sniper-service 9090:9090 -n sniperforge
-```
+```text
 
 ## 📊 Monitoreo y Observabilidad
 
@@ -444,7 +444,7 @@ scrape_configs:
       - targets: ['raydium-lp-sniper:9090']
     metrics_path: /metrics
     scrape_interval: 5s
-```
+```text
 
 ### Dashboard de Grafana
 
@@ -483,7 +483,7 @@ scrape_configs:
     ]
   }
 }
-```
+```text
 
 ## 🚨 Alertas
 
@@ -506,7 +506,7 @@ receivers:
 - name: 'web.hook'
   webhook_configs:
   - url: 'http://discord-webhook-url'
-```
+```text
 
 ### Reglas de Alerta
 
@@ -530,7 +530,7 @@ groups:
       severity: critical
     annotations:
       summary: "Trade success rate below 50%"
-```
+```text
 
 ## 🔐 Seguridad en Producción
 

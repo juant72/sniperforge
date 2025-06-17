@@ -52,7 +52,7 @@ timeout = 10
 keystore_path = "/secure/keystore"
 # Algoritmo de encriptación
 encryption_algorithm = "AES-256-GCM"
-```
+```text
 
 ### Configuración del Raydium LP Sniper (`config/bots/raydium-lp-sniper.toml`)
 
@@ -189,7 +189,7 @@ virtual_balance = 100.0
 include_fees = true
 # Incluir slippage en simulación
 include_slippage = true
-```
+```text
 
 ## 🔧 Variables de Entorno
 
@@ -217,7 +217,7 @@ RAYDIUM_SNIPER_MIN_LIQUIDITY="10.0"
 DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
 TELEGRAM_BOT_TOKEN="your_telegram_token"
 TELEGRAM_CHAT_ID="your_chat_id"
-```
+```text
 
 ## 📋 Validación de Configuración
 
@@ -235,7 +235,7 @@ max_position_size_limit = 0.1
 # Timeout de confirmación debe ser realista
 min_confirmation_timeout = 5000
 max_confirmation_timeout = 120000
-```
+```text
 
 ## 🔄 Configuración Dinámica
 
@@ -254,7 +254,7 @@ Algunas configuraciones pueden actualizarse en tiempo real sin reiniciar el bot:
 curl -X POST http://localhost:8080/config/update \
   -H "Content-Type: application/json" \
   -d '{"risk.max_position_size_pct": 0.015}'
-```
+```text
 
 ## 🛡 Seguridad en Configuración
 
@@ -271,7 +271,7 @@ chmod 700 config/
 
 # Ownership correcto
 chown sniperforge:sniperforge config/ -R
-```
+```text
 
 ## 📊 Ejemplos de Configuración por Entorno
 
@@ -286,7 +286,7 @@ virtual_balance = 10.0
 
 [logging]
 level = "debug"
-```
+```text
 
 ### Testing
 ```toml
@@ -299,7 +299,7 @@ max_concurrent_positions = 1
 
 [simulation]
 enabled = false
-```
+```text
 
 ### Producción
 ```toml
@@ -316,6 +316,6 @@ alerts_enabled = true
 [logging]
 level = "info"
 file = "/var/log/sniperforge/production.log"
-```
+```text
 
 Esta estructura de configuración garantiza flexibilidad, seguridad y facilidad de mantenimiento para todos los bots en SniperForge.

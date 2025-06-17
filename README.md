@@ -37,7 +37,7 @@ This document serves as the implementation status for Sprint 0 of SniperForge, a
 
 ## 🏗️ Project Structure
 
-```
+```text
 sniperforge/
 ├── src/
 │   ├── main.rs                 # Application entry point

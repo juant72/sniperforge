@@ -132,7 +132,7 @@
 ## 🏗 Technical Architecture
 
 ### **Project Structure**
-```
+```text
 raydium-sniper-basic/
 ├── Cargo.toml
 ├── src/
@@ -144,7 +144,7 @@ raydium-sniper-basic/
 ├── config/
 │   └── config.toml          # Configuration file
 └── logs/                    # Log files
-```
+```text
 
 ### **Key Dependencies**
 ```toml
@@ -160,7 +160,7 @@ env_logger = "0.10"
 log = "0.4"
 colored = "2.0"
 toml = "0.8"
-```
+```text
 
 ### **Core Components**
 
@@ -176,7 +176,7 @@ impl SolanaClient {
     pub async fn health_check(&self) -> Result<()> { }
     pub async fn get_recent_blockhash(&self) -> Result<Hash> { }
 }
-```
+```text
 
 #### **PoolMonitor** (pool_monitor.rs)
 ```rust
@@ -189,7 +189,7 @@ impl PoolMonitor {
     pub async fn monitor_new_pools(&self) -> Result<Vec<PoolInfo>> { }
     pub async fn analyze_pool(&self, pool: &PoolInfo) -> PoolAnalysis { }
 }
-```
+```text
 
 #### **PoolInfo** (types.rs)
 ```rust
@@ -201,14 +201,14 @@ pub struct PoolInfo {
     pub liquidity_sol: u64,
     pub created_at: DateTime<Utc>,
 }
-```
+```text
 
 ---
 
 ## ⚡ Development Workflow
 
 ### **Day 1 (HOY) Timeline**
-```
+```text
 09:00-10:00  Setup proyecto Rust y dependencias
 10:00-11:30  Implementar SolanaClient y connection
 11:30-12:00  Testing de conexión a mainnet
@@ -217,10 +217,10 @@ pub struct PoolInfo {
 15:00-16:00  Sistema de alertas en consola
 16:00-17:00  Testing y debugging
 17:00-17:30  Code review y documentation
-```
+```text
 
 ### **Day 2 (Mañana) Timeline**
-```
+```text
 09:00-10:30  Implementar confirmación manual
 10:30-11:00  Sistema de input de usuario
 11:00-12:00  Trading simulation logic
@@ -229,7 +229,7 @@ pub struct PoolInfo {
 14:00-15:00  Performance testing y optimization
 15:00-16:00  Documentation y code cleanup
 16:00-17:00  Demo preparation y handoff
-```
+```text
 
 ---
 
@@ -287,7 +287,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Install VS Code extensions
 code --install-extension rust-lang.rust-analyzer
 code --install-extension vadimcn.vscode-lldb
-```
+```text
 
 ### **Project Setup**
 ```bash
@@ -302,7 +302,7 @@ git commit -m "Initial commit - Sprint 0 setup"
 
 # Create directories
 mkdir config logs
-```
+```text
 
 ### **Configuration File** (config/config.toml)
 ```toml
@@ -327,7 +327,7 @@ file = "logs/bot.log"
 simulation_mode = true
 max_position_sol = 0.1
 slippage_tolerance = 0.03
-```
+```text
 
 ---
 

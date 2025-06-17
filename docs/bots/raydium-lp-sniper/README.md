@@ -8,7 +8,7 @@ Detectar automáticamente nuevos pools de liquidez en Raydium, analizar los toke
 
 ## 🏗 Arquitectura del Bot
 
-```
+```text
 raydium-lp-sniper/
 ├── src/
 │   ├── main.rs              # Punto de entrada principal
@@ -23,7 +23,7 @@ raydium-lp-sniper/
 ├── config/
 │   └── raydium-config.toml  # Configuración específica
 └── tests/                   # Tests unitarios e integración
-```
+```text
 
 ## 📊 Flujo de Operación
 
@@ -99,7 +99,7 @@ max_slippage_pct = 5.0
 max_gas_fee = 10000
 # Tiempo máximo de espera para confirmación (ms)
 confirmation_timeout = 30000
-```
+```text
 
 ## 🔒 Gestión de Riesgo
 
@@ -172,7 +172,7 @@ toml = "0.8"
 
 # Análisis de datos
 ta = "0.5"  # Technical analysis
-```
+```text
 
 ## 🚀 Uso
 
@@ -183,7 +183,7 @@ cargo run --bin raydium-lp-sniper
 
 # Con configuración específica
 cargo run --bin raydium-lp-sniper -- --config config/raydium-custom.toml
-```
+```text
 
 ### Ejecución en Producción
 ```bash
@@ -192,7 +192,7 @@ cargo build --release --bin raydium-lp-sniper
 
 # Ejecutar con logging
 RUST_LOG=info ./target/release/raydium-lp-sniper
-```
+```text
 
 ## 🔮 Roadmap
 

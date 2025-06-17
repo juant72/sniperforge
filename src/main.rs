@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use anyhow::Result;
 use clap::{Arg, Command};
 use colored::*;

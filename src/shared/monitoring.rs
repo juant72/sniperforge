@@ -116,7 +116,8 @@ pub struct MonitoringSystem {
     is_running: Arc<RwLock<bool>>,
 }
 
-impl MonitoringSystem {    pub fn new(config: &Config) -> Result<Self> {
+impl MonitoringSystem {
+    pub fn new(config: &Config) -> Result<Self> {
         info!("📊 Initializing Monitoring System");
         
         let mut system = System::new_all();

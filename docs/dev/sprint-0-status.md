@@ -69,7 +69,7 @@ sniperforge/
 ├── tests/
 │   └── integration_tests.rs   # Tests de integración
 └── docs/                      # Documentación del proyecto
-```
+```text
 
 ## 🔧 Funcionalidades Principales
 

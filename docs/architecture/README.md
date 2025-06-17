@@ -23,7 +23,7 @@ SniperForge utiliza una arquitectura modular y escalable que permite el desarrol
 
 ## 🗂 Estructura de Carpetas Detallada
 
-```
+```text
 sniperforge/
 ├── bots/                          # Bots específicos
 │   ├── raydium-lp-sniper/
@@ -113,28 +113,28 @@ sniperforge/
 ├── Dockerfile                   # Imagen de contenedor
 ├── docker-compose.yml           # Orquestación local
 └── README.md                    # Documentación principal
-```
+```text
 
 ## 🔄 Flujo de Datos
 
 ### 1. Inicialización
-```
+```text
 main.rs → config loading → shared components initialization → bot-specific setup
-```
+```text
 
 ### 2. Operación Normal
-```
+```text
 data-providers → detector → extractor → filter → scorer → executor → exit_monitor
                      ↓
                 risk-management (en cada paso)
                      ↓
                 logging/metrics
-```
+```text
 
 ### 3. Gestión de Errores
-```
+```text
 error → logger → risk-management → recovery/shutdown
-```
+```text
 
 ## 🧩 Componentes Compartidos
 
@@ -195,7 +195,7 @@ pub enum MarketEvent {
     PositionClosed(Position),
     RiskAlert(RiskLevel),
 }
-```
+```text
 
 ### Shared State
 ```rust
@@ -205,7 +205,7 @@ pub struct SharedState {
     pub risk_metrics: Arc<RwLock<RiskMetrics>>,
     pub market_data: Arc<RwLock<MarketData>>,
 }
-```
+```text
 
 ## 🔧 Configuración Jerárquica
 
@@ -233,7 +233,7 @@ polling_interval = 1000
 
 [risk]
 max_position_size = 0.02
-```
+```text
 
 ## 🚀 Patrones de Despliegue
 
@@ -267,7 +267,7 @@ info!(
     score = score,
     "New opportunity detected"
 );
-```
+```text
 
 ## 🔮 Extensibilidad
 

@@ -76,7 +76,7 @@ src/reliability/
 ├── disaster_recovery.rs   # Disaster recovery procedures
 ├── data_integrity.rs      # Data validation and consistency
 └── monitoring.rs          # Reliability monitoring and metrics
-```
+```text
 
 ### Core Components
 
@@ -169,7 +169,7 @@ impl CircuitBreaker {
         }
     }
 }
-```
+```text
 
 #### High Availability Manager
 
@@ -235,7 +235,7 @@ impl HighAvailabilityManager {
         Ok(())
     }
 }
-```
+```text
 
 #### Data Integrity Manager
 
@@ -308,7 +308,7 @@ impl DataIntegrityManager {
         Ok(backup_metadata)
     }
 }
-```
+```text
 
 #### Disaster Recovery System
 
@@ -391,7 +391,7 @@ impl DisasterRecoverySystem {
         }
     }
 }
-```
+```text
 
 ## 🔧 Reliability Patterns
 
@@ -441,7 +441,7 @@ impl BulkheadManager {
         Ok(())
     }
 }
-```
+```text
 
 ### Retry with Exponential Backoff
 
@@ -505,7 +505,7 @@ impl ReliableExecutor {
         }
     }
 }
-```
+```text
 
 ## 📊 Monitoring & Alerting
 
@@ -549,7 +549,7 @@ impl ReliabilityMetrics {
         })
     }
 }
-```
+```text
 
 ### Alerting System
 
@@ -595,7 +595,7 @@ impl ReliabilityAlerting {
         Ok(())
     }
 }
-```
+```text
 
 ## 🧪 Testing Strategy
 
@@ -656,7 +656,7 @@ impl ChaosEngineer {
         })
     }
 }
-```
+```text
 
 ### Disaster Recovery Testing
 
@@ -701,7 +701,7 @@ async fn test_cross_region_failover() {
     let service_status = ha_manager.check_service_status().await.unwrap();
     assert_eq!(service_status, ServiceStatus::Operational);
 }
-```
+```text
 
 ## 📈 Success Criteria
 

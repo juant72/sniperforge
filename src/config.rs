@@ -139,7 +139,7 @@ impl Config {
         let mut total_cpu = 0.0;
         let mut total_memory = 0.0;
         
-        for (bot_name, bot_config) in [
+        for (_bot_name, bot_config) in [
             ("lp_sniper", &self.bots.lp_sniper),
             ("copy_trading", &self.bots.copy_trading),
             ("arbitrage", &self.bots.arbitrage),

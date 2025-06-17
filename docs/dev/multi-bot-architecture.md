@@ -34,7 +34,7 @@ pub struct SharedServices {
     data_feeds: MarketDataFeeds,
     notification_service: NotificationService,
 }
-```
+```text
 
 ### **Bot Framework (Plugin System)**
 
@@ -64,7 +64,7 @@ pub enum BotType {
     DollarCostAverage,
     Custom(String),
 }
-```
+```text
 
 ## 🚀 Supported Bot Types
 
@@ -93,7 +93,7 @@ impl LpSniperBot {
         // Fast execution with MEV protection
     }
 }
-```
+```text
 
 ### **2. Arbitrage Bot** (Sprint 2+)
 
@@ -114,7 +114,7 @@ impl ArbitrageBot {
         // Simultaneous buy/sell execution
     }
 }
-```
+```text
 
 ### **3. MEV Bot** (Sprint 4+)
 
@@ -135,7 +135,7 @@ impl MevBot {
         // Front-running, sandwich attacks, etc.
     }
 }
-```
+```text
 
 ### **4. Copy Trading Bot** (Sprint 3+)
 
@@ -156,7 +156,7 @@ impl CopyTradingBot {
         // Replicate successful trades
     }
 }
-```
+```text
 
 ## 🔧 Shared Services Architecture
 
@@ -179,7 +179,7 @@ impl RpcConnectionPool {
         // Automatic failover between endpoints
     }
 }
-```
+```text
 
 ### **Wallet Manager**
 
@@ -200,7 +200,7 @@ impl WalletManager {
         // Secure transaction signing with bot isolation
     }
 }
-```
+```text
 
 ### **Market Data Feeds**
 
@@ -221,7 +221,7 @@ impl MarketDataFeeds {
         // Broadcast events to subscribed bots
     }
 }
-```
+```text
 
 ## 🔄 Resource Coordination
 
@@ -252,7 +252,7 @@ impl ResourceCoordinator {
         // Resolve conflicts when multiple bots need same resources
     }
 }
-```
+```text
 
 ## 📊 Inter-Bot Communication
 
@@ -282,7 +282,7 @@ impl EventBus {
         // Allow bots to subscribe to specific event types
     }
 }
-```
+```text
 
 ### **Bot Coordination**
 
@@ -303,7 +303,7 @@ impl BotCoordinator {
         // Resolve conflicts between bots (e.g., same pool, same trade)
     }
 }
-```
+```text
 
 ## 🎯 Configuration Management
 
@@ -341,7 +341,7 @@ resource_allocation = { cpu = "20%", memory = "256MB" }
 [arbitrage.strategy]
 min_profit_threshold = 0.005
 max_position_size_usd = 50000
-```
+```text
 
 ## 🔒 Security & Isolation
 
@@ -364,7 +364,7 @@ impl BotIsolation {
         // Enforce security policies per bot
     }
 }
-```
+```text
 
 ## 🚦 Quality Guidelines
 
@@ -412,7 +412,7 @@ impl HorizontalScaler {
         // Live migration of bots between nodes
     }
 }
-```
+```text
 
 ### **Performance Optimization**
 
@@ -446,6 +446,6 @@ impl PluginRegistry {
         // Factory method for creating bots
     }
 }
-```
+```text
 
 Este diseño multi-bot permite a SniperForge evolucionar como una plataforma completa de trading automatizado, donde diferentes estrategias pueden coexistir y complementarse, maximizando las oportunidades de profit en el ecosistema Solana.

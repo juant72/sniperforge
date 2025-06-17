@@ -5,7 +5,6 @@ mod platform_tests {
     use super::*;
     use sniperforge::config::Config;
     use sniperforge::platform::SniperForgePlatform;
-    use tokio;
 
     #[tokio::test]
     async fn test_platform_initialization() -> Result<()> {
@@ -67,7 +66,6 @@ mod bot_tests {
 
 #[cfg(test)]
 mod config_tests {
-    use super::*;
     use sniperforge::config::Config;
 
     #[test]
@@ -79,7 +77,7 @@ mod config_tests {
     #[test]
     fn test_config_loading() {
         // Test loading from TOML file
-        let config_content = r#"
+        let _config_content = r#"
 [platform]
 name = "SniperForge Test"
 environment = "testnet"

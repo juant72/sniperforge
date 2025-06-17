@@ -75,7 +75,7 @@ src/performance/
 ├── scalability.rs           # Scalability and auto-scaling
 ├── profiling.rs             # Performance profiling tools
 └── optimization.rs          # Runtime optimization engine
-```
+```text
 
 ### Core Components
 
@@ -160,7 +160,7 @@ impl UltraLowLatencyEngine {
         }
     }
 }
-```
+```text
 
 #### High-Frequency Trading Engine
 
@@ -231,7 +231,7 @@ impl HighFrequencyTradingEngine {
         Ok(orders)
     }
 }
-```
+```text
 
 #### Advanced Caching System
 
@@ -323,7 +323,7 @@ impl MultiLevelCache {
         Ok(())
     }
 }
-```
+```text
 
 #### Auto-Scaling Manager
 
@@ -393,7 +393,7 @@ impl AutoScalingManager {
         Ok(())
     }
 }
-```
+```text
 
 ## ⚡ Performance Optimizations
 
@@ -451,7 +451,7 @@ impl SIMDOptimizedCalculations {
         _mm_cvtss_f32(sum32)
     }
 }
-```
+```text
 
 ### Lock-Free Data Structures
 
@@ -530,7 +530,7 @@ impl LockFreePriceLevel {
         Ok(())
     }
 }
-```
+```text
 
 ## 📊 Performance Monitoring
 
@@ -593,7 +593,7 @@ impl PerformanceDashboard {
         }
     }
 }
-```
+```text
 
 ### Automated Performance Optimization
 
@@ -665,7 +665,7 @@ impl AutoOptimizer {
         })
     }
 }
-```
+```text
 
 ## 🧪 Performance Testing
 
@@ -744,7 +744,7 @@ async fn test_ultra_low_latency_under_load() {
     assert!(result.performance_summary.p99_latency < Duration::from_millis(50));
     assert!(result.performance_summary.throughput >= 1000.0);
 }
-```
+```text
 
 ## 📈 Success Criteria
 

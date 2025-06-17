@@ -38,7 +38,7 @@
 │  └──────────────┘    └──────────────┘    └──────────────┘      │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
-```
+```text
 
 ## 📊 Flujo de Datos Detallado
 
@@ -68,7 +68,7 @@ impl DetectionPipeline {
         Ok(validated)
     }
 }
-```
+```text
 
 ### 2. Extracción de Metadatos
 
@@ -119,7 +119,7 @@ impl MetadataExtractor {
         })
     }
 }
-```
+```text
 
 ### 3. Sistema de Filtros
 
@@ -160,7 +160,7 @@ impl SecurityFilter for HoneypotFilter {
         FilterResult::Pass
     }
 }
-```
+```text
 
 ### 4. Sistema de Scoring con ML
 
@@ -216,7 +216,7 @@ impl MLScorer {
         Ok(final_score.clamp(0.0, 1.0))
     }
 }
-```
+```text
 
 ### 5. Motor de Ejecución Optimizado
 
@@ -270,7 +270,7 @@ impl OptimizedExecutor {
         })
     }
 }
-```
+```text
 
 ### 6. Monitor de Salida Inteligente
 
@@ -349,7 +349,7 @@ impl IntelligentExitMonitor {
         Ok(None)
     }
 }
-```
+```text
 
 ## 📈 Métricas y KPIs
 
@@ -424,7 +424,7 @@ impl MetricsCollector {
         }
     }
 }
-```
+```text
 
 ## 🔒 Consideraciones de Seguridad
 
@@ -473,7 +473,7 @@ impl SecureKeystore {
         Ok(())
     }
 }
-```
+```text
 
 ### Rate Limiting y Circuit Breaker
 
@@ -498,6 +498,6 @@ enum CircuitBreakerState {
     Open,      // Failures detected, blocking requests
     HalfOpen,  // Testing if service recovered
 }
-```
+```text
 
 Esta especificación técnica detalla la implementación completa del Raydium LP Sniper, proporcionando una base sólida para el desarrollo del bot con todas las consideraciones de performance, seguridad y escalabilidad necesarias.

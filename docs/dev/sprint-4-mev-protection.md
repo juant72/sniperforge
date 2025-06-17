@@ -75,7 +75,7 @@ src/mev_protection/
 ├── sandwich_protection.rs    # Sandwich attack prevention
 ├── front_running_shield.rs   # Front-running protection
 └── analytics.rs              # MEV analytics and reporting
-```
+```text
 
 ### Core Components
 
@@ -125,7 +125,7 @@ impl MEVDetector {
         Ok(())
     }
 }
-```
+```text
 
 #### Private Mempool Integration
 
@@ -166,7 +166,7 @@ impl PrivateMempoolExecutor {
         self.flashbots_relay.send_bundle(bundle).await
     }
 }
-```
+```text
 
 #### Sandwich Attack Protection
 
@@ -217,7 +217,7 @@ impl SandwichProtector {
         Ok(ProtectedExecution::Split(executions))
     }
 }
-```
+```text
 
 #### Stealth Execution Engine
 
@@ -266,7 +266,7 @@ impl StealthExecutor {
         Ok(StealthExecution::new(results))
     }
 }
-```
+```text
 
 ## 🛡️ MEV Attack Patterns
 
@@ -321,7 +321,7 @@ impl FrontRunningDetector {
         Ok(gas_advantage && same_target && temporal_advantage)
     }
 }
-```
+```text
 
 ### Sandwich Attack Detection
 
@@ -382,7 +382,7 @@ impl SandwichDetector {
         Ok(same_attacker && same_pair && opposite_directions)
     }
 }
-```
+```text
 
 ## 🔐 Protection Mechanisms
 
@@ -441,7 +441,7 @@ impl CommitRevealExecutor {
         self.execute_revealed_transaction(&pending.transaction).await
     }
 }
-```
+```text
 
 ### Dynamic Slippage Protection
 
@@ -483,7 +483,7 @@ impl DynamicSlippageProtector {
         })
     }
 }
-```
+```text
 
 ## 📊 MEV Analytics Dashboard
 
@@ -524,7 +524,7 @@ impl MEVAnalyticsDashboard {
         }
     }
 }
-```
+```text
 
 ## 🧪 Testing Strategy
 
@@ -565,7 +565,7 @@ impl MEVTestEnvironment {
         })
     }
 }
-```
+```text
 
 ### Protection Effectiveness Tests
 
@@ -605,7 +605,7 @@ async fn test_stealth_execution_anonymity() {
     assert!(pattern_analysis.detectability_score < 0.3); // Low detectability
     assert!(pattern_analysis.timing_randomness > 0.7);   // High randomness
 }
-```
+```text
 
 ## 📈 Success Criteria
 

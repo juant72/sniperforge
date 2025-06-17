@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::collections::HashMap;
-use tokio::sync::{RwLock, mpsc, broadcast};
+use tokio::sync::{RwLock, mpsc};
 use anyhow::Result;
 use tracing::{info, warn, error, debug};
 use solana_sdk::pubkey::Pubkey;
@@ -283,9 +283,8 @@ impl LpSniperBot {
     /// Subscribe to pool updates from data feeds
     async fn subscribe_to_pool_updates(&self) -> Result<()> {
         let pools = self.monitored_pools.read().await;
-        
-        if !pools.is_empty() {
-            let data_feeds = &self.shared_services; // Would need to access data_feeds from shared_services
+          if !pools.is_empty() {
+            let _data_feeds = &self.shared_services; // Would need to access data_feeds from shared_services
             // let (subscription_id, mut pool_rx) = data_feeds.subscribe_to_pools(pools.clone()).await?;
             
             // For now, we'll simulate this subscription
@@ -435,11 +434,9 @@ impl LpSniperBot {
         }
 
         Ok(())
-    }
-
-    /// Check existing positions for stop loss/take profit (static version)
+    }    /// Check existing positions for stop loss/take profit (static version)
     async fn check_positions_static(
-        config: &LpSniperConfig,
+        _config: &LpSniperConfig,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
         event_tx: &mpsc::UnboundedSender<BotEvent>,
     ) -> Result<()> {

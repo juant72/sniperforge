@@ -1,4 +1,4 @@
-# SniperForge
+# > 🔄 **DESARROLLO ITERATIVO**: ¡Bot funcionando HOY, mejorando cada semana!niperForge
 
 > � **DESARROLLO ITERATIVO**: ¡Bot funcionando HOY, mejorando cada semana! Ver [Plan Iterativo](./iterative-development-plan.md)
 
@@ -33,37 +33,29 @@ Un ecosistema de bots de trading automatizado construido en Rust para Solana, co
 
 ## 🔗 Documentación Principal
 
-### **🚀 Para Empezar HOY**
-- [**START TODAY**](./start-today.md) - Bot funcionando en 4 horas
-- [Plan Iterativo Incremental](./iterative-development-plan.md) - Desarrollo en espiral completo
+### **🚀 Para Empezar**
 
-### **👨‍💼 Para Liderazgo Técnico**
-- [**Plan para Tech Lead**](./tech-lead-plan.md) - Visión ejecutiva y técnica
-- [Master Plan Consolidado](./master-plan.md) - Plan completo del proyecto
-- [Roadmap Detallado](./development-roadmap.md) - Timeline de 21 semanas
+- Ver [Sprint 0 Setup](./dev/sprint-0-setup.md) - Configuración inicial
+- Consultar [Guía de Implementación](./dev/implementation-guide.md) - Desarrollo paso a paso
 
 ### **🏗 Arquitectura & Implementación**
+
 - [Arquitectura del Sistema](./architecture/) - Diseño técnico modular
 - [Especificación Bot Raydium](./bots/raydium-lp-sniper/) - Bot principal
-- [Recomendaciones Técnicas](./technical-recommendations.md) - Código implementable
+- [Configuración](./configuration.md) - Guía de configuración
 
-### **✅ Validación & Calidad**
-- [Auditoría Simulada](./simulated-expert-audit.md) - Feedback de expertos
-- [Benchmarks](./validation-benchmarks.md) - Métricas y casos de estudio
-- [Plan de Consolidación](./plan-consolidation-applied.md) - Correcciones aplicadas
+### **📋 Documentación de Desarrollo**
+
+- [Carpeta Dev](./dev/) - Planificación de sprints y desarrollo
 
 | Documento | Descripción | Estado |
 |-----------|-------------|---------|
-| **[Plan Maestro](./master-plan.md)** | 📌 **SOURCE OF TRUTH** - Plan consolidado | ✅ FINAL |
-| [Development Roadmap](./development-roadmap.md) | Roadmap detallado de 21 semanas | ✅ Actualizado |
-| [Implementation Timeline](./implementation-timeline.md) | Cronograma de implementación | ✅ Actualizado |
 | [Project Summary](./project-summary.md) | Resumen ejecutivo | ✅ Actualizado |
-| [Audit Recommendations Applied](./audit-recommendations-applied.md) | Mejoras integradas | ✅ Final |
-| [Plan Consolidation Applied](./plan-consolidation-applied.md) | Correcciones aplicadas | ✅ Nuevo |
+| [Configuration Guide](./configuration.md) | Guía de configuración | ✅ Disponible |
 
 ## 📁 Estructura del Proyecto
 
-```
+```text
 sniperforge/
 ├── bots/
 │   ├── raydium-lp-sniper/     # Bot para detectar nuevos pools en Raydium
@@ -83,7 +75,7 @@ sniperforge/
 │   ├── global.toml           # Configuración global
 │   └── bots/                 # Configuraciones específicas por bot
 └── scripts/                  # Scripts de automatización
-```
+```text
 
 ## 🚀 Bots Disponibles
 
@@ -140,7 +132,7 @@ cargo build --release
 
 # Ejecutar el Raydium LP Sniper
 cargo run --bin raydium-lp-sniper
-```
+```text
 
 ## 📄 Licencia
 
@@ -156,46 +148,27 @@ El proyecto ha sido sometido a una validación exhaustiva simulada por expertos 
 - **Machine Learning**: Viabilidad de modelos de scoring
 - **DevOps**: Escalabilidad y observabilidad
 
-### 📋 Documentación de Validación
+### 📋 Documentación de Desarrollo
 
-- 📋 [Cuestionario de Validación](./expert-validation.md) - Framework completo de evaluación
-- 📊 [Benchmarks y Casos de Estudio](./validation-benchmarks.md) - Análisis de performance y casos reales
-- 👥 [Plan de Selección de Expertos](./expert-panel-selection.md) - Estrategia de contacto y coordinación
-- 📈 [Análisis de Feedback](./expert-feedback-analysis.md) - Framework de análisis y toma de decisiones
-- 📅 [Timeline de Implementación](./implementation-timeline.md) - Cronograma detallado actualizado
-- 🔍 [**Auditoría Simulada**](./simulated-expert-audit.md) - **Feedback técnico específico y recomendaciones aplicables**
-- ⚡ [**Recomendaciones Técnicas**](./technical-recommendations.md) - **Código específico y plan de implementación inmediata**
-- 🗺️ [**Roadmap de Desarrollo**](./development-roadmap.md) - **Plan detallado de 21 semanas con budget y recursos**
-- � [**Aplicación de Recomendaciones**](./audit-recommendations-applied.md) - **Cómo las mejoras fueron integradas al roadmap**
-- �📋 [**Resumen del Proyecto**](./project-summary.md) - **Estado actual y próximos pasos consolidados**
+- 📋 [Documentación Dev](./dev/) - Planificación y sprints de desarrollo
+- � [Configuración del Sistema](./configuration.md) - Guía de configuración completa
+- 🏗️ [Arquitectura](./architecture/) - Diseño técnico del sistema
+- 🤖 [Bots](./bots/) - Especificaciones de los bots
 
-### 🚨 Resultados de Auditoría Simulada
+### 🎯 Estado del Proyecto
 
-**Score Promedio**: 6.55/10  
-**Recomendación**: **PROCEDER CON MEJORAS CRÍTICAS**
+**Estado Actual**: Sprint 0 Completado ✅  
+**Próximo**: Desarrollo iterativo con mejoras continuas
 
-#### Issues Críticos Identificados (P0):
-- **Seguridad**: Gestión de claves privadas insegura
-- **Blockchain**: Falta de rate limiting y circuit breakers
-- **MEV Protection**: Sin protección contra MEV attacks
+#### Logros Completados
+- **Infraestructura**: Plataforma multi-bot operativa
+- **Seguridad Básica**: Gestión segura de wallets y claves
+- **Monitoreo**: Sistema de métricas y alertas
 
-#### Mejoras Requeridas (P1):
-- **Backtesting**: Framework completo de validación histórica
-- **Risk Management**: Sistema avanzado con Kelly criterion
-- **Observabilidad**: Telemetría y health checks completos
-
-#### Plan de Acción:
-1. **Semana 1**: Implementar fixes de seguridad críticos
-2. **Semanas 2-3**: Backtesting y risk management
-3. **Semana 4**: Observabilidad y testing final
-
-### 🎯 Criterios de Go/No-Go Actualizados
-
-**Proceder con Implementación después de aplicar fixes si**:
-- Score post-fixes > 8.0/10 
-- Todos los issues P0 resueltos
-- Backtesting muestra performance positiva
-- Security audit profesional completado
+#### Próximos Pasos
+1. **Sprint 1**: Optimización de algoritmos de detección
+2. **Sprint 2**: Mejoras de seguridad avanzadas
+3. **Sprint 3**: Backtesting y validación histórica
 
 ---
 

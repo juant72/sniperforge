@@ -115,7 +115,7 @@ impl RpcConnectionPool {
         Ok(())
     }
     
-    pub async fn get_client(&self, priority: Priority) -> Result<RpcClientHandle> {
+    pub async fn get_client(&self, _priority: Priority) -> Result<RpcClientHandle> {
         let _permit = self.connection_semaphore.acquire().await?;
         
         // Update stats
