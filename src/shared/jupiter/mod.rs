@@ -23,12 +23,13 @@ pub mod swaps;
 pub use client::JupiterClient;
 pub use types::*;
 pub use quotes::QuoteEngine;
-pub use swaps::SwapEngine;
+pub use swaps::JupiterSwapService;
 
 /// Jupiter API configuration
 #[derive(Debug, Clone)]
 pub struct JupiterConfig {
     pub api_base_url: String,
+    pub rpc_url: String,
     pub timeout_seconds: u64,
     pub max_retries: u32,
     pub slippage_bps: u16, // Basis points (100 = 1%)
@@ -40,6 +41,7 @@ impl Default for JupiterConfig {
     fn default() -> Self {
         Self {
             api_base_url: "https://quote-api.jup.ag/v6".to_string(),
+            rpc_url: "https://api.devnet.solana.com".to_string(),
             timeout_seconds: 10,
             max_retries: 3,
             slippage_bps: 50, // 0.5% default slippage
@@ -54,7 +56,7 @@ pub struct Jupiter {
     config: JupiterConfig,
     client: JupiterClient,
     quote_engine: QuoteEngine,
-    swap_engine: SwapEngine,
+    swap_engine: JupiterSwapService,
 }
 
 impl Jupiter {
@@ -64,7 +66,7 @@ impl Jupiter {
         
         let client = JupiterClient::new(&config).await?;
         let quote_engine = QuoteEngine::new(client.clone());
-        let swap_engine = SwapEngine::new(client.clone());
+        let swap_engine = JupiterSwapService::new(client.clone(), &config.rpc_url);
 
         info!("✅ Jupiter integration ready");
         info!("   API: {}", config.api_base_url);
@@ -86,7 +88,7 @@ impl Jupiter {
     }
 
     /// Get swap engine for trade execution  
-    pub fn swaps(&self) -> &SwapEngine {
+    pub fn swaps(&self) -> &JupiterSwapService {
         &self.swap_engine
     }
 
@@ -111,3 +113,6 @@ impl Jupiter {
         }
     }
 }
+
+
+

@@ -666,7 +666,7 @@ impl LpSniperBot {
             gas_fee: 0.005, // Simulated gas fee
             error_message: None,
             is_paper_trade: true,
-            execution_time_ms: 100 + rand::thread_rng().gen_range(0..200), // Simulate latency
+            execution_time_ms: 100 + rand::rng().random_range(0..200), // Simulate latency
         })
     }
 
@@ -714,7 +714,7 @@ impl LpSniperBot {
         info!("🔄 Simulating {} trade of {} SOL for pool: {}", side, amount, opportunity.pool_info.pool_id);
         
         // Simulate network delay
-        tokio::time::sleep(tokio::time::Duration::from_millis(50 + rand::thread_rng().gen_range(0..100))).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(50 + rand::rng().random_range(0..100))).await;
         
         // Simulate execution with realistic parameters
         let success_rate = if self.config.devnet_mode { 0.95 } else { 0.85 }; // Higher success rate on devnet

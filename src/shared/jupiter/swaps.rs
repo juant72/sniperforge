@@ -5,6 +5,8 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{signature::Keypair, signer::Signer, transaction::Transaction};
 use tracing::{info, warn, error, debug};
 use rand::Rng;
+use bincode;
+
 
 use super::JupiterClient;
 use crate::shared::jupiter::JupiterQuote;
@@ -72,7 +74,6 @@ impl JupiterSwapService {
         let tx_base64 = swap_response["swapTransaction"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("Missing swapTransaction field in response"))?;
-        
         let tx_bytes = general_purpose::STANDARD.decode(tx_base64)?;
         let mut transaction: Transaction = bincode::deserialize(&tx_bytes)?;
         
@@ -150,10 +151,10 @@ impl JupiterSwapService {
         info!("   Price Impact: {}%", quote.price_impact_pct);
 
         // Simulate execution delay
-        tokio::time::sleep(tokio::time::Duration::from_millis(50 + rand::thread_rng().gen_range(0..100))).await;
+        tokio::time::sleep(tokio::time::Duration::from_millis(50 + rand::rng().random_range(0..100))).await;
         
         // Simulate success/failure
-        let success = rand::thread_rng().gen_range(0..100) < 95; // 95% success rate in simulation
+        let success = rand::rng().random_range(0..100) < 95; // 95% success rate in simulation
         let execution_time = start_time.elapsed().as_millis() as u64;
         
         if success {
@@ -162,7 +163,7 @@ impl JupiterSwapService {
             
             Ok(SwapResult {
                 success: true,
-                transaction_signature: Some(format!("SIMULATED_{}", rand::thread_rng().gen_range(1000000..9999999))),
+                transaction_signature: Some(format!("SIMULATED_{}", rand::rng().random_range(1000000..9999999))),
                 input_amount: quote.in_amount.parse().unwrap_or(0),
                 output_amount: quote.out_amount.parse().unwrap_or(0),
                 price_impact: quote.price_impact_pct.parse().unwrap_or(0.0),
@@ -240,3 +241,8 @@ impl JupiterSwapService {
         ]
     }
 }
+
+
+
+
+
