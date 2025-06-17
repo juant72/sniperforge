@@ -26,11 +26,60 @@ pub struct PlatformConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
-    pub primary_rpc: String,
-    pub backup_rpc: Vec<String>,
-    pub websocket_url: String,
+    pub environment: String,  // "devnet" or "mainnet"
+    
+    // Devnet configuration
+    pub devnet_primary_rpc: String,
+    pub devnet_backup_rpc: Vec<String>,
+    pub devnet_websocket_url: String,
+    
+    // Mainnet configuration  
+    pub mainnet_primary_rpc: String,
+    pub mainnet_backup_rpc: Vec<String>,
+    pub mainnet_websocket_url: String,
+    
+    // Connection settings
     pub connection_timeout_ms: u64,
     pub request_timeout_ms: u64,
+}
+
+impl NetworkConfig {
+    /// Get the primary RPC URL for the current environment
+    pub fn primary_rpc(&self) -> &str {
+        match self.environment.as_str() {
+            "devnet" => &self.devnet_primary_rpc,
+            "mainnet" => &self.mainnet_primary_rpc,
+            _ => &self.devnet_primary_rpc, // Default to devnet for safety
+        }
+    }
+    
+    /// Get backup RPC URLs for the current environment
+    pub fn backup_rpc(&self) -> &Vec<String> {
+        match self.environment.as_str() {
+            "devnet" => &self.devnet_backup_rpc,
+            "mainnet" => &self.mainnet_backup_rpc,
+            _ => &self.devnet_backup_rpc, // Default to devnet for safety
+        }
+    }
+    
+    /// Get WebSocket URL for the current environment
+    pub fn websocket_url(&self) -> &str {
+        match self.environment.as_str() {
+            "devnet" => &self.devnet_websocket_url,
+            "mainnet" => &self.mainnet_websocket_url,
+            _ => &self.devnet_websocket_url, // Default to devnet for safety
+        }
+    }
+    
+    /// Check if we're running on devnet
+    pub fn is_devnet(&self) -> bool {
+        self.environment == "devnet"
+    }
+    
+    /// Check if we're running on mainnet
+    pub fn is_mainnet(&self) -> bool {
+        self.environment == "mainnet"
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -129,9 +178,8 @@ impl Config {
         }
     }
     
-    pub fn validate(&self) -> Result<()> {
-        // Validate RPC URLs
-        if self.network.primary_rpc.is_empty() {
+    pub fn validate(&self) -> Result<()> {        // Validate RPC URLs
+        if self.network.primary_rpc().is_empty() {
             return Err(anyhow::anyhow!("Primary RPC URL cannot be empty"));
         }
         
@@ -191,14 +239,20 @@ impl Default for Config {
                 max_concurrent_bots: 5,
                 resource_allocation_strategy: "priority_based".to_string(),
                 event_bus_buffer_size: 10000,
-            },
-            network: NetworkConfig {
-                primary_rpc: "https://api.mainnet-beta.solana.com".to_string(),
-                backup_rpc: vec![
+            },            network: NetworkConfig {
+                environment: "devnet".to_string(),
+                devnet_primary_rpc: "https://api.devnet.solana.com".to_string(),
+                devnet_backup_rpc: vec![
+                    "https://devnet.helius-rpc.com".to_string(),
+                    "https://rpc-devnet.hellomoon.io".to_string(),
+                ],
+                devnet_websocket_url: "wss://api.devnet.solana.com".to_string(),
+                mainnet_primary_rpc: "https://api.mainnet-beta.solana.com".to_string(),
+                mainnet_backup_rpc: vec![
                     "https://solana-api.projectserum.com".to_string(),
                     "https://rpc.ankr.com/solana".to_string(),
                 ],
-                websocket_url: "wss://api.mainnet-beta.solana.com".to_string(),
+                mainnet_websocket_url: "wss://api.mainnet-beta.solana.com".to_string(),
                 connection_timeout_ms: 5000,
                 request_timeout_ms: 10000,
             },

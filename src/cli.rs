@@ -3,8 +3,7 @@ use clap::{Command, Arg, ArgMatches};
 use colored::*;
 use std::io::{self, Write};
 
-use crate::config::Config;
-use crate::platform::SniperForgePlatform;
+use sniperforge::{Config, SniperForgePlatform, solana_testing};
 
 pub async fn run_cli() -> Result<()> {
     let matches = Command::new("SniperForge CLI")
@@ -21,10 +20,21 @@ pub async fn run_cli() -> Result<()> {
                         .help("Specific bot to start")
                         .action(clap::ArgAction::Append)
                 )
+                .arg(
+                    Arg::new("devnet")
+                        .long("devnet")
+                        .help("Use devnet configuration for testing")
+                        .action(clap::ArgAction::SetTrue)
+                )
         )
         .subcommand(Command::new("status").about("Show platform status"))
         .subcommand(Command::new("config").about("Show current configuration"))
-        .subcommand(Command::new("test").about("Test connections and basic functionality"))
+        .subcommand(
+            Command::new("test")
+                .about("Test connections and basic functionality")
+                .subcommand(Command::new("solana").about("Test Solana connectivity and RPC calls"))
+                .subcommand(Command::new("pools").about("Test pool detection and analysis"))
+        )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .get_matches();
     
@@ -32,7 +42,7 @@ pub async fn run_cli() -> Result<()> {
         Some(("start", sub_matches)) => handle_start_command(sub_matches).await?,
         Some(("status", _)) => handle_status_command().await?,
         Some(("config", _)) => handle_config_command().await?,
-        Some(("test", _)) => handle_test_command().await?,
+        Some(("test", sub_matches)) => handle_test_command(sub_matches).await?,
         Some(("interactive", _)) => handle_interactive_command().await?,
         _ => {
             println!("{}", "No command specified. Use --help for available commands.".yellow());
@@ -46,7 +56,15 @@ pub async fn run_cli() -> Result<()> {
 async fn handle_start_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "🚀 Starting SniperForge Platform...".bright_green().bold());
     
-    let config = Config::load("config/platform.toml")?;
+    // Determine config file to use
+    let config_file = if matches.get_flag("devnet") {
+        println!("{}", "🧪 Using DEVNET configuration for testing".bright_yellow());
+        "config/devnet.toml"
+    } else {
+        "config/platform.toml"
+    };
+    
+    let config = Config::load(config_file)?;
     let platform = SniperForgePlatform::new(config).await?;
     
     if let Some(bot_types) = matches.get_many::<String>("bot") {
@@ -81,7 +99,7 @@ async fn handle_config_command() -> Result<()> {
     let config = Config::load("config/platform.toml")?;
     
     println!("📝 Platform: {} v{}", config.platform.name.bright_cyan(), config.platform.version.bright_yellow());
-    println!("🌐 Primary RPC: {}", config.network.primary_rpc.bright_green());
+    println!("🌐 Primary RPC: {}", config.network.primary_rpc().bright_green());
     println!("🤖 Max Bots: {}", config.platform.max_concurrent_bots.to_string().bright_yellow());
     
     println!("\n{}", "Enabled Bots:".bright_white().bold());
@@ -107,7 +125,61 @@ async fn handle_config_command() -> Result<()> {
     Ok(())
 }
 
-async fn handle_test_command() -> Result<()> {
+async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
+    match matches.subcommand() {
+        Some(("solana", _)) => handle_test_solana_command().await?,
+        Some(("pools", _)) => handle_test_pools_command().await?,
+        _ => handle_test_all_command().await?,
+    }
+    Ok(())
+}
+
+async fn handle_test_solana_command() -> Result<()> {
+    println!("{}", "🧪 Testing Solana Connectivity".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let config = Config::load("config/platform.toml")?;
+    
+    // Show network configuration
+    println!("🌐 Network Environment: {}", 
+             if config.network.is_devnet() { "DEVNET".bright_yellow() } else { "MAINNET".bright_red() });
+    println!("📡 Primary RPC: {}", config.network.primary_rpc().bright_cyan());
+    
+    // Run connectivity tests
+    match solana_testing::test_solana_connectivity(&config).await {
+        Ok(_) => {
+            println!("\n{}", "🎉 All Solana tests passed!".bright_green().bold());
+        }
+        Err(e) => {
+            println!("\n{} {}", "❌ Solana tests failed:".bright_red().bold(), e);
+            return Err(e);
+        }
+    }
+    
+    Ok(())
+}
+
+async fn handle_test_pools_command() -> Result<()> {
+    println!("{}", "🧪 Testing Pool Detection & Analysis".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let config = Config::load("config/platform.toml")?;
+    
+    // Run pool analysis tests
+    match solana_testing::test_pool_analysis(&config).await {
+        Ok(_) => {
+            println!("\n{}", "🎉 All pool analysis tests passed!".bright_green().bold());
+        }
+        Err(e) => {
+            println!("\n{} {}", "❌ Pool analysis tests failed:".bright_red().bold(), e);
+            return Err(e);
+        }
+    }
+    
+    Ok(())
+}
+
+async fn handle_test_all_command() -> Result<()> {
     println!("{}", "🧪 Running System Tests".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
@@ -132,13 +204,12 @@ async fn handle_test_command() -> Result<()> {
             // Test RPC connection
             print!("🌐 Testing RPC connection... ");
             io::stdout().flush()?;
-            match test_rpc_connection(&config.network.primary_rpc).await {
+            match test_rpc_connection(config.network.primary_rpc()).await {
                 Ok(_) => println!("{}", "✅ OK".bright_green()),
                 Err(e) => {
                     println!("{} {}", "❌ FAILED:".bright_red(), e);
-                    
-                    // Try backup RPCs
-                    for (i, backup_rpc) in config.network.backup_rpc.iter().enumerate() {
+                      // Try backup RPCs
+                    for (i, backup_rpc) in config.network.backup_rpc().iter().enumerate() {
                         print!("🌐 Testing backup RPC {}... ", i + 1);
                         io::stdout().flush()?;
                         match test_rpc_connection(backup_rpc).await {

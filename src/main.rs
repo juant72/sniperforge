@@ -23,6 +23,14 @@ async fn main() -> Result<()> {
     // Initialize logging
     init_logging()?;
     
+    // Check if this is a CLI command or platform start
+    let args: Vec<String> = std::env::args().collect();
+    
+    // If we have subcommands like 'test', 'config', 'status', use the CLI module
+    if args.len() > 1 && matches!(args[1].as_str(), "test" | "config" | "status" | "interactive") {
+        return cli::run_cli().await;
+    }
+    
     info!("🚀 Starting SniperForge Multi-Bot Platform v0.1.0");
     
     // Parse command line arguments

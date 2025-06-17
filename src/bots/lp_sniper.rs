@@ -292,9 +292,7 @@ impl LpSniperBot {
         }
 
         Ok(())
-    }
-
-    /// Start the main bot loop
+    }    /// Start the main bot loop
     async fn start_main_loop(&self) {
         let status = self.status.clone();
         let metrics = self.metrics.clone();
@@ -302,6 +300,7 @@ impl LpSniperBot {
         let config = self.config.clone();
         let bot_id = self.id;
         let event_tx = self.event_tx.clone();
+        let shared_services = self.shared_services.clone();
         
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(
@@ -327,7 +326,7 @@ impl LpSniperBot {
                 }
 
                 // Monitor pools and look for opportunities
-                if let Err(e) = Self::monitor_pools_static(&config, &active_positions, &event_tx).await {
+                if let Err(e) = Self::monitor_pools_static(&config, shared_services.clone(), &active_positions, &event_tx).await {
                     error!("❌ Error monitoring pools: {}", e);
                     
                     let mut status_guard = status.write().await;
@@ -345,10 +344,122 @@ impl LpSniperBot {
                 debug!("🔄 LP Sniper monitoring cycle completed for bot: {}", bot_id);
             }
         });
+    }    /// Check if bot should use real trading or simulation  
+    async fn should_use_real_trading(_shared_services: &Arc<SharedServices>) -> bool {
+        // For now, default to simulated trading until config access is added
+        false
     }
 
-    /// Monitor pools for trading opportunities (static version for tokio::spawn)
+    /// Monitor pools for trading opportunities (now with real data support)
     async fn monitor_pools_static(
+        config: &LpSniperConfig,
+        shared_services: Arc<SharedServices>,
+        active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
+        event_tx: &mpsc::UnboundedSender<BotEvent>,
+    ) -> Result<()> {
+        let use_real_data = Self::should_use_real_trading(&shared_services).await;
+        
+        if use_real_data {
+            Self::monitor_pools_real(config, shared_services, active_positions, event_tx).await
+        } else {
+            Self::monitor_pools_simulated(config, active_positions, event_tx).await
+        }
+    }    /// Monitor pools using real Solana data
+    async fn monitor_pools_real(
+        config: &LpSniperConfig,
+        shared_services: Arc<SharedServices>,
+        _active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
+        event_tx: &mpsc::UnboundedSender<BotEvent>,
+    ) -> Result<()> {
+        debug!("🔍 Monitoring Raydium pools with REAL data...");
+        
+        // Get new pools from Raydium
+        let rpc_pool = shared_services.rpc_pool();
+        let pools = rpc_pool.monitor_new_raydium_pools(Default::default()).await?;
+        
+        for pool_pubkey in pools {
+            // Validate pool meets our criteria
+            if rpc_pool.validate_pool_criteria(&pool_pubkey, &Default::default()).await? {
+                
+                // Get real market data
+                match rpc_pool.get_pool_market_data(&pool_pubkey).await {
+                    Ok(market_data) => {
+                        info!("🎯 REAL opportunity detected in pool: {}", pool_pubkey);
+                        info!("   Liquidity: ${:.2}", market_data.total_liquidity_usd);
+                        info!("   Volume 24h: ${:.2}", market_data.volume_24h_usd);
+                        
+                        // Check if meets minimum liquidity
+                        if market_data.total_liquidity_usd >= config.min_liquidity_usd {
+                            
+                            // Create real opportunity
+                            let opportunity = Self::create_real_opportunity(&pool_pubkey, &market_data);
+                            
+                            // For now, just log - in next phase we'll implement real trading
+                            info!("✅ REAL trading opportunity identified!");
+                            info!("   Pool: {}", pool_pubkey);
+                            info!("   Estimated profit: ${:.2}", opportunity.estimated_profit_usd);
+                            
+                            let _ = event_tx.send(BotEvent::PoolDetected(opportunity.pool_info));
+                            
+                            // TODO: Implement real trade execution in next phase
+                            warn!("🚧 Real trade execution not yet implemented - would execute here");
+                        }
+                    }
+                    Err(e) => {
+                        debug!("⚠️ Could not get market data for pool {}: {}", pool_pubkey, e);
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Create opportunity from real market data
+    fn create_real_opportunity(pool_pubkey: &Pubkey, market_data: &crate::shared::rpc_pool::PoolMarketData) -> TradingOpportunity {
+        let mut metadata = HashMap::new();
+        metadata.insert("source".to_string(), serde_json::Value::String("raydium_real".to_string()));
+        metadata.insert("liquidity_usd".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(market_data.total_liquidity_usd).unwrap()));
+        metadata.insert("volume_24h".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(market_data.volume_24h_usd).unwrap()));
+        
+        TradingOpportunity {
+            id: uuid::Uuid::new_v4(),
+            opportunity_type: OpportunityType::NewPool,
+            pool_info: PoolInfo {
+                pool_id: *pool_pubkey,
+                dex: DexType::Raydium,
+                token_a: TokenInfo {
+                    mint: Pubkey::new_unique(), // Would be extracted from real pool data
+                    symbol: "SOL".to_string(),
+                    name: "Solana".to_string(),
+                    decimals: 9,
+                    supply: None,
+                    is_verified: true,
+                },
+                token_b: TokenInfo {
+                    mint: Pubkey::new_unique(), // Would be extracted from real pool data
+                    symbol: "TOKEN".to_string(),
+                    name: "Real Token".to_string(),
+                    decimals: 6,
+                    supply: None,
+                    is_verified: false,
+                },
+                liquidity_usd: market_data.total_liquidity_usd,
+                volume_24h_usd: Some(market_data.volume_24h_usd),
+                created_at: chrono::Utc::now(),
+                detected_at: chrono::Utc::now(),
+                is_new: true,
+            },
+            confidence_score: 0.75, // Would be calculated based on real metrics
+            estimated_profit_usd: market_data.total_liquidity_usd * 0.02, // 2% of liquidity as estimated profit
+            risk_level: RiskLevel::Medium,
+            expires_at: chrono::Utc::now() + chrono::Duration::minutes(10),
+            metadata,
+        }
+    }
+
+    /// Monitor pools using simulated data (original implementation)
+    async fn monitor_pools_simulated(
         config: &LpSniperConfig,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,
         event_tx: &mpsc::UnboundedSender<BotEvent>,
@@ -361,16 +472,21 @@ impl LpSniperBot {
         // 3. Check if criteria are met
         // 4. Execute trades if opportunities are found
         
-        debug!("🔍 Monitoring pools for opportunities...");        // Simulate finding an opportunity (very rarely)
+        debug!("🔍 Monitoring pools for opportunities...");
+        
+        // Simulate finding an opportunity (very rarely)
         if rand::thread_rng().gen::<f32>() < 0.001 { // 0.1% chance per cycle
             let mut metadata = HashMap::new();
             metadata.insert("source".to_string(), serde_json::Value::String("raydium".to_string()));
-            metadata.insert("pool_age_seconds".to_string(), serde_json::Value::Number(serde_json::Number::from(30)));            let opportunity = TradingOpportunity {
+            metadata.insert("pool_age_seconds".to_string(), serde_json::Value::Number(serde_json::Number::from(30)));
+            
+            let opportunity = TradingOpportunity {
                 id: uuid::Uuid::new_v4(),
                 opportunity_type: OpportunityType::NewPool,
                 pool_info: PoolInfo {
                     pool_id: Pubkey::new_unique(),
-                    dex: DexType::Raydium,                    token_a: TokenInfo {
+                    dex: DexType::Raydium,
+                    token_a: TokenInfo {
                         mint: Pubkey::new_unique(),
                         symbol: "SOL".to_string(),
                         name: "Solana".to_string(),
@@ -397,8 +513,12 @@ impl LpSniperBot {
                 risk_level: RiskLevel::Medium,
                 expires_at: chrono::Utc::now() + chrono::Duration::minutes(5),
                 metadata,
-            };info!("🎯 Trading opportunity detected: ${:.2} profit potential", 
-                  opportunity.estimated_profit_usd);            // Simulate trade execution
+            };
+
+            info!("🎯 Trading opportunity detected: ${:.2} profit potential", 
+                  opportunity.estimated_profit_usd);
+            
+            // Simulate trade execution
             let trade_result = TradeResult {
                 action_id: uuid::Uuid::new_v4(),
                 bot_id: BotId(uuid::Uuid::new_v4()),
@@ -412,13 +532,15 @@ impl LpSniperBot {
                 error_message: None,
             };
 
-            if trade_result.status == TradeStatus::Confirmed {                // Add to active positions
+            if trade_result.status == TradeStatus::Confirmed {
+                // Add to active positions
                 let position = ActivePosition {
                     pool_address: opportunity.pool_info.pool_id,
                     token_address: opportunity.pool_info.token_b.mint,
                     entry_price: 1.0, // Simulated
                     amount_sol: config.trade_amount_sol,
-                    entry_time: chrono::Utc::now(),                    stop_loss_price: 1.0 * (1.0 - config.slippage_tolerance / 100.0),
+                    entry_time: chrono::Utc::now(),
+                    stop_loss_price: 1.0 * (1.0 - config.slippage_tolerance / 100.0),
                     take_profit_price: 1.0 * (1.0 + (config.slippage_tolerance * 2.0) / 100.0),
                     current_pnl_percent: 0.0,
                 };
@@ -434,7 +556,9 @@ impl LpSniperBot {
         }
 
         Ok(())
-    }    /// Check existing positions for stop loss/take profit (static version)
+    }
+
+    /// Check existing positions for stop loss/take profit (static version)
     async fn check_positions_static(
         _config: &LpSniperConfig,
         active_positions: &Arc<RwLock<Vec<ActivePosition>>>,

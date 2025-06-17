@@ -133,25 +133,28 @@ impl SharedServices {
         })
     }
     
-    // Getters for components
+    /// Get access to the RPC pool
     pub fn rpc_pool(&self) -> Arc<RpcConnectionPool> {
         self.rpc_pool.clone()
     }
-    
+
+    /// Get access to the wallet manager
     pub fn wallet_manager(&self) -> Arc<WalletManager> {
         self.wallet_manager.clone()
     }
-    
+
+    /// Get access to the data feeds
     pub fn data_feeds(&self) -> Arc<MarketDataFeeds> {
         self.data_feeds.clone()
     }
-    
+
+    /// Get access to the monitoring system
     pub fn monitoring(&self) -> Arc<MonitoringSystem> {
         self.monitoring.clone()
     }
-    
-    /// Get shared services metrics
-    pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {        // Get metrics from each service
+      /// Get shared services metrics
+    pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {
+        // Get metrics from each service
         let rpc_stats = self.rpc_pool.get_stats().await;
         let wallet_count = self.wallet_manager.list_wallets().await.len();
         let data_stats = self.data_feeds.get_stats().await;
@@ -163,10 +166,9 @@ impl SharedServices {
         } else {
             (0.0, 0, 0)
         };
-          Ok(SharedServicesMetrics {
-            rpc_connections: rpc_stats.get("active_connections")
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(0),
+        
+        Ok(SharedServicesMetrics {
+            rpc_connections: rpc_stats.active_connections,
             active_wallets: wallet_count,
             data_feed_subscriptions: data_stats.price_subscriptions + data_stats.pool_subscriptions,
             cpu_usage_percent: cpu_usage,
