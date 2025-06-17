@@ -1,0 +1,69 @@
+# Git attributes for SniperForge project
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Rust source files
+*.rs text eol=lf
+*.toml text eol=lf
+
+# Documentation files
+*.md text eol=lf
+*.txt text eol=lf
+
+# Configuration files
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Cargo files
+Cargo.toml text eol=lf
+Cargo.lock text eol=lf
+
+# Git files
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Ensure shell scripts are executable
+*.sh text eol=lf
+*.sh filter=lfs diff=lfs merge=lfs
+
+# Mark generated files
+target/** linguist-generated=true
+Cargo.lock linguist-generated=true
+
+# Rust specific
+*.rs linguist-language=Rust
+*.toml linguist-language=TOML
+
+# Documentation
+*.md linguist-documentation=true
+
+# Archive files
+*.tar binary
+*.gz binary
+*.zip binary
+*.7z binary
+
+# Database files
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

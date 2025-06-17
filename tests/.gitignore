@@ -1,0 +1,26 @@
+# Test artifacts
+test-results/
+coverage/
+*.profraw
+
+# Temporary test files
+*.tmp
+*.temp
+temp_*
+test_*
+
+# Test databases
+test.db
+test.sqlite
+*.test.db
+
+# Test logs
+test.log
+*.test.log
+
+# Benchmark results
+bench-*.txt
+benchmark-results/
+
+# Test snapshots (if using snapshot testing)
+__snapshots__/

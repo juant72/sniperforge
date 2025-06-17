@@ -1,0 +1,20 @@
+# Ignore sensitive configuration files
+*.secret
+*.private
+*secrets*
+*private*
+*.key
+*.pem
+
+# Ignore environment-specific configs
+*.local.toml
+*.dev.toml
+*.prod.toml
+
+# Allow the main platform config
+!platform.toml
+
+# Ignore backup configs
+*.bak
+*.backup
+*.orig

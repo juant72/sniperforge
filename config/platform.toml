@@ -1,0 +1,83 @@
+[platform]
+name = "SniperForge"
+version = "0.1.0"
+max_concurrent_bots = 5
+resource_allocation_strategy = "priority_based"
+event_bus_buffer_size = 10000
+
+[network]
+# Solana RPC endpoints (mainnet)
+primary_rpc = "https://api.mainnet-beta.solana.com"
+backup_rpc = [
+    "https://solana-api.projectserum.com",
+    "https://rpc.ankr.com/solana"
+]
+websocket_url = "wss://api.mainnet-beta.solana.com"
+connection_timeout_ms = 5000
+request_timeout_ms = 10000
+
+[shared_services]
+rpc_pool_size = 20
+wallet_isolation = true
+data_feed_aggregation = true
+monitoring_enabled = true
+
+[security]
+# Wallet configuration (NEVER commit real private keys)
+wallet_encryption_enabled = true
+key_derivation_iterations = 100000
+session_timeout_minutes = 30
+
+[logging]
+level = "info"
+file_enabled = true
+console_enabled = true
+max_file_size_mb = 100
+max_files = 10
+
+# Bot-specific configurations
+[bots.lp_sniper]
+enabled = true
+priority = "high"
+resource_allocation = { cpu = "40%", memory = "1GB" }
+
+[bots.lp_sniper.detection]
+target_dexs = ["raydium", "orca"]
+min_liquidity_usd = 5000
+max_response_time_ms = 100
+pool_creation_buffer_blocks = 3
+
+[bots.lp_sniper.risk]
+max_position_size_usd = 1000
+max_slippage_percent = 2.0
+stop_loss_percent = -10.0
+take_profit_percent = 20.0
+
+[bots.copy_trading]
+enabled = false
+priority = "medium"
+resource_allocation = { cpu = "20%", memory = "512MB" }
+
+[bots.arbitrage]
+enabled = false
+priority = "high"
+resource_allocation = { cpu = "25%", memory = "512MB" }
+
+[bots.mev]
+enabled = false
+priority = "critical"
+resource_allocation = { cpu = "30%", memory = "1GB" }
+
+# Development settings
+[development]
+simulate_trades = true
+use_devnet = false
+verbose_logging = true
+enable_debug_mode = true
+
+# Performance settings
+[performance]
+target_latency_ms = 50
+max_memory_usage_mb = 2048
+gc_interval_seconds = 60
+metrics_collection_interval_ms = 1000

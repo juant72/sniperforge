@@ -1,0 +1,188 @@
+pub mod rpc_pool;
+pub mod wallet_manager;
+pub mod data_feeds;
+pub mod monitoring;
+
+use anyhow::Result;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tracing::{info, error};
+
+use crate::config::Config;
+use crate::types::HealthStatus;
+
+use rpc_pool::RpcConnectionPool;
+use wallet_manager::WalletManager;
+use data_feeds::MarketDataFeeds;
+use monitoring::MonitoringSystem;
+
+pub struct SharedServices {
+    rpc_pool: Arc<RpcConnectionPool>,
+    wallet_manager: Arc<WalletManager>,
+    data_feeds: Arc<MarketDataFeeds>,
+    monitoring: Arc<MonitoringSystem>,
+    is_running: Arc<RwLock<bool>>,
+}
+
+impl SharedServices {
+    pub async fn new(config: &Config) -> Result<Self> {
+        info!("🔧 Initializing shared services");
+        
+        // Initialize RPC connection pool
+        let rpc_pool = Arc::new(RpcConnectionPool::new(config).await?);
+        
+        // Initialize wallet manager
+        let wallet_manager = Arc::new(WalletManager::new(config).await?);
+        
+        // Initialize market data feeds
+        let data_feeds = Arc::new(MarketDataFeeds::new(config, rpc_pool.clone()).await?);
+        
+        // Initialize monitoring system
+        let monitoring = Arc::new(MonitoringSystem::new(config)?);
+        
+        Ok(Self {
+            rpc_pool,
+            wallet_manager,
+            data_feeds,
+            monitoring,
+            is_running: Arc::new(RwLock::new(false)),
+        })
+    }
+    
+    pub async fn start(&self) -> Result<()> {
+        info!("🚀 Starting shared services");
+        
+        *self.is_running.write().await = true;
+        
+        // Start RPC pool
+        self.rpc_pool.start().await?;
+        
+        // Start wallet manager
+        self.wallet_manager.start().await?;
+        
+        // Start data feeds
+        self.data_feeds.start().await?;
+        
+        // Start monitoring
+        self.monitoring.start().await?;
+        
+        info!("✅ Shared services started");
+        Ok(())
+    }
+    
+    pub async fn stop(&self) -> Result<()> {
+        info!("🛑 Stopping shared services");
+        
+        *self.is_running.write().await = false;
+        
+        // Stop in reverse order
+        if let Err(e) = self.monitoring.stop().await {
+            error!("Error stopping monitoring: {}", e);
+        }
+        
+        if let Err(e) = self.data_feeds.stop().await {
+            error!("Error stopping data feeds: {}", e);
+        }
+        
+        if let Err(e) = self.wallet_manager.stop().await {
+            error!("Error stopping wallet manager: {}", e);
+        }
+        
+        if let Err(e) = self.rpc_pool.stop().await {
+            error!("Error stopping RPC pool: {}", e);
+        }
+        
+        info!("✅ Shared services stopped");
+        Ok(())
+    }
+    
+    pub async fn health_check(&self) -> Result<HealthStatus> {
+        let is_running = *self.is_running.read().await;
+        
+        if !is_running {
+            return Ok(HealthStatus {
+                is_healthy: false,
+                component: "SharedServices".to_string(),
+                message: Some("Services not running".to_string()),
+                checked_at: chrono::Utc::now(),
+                metrics: std::collections::HashMap::new(),
+            });
+        }
+        
+        // Check all components
+        let rpc_health = self.rpc_pool.health_check().await?;
+        let wallet_health = self.wallet_manager.health_check().await?;
+        let data_health = self.data_feeds.health_check().await?;
+        let monitoring_health = self.monitoring.health_check().await?;
+        
+        let is_healthy = rpc_health.is_healthy 
+            && wallet_health.is_healthy 
+            && data_health.is_healthy 
+            && monitoring_health.is_healthy;
+        
+        Ok(HealthStatus {
+            is_healthy,
+            component: "SharedServices".to_string(),
+            message: if is_healthy {
+                None
+            } else {
+                Some("One or more components unhealthy".to_string())
+            },
+            checked_at: chrono::Utc::now(),
+            metrics: std::collections::HashMap::new(),
+        })
+    }
+    
+    // Getters for components
+    pub fn rpc_pool(&self) -> Arc<RpcConnectionPool> {
+        self.rpc_pool.clone()
+    }
+    
+    pub fn wallet_manager(&self) -> Arc<WalletManager> {
+        self.wallet_manager.clone()
+    }
+    
+    pub fn data_feeds(&self) -> Arc<MarketDataFeeds> {
+        self.data_feeds.clone()
+    }
+    
+    pub fn monitoring(&self) -> Arc<MonitoringSystem> {
+        self.monitoring.clone()
+    }
+    
+    /// Get shared services metrics
+    pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {
+        // Get metrics from each service
+        let rpc_stats = self.rpc_pool.get_stats().await;
+        let wallet_count = self.wallet_manager.list_wallets().await.len();
+        let data_stats = self.data_feeds.get_stats().await;
+        let monitoring_stats = self.monitoring.get_stats().await;
+        
+        // Get system metrics if available
+        let (cpu_usage, memory_usage, uptime) = if let Some(system_metrics) = self.monitoring.get_latest_system_metrics().await {
+            (system_metrics.cpu_usage_percent, system_metrics.memory_usage_mb, system_metrics.uptime_seconds)
+        } else {
+            (0.0, 0, 0)
+        };
+          Ok(SharedServicesMetrics {
+            rpc_connections: rpc_stats.get("active_connections")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
+            active_wallets: wallet_count,
+            data_feed_subscriptions: data_stats.price_subscriptions + data_stats.pool_subscriptions,
+            cpu_usage_percent: cpu_usage,
+            memory_usage_mb: memory_usage,
+            uptime_seconds: uptime,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedServicesMetrics {
+    pub rpc_connections: usize,
+    pub active_wallets: usize,
+    pub data_feed_subscriptions: usize,
+    pub cpu_usage_percent: f64,
+    pub memory_usage_mb: u64,
+    pub uptime_seconds: u64,
+}

@@ -1,0 +1,17 @@
+# Cargo configuration for better development experience
+[build]
+# Use incremental compilation for faster builds during development
+incremental = true
+
+[target.x86_64-pc-windows-msvc]
+# Use LLD linker for faster linking on Windows
+linker = "rust-lld"
+
+# Enable faster compilation with parallel rustc
+[unstable]
+parallel-rustc = true
+
+# Enable better error messages
+[term]
+verbose = false
+color = 'auto'
