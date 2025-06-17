@@ -5,6 +5,12 @@ max_concurrent_bots = 5
 resource_allocation_strategy = "priority_based"
 event_bus_buffer_size = 10000
 
+# SPRINT 1.5 - Hybrid Trading Mode
+[trading]
+mode = "hybrid"  # devnet_real + mainnet_paper
+devnet_real_trading = true
+mainnet_paper_trading = true
+
 [network]
 # Solana RPC endpoints 
 # For development: use devnet. For production: use mainnet
@@ -95,3 +101,25 @@ target_latency_ms = 50
 max_memory_usage_mb = 2048
 gc_interval_seconds = 60
 metrics_collection_interval_ms = 1000
+
+# SPRINT 1.5 - Wallet Configuration for Hybrid Trading
+[wallets]
+auto_generate = true
+auto_airdrop_devnet = true
+devnet_airdrop_amount = 5.0
+
+# DevNet wallet configuration (real trading with test SOL)
+[wallets.devnet]
+enabled = true
+real_trading = true
+paper_trading = false
+initial_balance_sol = 5.0
+max_trade_amount_sol = 0.5
+
+# MainNet wallet configuration (paper trading only)
+[wallets.mainnet]
+enabled = true
+real_trading = false
+paper_trading = true
+virtual_balance_sol = 100.0
+max_trade_amount_sol = 10.0

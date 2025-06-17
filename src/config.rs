@@ -6,6 +6,8 @@ use std::path::Path;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub platform: PlatformConfig,
+    pub trading: Option<TradingConfig>,  // New for Sprint 1.5
+    pub wallets: Option<WalletsConfig>,  // New for Sprint 1.5
     pub network: NetworkConfig,
     pub shared_services: SharedServicesConfig,
     pub security: SecurityConfig,
@@ -145,6 +147,33 @@ pub struct PerformanceConfig {
     pub metrics_collection_interval_ms: u64,
 }
 
+// New configurations for Sprint 1.5
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TradingConfig {
+    pub mode: String,  // "hybrid", "devnet_only", "mainnet_only"
+    pub devnet_real_trading: bool,
+    pub mainnet_paper_trading: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WalletsConfig {
+    pub auto_generate: bool,
+    pub auto_airdrop_devnet: bool,
+    pub devnet_airdrop_amount: f64,
+    pub devnet: WalletEnvironmentConfig,
+    pub mainnet: WalletEnvironmentConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WalletEnvironmentConfig {
+    pub enabled: bool,
+    pub real_trading: Option<bool>,
+    pub paper_trading: Option<bool>,
+    pub initial_balance_sol: Option<f64>,
+    pub virtual_balance_sol: Option<f64>,
+    pub max_trade_amount_sol: f64,
+}
+
 impl Config {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
@@ -176,6 +205,30 @@ impl Config {
             "mev" => Some(&self.bots.mev),
             _ => None,
         }
+    }
+    
+    /// Check if devnet real trading is enabled
+    pub fn is_devnet_real_trading_enabled(&self) -> bool {
+        self.trading.as_ref()
+            .map(|t| t.devnet_real_trading)
+            .unwrap_or(false)
+    }
+    
+    /// Check if mainnet paper trading is enabled
+    pub fn is_mainnet_paper_trading_enabled(&self) -> bool {
+        self.trading.as_ref()
+            .map(|t| t.mainnet_paper_trading)
+            .unwrap_or(false)
+    }
+    
+    /// Get devnet wallet config
+    pub fn devnet_wallet_config(&self) -> Option<&WalletEnvironmentConfig> {
+        self.wallets.as_ref().map(|w| &w.devnet)
+    }
+    
+    /// Get mainnet wallet config
+    pub fn mainnet_wallet_config(&self) -> Option<&WalletEnvironmentConfig> {
+        self.wallets.as_ref().map(|w| &w.mainnet)
     }
     
     pub fn validate(&self) -> Result<()> {        // Validate RPC URLs
@@ -324,6 +377,32 @@ impl Default for Config {
                 gc_interval_seconds: 60,
                 metrics_collection_interval_ms: 1000,
             },
+            trading: Some(TradingConfig {
+                mode: "hybrid".to_string(),
+                devnet_real_trading: true,
+                mainnet_paper_trading: false,
+            }),
+            wallets: Some(WalletsConfig {
+                auto_generate: true,
+                auto_airdrop_devnet: true,
+                devnet_airdrop_amount: 2.0,
+                devnet: WalletEnvironmentConfig {
+                    enabled: true,
+                    real_trading: Some(true),
+                    paper_trading: Some(false),
+                    initial_balance_sol: Some(1.0),
+                    virtual_balance_sol: Some(0.5),
+                    max_trade_amount_sol: 0.1,
+                },
+                mainnet: WalletEnvironmentConfig {
+                    enabled: true,
+                    real_trading: Some(true),
+                    paper_trading: Some(false),
+                    initial_balance_sol: Some(0.5),
+                    virtual_balance_sol: Some(0.1),
+                    max_trade_amount_sol: 0.01,
+                },
+            }),
         }
     }
 }

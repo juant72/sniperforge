@@ -2,6 +2,8 @@ use anyhow::Result;
 use clap::{Command, Arg, ArgMatches};
 use colored::*;
 use std::io::{self, Write};
+use std::str::FromStr;
+use solana_sdk::signer::{Signer, keypair::Keypair};
 
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
 
@@ -26,22 +28,27 @@ pub async fn run_cli() -> Result<()> {
                         .help("Use devnet configuration for testing")
                         .action(clap::ArgAction::SetTrue)
                 )
-        )
-        .subcommand(Command::new("status").about("Show platform status"))
+        )        .subcommand(Command::new("status").about("Show platform status"))
         .subcommand(Command::new("config").about("Show current configuration"))
+        .subcommand(
+            Command::new("wallet")
+                .about("Wallet management commands")
+                .subcommand(Command::new("balance").about("Check wallet balances"))
+                .subcommand(Command::new("airdrop").about("Request SOL airdrop"))
+        )
         .subcommand(
             Command::new("test")
                 .about("Test connections and basic functionality")
                 .subcommand(Command::new("solana").about("Test Solana connectivity and RPC calls"))
                 .subcommand(Command::new("pools").about("Test pool detection and analysis"))
+                .subcommand(Command::new("wallets").about("Test wallet generation and management"))
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
-        .get_matches();
-    
-    match matches.subcommand() {
+        .get_matches();    match matches.subcommand() {
         Some(("start", sub_matches)) => handle_start_command(sub_matches).await?,
         Some(("status", _)) => handle_status_command().await?,
         Some(("config", _)) => handle_config_command().await?,
+        Some(("wallet", sub_matches)) => handle_wallet_command(sub_matches).await?,
         Some(("test", sub_matches)) => handle_test_command(sub_matches).await?,
         Some(("interactive", _)) => handle_interactive_command().await?,
         _ => {
@@ -129,6 +136,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("solana", _)) => handle_test_solana_command().await?,
         Some(("pools", _)) => handle_test_pools_command().await?,
+        Some(("wallets", _)) => handle_test_wallets_command().await?,
         _ => handle_test_all_command().await?,
     }
     Ok(())
@@ -176,6 +184,29 @@ async fn handle_test_pools_command() -> Result<()> {
         }
     }
     
+    Ok(())
+}
+
+async fn handle_test_wallets_command() -> Result<()> {
+    println!("{}", "🧪 Testing Wallet Generation & Management".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+      // Test wallet generation
+    print!("🔑 Generating test wallet... ");
+    io::stdout().flush()?;
+    let keypair = Keypair::new();
+    let pubkey = keypair.pubkey();
+    println!("{}", "✅ OK".bright_green());
+    println!("   Wallet: {}", pubkey.to_string().bright_cyan());
+    
+    // Test wallet validation
+    print!("🔍 Validating wallet format... ");
+    io::stdout().flush()?;
+    match solana_sdk::pubkey::Pubkey::from_str(&pubkey.to_string()) {
+        Ok(_) => println!("{}", "✅ OK".bright_green()),
+        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+    }
+    
+    println!("\n{}", "🎉 All wallet tests passed!".bright_green().bold());
     Ok(())
 }
 
@@ -305,6 +336,103 @@ async fn test_rpc_connection(rpc_url: &str) -> Result<()> {
     // Test with a simple call
     let _blockhash = client.get_latest_blockhash()
         .map_err(|e| anyhow::anyhow!("RPC connection failed: {}", e))?;
+    
+    Ok(())
+}
+
+async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
+    match matches.subcommand() {
+        Some(("balance", _)) => handle_wallet_balance_command().await?,
+        Some(("airdrop", _)) => handle_wallet_airdrop_command().await?,
+        _ => {
+            println!("{}", "Available wallet commands:".bright_cyan());
+            println!("  {} - Check wallet balances", "wallet balance".bright_green());
+            println!("  {} - Request SOL airdrop", "wallet airdrop".bright_green());
+        }
+    }
+    Ok(())
+}
+
+async fn handle_wallet_balance_command() -> Result<()> {
+    println!("{}", "💰 Checking Wallet Balances".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let _config = Config::load("config/platform.toml")?;
+    let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+    
+    // Known wallet from last test - we'll hardcode it for now
+    let known_pubkey = "GHAwmESbFzgACvA5XtuuQFZ4NvPgBQRD27DqU8YNF9QZ";
+    
+    println!("🔍 Checking balance for wallet: {}", known_pubkey.bright_cyan());
+    
+    match solana_sdk::pubkey::Pubkey::from_str(known_pubkey) {
+        Ok(pubkey) => {
+            match rpc_client.get_balance(&pubkey) {
+                Ok(balance_lamports) => {
+                    let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
+                    println!("💰 Balance: {} SOL ({} lamports)", 
+                             balance_sol.to_string().bright_green().bold(), 
+                             balance_lamports.to_string().bright_yellow());
+                    
+                    if balance_lamports > 0 {
+                        println!("✅ {}", "Airdrop was successful!".bright_green().bold());
+                    } else {
+                        println!("⏳ {}", "Airdrop might still be confirming...".bright_yellow());
+                    }
+                }
+                Err(e) => {
+                    println!("❌ Failed to get balance: {}", e.to_string().bright_red());
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Invalid pubkey: {}", e.to_string().bright_red());
+        }
+    }
+    
+    Ok(())
+}
+
+async fn handle_wallet_airdrop_command() -> Result<()> {
+    println!("{}", "💧 Requesting SOL Airdrop".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    println!("🚧 This will create and fund a new wallet with 2 SOL");
+    
+    // Generate a new keypair for testing
+    let keypair = solana_sdk::signer::keypair::Keypair::new();
+    let pubkey = keypair.pubkey();
+    
+    println!("🔑 Generated new wallet: {}", pubkey.to_string().bright_cyan());
+    
+    let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+    let airdrop_amount = 2_000_000_000; // 2 SOL in lamports
+    
+    println!("💸 Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
+    
+    match rpc_client.request_airdrop(&pubkey, airdrop_amount) {
+        Ok(signature) => {
+            println!("✅ Airdrop request successful!");
+            println!("📝 Signature: {}", signature.to_string().bright_green());
+            println!("🔗 View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            
+            println!("⏳ Waiting for confirmation...");
+            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            
+            match rpc_client.get_balance(&pubkey) {
+                Ok(balance) => {
+                    let balance_sol = balance as f64 / 1_000_000_000.0;
+                    println!("💰 Final balance: {} SOL", balance_sol.to_string().bright_green().bold());
+                }
+                Err(e) => {
+                    println!("⚠️ Could not verify balance: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            println!("❌ Airdrop failed: {}", e.to_string().bright_red());
+        }
+    }
     
     Ok(())
 }

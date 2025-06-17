@@ -2,11 +2,7 @@
 #![allow(unused_imports)]
 
 use anyhow::Result;
-use clap::{Arg, Command};
-use colored::*;
-use std::sync::Arc;
-use tokio::signal;
-use tracing::{info, warn, error};
+use tracing::info;
 
 pub mod config;
 pub mod platform;
@@ -16,83 +12,16 @@ pub mod types;
 mod cli;
 
 use config::Config;
-use platform::SniperForgePlatform;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
     init_logging()?;
     
-    // Check if this is a CLI command or platform start
-    let args: Vec<String> = std::env::args().collect();
-    
-    // If we have subcommands like 'test', 'config', 'status', use the CLI module
-    if args.len() > 1 && matches!(args[1].as_str(), "test" | "config" | "status" | "interactive") {
-        return cli::run_cli().await;
-    }
-    
     info!("🚀 Starting SniperForge Multi-Bot Platform v0.1.0");
     
-    // Parse command line arguments
-    let matches = Command::new("SniperForge")
-        .version("0.1.0")
-        .about("Multi-Bot Trading Platform for Solana")
-        .arg(
-            Arg::new("config")
-                .short('c')
-                .long("config")
-                .value_name("FILE")
-                .help("Sets a custom config file")
-                .default_value("config/platform.toml")
-        )
-        .arg(
-            Arg::new("mode")
-                .short('m')
-                .long("mode")
-                .value_name("MODE")
-                .help("Operating mode: development, staging, production")
-                .default_value("development")
-        )
-        .arg(
-            Arg::new("bot")
-                .short('b')
-                .long("bot")
-                .value_name("BOT_TYPE")
-                .help("Run specific bot type: lp-sniper, arbitrage, mev, copy-trading")
-                .action(clap::ArgAction::Append)
-        )
-        .get_matches();
-    
-    // Load configuration
-    let config_path = matches.get_one::<String>("config").unwrap();
-    let config = Config::load(config_path)?;
-    
-    let mode = matches.get_one::<String>("mode").unwrap();
-    info!("🔧 Running in {} mode", mode.bright_yellow());
-    
-    // Display startup banner
-    display_banner();
-    
-    // Initialize the platform
-    let platform = Arc::new(SniperForgePlatform::new(config).await?);
-      // Handle specific bot selection
-    if let Some(bot_types) = matches.get_many::<String>("bot") {
-        let bot_types_vec: Vec<String> = bot_types.cloned().collect();
-        info!("🤖 Starting specific bots: {:?}", bot_types_vec);
-        platform.start_specific_bots(bot_types_vec).await?;
-    } else {
-        info!("🏢 Starting full platform with all enabled bots");
-        platform.start_platform().await?;
-    }
-    
-    // Setup graceful shutdown
-    setup_shutdown_handler(platform.clone()).await?;
-    
-    // Main event loop
-    info!("✅ SniperForge platform is running. Press Ctrl+C to stop.");
-    platform.run().await?;
-    
-    Ok(())
+    // Always use the modern CLI system
+    cli::run_cli().await
 }
 
 fn init_logging() -> Result<()> {
@@ -116,44 +45,5 @@ fn init_logging() -> Result<()> {
     
     // Keep the guard alive for the duration of the program
     std::mem::forget(_guard);
-    
-    Ok(())
-}
-
-fn display_banner() {
-    println!("{}", "
-███████╗███╗   ██╗██╗██████╗ ███████╗██████╗ ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
-██╔════╝████╗  ██║██║██╔══██╗██╔════╝██╔══██╗██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
-███████╗██╔██╗ ██║██║██████╔╝█████╗  ██████╔╝█████╗  ██║   ██║██████╔╝██║  ███╗█████╗  
-╚════██║██║╚██╗██║██║██╔═══╝ ██╔══╝  ██╔══██╗██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝  
-███████║██║ ╚████║██║██║     ███████╗██║  ██║██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
-╚══════╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
-".bright_cyan());
-    
-    println!("{}", "🤖 Multi-Bot Trading Platform for Solana".bright_green().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
-    println!();
-}
-
-async fn setup_shutdown_handler(platform: Arc<SniperForgePlatform>) -> Result<()> {
-    let platform_clone = platform.clone();
-    
-    tokio::spawn(async move {
-        match signal::ctrl_c().await {
-            Ok(()) => {
-                warn!("🛑 Shutdown signal received, stopping platform gracefully...");
-                if let Err(e) = platform_clone.shutdown().await {
-                    error!("❌ Error during shutdown: {}", e);
-                } else {
-                    info!("✅ Platform shutdown completed");
-                }
-                std::process::exit(0);
-            }
-            Err(err) => {
-                error!("❌ Unable to listen for shutdown signal: {}", err);
-            }
-        }
-    });
-    
-    Ok(())
+      Ok(())
 }

@@ -9,9 +9,10 @@ use solana_sdk::{
     signature::Signature,
     transaction::Transaction,
 };
+use solana_client::rpc_client::RpcClient;
 use serde::{Serialize, Deserialize};
 
-use crate::config::Config;
+use crate::config::{Config, WalletEnvironmentConfig};
 use crate::types::{PlatformError, HealthStatus};
 
 /// Wallet configuration for different purposes
@@ -391,31 +392,160 @@ impl WalletManager {
             warn!("No keypair specified for wallet {}, generating new one", config.name);
             Ok(Keypair::new())
         }
-    }
-
-    /// Load wallets from configuration
+    }    /// Load wallets from configuration - Sprint 1.5 implementation
     async fn load_configured_wallets(&mut self) -> Result<()> {
-        // This would load wallet configurations from the config file
-        // For now, we'll create a default trading wallet
+        info!("🔐 Loading wallet configurations for Sprint 1.5");
         
-        let default_config = WalletConfig {
-            name: "main-trading".to_string(),
+        // Check if auto-generation is enabled
+        if let Some(wallet_config) = &self.config.wallets {
+            if wallet_config.auto_generate {
+                info!("🎯 Auto-generating wallets for hybrid trading mode");
+                
+                // DevNet wallet (real keypair)
+                if wallet_config.devnet.enabled {
+                    let devnet_wallet = self.create_devnet_wallet(&wallet_config.devnet).await?;
+                    self.add_wallet(devnet_wallet).await?;
+                    info!("✅ DevNet wallet created for real trading");
+                    
+                    // Auto-airdrop if enabled
+                    if wallet_config.auto_airdrop_devnet {
+                        self.airdrop_devnet_sol("devnet-trading", wallet_config.devnet_airdrop_amount).await?;
+                    }
+                }
+                
+                // MainNet wallet (virtual/paper trading)
+                if wallet_config.mainnet.enabled {
+                    let mainnet_wallet = self.create_mainnet_wallet(&wallet_config.mainnet).await?;
+                    self.add_wallet(mainnet_wallet).await?;
+                    info!("✅ MainNet virtual wallet created for paper trading");
+                }
+            }
+        } else {
+            // Fallback to default wallet for backward compatibility
+            warn!("⚠️ No wallet config found, creating default wallet");
+            let default_config = WalletConfig {
+                name: "default-trading".to_string(),
+                wallet_type: WalletType::Trading,
+                keypair_path: None,
+                keypair_data: None,
+                max_sol_balance: 100.0,
+                min_sol_balance: 1.0,
+                risk_management: RiskManagement {
+                    max_transaction_amount: 10.0,
+                    daily_limit: 50.0,
+                    require_confirmation: false,
+                    emergency_stop_threshold: 0.1,
+                },
+            };
+            self.add_wallet(default_config).await?;
+        }
+        
+        Ok(())
+    }
+    
+    /// Create DevNet wallet with real keypair
+    async fn create_devnet_wallet(&self, env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
+        info!("🧪 Creating DevNet wallet with real keypair");
+        
+        // Generate new keypair for devnet
+        let keypair = Keypair::new();
+        let keypair_bytes = keypair.to_bytes();
+        let keypair_base58 = bs58::encode(keypair_bytes).into_string();
+        
+        info!("🔑 Generated DevNet keypair: {}", keypair.pubkey());
+        
+        Ok(WalletConfig {
+            name: "devnet-trading".to_string(),
             wallet_type: WalletType::Trading,
             keypair_path: None,
-            keypair_data: None,
-            max_sol_balance: 100.0,
+            keypair_data: Some(keypair_base58),
+            max_sol_balance: env_config.initial_balance_sol.unwrap_or(10.0),
+            min_sol_balance: 0.1,
+            risk_management: RiskManagement {
+                max_transaction_amount: env_config.max_trade_amount_sol,
+                daily_limit: env_config.max_trade_amount_sol * 10.0,
+                require_confirmation: false,
+                emergency_stop_threshold: 0.05,
+            },
+        })
+    }
+    
+    /// Create MainNet virtual wallet (no real keypair needed)
+    async fn create_mainnet_wallet(&self, env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
+        info!("📊 Creating MainNet virtual wallet for paper trading");
+        
+        // For paper trading, we don't need a real keypair
+        // We'll use a dummy keypair just for the structure
+        let dummy_keypair = Keypair::new();
+        
+        info!("📈 Virtual MainNet wallet: {} (PAPER TRADING ONLY)", dummy_keypair.pubkey());
+        
+        Ok(WalletConfig {
+            name: "mainnet-paper".to_string(),
+            wallet_type: WalletType::Testing, // Mark as testing since it's virtual
+            keypair_path: None,
+            keypair_data: None, // No real keypair for paper trading
+            max_sol_balance: env_config.virtual_balance_sol.unwrap_or(100.0),
             min_sol_balance: 1.0,
             risk_management: RiskManagement {
-                max_transaction_amount: 10.0,
-                daily_limit: 50.0,
+                max_transaction_amount: env_config.max_trade_amount_sol,
+                daily_limit: env_config.max_trade_amount_sol * 20.0,
                 require_confirmation: false,
-                emergency_stop_threshold: 0.1,
+                emergency_stop_threshold: 10.0, // Higher threshold for virtual
             },
-        };
-
-        self.add_wallet(default_config).await?;
-        Ok(())
-    }    /// Start balance monitoring task
+        })
+    }
+    
+    /// Airdrop SOL on devnet for testing
+    async fn airdrop_devnet_sol(&self, wallet_name: &str, amount: f64) -> Result<()> {
+        info!("💧 Requesting {} SOL airdrop for wallet: {}", amount, wallet_name);
+        
+        // Get the wallet
+        let wallets = self.wallets.read().await;
+        if let Some(wallet) = wallets.get(wallet_name) {
+            if let Some(keypair_data) = &wallet.config.keypair_data {
+                // Decode keypair
+                let keypair_bytes = bs58::decode(keypair_data)
+                    .into_vec()
+                    .map_err(|e| anyhow::anyhow!("Failed to decode keypair: {}", e))?;
+                let keypair = Keypair::from_bytes(&keypair_bytes)?;
+                  info!("💸 Requesting airdrop for pubkey: {}", keypair.pubkey());
+                
+                // Real airdrop request to devnet
+                let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+                let lamports = (amount * 1_000_000_000.0) as u64; // Convert SOL to lamports
+                
+                match rpc_client.request_airdrop(&keypair.pubkey(), lamports) {
+                    Ok(signature) => {
+                        info!("✅ Airdrop request successful! Signature: {}", signature);
+                        info!("🎯 Requested {} SOL ({} lamports) for wallet {}", amount, lamports, wallet_name);
+                        
+                        // Wait a moment for confirmation
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                        
+                        // Check balance
+                        match rpc_client.get_balance(&keypair.pubkey()) {
+                            Ok(balance) => {
+                                let balance_sol = balance as f64 / 1_000_000_000.0;
+                                info!("💰 Current wallet balance: {} SOL ({} lamports)", balance_sol, balance);
+                            }
+                            Err(e) => warn!("⚠️ Could not check balance: {}", e),
+                        }
+                    }
+                    Err(e) => {
+                        error!("❌ Airdrop request failed: {}", e);
+                        warn!("💡 Note: DevNet faucet might be rate-limited or temporarily unavailable");
+                        return Err(anyhow::anyhow!("Airdrop failed: {}", e));
+                    }
+                }
+                // rpc_client.confirm_transaction(&signature)?;
+                
+                return Ok(());
+            }
+        }
+        
+        Err(anyhow::anyhow!("Wallet not found or no keypair: {}", wallet_name))
+    }/// Start balance monitoring task
     async fn start_balance_monitoring(&self) {
         let _wallets = self.wallets.clone();
         

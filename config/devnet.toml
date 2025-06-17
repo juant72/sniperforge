@@ -5,6 +5,12 @@ max_concurrent_bots = 3
 resource_allocation_strategy = "priority_based"
 event_bus_buffer_size = 5000
 
+# HYBRID TRADING MODE - Sprint 1.5
+[trading]
+mode = "hybrid"  # devnet_real + mainnet_paper
+devnet_real_trading = true
+mainnet_paper_trading = true
+
 [network]
 # DEVNET CONFIGURATION - SAFE FOR TESTING
 environment = "devnet"
@@ -40,6 +46,28 @@ monitoring_enabled = true
 wallet_encryption_enabled = true
 key_derivation_iterations = 100000
 session_timeout_minutes = 30
+
+# Wallet configuration - Sprint 1.5
+[wallets]
+auto_generate = true
+auto_airdrop_devnet = true
+devnet_airdrop_amount = 5.0  # 5 SOL for testing
+
+# DevNet wallet (real keypair for testing)
+[wallets.devnet]
+enabled = true
+real_trading = true
+paper_trading = false
+initial_balance_sol = 5.0
+max_trade_amount_sol = 1.0
+
+# MainNet wallet (virtual/paper trading only)
+[wallets.mainnet]
+enabled = true
+real_trading = false
+paper_trading = true
+virtual_balance_sol = 100.0  # Virtual money for simulation
+max_trade_amount_sol = 10.0
 
 [logging]
 level = "info"
