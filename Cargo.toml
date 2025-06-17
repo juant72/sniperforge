@@ -14,15 +14,15 @@ path = "src/lib.rs"
 [dependencies]
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
-tokio-tungstenite = "0.21"
+tokio-tungstenite = "0.27.0"
 futures-util = "0.3"
 futures = "0.3"
 
-# Solana
-solana-sdk = "1.18"
-solana-client = "1.18"
-solana-account-decoder = "1.18"
-solana-transaction-status = "1.18"
+# Solana - Using latest available version with minimal features
+solana-sdk = { version = "2.2.2", default-features = false }
+solana-client = { version = "2.2.2", default-features = false }
+solana-account-decoder = { version = "2.2.2", default-features = false }
+solana-transaction-status = { version = "2.2.2", default-features = false }
 
 # Serde for serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -30,45 +30,50 @@ serde_json = "1.0"
 toml = "0.8"
 
 # Web3 and crypto
-anchor-client = "0.29"
-anchor-lang = "0.29"
-base64 = "0.21"
+anchor-client = "0.31.1"
+anchor-lang = "0.31.1"
+base64 = "0.22.1"
 bs58 = "0.5"
 
-# HTTP client
-reqwest = { version = "0.11", features = ["json"] }
+# HTTP client - Using rustls for Windows compatibility (no OpenSSL required)
+reqwest = { version = "0.12.20", features = ["json", "rustls-tls"], default-features = false }
+url = "2.4"
+
+# Additional crypto and serialization for Jupiter
+bincode = "2.0.1"
+hex = "0.4"
 
 # Logging
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 tracing-appender = "0.2"
 
 # CLI and console
 clap = { version = "4.0", features = ["derive"] }
 console = "0.15"
-colored = "2.0"
-crossterm = "0.27"
+colored = "3.0.0"
+crossterm = "0.29.0"
 
 # Utilities
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0.12"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Configuration
-config = "0.14"
+config = "0.15.11"
 
 # Metrics and monitoring
-metrics = "0.21"
-metrics-exporter-prometheus = "0.12"
-sysinfo = "0.30"
+metrics = "0.24.2"
+metrics-exporter-prometheus = "0.17.0"
+sysinfo = "0.35.2"
 
 # Random number generation
-rand = "0.8"
+rand = "0.9.1"
 
 [dev-dependencies]
 assert_matches = "1.5"
-mockall = "0.12"
+mockall = "0.13.1"
 
 [profile.release]
 opt-level = 3

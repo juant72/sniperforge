@@ -35,13 +35,13 @@ pub async fn run_cli() -> Result<()> {
                 .about("Wallet management commands")
                 .subcommand(Command::new("balance").about("Check wallet balances"))
                 .subcommand(Command::new("airdrop").about("Request SOL airdrop"))
-        )
-        .subcommand(
+        )        .subcommand(
             Command::new("test")
                 .about("Test connections and basic functionality")
                 .subcommand(Command::new("solana").about("Test Solana connectivity and RPC calls"))
                 .subcommand(Command::new("pools").about("Test pool detection and analysis"))
                 .subcommand(Command::new("wallets").about("Test wallet generation and management"))
+                .subcommand(Command::new("jupiter").about("Test Jupiter API integration"))
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .get_matches();    match matches.subcommand() {
@@ -137,6 +137,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("solana", _)) => handle_test_solana_command().await?,
         Some(("pools", _)) => handle_test_pools_command().await?,
         Some(("wallets", _)) => handle_test_wallets_command().await?,
+        Some(("jupiter", _)) => handle_test_jupiter_command().await?,
         _ => handle_test_all_command().await?,
     }
     Ok(())
@@ -434,6 +435,97 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
         }
     }
     
+    Ok(())
+}
+
+async fn handle_test_jupiter_command() -> Result<()> {
+    println!("{}", "🧪 Testing Jupiter API Integration".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let config = Config::load("config/platform.toml")?;
+    let shared_services = sniperforge::SharedServices::new(&config).await?;
+    
+    println!("🪐 Testing Jupiter connectivity...");
+    
+    // Test Jupiter API connectivity
+    let jupiter = shared_services.jupiter();
+    match jupiter.test_connectivity().await {
+        Ok(true) => {
+            println!("✅ Jupiter API connection: {}", "SUCCESSFUL".bright_green());
+        }
+        Ok(false) => {
+            println!("❌ Jupiter API connection: {}", "FAILED".bright_red());
+            return Ok(());
+        }
+        Err(e) => {
+            println!("❌ Jupiter API error: {}", format!("{}", e).bright_red());
+            return Ok(());
+        }
+    }
+
+    // Test quote functionality
+    println!("\n💰 Testing quote functionality...");
+    
+    use sniperforge::shared::jupiter::{QuoteRequest, tokens};
+    
+    // Test SOL to USDC quote
+    let quote_request = QuoteRequest::new(
+        tokens::sol(),
+        tokens::usdc(),
+        1_000_000_000, // 1 SOL
+    ).with_slippage(50); // 0.5% slippage
+
+    match jupiter.quotes().get_quote(quote_request).await {
+        Ok(quote) => {
+            println!("✅ Quote successful:");
+            println!("   📥 Input: {} SOL", quote.in_amount.parse::<u64>().unwrap_or(0) as f64 / 1_000_000_000.0);
+            println!("   📤 Output: {} USDC", quote.out_amount.parse::<u64>().unwrap_or(0) as f64 / 1_000_000.0);
+            println!("   💥 Price Impact: {}%", quote.price_impact_pct);
+            println!("   🛣️  Routes: {}", quote.route_plan.len());
+            
+            if !quote.route_plan.is_empty() {
+                println!("   🏪 Best DEX: {}", quote.route_plan[0].swap_info.label);
+            }
+        }
+        Err(e) => {
+            println!("❌ Quote failed: {}", format!("{}", e).bright_red());
+        }
+    }
+
+    // Test price lookup
+    println!("\n💵 Testing price lookup...");
+    
+    match jupiter.quotes().get_token_price_usd(&tokens::sol()).await {
+        Ok(Some(price)) => {
+            println!("✅ SOL Price: ${:.2}", price);
+        }
+        Ok(None) => {
+            println!("⚠️  SOL price not available");
+        }
+        Err(e) => {
+            println!("❌ Price lookup failed: {}", format!("{}", e).bright_red());
+        }
+    }
+
+    // Test supported DEXes
+    println!("\n🏪 Testing supported DEXes...");
+    
+    match jupiter.swaps().get_supported_dexes().await {
+        Ok(dexes) => {
+            println!("✅ Supported DEXes ({}):", dexes.len());
+            for (i, dex) in dexes.iter().take(5).enumerate() {
+                println!("   {}. {}", i + 1, dex);
+            }
+            if dexes.len() > 5 {
+                println!("   ... and {} more", dexes.len() - 5);
+            }
+        }
+        Err(e) => {
+            println!("❌ DEX list failed: {}", format!("{}", e).bright_red());
+        }
+    }
+
+    println!("\n🎉 Jupiter integration test completed!");
     Ok(())
 }
 

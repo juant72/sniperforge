@@ -2,6 +2,7 @@ pub mod rpc_pool;
 pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
+pub mod jupiter;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -15,12 +16,14 @@ use rpc_pool::RpcConnectionPool;
 use wallet_manager::WalletManager;
 use data_feeds::MarketDataFeeds;
 use monitoring::MonitoringSystem;
+use jupiter::Jupiter;
 
 pub struct SharedServices {
     rpc_pool: Arc<RpcConnectionPool>,
     wallet_manager: Arc<WalletManager>,
     data_feeds: Arc<MarketDataFeeds>,
     monitoring: Arc<MonitoringSystem>,
+    jupiter: Arc<Jupiter>,
     is_running: Arc<RwLock<bool>>,
 }
 
@@ -36,15 +39,19 @@ impl SharedServices {
         
         // Initialize market data feeds
         let data_feeds = Arc::new(MarketDataFeeds::new(config, rpc_pool.clone()).await?);
-        
-        // Initialize monitoring system
+          // Initialize monitoring system
         let monitoring = Arc::new(MonitoringSystem::new(config)?);
+        
+        // Initialize Jupiter integration
+        let jupiter_config = jupiter::JupiterConfig::default();
+        let jupiter = Arc::new(Jupiter::new(jupiter_config).await?);
         
         Ok(Self {
             rpc_pool,
             wallet_manager,
             data_feeds,
             monitoring,
+            jupiter,
             is_running: Arc::new(RwLock::new(false)),
         })
     }
@@ -152,7 +159,13 @@ impl SharedServices {
     pub fn monitoring(&self) -> Arc<MonitoringSystem> {
         self.monitoring.clone()
     }
-      /// Get shared services metrics
+
+    /// Get access to Jupiter API integration
+    pub fn jupiter(&self) -> Arc<Jupiter> {
+        self.jupiter.clone()
+    }
+
+    /// Get shared services metrics
     pub async fn get_metrics(&self) -> Result<SharedServicesMetrics> {
         // Get metrics from each service
         let rpc_stats = self.rpc_pool.get_stats().await;

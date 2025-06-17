@@ -7,6 +7,11 @@ incremental = true
 # Use LLD linker for faster linking on Windows
 linker = "rust-lld"
 
+# Force use of rustls instead of openssl for all dependencies
+[env]
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+RUSTFLAGS = "--cfg reqwest_unstable"
+
 # Enable faster compilation with parallel rustc
 [unstable]
 parallel-rustc = true
