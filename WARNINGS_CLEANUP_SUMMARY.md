@@ -46,3 +46,50 @@
 - ✅ Directivas globales aplicadas para funciones de API no utilizadas
 
 El proyecto ahora está limpio y listo para desarrollo colaborativo sin warnings que interfieran con el seguimiento de errores reales.
+
+---
+
+# Limpieza de Warnings de Markdown Completada
+
+## Resumen de Cambios
+
+### Warnings de Markdown Corregidos
+
+1. **Bloques de código sin especificar lenguaje**:
+   - Aplicado reemplazo global: ```` ``` ```` → ``````` text````
+   - Afectó todos los archivos .md en /docs recursivamente
+
+2. **Links rotos eliminados**:
+   - Eliminadas referencias a archivos inexistentes
+   - Simplificado docs/README.md para mantener solo links válidos
+
+3. **Headings con puntuación final**:
+   - Eliminados dos puntos al final de headings automáticamente
+   - Aplicado regex: `^(#+.*):$` → `$1`
+
+4. **Formato de listas y headings**:
+   - Agregadas líneas en blanco alrededor de headings críticos
+   - Corregido espaciado en listas en archivos principales
+
+5. **Caracteres problemáticos**:
+   - Corregidos emojis malformados en docs/README.md
+   - Eliminadas referencias a archivos de planificación eliminados
+
+### Archivos de Sprints Preservados
+
+✅ **MANTENIDOS** todos los archivos de desarrollo importantes:
+- `docs/dev/sprint-0-setup.md`
+- `docs/dev/sprint-2-security.md` 
+- `docs/dev/sprint-3-performance.md`
+- `docs/dev/sprint-4-mev-protection.md`
+- `docs/dev/sprint-5-reliability.md`
+- `docs/dev/sprint-6-performance-tuning.md`
+- `docs/dev/implementation-guide.md`
+- `docs/dev/multi-bot-architecture.md`
+
+### Estrategia Aplicada
+
+- ✅ **Corrección automatizada** con PowerShell para patrones comunes
+- ✅ **Preservación de contenido** importante de planificación
+- ✅ **Limpieza selectiva** solo de warnings críticos
+- ✅ **Mantenimiento de estructura** de documentación técnica
