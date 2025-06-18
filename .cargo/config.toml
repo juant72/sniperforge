@@ -1,11 +1,15 @@
 # 🚀 SniperForge - Configuración optimizada para builds ultrarrápidos
 [env]
-# OpenSSL precompilado - evita compilar desde fuente
+# OpenSSL precompilado - rutas hardcoded para mayor confiabilidad
 OPENSSL_STATIC = "1"
-OPENSSL_LIB_DIR = "C:\\vcpkg\\installed\\x64-windows-static\\lib"
-OPENSSL_INCLUDE_DIR = "C:\\vcpkg\\installed\\x64-windows-static\\include"
-VCPKG_ROOT = "C:\\vcpkg"
+OPENSSL_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static", force = true }
+OPENSSL_LIB_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static\\lib", force = true }
+OPENSSL_INCLUDE_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static\\include", force = true }
+VCPKG_ROOT = { value = "C:\\tools\\vcpkg", force = true }
 VCPKGRS_DYNAMIC = "1"
+
+# sccache configuration
+RUSTC_WRAPPER = { value = "sccache", force = true }
 
 # Optimizaciones de red
 CARGO_NET_GIT_FETCH_WITH_CLI = "true"
