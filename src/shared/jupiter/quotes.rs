@@ -48,21 +48,16 @@ impl QuoteEngine {
         if let Some(cached) = self.get_cached_quote(&cache_key).await {
             debug!("📋 Using cached quote for {}", cache_key);
             return Ok(cached);
-        }
-
-        debug!("🔍 Fetching new quote: {} -> {} ({})", 
+        }        debug!("🔍 Fetching new quote: {} -> {} ({})", 
                request.input_mint, request.output_mint, request.amount);
 
         // Fetch new quote
-        let quote_response = self.client.get_quote(
+        let quote = self.client.get_quote(
             &request.input_mint.to_string(),
             &request.output_mint.to_string(),
             request.amount,
             request.slippage_bps,
         ).await?;
-
-        // Parse response
-        let quote: JupiterQuote = serde_json::from_value(quote_response)?;
 
         // Cache the result
         self.cache_quote(cache_key, quote.clone()).await;

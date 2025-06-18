@@ -63,16 +63,14 @@ impl JupiterClient {
         } else {
             Err(anyhow!("Jupiter API health check failed: {}", response.status()))
         }
-    }
-
-    /// Get quote for token swap
+    }    /// Get quote for token swap
     pub async fn get_quote(
         &self,
         input_mint: &str,
         output_mint: &str,
         amount: u64,
         slippage_bps: Option<u16>,
-    ) -> Result<Value> {
+    ) -> Result<super::types::JupiterQuote> {
         debug!("💰 Getting Jupiter quote: {} -> {} ({})", 
                input_mint, output_mint, amount);
 
@@ -86,7 +84,7 @@ impl JupiterClient {
             .append_pair("slippageBps", &slippage_bps.unwrap_or(self.config.slippage_bps).to_string());
 
         let response = self.execute_with_retry(url).await?;
-        let quote: Value = response.json().await?;
+        let quote: super::types::JupiterQuote = response.json().await?;
 
         debug!("✅ Quote received");
         Ok(quote)
@@ -183,9 +181,7 @@ impl JupiterClient {
         }
         
         Ok(None)
-    }
-
-    /// Get SOL price by getting a quote from SOL to USDC
+    }    /// Get SOL price by getting a quote from SOL to USDC
     async fn get_sol_price_via_usdc_quote(&self) -> Result<f64> {
         debug!("💰 Getting SOL price via USDC quote");
         
@@ -197,12 +193,10 @@ impl JupiterClient {
             Some(50), // 0.5% slippage
         ).await?;
 
-        if let Some(out_amount_str) = quote.get("outAmount").and_then(|v| v.as_str()) {
-            if let Ok(out_amount) = out_amount_str.parse::<u64>() {
-                // USDC has 6 decimals, so divide by 1_000_000
-                let usdc_amount = out_amount as f64 / 1_000_000.0;
-                return Ok(usdc_amount);
-            }
+        if let Ok(out_amount) = quote.out_amount.parse::<u64>() {
+            // USDC has 6 decimals, so divide by 1_000_000
+            let usdc_amount = out_amount as f64 / 1_000_000.0;
+            return Ok(usdc_amount);
         }
 
         Err(anyhow::anyhow!("Failed to calculate SOL price from quote"))
