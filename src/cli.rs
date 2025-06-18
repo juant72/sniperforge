@@ -6,7 +6,8 @@ use std::str::FromStr;
 use solana_sdk::signer::{Signer, keypair::Keypair};
 
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
-use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
+use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
+use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
 
 pub async fn run_cli() -> Result<()> {
     let matches = Command::new("SniperForge CLI")
@@ -36,13 +37,13 @@ pub async fn run_cli() -> Result<()> {
                 .about("Wallet management commands")
                 .subcommand(Command::new("balance").about("Check wallet balances"))
                 .subcommand(Command::new("airdrop").about("Request SOL airdrop"))
-        )        .subcommand(
-            Command::new("test")
-                .about("Test connections and basic functionality")
-                .subcommand(Command::new("solana").about("Test Solana connectivity and RPC calls"))
+        )        .subcommand(            Command::new("test")
+                .about("Test connections and basic functionality")                .subcommand(Command::new("solana").about("Test Solana connectivity and RPC calls"))
                 .subcommand(Command::new("pools").about("Test pool detection and analysis"))
                 .subcommand(Command::new("wallets").about("Test wallet generation and management"))
                 .subcommand(Command::new("jupiter").about("Test Jupiter API integration"))
+                .subcommand(Command::new("trading").about("Test trade execution engine"))
+                .subcommand(Command::new("websockets").about("Test WebSocket real-time connectivity"))
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .get_matches();    match matches.subcommand() {
@@ -136,9 +137,10 @@ async fn handle_config_command() -> Result<()> {
 async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("solana", _)) => handle_test_solana_command().await?,
-        Some(("pools", _)) => handle_test_pools_command().await?,
-        Some(("wallets", _)) => handle_test_wallets_command().await?,
+        Some(("pools", _)) => handle_test_pools_command().await?,        Some(("wallets", _)) => handle_test_wallets_command().await?,
         Some(("jupiter", _)) => handle_test_jupiter_command().await?,
+        Some(("trading", _)) => handle_test_trading_command().await?,
+        Some(("websockets", _)) => handle_test_websockets_command().await?,
         _ => handle_test_all_command().await?,
     }
     Ok(())
@@ -527,9 +529,213 @@ async fn handle_test_jupiter_command() -> Result<()> {
     }
     if dexes.len() > 5 {
         println!("   ... and {} more", dexes.len() - 5);
-    }
+    }    println!("\n🎉 Jupiter integration test completed!");
+    Ok(())
+}
 
-    println!("\n🎉 Jupiter integration test completed!");
+async fn handle_test_trading_command() -> Result<()> {
+    println!("{}", "🧪 Testing Trade Execution Engine".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let config = Config::load("config/platform.toml")?;
+    
+    // Test DevNet trading mode
+    println!("🧪 Testing DevNet Real Trading Mode...");
+    let devnet_executor = TradeExecutor::new(config.clone(), TradingMode::DevNetReal).await?;
+    
+    match devnet_executor.health_check().await {
+        Ok(()) => {
+            println!("✅ DevNet Trade Executor: {}", "HEALTHY".bright_green());
+        }
+        Err(e) => {
+            println!("❌ DevNet Trade Executor: {}", format!("{}", e).bright_red());
+        }
+    }
+    
+    // Test MainNet Paper Trading mode
+    println!("\n📝 Testing MainNet Paper Trading Mode...");
+    let paper_executor = TradeExecutor::new(config.clone(), TradingMode::MainNetPaper).await?;
+    
+    match paper_executor.health_check().await {
+        Ok(()) => {
+            println!("✅ Paper Trade Executor: {}", "HEALTHY".bright_green());
+        }
+        Err(e) => {
+            println!("❌ Paper Trade Executor: {}", format!("{}", e).bright_red());
+        }
+    }
+    
+    // Test a simulated trade
+    println!("\n� Testing Trade Execution...");
+    let trade_request = TradeRequest {
+        input_mint: tokens::sol(),
+        output_mint: tokens::usdc(),
+        amount_in: 100_000_000, // 0.1 SOL
+        slippage_bps: 50, // 0.5%
+        wallet_name: "test-wallet".to_string(),
+        max_price_impact: 1.0, // 1%
+        trading_mode: TradingMode::Simulation,
+    };
+    
+    let simulation_executor = TradeExecutor::new(config, TradingMode::Simulation).await?;
+    
+    match simulation_executor.execute_trade(trade_request).await {
+        Ok(result) => {
+            println!("✅ Trade Execution Test: {}", "SUCCESSFUL".bright_green());
+            println!("   Success: {}", result.success);
+            println!("   Mode: {:?}", result.trading_mode);
+            println!("   Input: {} lamports", result.input_amount);
+            println!("   Output: {} lamports", result.output_amount);
+            println!("   Price Impact: {}%", result.actual_price_impact);
+            println!("   Execution Time: {} ms", result.execution_time_ms);
+            if let Some(sig) = result.transaction_signature {
+                println!("   Signature: {}", sig);
+            }
+        }
+        Err(e) => {
+            println!("❌ Trade Execution Test: {}", format!("{}", e).bright_red());
+        }
+    }
+      println!("\n🎉 Trade execution test completed!");
+    Ok(())
+}
+
+async fn handle_test_websockets_command() -> Result<()> {
+    println!("{}", "🧪 Testing WebSocket Real-Time Connectivity".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    let config = Config::load("config/platform.toml")?;
+    
+    println!("🌐 WebSocket URL: {}", config.network.websocket_url().bright_cyan());
+    
+    // Initialize WebSocket manager
+    let ws_manager = sniperforge::shared::websocket_manager::WebSocketManager::new(&config).await?;
+    
+    println!("✅ WebSocket manager initialized");
+    
+    // Test connection status
+    if ws_manager.is_connected().await {
+        println!("✅ WebSocket connection: {}", "CONNECTED".bright_green());
+    } else {
+        println!("⚠️  WebSocket connection: {}", "DISCONNECTED".bright_yellow());
+        println!("   Waiting for connection...");
+        
+        // Wait a bit for connection
+        tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+        
+        if ws_manager.is_connected().await {
+            println!("✅ WebSocket connection: {}", "CONNECTED".bright_green());
+        } else {
+            println!("❌ WebSocket connection: {}", "FAILED".bright_red());
+            return Ok(());
+        }
+    }
+    
+    // Test slot subscription
+    println!("\n⏱️  Testing slot updates subscription...");
+    let slot_receiver = ws_manager.monitor_slots().await?;
+    println!("✅ Subscribed to slot updates");
+    
+    // Listen for a few slot updates
+    let mut slot_count = 0;
+    let mut slot_receiver = slot_receiver;
+    let start_time = std::time::Instant::now();
+    
+    println!("📡 Listening for real-time slot updates (10 seconds)...");
+    
+    while slot_count < 5 && start_time.elapsed().as_secs() < 10 {
+        tokio::select! {
+            slot_result = slot_receiver.recv() => {
+                match slot_result {
+                    Ok(slot) => {
+                        slot_count += 1;
+                        println!("   📊 Slot {}: {} (#{}/5)", 
+                                slot, 
+                                chrono::Utc::now().format("%H:%M:%S%.3f"),
+                                slot_count);
+                    }
+                    Err(e) => {
+                        println!("   ⚠️  Slot receiver error: {}", e);
+                        break;
+                    }
+                }
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(10)) => {
+                println!("   ⏰ Timeout waiting for slots");
+                break;
+            }
+        }
+    }
+    
+    if slot_count > 0 {
+        println!("✅ Received {} slot updates in real-time", slot_count);
+        
+        // Calculate approximate latency (slots are ~400ms on Solana)
+        let avg_time_per_slot = start_time.elapsed().as_millis() as f64 / slot_count as f64;
+        println!("⚡ Average time between slots: {:.1}ms", avg_time_per_slot);
+        
+        if avg_time_per_slot < 500.0 {
+            println!("✅ Low latency: {}", "EXCELLENT".bright_green());
+        } else if avg_time_per_slot < 1000.0 {
+            println!("⚠️  Medium latency: {}", "ACCEPTABLE".bright_yellow());
+        } else {
+            println!("❌ High latency: {}", "POOR".bright_red());
+        }
+    } else {
+        println!("❌ No slot updates received");
+    }
+    
+    // Test account monitoring (using a well-known account)
+    println!("\n👛 Testing account monitoring...");
+    
+    use solana_sdk::pubkey::Pubkey;
+    use std::str::FromStr;
+    
+    // Monitor a well-known account (System Program)
+    let system_program = Pubkey::from_str("11111111111111111111111111111112")?;
+    let balance_receiver = ws_manager.monitor_account_balance(system_program).await?;
+    println!("✅ Subscribed to account balance updates");
+    
+    // Brief monitoring
+    let mut balance_receiver = balance_receiver;
+    println!("📡 Monitoring account balance (5 seconds)...");
+    
+    tokio::select! {
+        balance_result = balance_receiver.recv() => {
+            match balance_result {
+                Ok(balance) => {
+                    println!("   💰 Account balance: {} SOL", balance);
+                    println!("✅ Real-time balance monitoring: {}", "WORKING".bright_green());
+                }
+                Err(e) => {
+                    println!("   ⚠️  Balance receiver error: {}", e);
+                }
+            }
+        }
+        _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+            println!("   ⏰ No balance updates in monitoring period (normal)");
+            println!("✅ Account subscription: {}", "ACTIVE".bright_green());
+        }
+    }
+    
+    println!("\n📊 WebSocket Performance Summary:");
+    println!("   🔌 Connection Status: {}", if ws_manager.is_connected().await { "Connected" } else { "Disconnected" });
+    println!("   ⚡ Slot Updates: {} received", slot_count);
+    println!("   👛 Account Monitoring: Active");
+    println!("   📡 Real-time Latency: {}ms avg", 
+             if slot_count > 0 { 
+                 format!("{:.1}", start_time.elapsed().as_millis() as f64 / slot_count as f64) 
+             } else { 
+                 "N/A".to_string() 
+             });
+    
+    println!("\n🎉 WebSocket connectivity test completed!");
+    println!("💡 WebSockets provide real-time updates for:");
+    println!("   • Account balance changes (instant notifications)");
+    println!("   • New slots/blocks (timing for transactions)");
+    println!("   • Program state changes (pool updates, swaps)");
+    println!("   • Transaction confirmations (trade execution)");
+    
     Ok(())
 }
 

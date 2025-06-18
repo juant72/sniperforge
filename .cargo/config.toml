@@ -1,22 +1,51 @@
-# Cargo configuration for better development experience
+# 🚀 SniperForge - Configuración optimizada para builds ultrarrápidos
+[env]
+# OpenSSL precompilado - evita compilar desde fuente
+OPENSSL_STATIC = "1"
+OPENSSL_LIB_DIR = "C:\\vcpkg\\installed\\x64-windows-static\\lib"
+OPENSSL_INCLUDE_DIR = "C:\\vcpkg\\installed\\x64-windows-static\\include"
+VCPKG_ROOT = "C:\\vcpkg"
+VCPKGRS_DYNAMIC = "1"
+
+# Optimizaciones de red
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+
 [build]
-# Use incremental compilation for faster builds during development
+# Compilación incremental para desarrollo rápido
 incremental = true
+# Múltiples unidades de código para máxima paralelización
+codegen-units = 16
+# Usar todos los núcleos disponibles (ajustar según tu CPU)
+jobs = 12
 
 [target.x86_64-pc-windows-msvc]
-# Use LLD linker for faster linking on Windows
+# Usar el enlazador más rápido disponible
 linker = "rust-lld"
+# Optimizaciones del compilador para velocidad
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+    "-C", "target-cpu=native",
+    "-C", "opt-level=1",
+    "-C", "debuginfo=1"
+]
 
-# Force use of rustls instead of openssl for all dependencies
-[env]
-CARGO_NET_GIT_FETCH_WITH_CLI = "true"
-RUSTFLAGS = "--cfg reqwest_unstable"
+# Registro sparse para descargas más rápidas
+[registries.crates-io]
+index = "sparse+https://index.crates.io/"
 
-# Enable faster compilation with parallel rustc
-[unstable]
-parallel-rustc = true
-
-# Enable better error messages
+# Configuración de terminal
 [term]
 verbose = false
-color = 'auto'
+color = "auto"
+
+# Optimizar dependencias externas para compilación rápida
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
+
+# Perfil de desarrollo optimizado
+[profile.dev]
+opt-level = 1        # Algunas optimizaciones sin ralentizar
+debug = true         # Mantener símbolos de debug
+incremental = true   # Compilación incremental
+codegen-units = 16   # Paralelización máxima

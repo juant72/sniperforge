@@ -1,13 +1,13 @@
 # SniperForge Development Roadmap
 
-**Última Actualización**: 17 de Junio, 2025  
-**Estado del Proyecto**: Sprint 1 ✅ **COMPLETADO** - **CONEXIÓN REAL A SOLANA**
+**Última Actualización**: 18 de Junio, 2025  
+**Estado del Proyecto**: Sprint 1.5 - 🚀 **JUPITER API INTEGRADO** - Avanzando en DevNet Trading
 
 ## 🎯 Visión General del Proyecto
 
 SniperForge es un ecosistema multi-bot de trading automatizado en Rust para Solana, diseñado con arquitectura modular y desarrollo incremental.
 
-## 📊 **Estado Real Actual (Junio 17, 2025)**
+## 📊 **Estado Real Actual (Junio 18, 2025)**
 
 ### ✅ **COMPLETADO - Infraestructura de Producción + Conectividad Real**
 
@@ -26,15 +26,20 @@ SniperForge es un ecosistema multi-bot de trading automatizado en Rust para Sola
 - ✅ Logging estructurado y rotación de archivos
 - ✅ Bot Manager con lifecycle management
 - ✅ Resource Coordinator para distribución de recursos
+- ✅ **🚀 Jupiter API v6 completamente integrado y funcional**
+- ✅ **🚀 Cotizaciones SOL→USDC funcionando ($144.67 USD)**
+- ✅ **🚀 Detección de rutas multiDEX (10 DEXs soportados)**
+- ✅ **🚀 Sistema de precios en tiempo real**
 
-### � **PARCIAL - Funcionalidad Híbrida (Real + Simulado)**
+### 🚧 **EN PROGRESO - Sprint 1.5: Complete DevNet + Paper Trading**
 
-- ✅ **RPC Pool**: Conexiones reales a Solana devnet
-- ✅ **Pool Detection**: Consulta real de cuentas Raydium
-- ✅ **Blockchain Queries**: Slots, blockhashes, y accounts reales
-- 🎭 **LP Sniper Bot**: Usa datos reales pero trading simulado
-- 🎭 **Trade Execution**: Genera `TradeResult` ficticios (no transacciones reales)
-- 🎭 **Wallet Balances**: No ejecuta transacciones con dinero real
+- ✅ **Jupiter Integration**: API v6 completamente funcional
+- ✅ **Quote Engine**: Cotizaciones y precios en tiempo real
+- ✅ **DEX Routing**: Obric V2, Raydium, Orca detectados
+- 🔄 **Wallet Management**: Keypairs para devnet (próximo)
+- 🔄 **Trade Execution**: Swaps reales en devnet (próximo)
+- 🔄 **Paper Trading**: Portfolio virtual en mainnet (próximo)
+- 🔄 **Risk Management**: Stop-loss/take-profit (próximo)
 
 ### 🎯 **PRÓXIMO - Gap para Trading con Dinero Real**
 
@@ -51,35 +56,49 @@ SniperForge es un ecosistema multi-bot de trading automatizado en Rust para Sola
 
 #### ✅ Sprint 1: **REAL SOLANA CONNECTIVITY** (COMPLETADO - Junio 17) 🎉
 
-**LOGROS COMPLETADOS:**
-
-- ✅ **Integración Real con Solana DEVNET**
-  - ✅ Conexión verificada a RPC de Solana (api.devnet.solana.com)
-  - ✅ Queries reales: get_slot(), get_latest_blockhash(), get_program_accounts()
-  - ✅ Detección real de pools de Raydium en devnet
-  - ✅ Pool de conexiones con failover a RPCs backup
-
-- ✅ **Infraestructura de Testing Real**
-  - ✅ CLI con comandos `test solana` y `test pools` funcionales
-  - ✅ Verificación de conectividad en tiempo real
-  - ✅ Análisis básico de pools existentes
-  - ✅ Métricas de RPC (requests, latencia, success rate)
-
-- ✅ **Configuración Multi-Ambiente**
-  - ✅ Configuración separada devnet/mainnet
-  - ✅ Switch fácil entre ambientes
-  - ✅ Endpoints de RPCs backup configurados
-
-- ✅ **Base para Trading Real**
-  - ✅ Toda la plomería de conexión lista
-  - ✅ Detección de oportunidades usando datos reales
-  - ✅ Código preparado para transacciones reales
-
 **ESTADO**: **✅ COMPLETADO** - Migración exitosa de simulación a conexión real con Solana
 
-**PRÓXIMO PASO**: Sprint 1.5 - Completar desarrollo en devnet + paper trading mainnet
+#### 🚧 Sprint 1.5: **COMPLETE DEVNET + PAPER TRADING** (EN PROGRESO - Junio 18) 🧪
 
-#### Sprint 1.5: **COMPLETE DEVNET + PAPER TRADING** (PRÓXIMO - 1-2 semanas) 🧪
+**PROGRESO ACTUAL**: **Jupiter API Integration ✅ COMPLETADO**
+
+**✅ LOGROS COMPLETADOS (Junio 18)**:
+
+- ✅ **🚀 Jupiter API v6 Integration**
+  - ✅ Cliente HTTP robusto con retry logic
+  - ✅ Estructura de datos completamente tipada
+  - ✅ Cotizaciones SOL→USDC funcionando (1 SOL = $144.67 USD)
+  - ✅ Detección de rutas multiDEX (Obric V2, Raydium, Orca)
+  - ✅ 10 DEXs soportados detectados correctamente
+  - ✅ Health check API funcional
+  - ✅ Sistema de precios en tiempo real
+
+- ✅ **Quote Engine Completo**
+  - ✅ Cache de cotizaciones (30 segundos)
+  - ✅ Búsqueda de precios usando quotes USD
+  - ✅ Comparación de precios cross-DEX
+  - ✅ Manejo robusto de errores
+
+**🔄 PRÓXIMO - Esta Semana**:
+
+- 🔄 **Wallet Management Real**
+  - Generar keypairs reales para devnet
+  - Airdrop automático de SOL devnet
+  - Balance tracking en tiempo real
+  - Virtual portfolio para mainnet
+
+- 🔄 **Trade Execution Engine**  
+  - Swaps reales en devnet usando Jupiter
+  - Transaction confirmation en blockchain
+  - Paper trading virtual en mainnet
+  - Error handling y retry logic
+
+- 🔄 **Risk Management Básico**
+  - Position sizing
+  - Slippage protection
+  - Basic stop-loss simulation
+
+**OBJETIVO SEMANA**: Sistema completo de trading probado sin riesgo financiero
 
 **ESTRATEGIA INTELIGENTE**: Desarrollo completo sin riesgo financiero
 

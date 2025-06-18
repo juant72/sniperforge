@@ -14,15 +14,15 @@ path = "src/lib.rs"
 [dependencies]
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
-tokio-tungstenite = "0.27.0"
+tokio-tungstenite = { version = "0.27.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 futures-util = "0.3"
 futures = "0.3"
 
-# Solana
-solana-sdk = "2.2.1"
-solana-client = "2.2.1"
-solana-account-decoder = "2.2.1"
-solana-transaction-status = "2.2.1"
+# Solana (optimizadas para compilación rápida)
+solana-sdk = { version = "2.2.1", default-features = false }
+solana-client = { version = "2.2.1", default-features = false }
+solana-account-decoder = { version = "2.2.1", default-features = false }
+solana-transaction-status = { version = "2.2.1", default-features = false }
 
 # Serde for serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -36,9 +36,13 @@ anchor-lang = "0.31.1"
 base64 = "0.22.1"
 bs58 = "0.5"
 
-# HTTP client
-reqwest = { version = "0.12.20", features = ["json"] }
+# HTTP client con OpenSSL precompilado para builds ultrarrápidos
+reqwest = { version = "0.12.20", features = ["json", "rustls-tls"], default-features = false }
 url = "2.4"
+
+# OpenSSL precompilado - descomenta para usar binarios precompilados
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-sys = { version = "0.9", features = ["vendored"] }
 
 # Logging
 tracing = "0.1"
@@ -72,12 +76,19 @@ rand = "0.8"
 assert_matches = "1.5"
 mockall = "0.13.1"
 
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true
+codegen-units = 256
+
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
 
-[profile.dev]
-opt-level = 0
-debug = true
+# Force no OpenSSL dependencies
+[features]
+default = []
+native-tls = []

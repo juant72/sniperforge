@@ -3,6 +3,8 @@ pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
 pub mod jupiter;
+pub mod trade_executor;
+pub mod websocket_manager;
 
 use anyhow::Result;
 use std::sync::Arc;
@@ -17,6 +19,7 @@ use wallet_manager::WalletManager;
 use data_feeds::MarketDataFeeds;
 use monitoring::MonitoringSystem;
 use jupiter::Jupiter;
+use websocket_manager::WebSocketManager;
 
 pub struct SharedServices {
     rpc_pool: Arc<RpcConnectionPool>,
@@ -24,6 +27,7 @@ pub struct SharedServices {
     data_feeds: Arc<MarketDataFeeds>,
     monitoring: Arc<MonitoringSystem>,
     jupiter: Arc<Jupiter>,
+    websocket_manager: Arc<WebSocketManager>,
     is_running: Arc<RwLock<bool>>,
 }
 
@@ -41,10 +45,12 @@ impl SharedServices {
         let data_feeds = Arc::new(MarketDataFeeds::new(config, rpc_pool.clone()).await?);
           // Initialize monitoring system
         let monitoring = Arc::new(MonitoringSystem::new(config)?);
-        
-        // Initialize Jupiter integration
+          // Initialize Jupiter integration
         let jupiter_config = jupiter::JupiterConfig::default();
         let jupiter = Arc::new(Jupiter::new(jupiter_config).await?);
+        
+        // Initialize WebSocket manager for real-time updates
+        let websocket_manager = Arc::new(WebSocketManager::new(config).await?);
         
         Ok(Self {
             rpc_pool,
@@ -52,6 +58,7 @@ impl SharedServices {
             data_feeds,
             monitoring,
             jupiter,
+            websocket_manager,
             is_running: Arc::new(RwLock::new(false)),
         })
     }
@@ -158,11 +165,14 @@ impl SharedServices {
     /// Get access to the monitoring system
     pub fn monitoring(&self) -> Arc<MonitoringSystem> {
         self.monitoring.clone()
-    }
-
-    /// Get access to Jupiter API integration
+    }    /// Get access to Jupiter API integration
     pub fn jupiter(&self) -> Arc<Jupiter> {
         self.jupiter.clone()
+    }
+
+    /// Get access to the WebSocket manager
+    pub fn websocket_manager(&self) -> Arc<WebSocketManager> {
+        self.websocket_manager.clone()
     }
 
     /// Get shared services metrics

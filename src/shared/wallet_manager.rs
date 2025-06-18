@@ -406,10 +406,17 @@ impl WalletManager {
                     let devnet_wallet = self.create_devnet_wallet(&wallet_config.devnet).await?;
                     self.add_wallet(devnet_wallet).await?;
                     info!("✅ DevNet wallet created for real trading");
-                    
-                    // Auto-airdrop if enabled
+                      // Auto-airdrop if enabled
                     if wallet_config.auto_airdrop_devnet {
-                        self.airdrop_devnet_sol("devnet-trading", wallet_config.devnet_airdrop_amount).await?;
+                        match self.airdrop_devnet_sol("devnet-trading", wallet_config.devnet_airdrop_amount).await {
+                            Ok(_) => {
+                                info!("✅ DevNet airdrop successful");
+                            }
+                            Err(e) => {
+                                warn!("⚠️  DevNet airdrop failed (rate limit or network): {}", e);
+                                warn!("💡 This is normal when testing frequently. Wallet will still work with existing balance.");
+                            }
+                        }
                     }
                 }
                 
