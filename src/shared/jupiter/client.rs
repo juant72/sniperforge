@@ -135,15 +135,38 @@ impl JupiterClient {
 
         info!("✅ Retrieved {} supported tokens", tokens.len());
         Ok(tokens)
-    }
-
-    /// Get price for a specific token
+    }    /// Get price for a specific token with fallback strategies
     pub async fn get_price(&self, token_mint: &str) -> Result<Option<f64>> {
         debug!("💵 Getting price for token: {}", token_mint);
 
-        let url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
-        let response = self.http_client.get(&url).send().await?;
+        // Strategy 1: Try Jupiter price API v4
+        match self.get_price_from_api_v4(token_mint).await {
+            Ok(Some(price)) => return Ok(Some(price)),
+            Ok(None) => debug!("⚠️ Price not found in API v4"),
+            Err(e) => debug!("⚠️ Price API v4 failed: {}", e),
+        }
 
+        // Strategy 2: For SOL, try quote-based price calculation
+        if token_mint == "So11111111111111111111111111111111111111112" {
+            match self.get_sol_price_via_usdc_quote().await {
+                Ok(price) => {
+                    debug!("✅ SOL price via quote: ${:.2}", price);
+                    return Ok(Some(price));
+                }
+                Err(e) => debug!("⚠️ SOL price via quote failed: {}", e),
+            }
+        }
+
+        debug!("⚠️ All price strategies failed for token: {}", token_mint);
+        Ok(None)
+    }
+
+    /// Get price from Jupiter price API v4
+    async fn get_price_from_api_v4(&self, token_mint: &str) -> Result<Option<f64>> {
+        let url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
+        
+        let response = self.http_client.get(&url).send().await?;
+        
         if response.status().is_success() {
             let price_data: Value = response.json().await?;
             
@@ -151,16 +174,38 @@ impl JupiterClient {
                 if let Some(token_data) = data.get(token_mint) {
                     if let Some(price) = token_data.get("price") {
                         if let Some(price_num) = price.as_f64() {
-                            debug!("✅ Price retrieved: ${}", price_num);
+                            debug!("✅ Price from API v4: ${}", price_num);
                             return Ok(Some(price_num));
                         }
                     }
                 }
             }
         }
-
-        debug!("⚠️  Price not found for token: {}", token_mint);
+        
         Ok(None)
+    }
+
+    /// Get SOL price by getting a quote from SOL to USDC
+    async fn get_sol_price_via_usdc_quote(&self) -> Result<f64> {
+        debug!("💰 Getting SOL price via USDC quote");
+        
+        // Get quote for 1 SOL to USDC
+        let quote = self.get_quote(
+            "So11111111111111111111111111111111111111112", // SOL
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+            1_000_000_000, // 1 SOL (9 decimals)
+            Some(50), // 0.5% slippage
+        ).await?;
+
+        if let Some(out_amount_str) = quote.get("outAmount").and_then(|v| v.as_str()) {
+            if let Ok(out_amount) = out_amount_str.parse::<u64>() {
+                // USDC has 6 decimals, so divide by 1_000_000
+                let usdc_amount = out_amount as f64 / 1_000_000.0;
+                return Ok(usdc_amount);
+            }
+        }
+
+        Err(anyhow::anyhow!("Failed to calculate SOL price from quote"))
     }
 
     /// Execute HTTP request with retry logic

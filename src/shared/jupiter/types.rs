@@ -9,17 +9,29 @@ use std::collections::HashMap;
 /// Jupiter quote response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JupiterQuote {
+    #[serde(rename = "inputMint")]
     pub input_mint: String,
+    #[serde(rename = "inAmount")]
     pub in_amount: String,
+    #[serde(rename = "outputMint")]
     pub output_mint: String,
+    #[serde(rename = "outAmount")]
     pub out_amount: String,
+    #[serde(rename = "otherAmountThreshold")]
     pub other_amount_threshold: String,
+    #[serde(rename = "swapMode")]
     pub swap_mode: String,
+    #[serde(rename = "slippageBps")]
     pub slippage_bps: u16,
+    #[serde(rename = "platformFee")]
     pub platform_fee: Option<PlatformFee>,
+    #[serde(rename = "priceImpactPct")]
     pub price_impact_pct: String,
+    #[serde(rename = "routePlan")]
     pub route_plan: Vec<RoutePlan>,
+    #[serde(rename = "contextSlot")]
     pub context_slot: Option<u64>,
+    #[serde(rename = "timeTaken")]
     pub time_taken: Option<f64>,
 }
 
@@ -31,19 +43,27 @@ pub struct PlatformFee {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoutePlan {
+    #[serde(rename = "swapInfo")]
     pub swap_info: SwapInfo,
     pub percent: u8,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapInfo {
+    #[serde(rename = "ammKey")]
     pub amm_key: String,
     pub label: String,
+    #[serde(rename = "inputMint")]
     pub input_mint: String,
+    #[serde(rename = "outputMint")]
     pub output_mint: String,
+    #[serde(rename = "inAmount")]
     pub in_amount: String,
+    #[serde(rename = "outAmount")]
     pub out_amount: String,
+    #[serde(rename = "feeAmount")]
     pub fee_amount: String,
+    #[serde(rename = "feeMint")]
     pub fee_mint: String,
 }
 

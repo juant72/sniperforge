@@ -216,7 +216,7 @@ impl MarketDataFeeds {
                 price_usd: self.simulate_price(token).await,
                 price_sol: Some(self.simulate_price(token).await / 100.0), // Simulated SOL price
                 volume_24h: 100000.0, // Simulated
-                price_change_24h: -2.5 + (rand::rng().random::<f64>() * 5.0), // -2.5% to +2.5%
+                price_change_24h: -2.5 + (rand::thread_rng().gen::<f64>() * 5.0), // -2.5% to +2.5%
                 market_cap: Some(1000000.0), // $1M market cap
                 timestamp: chrono::Utc::now(),
             };
@@ -262,8 +262,8 @@ impl MarketDataFeeds {
                     supply: Some(100000),
                     is_verified: false,
                 },
-                liquidity_usd: 50000.0 + (rand::rng().random::<f64>() * 100000.0), // $50k-$150k
-                volume_24h_usd: Some(10000.0 + (rand::rng().random::<f64>() * 50000.0)), // $10k-$60k
+                liquidity_usd: 50000.0 + (rand::thread_rng().gen::<f64>() * 100000.0), // $50k-$150k
+                volume_24h_usd: Some(10000.0 + (rand::thread_rng().gen::<f64>() * 50000.0)), // $10k-$60k
                 created_at: chrono::Utc::now(),
                 detected_at: chrono::Utc::now(),
                 is_new: true,

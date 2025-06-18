@@ -75,20 +75,49 @@ impl QuoteEngine {
               quote.price_impact_pct);
 
         Ok(quote)
-    }
-
-    /// Get price for a token in USD
+    }    /// Get price for a token in USD (using quote against USDC)
     pub async fn get_token_price_usd(&self, token_mint: &Pubkey) -> Result<Option<f64>> {
         debug!("💵 Getting USD price for token: {}", token_mint);
         
-        let price = self.client.get_price(&token_mint.to_string()).await?;
+        // First try the price API
+        if let Ok(Some(price)) = self.client.get_price(&token_mint.to_string()).await {
+            debug!("✅ USD price from API: ${}", price);
+            return Ok(Some(price));
+        }
         
-        if let Some(price_value) = price {
-            debug!("✅ USD price: ${}", price_value);
-            Ok(Some(price_value))
+        // Fallback: use quote against USDC
+        debug!("💰 Fallback: using quote against USDC for price");
+        
+        // Determine amount based on token (1 full unit)
+        let amount = if *token_mint == tokens::sol() {
+            1_000_000_000u64 // 1 SOL
         } else {
-            debug!("⚠️  No USD price available for token: {}", token_mint);
-            Ok(None)
+            1_000_000u64 // 1 unit for most tokens (6 decimals)
+        };
+        
+        let quote_request = QuoteRequest::new(
+            *token_mint,
+            tokens::usdc(),
+            amount,
+        );
+
+        match self.get_quote(quote_request).await {
+            Ok(quote) => {
+                let out_amount: u64 = quote.out_amount.parse().unwrap_or(0);
+                if out_amount > 0 {
+                    // USDC has 6 decimals
+                    let price = out_amount as f64 / 1_000_000.0;
+                    debug!("✅ USD price from quote: ${}", price);
+                    Ok(Some(price))
+                } else {
+                    debug!("⚠️  Quote returned zero output amount");
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                debug!("⚠️  Quote failed for price lookup: {}", e);
+                Ok(None)
+            }
         }
     }
 

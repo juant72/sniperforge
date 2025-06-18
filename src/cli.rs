@@ -6,6 +6,7 @@ use std::str::FromStr;
 use solana_sdk::signer::{Signer, keypair::Keypair};
 
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
+use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
 
 pub async fn run_cli() -> Result<()> {
     let matches = Command::new("SniperForge CLI")
@@ -443,19 +444,25 @@ async fn handle_test_jupiter_command() -> Result<()> {
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
     let config = Config::load("config/platform.toml")?;
-    let shared_services = sniperforge::SharedServices::new(&config).await?;
+    
+    // Create Jupiter configuration with default values
+    let jupiter_config = JupiterConfig {
+        api_base_url: "https://quote-api.jup.ag/v6".to_string(),
+        rpc_url: config.network.primary_rpc().to_string(),
+        timeout_seconds: 10,
+        max_retries: 3,
+        slippage_bps: 50, // 0.5% default slippage
+        enable_devnet: config.network.is_devnet(),
+        enable_mainnet_paper: false,    };
+    
+    let jupiter = JupiterClient::new(&jupiter_config).await?;
     
     println!("🪐 Testing Jupiter connectivity...");
     
-    // Test Jupiter API connectivity
-    let jupiter = shared_services.jupiter();
-    match jupiter.test_connectivity().await {
-        Ok(true) => {
+    // Test Jupiter API connectivity using health check
+    match jupiter.health_check().await {
+        Ok(()) => {
             println!("✅ Jupiter API connection: {}", "SUCCESSFUL".bright_green());
-        }
-        Ok(false) => {
-            println!("❌ Jupiter API connection: {}", "FAILED".bright_red());
-            return Ok(());
         }
         Err(e) => {
             println!("❌ Jupiter API error: {}", format!("{}", e).bright_red());
@@ -473,9 +480,10 @@ async fn handle_test_jupiter_command() -> Result<()> {
         tokens::sol(),
         tokens::usdc(),
         1_000_000_000, // 1 SOL
-    ).with_slippage(50); // 0.5% slippage
-
-    match jupiter.quotes().get_quote(quote_request).await {
+    ).with_slippage(50); // 0.5% slippage    // Create quote engine
+    let quote_engine = sniperforge::shared::jupiter::QuoteEngine::new(jupiter.clone());
+    
+    match quote_engine.get_quote(quote_request).await {
         Ok(quote) => {
             println!("✅ Quote successful:");
             println!("   📥 Input: {} SOL", quote.in_amount.parse::<u64>().unwrap_or(0) as f64 / 1_000_000_000.0);
@@ -490,12 +498,10 @@ async fn handle_test_jupiter_command() -> Result<()> {
         Err(e) => {
             println!("❌ Quote failed: {}", format!("{}", e).bright_red());
         }
-    }
-
-    // Test price lookup
+    }    // Test price lookup
     println!("\n💵 Testing price lookup...");
     
-    match jupiter.quotes().get_token_price_usd(&tokens::sol()).await {
+    match quote_engine.get_token_price_usd(&tokens::sol()).await {
         Ok(Some(price)) => {
             println!("✅ SOL Price: ${:.2}", price);
         }
@@ -505,24 +511,22 @@ async fn handle_test_jupiter_command() -> Result<()> {
         Err(e) => {
             println!("❌ Price lookup failed: {}", format!("{}", e).bright_red());
         }
-    }
-
-    // Test supported DEXes
-    println!("\n🏪 Testing supported DEXes...");
+    }    // Test supported DEXes    println!("\n🏪 Testing supported DEXes...");
     
-    match jupiter.swaps().get_supported_dexes().await {
-        Ok(dexes) => {
-            println!("✅ Supported DEXes ({}):", dexes.len());
-            for (i, dex) in dexes.iter().take(5).enumerate() {
-                println!("   {}. {}", i + 1, dex);
-            }
-            if dexes.len() > 5 {
-                println!("   ... and {} more", dexes.len() - 5);
-            }
-        }
-        Err(e) => {
-            println!("❌ DEX list failed: {}", format!("{}", e).bright_red());
-        }
+    // Create another jupiter client instance for the swap service
+    let jupiter_for_swaps = JupiterClient::new(&jupiter_config).await?;
+    let swap_service = sniperforge::shared::jupiter::JupiterSwapService::new(
+        jupiter_for_swaps, 
+        &config.network.primary_rpc()
+    );
+    
+    let dexes = swap_service.get_supported_dexes();
+    println!("✅ Supported DEXes ({}):", dexes.len());
+    for (i, dex) in dexes.iter().take(5).enumerate() {
+        println!("   {}. {}", i + 1, dex);
+    }
+    if dexes.len() > 5 {
+        println!("   ... and {} more", dexes.len() - 5);
     }
 
     println!("\n🎉 Jupiter integration test completed!");
