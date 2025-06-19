@@ -1,0 +1,53 @@
+# SniperForge Mainnet Configuration
+# Paper Trading with Real Mainnet Data
+
+[network]
+name = "mainnet"
+rpc_url = "https://api.mainnet-beta.solana.com"
+ws_url = "wss://api.mainnet-beta.solana.com"
+commitment = "confirmed"
+is_devnet = false
+
+[jupiter]
+# Official Jupiter API for mainnet
+base_url = "https://quote-api.jup.ag"
+timeout_ms = 5000
+max_retries = 3
+cache_ttl_ms = 100  # Very short cache for real-time data
+
+[syndica]
+# Syndica mainnet WebSocket
+endpoint = "wss://solana-mainnet.api.syndica.io"
+# You need a real Syndica token for mainnet
+access_token = "${SYNDICA_MAINNET_TOKEN}"
+reconnect_attempts = 5
+ping_interval_sec = 30
+
+[paper_trading]
+# Paper trading configuration
+initial_sol_balance = 10.0
+initial_usdc_balance = 2000.0
+simulated_fee_bps = 30        # 0.3% realistic fees
+simulated_slippage_percent = 0.1  # 0.1% slippage
+execution_latency_ms = 150    # Realistic execution latency
+
+[safety]
+# Ultra-safe settings for mainnet
+max_price_age_ms = 50         # Only accept prices < 50ms old
+min_price_sources = 2         # Require at least 2 price sources
+price_tolerance_percent = 0.5 # Max 0.5% difference between sources
+disable_cache_for_trading = true  # Never use cache for trading decisions
+
+[monitoring]
+# Performance monitoring
+log_all_trades = true
+log_price_sources = true
+log_latency = true
+save_trade_history = true
+
+[risk_management]
+# Additional safety for mainnet
+max_trade_size_sol = 1.0      # Max 1 SOL per trade in paper mode
+max_daily_trades = 100        # Max 100 trades per day
+enable_circuit_breaker = true # Stop trading on consecutive losses
+max_consecutive_losses = 5    # Stop after 5 consecutive losses

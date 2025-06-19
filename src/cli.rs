@@ -48,7 +48,8 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("websocket-rpc").about("Compare HTTP vs WebSocket RPC latency"))
                 .subcommand(Command::new("syndica").about("Test Syndica ultra-fast WebSocket performance"))
                 .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
-                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading engine (SAFE)"))
+                .subcommand(Command::new("paper-trading").about("Test paper trading with mainnet data"))
+                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading safety"))
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .get_matches();
@@ -151,6 +152,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("websocket-rpc", _)) => handle_test_websocket_rpc().await?,
         Some(("syndica", _)) => handle_test_syndica().await?,
         Some(("cache-safety", _)) => handle_test_cache_safety().await?,
+        Some(("paper-trading", _)) => handle_test_paper_trading().await?,
         Some(("cache-free-trading", _)) => handle_test_cache_free_trading().await?,
         _ => {
             println!("{}", "🧪 Available tests:".bright_cyan().bold());
@@ -166,6 +168,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  • {} - WebSocket RPC performance", "websocket-rpc".bright_yellow());
             println!("  • {} - Syndica ultra-fast WebSocket", "syndica".bright_yellow());
             println!("  • {} - Cache safety and eviction", "cache-safety".bright_yellow());
+            println!("  • {} - Paper trading with mainnet data", "paper-trading".bright_yellow());
             println!("  • {} - Cache-free trading engine (SAFE)", "cache-free-trading".bright_yellow());
         }
     }
@@ -506,6 +509,16 @@ async fn handle_test_cache_free_trading() -> Result<()> {
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
       use crate::shared::cache_free_trader_simple::test_cache_free_trading;
     test_cache_free_trading().await?;
+    
+    Ok(())
+}
+
+async fn handle_test_paper_trading() -> Result<()> {
+    println!("{}", "📊 Paper Trading with Mainnet Data Test".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    use crate::shared::paper_trading::test_paper_trading_mainnet;
+    test_paper_trading_mainnet().await?;
     
     Ok(())
 }
