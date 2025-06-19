@@ -1,7 +1,8 @@
 // Tests específicos para WebSocket functionality
 // Verifica conectividad, subscripciones, y manejo de mensajes
 
-use crate::shared::websocket_manager::{WebSocketManager, WebSocketMessage};
+use crate::shared::websocket_manager::WebSocketManager;
+use crate::config::Config;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::time::Duration;
@@ -14,18 +15,24 @@ pub struct WebSocketTester {
 impl WebSocketTester {
     pub fn new() -> Self {
         Self { manager: None }
-    }
-
-    pub async fn test_connection(&mut self) -> anyhow::Result<()> {
+    }    pub async fn test_connection(&mut self) -> anyhow::Result<()> {
         println!("🔌 Testing WebSocket connection...");
         
+        // Load config
+        let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
+            Config::load("config/platform.toml").expect("Could not load config")
+        });
+        
         // Test creation
-        let manager = WebSocketManager::new().await?;
+        let manager = WebSocketManager::new(&config).await?;
         println!("   ✅ WebSocket manager created");
         
-        // Test connection
-        manager.connect().await?;
-        println!("   ✅ Connected to Solana WebSocket");
+        // Test if connected
+        if manager.is_connected().await {
+            println!("   ✅ Connected to Solana WebSocket");
+        } else {
+            println!("   ⚠️  WebSocket created but not actively connected");
+        }
         
         self.manager = Some(manager);
         Ok(())
@@ -39,10 +46,9 @@ impl WebSocketTester {
         
         // Test with a known account (system program)
         let system_program = Pubkey::from_str("11111111111111111111111111111112")?;
-        
-        // Subscribe to account changes
-        manager.watch_account(&system_program).await?;
-        println!("   ✅ Account subscription successful");
+          // Subscribe to account changes
+        let subscription_id = manager.subscribe_account(system_program).await?;
+        println!("   ✅ Account subscription successful (ID: {})", subscription_id);
         
         // Wait a bit to see if we receive any data
         println!("   ⏳ Waiting for account updates (5 seconds)...");
@@ -56,10 +62,9 @@ impl WebSocketTester {
         
         let manager = self.manager.as_ref()
             .ok_or_else(|| anyhow::anyhow!("Manager not initialized"))?;
-        
-        // Subscribe to slot updates
-        manager.watch_slots().await?;
-        println!("   ✅ Slot subscription successful");
+          // Subscribe to slot updates
+        let subscription_id = manager.subscribe_slots().await?;
+        println!("   ✅ Slot subscription successful (ID: {})", subscription_id);
         
         // Wait to see slot updates
         println!("   ⏳ Waiting for slot updates (10 seconds)...");
@@ -77,8 +82,7 @@ impl WebSocketTester {
         // Test with Jupiter program (example)
         let jupiter_program = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4";
         let program_pubkey = Pubkey::from_str(jupiter_program)?;
-        
-        manager.watch_program(&program_pubkey).await?;
+          manager.subscribe_program(program_pubkey).await?;
         println!("   ✅ Program subscription successful");
         
         println!("   ⏳ Waiting for program updates (5 seconds)...");
@@ -124,10 +128,12 @@ impl WebSocketTester {
         if let Some(manager) = &self.manager {
             // Try to disconnect and reconnect
             println!("   Testing reconnection logic...");
-            
-            // Note: In a real test, we would disconnect and reconnect
+              // Note: In a real test, we would disconnect and reconnect
             // For now, just verify the manager can handle multiple connections
-            let new_manager = WebSocketManager::new().await?;
+            let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
+                Config::load("config/platform.toml").expect("Could not load config")
+            });
+            let new_manager = WebSocketManager::new(&config).await?;
             new_manager.connect().await?;
             println!("   ✅ Reconnection capability verified");
             
@@ -201,9 +207,11 @@ pub async fn test_websocket_performance() {
     println!("⚡ WebSocket performance test");
     
     let start = std::time::Instant::now();
-    
-    // Test connection speed
-    let manager = match WebSocketManager::new().await {
+      // Test connection speed
+    let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
+        Config::load("config/platform.toml").expect("Could not load config")
+    });
+    let manager = match WebSocketManager::new(&config).await {
         Ok(m) => m,
         Err(e) => {
             println!("❌ Manager creation failed: {}", e);

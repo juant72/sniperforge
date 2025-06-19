@@ -110,12 +110,10 @@ async fn handle_config_command() -> Result<()> {
 }
 
 async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
-    match matches.subcommand() {        Some(("balance", _)) => {
+    match matches.subcommand() {
+        Some(("balance", _)) => {
             println!("{}", "💰 Checking wallet balances...".bright_cyan());
-            let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-                Config::load("config/platform.toml").expect("Could not load config")
-            });
-            solana_testing::test_solana_connectivity(&config).await?;
+            solana_testing::test_solana_connectivity().await?;
         }
         Some(("airdrop", _)) => {
             println!("{}", "🪂 Requesting SOL airdrop...".bright_cyan());
@@ -161,11 +159,7 @@ async fn handle_test_solana() -> Result<()> {
     println!("{}", "🌐 Solana Connectivity Test".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
-    let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-        Config::load("config/platform.toml").expect("Could not load config")
-    });
-    
-    match solana_testing::test_solana_connectivity(&config).await {
+    match solana_testing::test_solana_connectivity().await {
         Ok(_) => println!("{}", "✅ Solana connectivity successful".bright_green()),
         Err(e) => println!("{} {}", "❌ Solana connectivity failed:".bright_red(), e),
     }
@@ -176,8 +170,9 @@ async fn handle_test_solana() -> Result<()> {
 async fn handle_test_jupiter() -> Result<()> {
     println!("{}", "🪐 Jupiter API Test".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
-      let config = sniperforge::shared::jupiter::JupiterConfig::default();
-    let client = sniperforge::shared::jupiter::JupiterClient::new(&config).await?;
+    
+    let config = sniperforge::shared::jupiter::JupiterConfig::default();
+    let client = sniperforge::shared::jupiter::JupiterClient::new(&config);
     
     print!("📊 Testing Jupiter price API... ");
     io::stdout().flush()?;

@@ -17,8 +17,6 @@ CARGO_NET_GIT_FETCH_WITH_CLI = "true"
 [build]
 # Compilación incremental para desarrollo rápido
 incremental = true
-# Múltiples unidades de código para máxima paralelización
-codegen-units = 16
 # Usar todos los núcleos disponibles (ajustar según tu CPU)
 jobs = 12
 
