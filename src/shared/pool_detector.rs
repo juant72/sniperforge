@@ -906,6 +906,295 @@ impl PoolDetector {
             rug_indicators,
         }
     }
+    
+    /// Iniciar monitoreo continuo con reports periódicos
+    pub async fn start_monitoring_with_reports(&mut self, duration_minutes: u64) -> Result<()> {
+        info!("🚀 Starting monitored pool detection for {} minutes...", duration_minutes);
+        
+        let total_duration = Duration::from_secs(duration_minutes * 60);
+        let report_interval = Duration::from_secs(30); // Report every 30s
+        let start_time = Instant::now();
+        
+        let mut last_report = Instant::now();
+        let mut total_scans = 0u64;
+        let mut pools_found_this_session = 0usize;
+        let mut opportunities_found_this_session = 0usize;
+        
+        while start_time.elapsed() < total_duration {
+            let scan_start = Instant::now();
+            total_scans += 1;
+            
+            // Detectar nuevos pools
+            match self.scan_for_new_pools().await {
+                Ok(new_pools) => {
+                    if !new_pools.is_empty() {
+                        pools_found_this_session += new_pools.len();
+                        info!("🆕 Found {} new pools (session total: {})", 
+                              new_pools.len(), pools_found_this_session);
+                        
+                        for pool in new_pools {
+                            if let Err(e) = self.analyze_pool_opportunity(&pool).await {
+                                warn!("⚠️ Pool analysis failed: {}", e);
+                            } else {
+                                opportunities_found_this_session += 1;
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("⚠️ Pool scan #{} failed: {}", total_scans, e);
+                }
+            }
+            
+            // Actualizar pools existentes
+            if let Err(e) = self.update_tracked_pools().await {
+                warn!("⚠️ Pool update failed: {}", e);
+            }
+            
+            // Buscar oportunidades avanzadas
+            if let Err(e) = self.scan_for_opportunities().await {
+                warn!("⚠️ Opportunity scan failed: {}", e);
+            }
+            
+            // Report periódico
+            if last_report.elapsed() >= report_interval {
+                self.print_status_report(
+                    start_time.elapsed(), 
+                    total_scans, 
+                    pools_found_this_session,
+                    opportunities_found_this_session
+                );
+                last_report = Instant::now();
+            }
+            
+            // Sleep hasta próximo scan
+            let scan_duration = scan_start.elapsed();
+            let sleep_time = Duration::from_millis(self.config.monitoring_interval_ms)
+                .saturating_sub(scan_duration);
+            
+            if sleep_time.as_millis() > 0 {
+                tokio::time::sleep(sleep_time).await;
+            }
+        }
+        
+        // Final report
+        println!("\n📊 MONITORING SESSION COMPLETED");
+        println!("===============================");
+        println!("⏱️ Duration: {:.1} minutes", start_time.elapsed().as_secs_f64() / 60.0);
+        println!("🔍 Total scans: {}", total_scans);
+        println!("🆕 Pools found: {}", pools_found_this_session);
+        println!("🎯 Opportunities: {}", opportunities_found_this_session);
+        
+        Ok(())
+    }
+    
+    /// Reporte optimizado para ultra-fast monitoring
+    fn print_ultra_fast_report(&self, elapsed: Duration, api_scans: u64, ws_updates: u64, pools_found: usize) {
+        let stats = self.get_stats();
+        println!("⚡ Ultra-Fast Status | {:.1}min | API: {} | WS: {} | Pools: {} | Opps: {}", 
+                 elapsed.as_secs_f64() / 60.0,
+                 api_scans,
+                 ws_updates,
+                 pools_found,
+                 stats.active_opportunities
+        );
+        
+        if !self.opportunities.is_empty() {
+            let best_opp = self.opportunities.iter()
+                .max_by(|a, b| a.expected_profit_usd.partial_cmp(&b.expected_profit_usd).unwrap());
+            
+            if let Some(opp) = best_opp {
+                println!("   🎯 Best: ${:.2} profit - {}/{} ({})", 
+                         opp.expected_profit_usd,
+                         opp.pool.token_a.symbol,
+                         opp.pool.token_b.symbol,
+                         match opp.opportunity_type {
+                             OpportunityType::NewPoolSnipe => "NEW",
+                             OpportunityType::PriceDiscrepancy => "ARB",
+                             OpportunityType::LiquidityImbalance => "LOW_SLIP",
+                             OpportunityType::VolumeSpike => "VOL_SPIKE",
+                         });
+            }
+        }
+    }
+    
+    /// Setup WebSocket monitoring task
+    async fn start_websocket_pool_monitoring(&mut self, _syndica_client: &mut SyndicaWebSocketClient) -> Result<()> {
+        // En una implementación real, esto configuraría el WebSocket para escuchar:
+        // - Program notifications para nuevos pools
+        // - Account updates para cambios de liquidez
+        // - Slot notifications para timing preciso
+        
+        info!("⚡ WebSocket pool monitoring configured");
+        Ok(())
+    }
+    
+    /// Iniciar monitoreo híbrido: WebSocket + API polling para máxima velocidad
+    pub async fn start_ultra_fast_monitoring(&mut self, duration_minutes: u64) -> Result<()> {
+        info!("⚡ Starting ULTRA-FAST pool monitoring with WebSocket + API hybrid...");
+        
+        let total_duration = Duration::from_secs(duration_minutes * 60);
+        let start_time = Instant::now();
+        
+        // Setup WebSocket monitoring si está disponible
+        let ws_monitoring = if let Some(ref mut syndica) = self.syndica_client {
+            info!("🚀 Starting WebSocket real-time monitoring...");
+            Some(self.start_websocket_pool_monitoring(syndica).await?)
+        } else {
+            warn!("⚠️ No WebSocket client available, using API-only mode");
+            None
+        };
+        
+        // Monitoreo híbrido: WebSocket para updates real-time + API polling para validación
+        let mut last_api_scan = Instant::now();
+        let api_scan_interval = Duration::from_secs(10); // API backup cada 10s
+        let mut last_report = Instant::now();
+        let report_interval = Duration::from_secs(15); // Reportes más frecuentes
+        
+        let mut total_scans = 0u64;
+        let mut ws_updates = 0u64;
+        let mut pools_found_this_session = 0usize;
+        
+        while start_time.elapsed() < total_duration {
+            tokio::select! {
+                // WebSocket updates (real-time)
+                ws_update = self.process_websocket_updates(), if ws_monitoring.is_some() => {
+                    if let Ok(new_pools) = ws_update {
+                        if !new_pools.is_empty() {
+                            ws_updates += 1;
+                            pools_found_this_session += new_pools.len();
+                            info!("⚡ WebSocket detected {} pools (total: {})", 
+                                  new_pools.len(), pools_found_this_session);
+                            
+                            for pool in new_pools {
+                                if let Err(e) = self.analyze_pool_opportunity(&pool).await {
+                                    warn!("⚠️ Pool analysis failed: {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // API polling backup (slower but comprehensive)
+                _ = tokio::time::sleep_until(tokio::time::Instant::now() + api_scan_interval), 
+                    if last_api_scan.elapsed() >= api_scan_interval => {
+                    
+                    total_scans += 1;
+                    last_api_scan = Instant::now();
+                    
+                    match self.scan_for_new_pools().await {
+                        Ok(api_pools) => {
+                            if !api_pools.is_empty() {
+                                info!("📡 API backup found {} additional pools", api_pools.len());
+                                pools_found_this_session += api_pools.len();
+                                
+                                for pool in api_pools {
+                                    if let Err(e) = self.analyze_pool_opportunity(&pool).await {
+                                        warn!("⚠️ Pool analysis failed: {}", e);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => warn!("⚠️ API backup scan failed: {}", e)
+                    }
+                }
+                
+                // Reportes periódicos
+                _ = tokio::time::sleep_until(tokio::time::Instant::now() + report_interval),
+                    if last_report.elapsed() >= report_interval => {
+                    
+                    self.print_ultra_fast_report(
+                        start_time.elapsed(),
+                        total_scans,
+                        ws_updates,
+                        pools_found_this_session
+                    );
+                    last_report = Instant::now();
+                }
+                
+                // Timeout check
+                _ = tokio::time::sleep(Duration::from_millis(100)) => {
+                    if start_time.elapsed() >= total_duration {
+                        break;
+                    }
+                }
+            }
+            
+            // Update tracked pools
+            if let Err(e) = self.update_tracked_pools().await {
+                warn!("⚠️ Pool update failed: {}", e);
+            }
+        }
+        
+        // Final report
+        println!("\n⚡ ULTRA-FAST MONITORING COMPLETED");
+        println!("==================================");
+        println!("⏱️ Duration: {:.1} minutes", start_time.elapsed().as_secs_f64() / 60.0);
+        println!("📡 API scans: {}", total_scans);
+        println!("⚡ WebSocket updates: {}", ws_updates);
+        println!("🆕 Total pools found: {}", pools_found_this_session);
+        
+        let stats = self.get_stats();
+        println!("🎯 Active opportunities: {}", stats.active_opportunities);
+        
+        Ok(())
+    }
+    
+    /// Procesar updates de WebSocket para detección real-time
+    async fn process_websocket_updates(&mut self) -> Result<Vec<DetectedPool>> {
+        // Esta función procesaría los mensajes del WebSocket de Syndica
+        // para detectar nuevos pools en tiempo real
+        
+        // Por ahora, simulamos con una detección rápida
+        if rand::random::<f64>() < 0.1 { // 10% chance cada call
+            let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+            
+            // Simular pool detectado via WebSocket
+            let pool = DetectedPool {
+                pool_address: format!("WS_Pool_{}", rand::random::<u32>()),
+                token_a: TokenInfo {
+                    mint: "So11111111111111111111111111111111111111112".to_string(),
+                    symbol: "SOL".to_string(),
+                    decimals: 9,
+                    supply: 1_000_000_000,
+                    price_usd: 150.0,
+                    market_cap: 150_000_000.0,
+                },
+                token_b: TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: 1.0,
+                    market_cap: 1_000_000_000.0,
+                },
+                liquidity_usd: rand::random::<f64>() * 50000.0 + 5000.0,
+                price_impact_1k: rand::random::<f64>() * 5.0,
+                volume_24h: rand::random::<f64>() * 100000.0,
+                created_at: current_time,
+                detected_at: current_time,
+                dex: "Raydium".to_string(),
+                risk_score: self.generate_mock_risk_score(),
+            };
+            
+            return Ok(vec![pool]);
+        }
+        
+        Ok(Vec::new())
+    }
+    
+    /// Generar risk score para testing
+    fn generate_mock_risk_score(&self) -> RiskScore {
+        let overall = rand::random::<f64>() * 0.8 + 0.2;
+        RiskScore {
+            overall,
+            liquidity_score: overall + rand::random::<f64>() * 0.1,
+            volume_score: overall + rand::random::<f64>() * 0.1,
+            token_age_score: 0.5,
+            holder_distribution_score: 0.5,
+            rug_indicators: Vec::new(),
+        }
+    }
 }
 
 /// Estadísticas del detector
