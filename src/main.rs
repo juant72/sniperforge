@@ -15,6 +15,9 @@ use config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize rustls crypto provider first
+    init_crypto_provider();
+    
     // Initialize logging
     init_logging()?;
     
@@ -46,4 +49,29 @@ fn init_logging() -> Result<()> {
     // Keep the guard alive for the duration of the program
     std::mem::forget(_guard);
       Ok(())
+}
+
+fn init_crypto_provider() {
+    // Initialize rustls default crypto provider to fix:
+    // "no process-level CryptoProvider available"
+    
+    eprintln!("🔐 Setting up crypto provider for TLS connections...");
+    
+    // For rustls 0.23+, we need to explicitly install a crypto provider
+    // This MUST be done once at program startup before any TLS operations
+    
+    // Try to install the ring crypto provider
+    let result = rustls::crypto::ring::default_provider().install_default();
+    
+    match result {
+        Ok(()) => {
+            eprintln!("✅ Ring crypto provider installed successfully");
+        }
+        Err(_) => {
+            // Provider was already installed, which is fine
+            eprintln!("ℹ️  Crypto provider was already installed");
+        }
+    }
+    
+    eprintln!("✅ Crypto setup completed");
 }

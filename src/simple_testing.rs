@@ -94,5 +94,30 @@ pub async fn run_simple_tests() {
     println!("🧪 Running Simple Test Suite");
     println!("============================");
     
+    // Initialize crypto provider first to prevent rustls panics
+    init_crypto_provider_early();
+    
     test_basic_integration().await;
+}
+
+fn init_crypto_provider_early() {
+    use std::sync::Once;
+    static INIT: Once = Once::new();
+    
+    INIT.call_once(|| {
+        println!("🔐 Initializing crypto provider for tests...");
+        
+        // Try to install the ring crypto provider
+        let result = rustls::crypto::ring::default_provider().install_default();
+        
+        match result {
+            Ok(()) => {
+                println!("✅ Ring crypto provider installed successfully");
+            }
+            Err(_) => {
+                // Provider was already installed, which is fine
+                println!("ℹ️  Crypto provider was already installed");
+            }
+        }
+    });
 }

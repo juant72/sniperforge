@@ -68,6 +68,9 @@ impl RpcConnectionPool {
     pub async fn new(config: &Config) -> Result<Self> {
         info!("🌐 Initializing RPC connection pool");
         
+        // Initialize crypto provider for rustls to fix "no process-level CryptoProvider available"
+        Self::init_crypto_provider();
+        
         let pool_config = RpcPoolConfig {
             pool_size: config.shared_services.rpc_pool_size,
             connection_timeout: Duration::from_millis(config.network.connection_timeout_ms),
@@ -492,9 +495,35 @@ impl RpcConnectionPool {
         let mut stats = self.stats.write().await;
         stats.failed_requests += 1;
         stats.active_connections -= 1;
+    }    fn init_crypto_provider() {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+        
+        INIT.call_once(|| {
+            // Initialize rustls default crypto provider to fix:
+            // "no process-level CryptoProvider available"
+            
+            debug!("🔐 Setting up crypto provider for TLS connections...");
+            
+            // For rustls 0.23+, we need to explicitly install a crypto provider
+            // This MUST be done once at program startup before any TLS operations
+            
+            // Try to install the ring crypto provider
+            let result = rustls::crypto::ring::default_provider().install_default();
+            
+            match result {
+                Ok(()) => {
+                    debug!("✅ Ring crypto provider installed successfully");
+                }
+                Err(_) => {
+                    // Provider was already installed, which is fine
+                    debug!("ℹ️  Crypto provider was already installed");
+                }
+            }
+            
+            debug!("✅ Crypto setup completed");
+        });
     }
-
-    // ...existing code...
 }
 pub struct RpcClientHandle<'a> {
     client: Arc<RpcClient>,

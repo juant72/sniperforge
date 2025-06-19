@@ -40,6 +40,9 @@ bs58 = "0.5"
 reqwest = { version = "0.12.20", features = ["json", "rustls-tls"], default-features = false }
 url = "2.4"
 
+# TLS/SSL support
+rustls = { version = "0.23", features = ["ring"] }
+
 # OpenSSL precompilado - descomenta para usar binarios precompilados
 openssl = { version = "0.10", features = ["vendored"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
