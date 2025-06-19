@@ -5,6 +5,8 @@ pub mod monitoring;
 pub mod jupiter;
 pub mod trade_executor;
 pub mod websocket_manager;
+pub mod websocket_price_feed;
+pub mod syndica_websocket;
 
 use anyhow::Result;
 use std::sync::Arc;

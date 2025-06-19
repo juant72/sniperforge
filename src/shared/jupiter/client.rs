@@ -10,6 +10,9 @@ use serde_json::Value;
 use std::time::Duration;
 use tracing::{info, warn, error, debug};
 use url::Url;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use super::JupiterConfig;
 
@@ -19,15 +22,18 @@ pub struct JupiterClient {
     config: JupiterConfig,
     http_client: Client,
     base_url: Url,
+    price_cache: PriceCache,
 }
 
-impl JupiterClient {
-    /// Create new Jupiter client
+impl JupiterClient {    /// Create new Jupiter client
     pub async fn new(config: &JupiterConfig) -> Result<Self> {
-        debug!("🌐 Setting up Jupiter HTTP client");
-
+        debug!("🌐 Setting up Jupiter HTTP client");        // Build HTTP client with aggressive optimizations for trading speed
         let http_client = Client::builder()
-            .timeout(Duration::from_secs(config.timeout_seconds))
+            .timeout(Duration::from_millis(1500)) // 1.5s max for ultra-fast trading
+            .connect_timeout(Duration::from_millis(300)) // 300ms connect
+            .pool_idle_timeout(Duration::from_secs(60)) // Keep connections alive longer
+            .pool_max_idle_per_host(20) // More connection pooling
+            .tcp_keepalive(Duration::from_secs(60)) // TCP keep-alive
             .user_agent("SniperForge/0.1.0")
             .build()?;
 
@@ -37,11 +43,12 @@ impl JupiterClient {
             config: config.clone(),
             http_client,
             base_url,
+            price_cache: PriceCache::new(), // 5 minutes TTL for price cache
         };
 
-        // Test initial connection
-        client.health_check().await?;
-
+        // No health check during initialization for speed
+        // Connection will be tested on first real request
+        
         info!("✅ Jupiter client initialized");
         Ok(client)
     }
@@ -137,9 +144,17 @@ impl JupiterClient {
     pub async fn get_price(&self, token_mint: &str) -> Result<Option<f64>> {
         debug!("💵 Getting price for token: {}", token_mint);
 
-        // Strategy 1: Try Jupiter price API v4
+        // Check cache first
+        if let Some(cached_price) = self.price_cache.get(token_mint).await {
+            debug!("✅ Price found in cache: ${}", cached_price);
+            return Ok(Some(cached_price));
+        }        // Strategy 1: Try Jupiter price API v4
         match self.get_price_from_api_v4(token_mint).await {
-            Ok(Some(price)) => return Ok(Some(price)),
+            Ok(Some(price)) => {
+                // Cache the retrieved price
+                self.price_cache.set(token_mint, price).await;
+                return Ok(Some(price));
+            },
             Ok(None) => debug!("⚠️ Price not found in API v4"),
             Err(e) => debug!("⚠️ Price API v4 failed: {}", e),
         }
@@ -149,6 +164,8 @@ impl JupiterClient {
             match self.get_sol_price_via_usdc_quote().await {
                 Ok(price) => {
                     debug!("✅ SOL price via quote: ${:.2}", price);
+                    // Cache the retrieved price
+                    self.price_cache.set(token_mint, price).await;
                     return Ok(Some(price));
                 }
                 Err(e) => debug!("⚠️ SOL price via quote failed: {}", e),
@@ -200,9 +217,7 @@ impl JupiterClient {
         }
 
         Err(anyhow::anyhow!("Failed to calculate SOL price from quote"))
-    }
-
-    /// Execute HTTP request with retry logic
+    }    /// Execute HTTP request with retry logic
     async fn execute_with_retry(&self, url: Url) -> Result<Response> {
         let mut attempts = 0;
         let max_attempts = self.config.max_retries;
@@ -217,7 +232,8 @@ impl JupiterClient {
                     } else if response.status().is_server_error() && attempts < max_attempts {
                         warn!("Server error (attempt {}/{}): {}", 
                               attempts, max_attempts, response.status());
-                        tokio::time::sleep(Duration::from_millis(1000 * attempts as u64)).await;
+                        // Ultra-fast retry for trading: 50ms base, max 200ms
+                        tokio::time::sleep(Duration::from_millis(50 * attempts as u64)).await;
                         continue;
                     } else {
                         let status = response.status();
@@ -227,7 +243,8 @@ impl JupiterClient {
                 }
                 Err(e) if attempts < max_attempts => {
                     warn!("Request failed (attempt {}/{}): {}", attempts, max_attempts, e);
-                    tokio::time::sleep(Duration::from_millis(1000 * attempts as u64)).await;
+                    // Ultra-fast retry: 50ms, 100ms max
+                    tokio::time::sleep(Duration::from_millis(50 * attempts as u64)).await;
                     continue;
                 }
                 Err(e) => {
@@ -235,5 +252,54 @@ impl JupiterClient {
                 }
             }
         }
+    }
+}
+
+/// Price cache for ultra-fast lookups
+#[derive(Debug, Clone)]
+struct PriceCache {
+    cache: Arc<RwLock<HashMap<String, (f64, std::time::Instant)>>>,
+    ttl: Duration,
+}
+
+impl PriceCache {
+    fn new() -> Self {
+        Self {
+            cache: Arc::new(RwLock::new(HashMap::new())),
+            ttl: Duration::from_secs(5), // 5 second TTL for trading
+        }
+    }
+
+    async fn get(&self, token: &str) -> Option<f64> {
+        let cache = self.cache.read().await;
+        if let Some((price, timestamp)) = cache.get(token) {
+            if timestamp.elapsed() < self.ttl {
+                debug!("💾 Cache hit for {}: ${:.6}", token, price);
+                return Some(*price);
+            }
+        }
+        None
+    }
+
+    async fn set(&self, token: &str, price: f64) {
+        let mut cache = self.cache.write().await;
+        cache.insert(token.to_string(), (price, std::time::Instant::now()));
+        debug!("💾 Cached price for {}: ${:.6}", token, price);
+    }
+
+    async fn clear(&self) {
+        let mut cache = self.cache.write().await;
+        cache.clear();
+        debug!("💾 Price cache cleared");
+    }
+
+    async fn size(&self) -> usize {
+        let cache = self.cache.read().await;
+        cache.len()
+    }
+
+    async fn cleanup_expired(&self) {
+        let mut cache = self.cache.write().await;
+        cache.retain(|_, (_, timestamp)| timestamp.elapsed() < self.ttl);
     }
 }

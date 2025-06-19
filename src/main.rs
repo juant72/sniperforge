@@ -3,6 +3,7 @@
 
 use anyhow::Result;
 use tracing::info;
+use dotenv::dotenv;
 
 pub mod config;
 pub mod platform;
@@ -10,11 +11,15 @@ pub mod bots;
 pub mod shared;
 pub mod types;
 mod cli;
+mod jupiter_speed_test;
 
 use config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load environment variables from .env file
+    dotenv().ok();
+    
     // Initialize rustls crypto provider first
     init_crypto_provider();
     

@@ -19,11 +19,15 @@ pub mod client;
 pub mod types;
 pub mod quotes;
 pub mod swaps;
+pub mod ultra_fast_client;
+pub mod fallback_client;
 
 pub use client::JupiterClient;
 pub use types::*;
 pub use quotes::QuoteEngine;
 pub use swaps::JupiterSwapService;
+pub use ultra_fast_client::UltraFastJupiterClient;
+pub use fallback_client::FallbackJupiterClient;
 
 /// Jupiter API configuration
 #[derive(Debug, Clone)]
@@ -42,8 +46,8 @@ impl Default for JupiterConfig {
         Self {
             api_base_url: "https://quote-api.jup.ag/v6".to_string(),
             rpc_url: "https://api.devnet.solana.com".to_string(),
-            timeout_seconds: 10,
-            max_retries: 3,
+            timeout_seconds: 2, // Aggressive 2s timeout for trading
+            max_retries: 1, // Quick fail for speed
             slippage_bps: 50, // 0.5% default slippage
             enable_devnet: true,
             enable_mainnet_paper: false,
