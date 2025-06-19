@@ -9,6 +9,8 @@ pub mod websocket_price_feed;
 pub mod syndica_websocket;
 pub mod cache_free_trader_simple;
 pub mod paper_trading;
+pub mod virtual_portfolio;
+pub mod pool_detector;
 
 use anyhow::Result;
 use std::sync::Arc;

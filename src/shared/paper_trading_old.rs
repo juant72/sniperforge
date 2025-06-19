@@ -1,15 +1,16 @@
-/// Paper Trading Engine - Mainnet Data, Zero Risk (UPDATED)
+/// Paper Trading Engine - Mainnet Data, Zero Risk
 /// 
-/// Sistema mejorado de paper trading usando datos reales de mainnet
-/// con VirtualPortfolioManager avanzado
+/// Este módulo permite trading simulado usando datos reales de mainnet
+/// sin ejecutar transacciones reales ni arriesgar dinero
 
 use anyhow::{Result, anyhow};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn, error, debug};
 use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
 
 use crate::shared::jupiter::client::JupiterClient;
-use crate::shared::jupiter::JupiterConfig;
+use crate::shared::jupiter::{JupiterConfig, types::JupiterQuote};
 use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
 use crate::shared::virtual_portfolio::{VirtualPortfolioManager, PortfolioSettings};
 
@@ -43,7 +44,17 @@ impl Default for PaperTradingConfig {
     }
 }
 
-/// Resultado de trade simulado (compatible con versión anterior)
+/// Balance de tokens simulado
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaperBalance {
+    pub token_mint: String,
+    pub symbol: String,
+    pub amount: f64,
+    pub value_usd: f64,
+    pub last_updated: u64,
+}
+
+/// Resultado de trade simulado
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaperTradeResult {
     pub trade_id: String,
@@ -61,7 +72,20 @@ pub struct PaperTradeResult {
     pub is_profitable: bool,
 }
 
-/// Paper Trading Engine con VirtualPortfolioManager
+/// Portfolio simulado
+#[derive(Debug, Clone)]
+pub struct PaperPortfolio {
+    pub balances: HashMap<String, PaperBalance>,
+    pub total_value_usd: f64,
+    pub initial_value_usd: f64,
+    pub profit_loss_usd: f64,
+    pub profit_loss_percent: f64,
+    pub trade_count: u32,
+    pub winning_trades: u32,
+    pub losing_trades: u32,
+}
+
+/// Paper Trading Engine
 #[derive(Debug)]
 pub struct PaperTradingEngine {
     config: PaperTradingConfig,
@@ -71,8 +95,7 @@ pub struct PaperTradingEngine {
     trade_history: Vec<PaperTradeResult>,
 }
 
-impl PaperTradingEngine {
-    /// Crear nuevo paper trading engine
+impl PaperTradingEngine {    /// Crear nuevo paper trading engine
     pub async fn new(config: PaperTradingConfig) -> Result<Self> {
         info!("📊 Initializing Paper Trading Engine (Mainnet Data)");
         info!("   Initial SOL: {}", config.initial_sol_balance);
@@ -138,8 +161,7 @@ impl PaperTradingEngine {
             portfolio_manager,
             jupiter_client,
             syndica_client,
-            trade_history: Vec::new(),
-        })
+            trade_history: Vec::new(),        })
     }
     
     /// Conectar a feeds de datos de mainnet
@@ -163,19 +185,18 @@ impl PaperTradingEngine {
         
         Ok(())
     }
-    
-    /// Obtener precio real de mainnet con manejo inteligente de stablecoins
+      /// Obtener precio real de mainnet
     pub async fn get_real_mainnet_price(&self, token_mint: &str) -> Result<f64> {
         debug!("🔍 Getting real mainnet price for {}", token_mint);
         
         // Special handling for stablecoins (USDC, USDT, etc.)
         if self.is_stablecoin(token_mint) {
             let price = 1.0;
-            debug!("💰 Stablecoin detected: {} = ${:.4}", self.get_token_symbol(token_mint), price);
+            debug!("✅ Stablecoin price (hardcoded): ${:.4}", price);
             return Ok(price);
         }
         
-        // Try Syndica first (faster for real-time data)
+        // Primero intentar Syndica (más rápido)
         if let Some(ref syndica) = self.syndica_client {
             if let Ok(Some(price)) = syndica.get_price_ultra_safe(token_mint).await {
                 debug!("✅ Got price from Syndica: ${:.4}", price);
@@ -183,27 +204,93 @@ impl PaperTradingEngine {
             }
         }
         
-        // Fallback to Jupiter direct price fetch
+        // Fallback a Jupiter with better error handling
         match self.jupiter_client.get_token_price_direct(token_mint).await {
             Ok(price) => {
                 debug!("✅ Got price from Jupiter: ${:.4}", price);
                 Ok(price)
             }
             Err(e) => {
-                // For unknown tokens, try to use SOL as fallback reference
-                warn!("⚠️ Failed to get direct price for {}: {}", token_mint, e);
-                
-                if token_mint != "So11111111111111111111111111111111111111112" {
-                    warn!("🔄 Attempting fallback price estimation...");
-                    self.get_fallback_price(token_mint).await
-                } else {
-                    Err(anyhow!("Failed to fetch price for {} from all sources", token_mint))
-                }
+                // For paper trading, provide reasonable fallback prices
+                warn!("⚠️ Failed to get live price, using fallback: {}", e);
+                let fallback_price = self.get_fallback_price(token_mint);
+                warn!("🔄 Using fallback price: ${:.4}", fallback_price);
+                Ok(fallback_price)
             }
         }
     }
     
-    /// Ejecutar trade simulado y actualizar portfolio
+    /// Simular trade con datos reales de mainnet
+    pub async fn simulate_trade(
+        &mut self,
+        input_token: &str,
+        output_token: &str,
+        input_amount: f64,
+    ) -> Result<PaperTradeResult> {
+        info!("📊 Simulating trade: {} -> {} (amount: {})", 
+              input_token, output_token, input_amount);
+        
+        let start_time = Instant::now();
+        
+        // Step 1: Obtener precios reales de mainnet
+        let input_price = self.get_real_mainnet_price(input_token).await?;
+        let output_price = self.get_real_mainnet_price(output_token).await?;
+        
+        // Step 2: Obtener quote real de Jupiter
+        let input_amount_lamports = (input_amount * 1_000_000_000.0) as u64; // Convert to lamports
+        let quote = self.jupiter_client.get_quote_direct(
+            input_token,
+            output_token,
+            input_amount_lamports,
+        ).await?;
+        
+        // Step 3: Calcular output con fees y slippage simulados
+        let base_output = quote.out_amount.parse::<u64>()
+            .map_err(|_| anyhow!("Invalid output amount"))? as f64 / 1_000_000_000.0;
+        
+        // Aplicar fees simulados
+        let fee_amount = input_amount * (self.config.simulated_fee_bps as f64 / 10000.0);
+        
+        // Aplicar slippage simulado
+        let slippage_amount = base_output * (self.config.simulated_slippage_percent / 100.0);
+        let final_output = base_output - slippage_amount;
+        
+        // Step 4: Simular latencia de ejecución
+        tokio::time::sleep(Duration::from_millis(self.config.execution_latency_ms)).await;
+        
+        let total_latency = start_time.elapsed();
+        
+        // Step 5: Calcular P&L
+        let input_value_usd = input_amount * input_price;
+        let output_value_usd = final_output * output_price;
+        let profit_loss = output_value_usd - input_value_usd - (fee_amount * input_price);
+        
+        // Step 6: Crear resultado del trade
+        let trade_result = PaperTradeResult {
+            trade_id: format!("paper_{}", self.portfolio.trade_count + 1),
+            timestamp: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
+            input_token: input_token.to_string(),
+            output_token: output_token.to_string(),
+            input_amount,
+            output_amount: final_output,
+            input_price,
+            output_price,
+            simulated_fee: fee_amount,
+            simulated_slippage: slippage_amount,
+            total_latency,
+            profit_loss_usd: profit_loss,
+            is_profitable: profit_loss > 0.0,
+        };
+        
+        info!("💹 Trade simulation completed:");
+        info!("   Input: {} {} (${:.2})", input_amount, "TOKEN", input_value_usd);
+        info!("   Output: {:.6} {} (${:.2})", final_output, "TOKEN", output_value_usd);
+        info!("   P&L: ${:.4} ({})", profit_loss, if profit_loss > 0.0 { "📈 PROFIT" } else { "📉 LOSS" });
+        info!("   Latency: {:?}", total_latency);
+        
+        Ok(trade_result)
+    }
+      /// Ejecutar trade simulado y actualizar portfolio
     pub async fn execute_paper_trade(
         &mut self,
         input_token: &str,
@@ -264,15 +351,77 @@ impl PaperTradingEngine {
         
         Ok(trade_result)
     }
-    
-    /// Imprimir estado del portfolio usando el VirtualPortfolioManager
-    pub fn print_portfolio_status(&self) {
-        self.portfolio_manager.print_portfolio_status();
+        // Validar que tenemos suficiente balance
+        if let Some(balance) = self.portfolio.balances.get(input_token) {
+            if balance.amount < input_amount {
+                return Err(anyhow!("❌ Insufficient balance: have {}, need {}", 
+                                   balance.amount, input_amount));
+            }
+        } else {
+            return Err(anyhow!("❌ No balance found for token {}", input_token));
+        }
+        
+        // Simular el trade
+        let trade_result = self.simulate_trade(input_token, output_token, input_amount).await?;
+        
+        // Actualizar balances
+        self.update_portfolio_balances(&trade_result).await?;
+        
+        // Guardar en historial
+        self.trade_history.push(trade_result.clone());
+        
+        Ok(trade_result)
     }
     
-    /// Obtener métricas del portfolio
-    pub fn get_portfolio_metrics(&self) -> crate::shared::virtual_portfolio::PortfolioMetrics {
-        self.portfolio_manager.get_metrics()
+    /// Actualizar balances del portfolio
+    async fn update_portfolio_balances(&mut self, trade: &PaperTradeResult) -> Result<()> {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        
+        // Reducir balance del token de entrada
+        if let Some(balance) = self.portfolio.balances.get_mut(&trade.input_token) {
+            balance.amount -= trade.input_amount + trade.simulated_fee;
+            balance.value_usd = balance.amount * trade.input_price;
+            balance.last_updated = now;
+        }
+        
+        // Aumentar balance del token de salida
+        if let Some(balance) = self.portfolio.balances.get_mut(&trade.output_token) {
+            balance.amount += trade.output_amount;
+            balance.value_usd = balance.amount * trade.output_price;
+            balance.last_updated = now;
+        } else {
+            // Crear nuevo balance si no existe
+            self.portfolio.balances.insert(trade.output_token.clone(), PaperBalance {
+                token_mint: trade.output_token.clone(),
+                symbol: "UNKNOWN".to_string(),
+                amount: trade.output_amount,
+                value_usd: trade.output_amount * trade.output_price,
+                last_updated: now,
+            });
+        }
+        
+        // Actualizar estadísticas del portfolio
+        self.portfolio.trade_count += 1;
+        if trade.is_profitable {
+            self.portfolio.winning_trades += 1;
+        } else {
+            self.portfolio.losing_trades += 1;
+        }
+        
+        // Recalcular valor total
+        self.portfolio.total_value_usd = self.portfolio.balances.values()
+            .map(|b| b.value_usd)
+            .sum();
+        
+        self.portfolio.profit_loss_usd = self.portfolio.total_value_usd - self.portfolio.initial_value_usd;
+        self.portfolio.profit_loss_percent = (self.portfolio.profit_loss_usd / self.portfolio.initial_value_usd) * 100.0;
+        
+        Ok(())
+    }
+    
+    /// Obtener resumen del portfolio
+    pub fn get_portfolio_summary(&self) -> &PaperPortfolio {
+        &self.portfolio
     }
     
     /// Obtener historial de trades
@@ -280,45 +429,52 @@ impl PaperTradingEngine {
         &self.trade_history
     }
     
-    // Helper methods
-    
-    /// Verificar si un token es stablecoin
-    fn is_stablecoin(&self, token_mint: &str) -> bool {
-        matches!(token_mint,
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" | // USDC
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" | // USDT
-            "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU" | // USDC (FTX)
-            "A9mUU4qviSctJVPJdBJWkb28deg915LYJKrzQ19ji3FM"   // USDCet (Ethereum bridged)
-        )
-    }
-    
-    /// Obtener símbolo de token
-    fn get_token_symbol(&self, token_mint: &str) -> String {
-        match token_mint {
-            "So11111111111111111111111111111111111111112" => "SOL".to_string(),
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "USDC".to_string(),
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "USDT".to_string(),
-            _ => format!("{}...", &token_mint[..8]),
+    /// Imprimir estado del portfolio
+    pub fn print_portfolio_status(&self) {
+        println!("\n📊 PAPER TRADING PORTFOLIO STATUS");
+        println!("==================================");
+        println!("💰 Total Value: ${:.2}", self.portfolio.total_value_usd);
+        println!("📈 P&L: ${:.2} ({:.2}%)", 
+                 self.portfolio.profit_loss_usd, 
+                 self.portfolio.profit_loss_percent);
+        println!("📊 Trades: {} (✅ {} wins, ❌ {} losses)", 
+                 self.portfolio.trade_count,
+                 self.portfolio.winning_trades,
+                 self.portfolio.losing_trades);
+        
+        let win_rate = if self.portfolio.trade_count > 0 {
+            (self.portfolio.winning_trades as f64 / self.portfolio.trade_count as f64) * 100.0
+        } else { 0.0 };
+        println!("🎯 Win Rate: {:.1}%", win_rate);
+        
+        println!("\n💼 Current Balances:");
+        for balance in self.portfolio.balances.values() {
+            println!("   {} {}: {:.6} (${:.2})", 
+                     balance.symbol, 
+                     &balance.token_mint[..8],
+                     balance.amount, 
+                     balance.value_usd);
         }
     }
-      /// Obtener precio de fallback para tokens desconocidos
-    async fn get_fallback_price(&self, token_mint: &str) -> Result<f64> {
-        warn!("🔄 Using fallback price estimation for unknown token: {}", token_mint);
-        
-        // Use Jupiter direct SOL price to avoid recursion
-        match self.jupiter_client.get_token_price_direct("So11111111111111111111111111111111111111112").await {
-            Ok(sol_price) => {
-                let fallback_price = sol_price * 0.1; // Assume token is worth 10% of SOL
-                warn!("📊 Fallback price estimated: {} = ${:.6} (10% of SOL)", self.get_token_symbol(token_mint), fallback_price);
-                Ok(fallback_price)
-            }
-            Err(e) => {
-                warn!("⚠️ Even SOL price fetch failed: {}", e);
-                // Return a very small fallback price to avoid complete failure
-                let minimal_price = 0.001;
-                warn!("📊 Using minimal fallback price: {} = ${:.6}", self.get_token_symbol(token_mint), minimal_price);
-                Ok(minimal_price)
-            }
+    
+    /// Check if token is a known stablecoin
+    fn is_stablecoin(&self, token_mint: &str) -> bool {
+        match token_mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => true, // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => true, // USDT
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => true, // RAY
+            _ => false,
+        }
+    }
+    
+    /// Get fallback price for known tokens (for paper trading reliability)
+    fn get_fallback_price(&self, token_mint: &str) -> f64 {
+        match token_mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0,   // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0,   // USDT
+            "So11111111111111111111111111111111111111112" => 180.0,  // SOL (reasonable estimate)
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 2.5,   // RAY (estimate)
+            _ => 1.0, // Default fallback for unknown tokens
         }
     }
 }

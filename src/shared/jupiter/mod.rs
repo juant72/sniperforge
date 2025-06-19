@@ -55,6 +55,21 @@ impl Default for JupiterConfig {
     }
 }
 
+impl JupiterConfig {
+    /// Create mainnet configuration for paper trading
+    pub fn mainnet() -> Self {
+        Self {
+            api_base_url: "https://quote-api.jup.ag/v6".to_string(),
+            rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+            timeout_seconds: 5, // Longer timeout for mainnet
+            max_retries: 3, // More retries for mainnet
+            slippage_bps: 50, // 0.5% default slippage
+            enable_devnet: false,
+            enable_mainnet_paper: true, // Paper trading mode
+        }
+    }
+}
+
 /// Main Jupiter integration facade
 pub struct Jupiter {
     config: JupiterConfig,

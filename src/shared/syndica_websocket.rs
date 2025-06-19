@@ -36,6 +36,19 @@ impl Default for SyndicaConfig {
     }
 }
 
+impl SyndicaConfig {
+    /// Create mainnet configuration
+    pub fn mainnet() -> Self {
+        Self {
+            access_token: std::env::var("SYNDICA_TOKEN")
+                .unwrap_or_else(|_| "4gJVJtRPS6J2MMWPasUfQHitRZCzQShiJUtKFBTZgXgqmcyCnyVdRVZ1wcjYKkCF83MNSVyP12EDeYJgFMr3zqQjdArFmPXRwmT".to_string()),
+            endpoint: "wss://solana-mainnet.api.syndica.io".to_string(),
+            reconnect_attempts: 5,
+            ping_interval: Duration::from_secs(30),
+        }
+    }
+}
+
 /// Syndica WebSocket subscription request
 #[derive(Debug, Serialize)]
 struct SyndicaSubscription {

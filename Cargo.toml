@@ -48,6 +48,9 @@ rustls = { version = "0.23", features = ["ring"] }
 openssl = { version = "0.10", features = ["vendored"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
 
+# Random number generation for pool detection
+rand = "0.8"
+
 # Logging ultra-minimal pero funcional
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.19", default-features = false, features = ["env-filter", "std"] }
@@ -72,9 +75,6 @@ config = "0.15.11"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.0"
 sysinfo = "0.35.2"
-
-# Random number generation
-rand = "0.8"
 
 [dev-dependencies]
 assert_matches = "1.5"
