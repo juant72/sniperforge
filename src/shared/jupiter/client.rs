@@ -252,38 +252,54 @@ impl JupiterClient {    /// Create new Jupiter client
                 }
             }
         }
-    }
-
-    /// Get token price directly (no cache) - SAFE for trading
+    }    /// Get token price directly (no cache) - SAFE for trading
     pub async fn get_token_price_direct(&self, token_mint: &str) -> Result<f64> {
         info!("🔍 Getting DIRECT token price for {} (no cache)", token_mint);
         
-        // Use Jupiter price API v4 directly
-        let url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
-        
-        let response = self.http_client
-            .get(&url)
-            .timeout(Duration::from_secs(5))
-            .send()
-            .await?;
-            
-        if !response.status().is_success() {
-            return Err(anyhow!("Jupiter price API failed: {}", response.status()));
+        // First, try Jupiter price API v4 with retry logic
+        match self.get_price_from_jupiter_api(token_mint).await {
+            Ok(price) => {
+                info!("✅ Direct price fetched from Jupiter API: {} = ${:.4}", token_mint, price);
+                return Ok(price);
+            }
+            Err(e) => {
+                warn!("⚠️ Jupiter price API failed, trying quote fallback: {}", e);
+            }
         }
         
+        // Fallback: Use quote API for SOL price (more reliable)
+        if token_mint == "So11111111111111111111111111111111111111112" {
+            match self.get_sol_price_via_usdc_quote_direct().await {
+                Ok(price) => {
+                    info!("✅ SOL price fetched via quote fallback: ${:.4}", price);
+                    return Ok(price);
+                }
+                Err(e) => {
+                    warn!("⚠️ Quote fallback also failed: {}", e);
+                }
+            }
+        }
+        
+        Err(anyhow!("Failed to fetch price for {} from all sources", token_mint))
+    }
+
+    /// Get price from Jupiter price API with retry logic
+    async fn get_price_from_jupiter_api(&self, token_mint: &str) -> Result<f64> {
+        let price_url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
+        let url = Url::parse(&price_url)?;
+        
+        let response = self.execute_with_retry(url).await?;
         let price_data: serde_json::Value = response.json().await?;
         
         if let Some(data) = price_data.get("data").and_then(|d| d.get(token_mint)) {
             if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
                 let price_float = price.parse::<f64>()
                     .map_err(|e| anyhow!("Failed to parse price: {}", e))?;
-                
-                info!("✅ Direct price fetched: {} = ${:.4}", token_mint, price_float);
                 return Ok(price_float);
             }
         }
         
-        Err(anyhow!("Failed to extract price from Jupiter response"))
+        Err(anyhow!("Failed to extract price from Jupiter price API response"))
     }
 
     /// Get quote directly (no cache) - SAFE for trading
