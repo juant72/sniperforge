@@ -12,7 +12,7 @@ use serde::{Serialize, Deserialize};
 
 use super::jupiter::{JupiterClient, JupiterConfig, JupiterQuote, JupiterSwapService};
 use super::wallet_manager::WalletManager;
-use super::cache_free_trader::{CacheFreeTrader, TradingSafetyConfig};
+use super::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig, SwapResult};
 use crate::config::Config;
 
 /// Trade execution mode
@@ -61,7 +61,7 @@ pub struct TradeExecutor {
     wallet_manager: WalletManager,
     rpc_client: RpcClient,
     trading_mode: TradingMode,
-    cache_free_trader: Option<CacheFreeTrader>,
+    cache_free_trader: Option<CacheFreeTraderSimple>,
 }
 
 impl TradeExecutor {
@@ -102,7 +102,7 @@ impl TradeExecutor {
         let rpc_client = RpcClient::new(rpc_url.to_string());
 
         // Initialize cache-free trader for maximum safety
-        let cache_free_trader = match CacheFreeTrader::new(TradingSafetyConfig::default()).await {
+        let cache_free_trader = match CacheFreeTraderSimple::new(TradingSafetyConfig::default()).await {
             Ok(trader) => {
                 info!("🛡️ Cache-free trader initialized for safe trading");
                 Some(trader)

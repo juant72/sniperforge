@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use tracing::{info, warn, error, debug};
 
 use crate::shared::jupiter::client::JupiterClient;
-use crate::shared::jupiter::JupiterConfig;
+use crate::shared::jupiter::{JupiterConfig, types::JupiterQuote};
 use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
 
 /// Configuración para trading sin caché

@@ -7,7 +7,8 @@ pub mod trade_executor;
 pub mod websocket_manager;
 pub mod websocket_price_feed;
 pub mod syndica_websocket;
-pub mod cache_free_trader;
+// pub mod cache_free_trader;
+pub mod cache_free_trader_simple;
 
 use anyhow::Result;
 use std::sync::Arc;

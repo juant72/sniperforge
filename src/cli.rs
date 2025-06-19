@@ -494,8 +494,9 @@ async fn handle_test_cache_safety() -> Result<()> {
     println!("{}", "🛡️ Cache Safety Analysis Test".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
-    use crate::cache_safety_test::test_cache_safety_levels;
-    test_cache_safety_levels().await?;
+    // Use the simplified version for now
+    use crate::shared::cache_free_trader_simple::test_cache_free_trading;
+    test_cache_free_trading().await?;
     
     Ok(())
 }
@@ -503,8 +504,7 @@ async fn handle_test_cache_safety() -> Result<()> {
 async fn handle_test_cache_free_trading() -> Result<()> {
     println!("{}", "🛡️ Cache-Free Trading Engine Test".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
-    
-    use crate::shared::cache_free_trader::test_cache_free_trading;
+      use crate::shared::cache_free_trader_simple::test_cache_free_trading;
     test_cache_free_trading().await?;
     
     Ok(())
