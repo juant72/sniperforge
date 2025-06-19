@@ -12,6 +12,7 @@ pub mod shared;
 pub mod types;
 mod cli;
 mod jupiter_speed_test;
+mod cache_safety_test;
 
 use config::Config;
 

@@ -47,6 +47,8 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("performance").about("Test performance and latency"))
                 .subcommand(Command::new("websocket-rpc").about("Compare HTTP vs WebSocket RPC latency"))
                 .subcommand(Command::new("syndica").about("Test Syndica ultra-fast WebSocket performance"))
+                .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
+                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading engine (SAFE)"))
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .get_matches();
@@ -148,6 +150,8 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("integration", _)) => handle_test_integration().await?,        Some(("performance", _)) => handle_test_performance().await?,
         Some(("websocket-rpc", _)) => handle_test_websocket_rpc().await?,
         Some(("syndica", _)) => handle_test_syndica().await?,
+        Some(("cache-safety", _)) => handle_test_cache_safety().await?,
+        Some(("cache-free-trading", _)) => handle_test_cache_free_trading().await?,
         _ => {
             println!("{}", "🧪 Available tests:".bright_cyan().bold());
             println!("  • {} - Run all tests", "all".bright_yellow());
@@ -161,6 +165,8 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  • {} - Complete integration flow", "integration".bright_yellow());            println!("  • {} - Performance and latency", "performance".bright_yellow());
             println!("  • {} - WebSocket RPC performance", "websocket-rpc".bright_yellow());
             println!("  • {} - Syndica ultra-fast WebSocket", "syndica".bright_yellow());
+            println!("  • {} - Cache safety and eviction", "cache-safety".bright_yellow());
+            println!("  • {} - Cache-free trading engine (SAFE)", "cache-free-trading".bright_yellow());
         }
     }
     Ok(())
@@ -171,7 +177,7 @@ async fn handle_test_all() -> Result<()> {
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
       // Run tests sequentially to avoid the future type issues
     let mut passed = 0;
-    let total = 7;
+    let total = 9;
     
     // Test Basic
     println!("\n{} Running {} test...", "🏃".bright_blue(), "Basic".bright_white());
@@ -254,6 +260,30 @@ async fn handle_test_all() -> Result<()> {
         }
         Err(e) => {
             println!("{} {} test failed: {}", "❌".bright_red(), "WebSocket RPC", e);
+        }
+    }
+    
+    // Test Cache Safety
+    println!("\n{} Running {} test...", "🏃".bright_blue(), "Cache Safety".bright_white());
+    match handle_test_cache_safety().await {
+        Ok(_) => {
+            passed += 1;
+            println!("{} {} test completed", "✅".bright_green(), "Cache Safety");
+        }
+        Err(e) => {
+            println!("{} {} test failed: {}", "❌".bright_red(), "Cache Safety", e);
+        }
+    }
+    
+    // Test Cache-Free Trading
+    println!("\n{} Running {} test...", "🏃".bright_blue(), "Cache-Free Trading".bright_white());
+    match handle_test_cache_free_trading().await {
+        Ok(_) => {
+            passed += 1;
+            println!("{} {} test completed", "✅".bright_green(), "Cache-Free Trading");
+        }
+        Err(e) => {
+            println!("{} {} test failed: {}", "❌".bright_red(), "Cache-Free Trading", e);
         }
     }
     
@@ -456,6 +486,26 @@ async fn handle_test_syndica() -> Result<()> {
     
     use sniperforge::ultimate_rpc_test::run_ultimate_rpc_comparison;
     run_ultimate_rpc_comparison().await?;
+    
+    Ok(())
+}
+
+async fn handle_test_cache_safety() -> Result<()> {
+    println!("{}", "🛡️ Cache Safety Analysis Test".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    use crate::cache_safety_test::test_cache_safety_levels;
+    test_cache_safety_levels().await?;
+    
+    Ok(())
+}
+
+async fn handle_test_cache_free_trading() -> Result<()> {
+    println!("{}", "🛡️ Cache-Free Trading Engine Test".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    use crate::shared::cache_free_trader::test_cache_free_trading;
+    test_cache_free_trading().await?;
     
     Ok(())
 }

@@ -253,6 +253,81 @@ impl JupiterClient {    /// Create new Jupiter client
             }
         }
     }
+
+    /// Get token price directly (no cache) - SAFE for trading
+    pub async fn get_token_price_direct(&self, token_mint: &str) -> Result<f64> {
+        info!("🔍 Getting DIRECT token price for {} (no cache)", token_mint);
+        
+        // Use Jupiter price API v4 directly
+        let url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
+        
+        let response = self.http_client
+            .get(&url)
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await?;
+            
+        if !response.status().is_success() {
+            return Err(anyhow!("Jupiter price API failed: {}", response.status()));
+        }
+        
+        let price_data: serde_json::Value = response.json().await?;
+        
+        if let Some(data) = price_data.get("data").and_then(|d| d.get(token_mint)) {
+            if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
+                let price_float = price.parse::<f64>()
+                    .map_err(|e| anyhow!("Failed to parse price: {}", e))?;
+                
+                info!("✅ Direct price fetched: {} = ${:.4}", token_mint, price_float);
+                return Ok(price_float);
+            }
+        }
+        
+        Err(anyhow!("Failed to extract price from Jupiter response"))
+    }
+
+    /// Get quote directly (no cache) - SAFE for trading
+    pub async fn get_quote_direct(
+        &self,
+        input_mint: &str,
+        output_mint: &str,
+        amount: u64,
+    ) -> Result<super::types::JupiterQuote> {
+        info!("🔍 Getting DIRECT quote: {} -> {} (amount: {}, no cache)", 
+              input_mint, output_mint, amount);
+        
+        let mut url = self.base_url.join("/quote")?;
+        
+        // Add query parameters with timestamp to force fresh data
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+            
+        url.query_pairs_mut()
+            .append_pair("inputMint", input_mint)
+            .append_pair("outputMint", output_mint)
+            .append_pair("amount", &amount.to_string())
+            .append_pair("slippageBps", &self.config.slippage_bps.to_string())
+            .append_pair("_t", &timestamp.to_string()); // Cache buster
+        
+        let response = self.http_client
+            .get(url)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await?;
+            
+        if !response.status().is_success() {
+            return Err(anyhow!("Jupiter quote API failed: {}", response.status()));
+        }
+        
+        let quote: super::types::JupiterQuote = response.json().await?;
+        
+        info!("✅ Direct quote received: {} -> {} tokens", 
+              amount, quote.out_amount);
+        Ok(quote)
+    }
+
 }
 
 /// Price cache for ultra-fast lookups

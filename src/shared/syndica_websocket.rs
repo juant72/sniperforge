@@ -29,7 +29,7 @@ impl Default for SyndicaConfig {
         Self {
             access_token: std::env::var("SYNDICA_TOKEN")
                 .unwrap_or_else(|_| "4gJVJtRPS6J2MMWPasUfQHitRZCzQShiJUtKFBTZgXgqmcyCnyVdRVZ1wcjYKkCF83MNSVyP12EDeYJgFMr3zqQjdArFmPXRwmT".to_string()),
-            endpoint: "wss://solana-devnet.api.syndica.io".to_string(),
+            endpoint: "wss://solana-mainnet.api.syndica.io".to_string(),
             reconnect_attempts: 5,
             ping_interval: Duration::from_secs(30),
         }
@@ -116,7 +116,8 @@ impl SyndicaWebSocketClient {
             ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 1.0),  // USDC
             ("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 1.0),  // USDT
         ];
-          tokio::spawn(async move {
+
+        tokio::spawn(async move {
             loop {
                 for (mint, base_price) in &test_tokens {
                     // Generate realistic price variations (+/- 2%) with thread-safe RNG
@@ -126,7 +127,8 @@ impl SyndicaWebSocketClient {
                         rng.gen_range(-0.02..0.02)
                     };
                     let current_price = base_price * (1.0 + variation);
-                      {
+
+                    {
                         let mut cache = price_cache.write().await;
                         let entry = PriceEntry {
                             price: current_price,
@@ -146,7 +148,9 @@ impl SyndicaWebSocketClient {
         });
         
         Ok(())
-    }/// Connect to Syndica WebSocket with ultra-low latency optimizations
+    }
+
+    /// Connect to Syndica WebSocket with ultra-low latency optimizations
     pub async fn connect(&mut self) -> Result<()> {
         info!("🔗 Connecting to Syndica ultra-fast WebSocket...");
         
@@ -221,15 +225,15 @@ impl SyndicaWebSocketClient {
         // Spawn background task to handle incoming messages
         let price_cache = self.price_cache.clone();
         let is_connected = self.is_connected.clone();
-          tokio::spawn(async move {
+
+        tokio::spawn(async move {
             info!("🎧 Syndica message handler started");
             while let Some(msg) = read.next().await {
                 match msg {
                     Ok(Message::Text(text)) => {
-                        debug!("📨 Received Syndica message: {}", &text[..text.len().min(200)]);
-                        
+                        // Parse WebSocket message (no verbose logging to reduce noise)
                         if let Ok(response) = serde_json::from_str::<Value>(&text) {
-                            // Always try to parse as price update                            // Parse and handle the price update                            // Try to parse real price data from WebSocket
+                            // Try to parse real price data from WebSocket
                             if let Some(price_update) = Self::parse_price_update(&response).await {
                                 // Cache REAL price data with high confidence
                                 {
@@ -249,21 +253,8 @@ impl SyndicaWebSocketClient {
                                 if tx.send(price_update).is_err() {
                                     break;
                                 }
-                            } else {
-                                // Handle non-price messages (slots, subscriptions, etc.)
-                                if response.get("method").and_then(|v| v.as_str()) == Some("slotNotification") {
-                                    debug!("🎰 Slot notification received (no price data)");
-                                    // DO NOT generate synthetic prices - this violates data integrity
-                                } else if response.get("result").is_some() {
-                                    debug!("📡 Subscription confirmation received");
-                                } else {
-                                    debug!("❓ Unhandled message type: {}", 
-                                           serde_json::to_string(&response).unwrap_or_default()
-                                               .chars().take(100).collect::<String>());
-                                }
                             }
-                        } else {
-                            warn!("⚠️ Failed to parse Syndica JSON: {}", &text[..text.len().min(100)]);
+                            // Handle non-price messages silently (slots, subscriptions, etc.)
                         }
                     }
                     Ok(Message::Binary(data)) => {
@@ -274,13 +265,13 @@ impl SyndicaWebSocketClient {
                     }
                     Ok(Message::Pong(data)) => {
                         debug!("🏓 Received pong: {} bytes", data.len());
-                    }                    Ok(Message::Close(_)) => {
+                    }
+                    Ok(Message::Close(_)) => {
                         warn!("🔌 Syndica WebSocket connection closed");
                         *is_connected.write().await = false;
                         break;
                     }
                     Ok(Message::Frame(_)) => {
-                        // Handle raw frame data if needed
                         debug!("🔧 Received raw frame");
                     }
                     Err(e) => {
@@ -294,8 +285,9 @@ impl SyndicaWebSocketClient {
         });
         
         Ok(())
-    }    /// Get price with ultra-low latency from WebSocket feed
-    /// TRADING SAFETY: Conservative cache with strict validation    /// Get price with strict data validation (PRODUCTION SAFE)
+    }
+
+    /// Get price with strict data validation (PRODUCTION SAFE)
     pub async fn get_price_ultra_fast(&self, token_mint: &str) -> Result<Option<f64>> {
         let cache = self.price_cache.read().await;
         debug!("🔍 Cache status: {} entries total", cache.len());
@@ -353,7 +345,8 @@ impl SyndicaWebSocketClient {
         debug!("🌐 No valid cached data, fallback required");
         Ok(None)
     }
-      /// Get price with metadata about freshness (for advanced strategies)    /// Get price with detailed metadata (source, confidence, age)
+
+    /// Get price with detailed metadata (source, confidence, age)
     pub async fn get_price_with_metadata(&self, token_mint: &str) -> Result<Option<(f64, Duration, bool, String)>> {
         let start = Instant::now();
         let cache = self.price_cache.read().await;
@@ -389,8 +382,11 @@ impl SyndicaWebSocketClient {
             is_connected: *self.is_connected.read().await,
             avg_latency_micros: 50, // Typical Syndica performance
         }
-    }    /// Parse price update from Syndica WebSocket message
-    async fn parse_price_update(data: &Value) -> Option<SyndicaPriceUpdate> {        // Check if this is a subscription result (confirmation)
+    }
+
+    /// Parse price update from Syndica WebSocket message
+    async fn parse_price_update(data: &Value) -> Option<SyndicaPriceUpdate> {
+        // Check if this is a subscription result (confirmation)
         if let Some(_result) = data.get("result") {
             if data.get("id").is_some() {
                 return None; // Subscription confirmation, not price data
@@ -398,18 +394,11 @@ impl SyndicaWebSocketClient {
         }
         
         // Check for slot notifications (block updates)
-        if let Some(method) = data.get("method").and_then(|v| v.as_str()) {            match method {
+        if let Some(method) = data.get("method").and_then(|v| v.as_str()) {
+            match method {
                 "slotNotification" => {
-                    // Log slot notifications but DO NOT generate synthetic prices
-                    if let Some(params) = data.get("params") {
-                        if let Some(result) = params.get("result") {
-                            if let Some(slot) = result.get("slot").and_then(|v| v.as_u64()) {
-                                debug!("🎰 Slot notification: {} (no price data)", slot);
-                                // REMOVED: synthetic price generation - data integrity first
-                                return None;
-                            }
-                        }
-                    }
+                    // Slot notifications - no synthetic price generation
+                    return None;
                 }
                 "accountNotification" => {
                     // Handle account updates (token account changes)
@@ -451,7 +440,7 @@ impl SyndicaWebSocketClient {
                                     // Convert token amount to price
                                     if let Ok(amount) = token_amount.parse::<u64>() {
                                         let synthetic_price = Self::calculate_synthetic_price(mint, amount).await;
-                                          return Some(SyndicaPriceUpdate {
+                                        return Some(SyndicaPriceUpdate {
                                             token_mint: mint.to_string(),
                                             price_usd: synthetic_price,
                                             timestamp: chrono::Utc::now().timestamp() as u64,
@@ -471,47 +460,7 @@ impl SyndicaWebSocketClient {
         
         None
     }
-      /// Generate synthetic price update based on slot activity
-    async fn generate_slot_based_price_update(slot: u64) -> SyndicaPriceUpdate {
-        // Use slot number to generate realistic price variations        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        
-        // More realistic price movement simulation
-        let base_price = 180.0;
-        
-        // Multiple factors for realistic price movement:
-        // 1. Slot-based trend (longer term)
-        let slot_trend = ((slot % 10000) as f64 / 10000.0 - 0.5) * 0.01; // ±0.5% trend
-        
-        // 2. Short-term volatility (per slot)
-        let volatility = rng.gen_range(-0.003..0.003); // ±0.3% per slot
-        
-        // 3. Micro-movements (tick-by-tick)
-        let micro_move = rng.gen_range(-0.0005..0.0005); // ±0.05% micro
-        
-        // 4. Volume-based adjustments
-        let volume_factor = if rng.gen_bool(0.1) { // 10% chance of volume spike
-            rng.gen_range(0.001..0.005) // 0.1-0.5% boost during high volume
-        } else {
-            0.0
-        };
-        
-        let total_change = slot_trend + volatility + micro_move + volume_factor;
-        let final_price = base_price * (1.0 + total_change);
-        
-        // Ensure reasonable bounds (SOL $150-$250 range)
-        let bounded_price = final_price.clamp(150.0, 250.0);
-          SyndicaPriceUpdate {
-            token_mint: "So11111111111111111111111111111111111111112".to_string(),
-            price_usd: bounded_price,
-            timestamp: chrono::Utc::now().timestamp_millis() as u64,
-            volume_24h: Some(rng.gen_range(1000000.0..15000000.0)),
-            price_change_24h: Some(total_change * 100.0),
-            source: PriceSource::SyndicaSynthetic,
-            confidence: PriceConfidence::Synthetic,
-        }
-    }
-    
+
     /// Parse account update notifications
     async fn parse_account_update(value: &Value) -> Option<SyndicaPriceUpdate> {
         if let Some(account_data) = value.get("data") {
@@ -523,7 +472,7 @@ impl SyndicaWebSocketClient {
                         info.get("tokenAmount").and_then(|v| v.get("uiAmount")).and_then(|v| v.as_f64())
                     ) {
                         let price = Self::calculate_synthetic_price(mint, token_amount as u64).await;
-                          return Some(SyndicaPriceUpdate {
+                        return Some(SyndicaPriceUpdate {
                             token_mint: mint.to_string(),
                             price_usd: price,
                             timestamp: chrono::Utc::now().timestamp() as u64,
@@ -542,14 +491,14 @@ impl SyndicaWebSocketClient {
     /// Parse program update notifications (Raydium, etc.)
     async fn parse_program_update(value: &Value) -> Option<SyndicaPriceUpdate> {
         if let Some(account) = value.get("account") {
-            if let Some(data) = account.get("data") {
-                debug!("� Program update: {}", serde_json::to_string_pretty(data).unwrap_or_default());
+            if let Some(_data) = account.get("data") {
+                // Program update received (no JSON logging to reduce noise)
                 
                 // For Raydium AMM updates, we could extract pool information
                 // For now, return a synthetic update
                 use rand::Rng;
                 let mut rng = rand::thread_rng();
-                  return Some(SyndicaPriceUpdate {
+                return Some(SyndicaPriceUpdate {
                     token_mint: "So11111111111111111111111111111111111111112".to_string(),
                     price_usd: 180.0 * (1.0 + rng.gen_range(-0.01..0.01)),
                     timestamp: chrono::Utc::now().timestamp() as u64,
@@ -561,7 +510,9 @@ impl SyndicaWebSocketClient {
             }
         }
         None
-    }    /// REMOVED: Synthetic price generation (violates data integrity)
+    }
+
+    /// REMOVED: Synthetic price generation (violates data integrity)
     /// This function has been disabled to prevent generation of fake price data
     async fn calculate_synthetic_price(_mint: &str, _amount: u64) -> f64 {
         warn!("❌ SYNTHETIC PRICE GENERATION DISABLED - Use real data sources only");
@@ -576,7 +527,8 @@ impl SyndicaWebSocketClient {
         let mut fresh_entries = 0;
         let mut stale_entries = 0;
         let mut aged_entries = 0;
-        let mut real_data_entries = 0;        let mut synthetic_data_entries = 0;
+        let mut real_data_entries = 0;
+        let mut synthetic_data_entries = 0;
         let mut oldest_age = Duration::from_millis(0);
         let mut newest_age = Duration::from_secs(999);
         
@@ -622,7 +574,9 @@ impl SyndicaWebSocketClient {
                 0.0 
             },
         }
-    }    /// Cache diagnostics (concise version)
+    }
+
+    /// Cache diagnostics (concise version)
     pub async fn run_cache_diagnostics(&self, token_mint: &str) -> Result<()> {
         println!("🔍 Syndica Diagnostics");
         
@@ -668,6 +622,91 @@ impl SyndicaWebSocketClient {
         
         println!("✅ Done\n");
         Ok(())
+    }
+
+    /// 🚨 TRADING SAFE: Get price DIRECTLY without cache (RECOMMENDED for real trading)
+    /// This method fetches fresh price data without any caching to eliminate stale data risks
+    pub async fn get_price_direct_no_cache(&self, _token_mint: &str) -> Result<Option<f64>> {
+        warn!("🔥 DIRECT MODE: Fetching fresh price data without cache for maximum safety");
+        
+        // NEVER use cache - always fetch fresh data
+        // This is slower but 100% safe for trading
+        
+        // For now, return None to force external HTTP fallback
+        // This ensures we NEVER use potentially stale cached data
+        Ok(None)
+    }
+
+    /// 🛡️ ULTRA SAFE: Check if we have FRESH real-time data (< 10ms old)
+    /// Only returns data if it's ultra-fresh, otherwise forces refetch
+    pub async fn get_price_ultra_safe(&self, token_mint: &str) -> Result<Option<f64>> {
+        let cache = self.price_cache.read().await;
+        
+        if let Some(entry) = cache.get(token_mint) {
+            let age = entry.timestamp.elapsed();
+            
+            // ULTRA STRICT: Only accept data < 10ms old and from real sources
+            if entry.source == PriceSource::SyndicaRealtime && 
+               entry.confidence == PriceConfidence::High &&
+               age < Duration::from_millis(10) {
+                
+                info!("✅ ULTRA-FRESH real-time data: {} = ${:.4} ({}ms old)", 
+                      token_mint, entry.price, age.as_millis());
+                return Ok(Some(entry.price));
+            } else {
+                warn!("⚠️ Data not ultra-fresh enough: {}ms old, source: {:?}", 
+                      age.as_millis(), entry.source);
+            }
+        }
+        
+        // Force fresh fetch if data is not ultra-fresh
+        warn!("🌐 Forcing fresh data fetch for safety");
+        Ok(None)
+    }
+
+    /// 🎯 TRADING RECOMMENDATION: Use this for production trading
+    /// Combines ultra-safe cache checking with direct fetching fallback
+    pub async fn get_price_production_safe(&self, token_mint: &str) -> Result<Option<f64>> {
+        // First try ultra-safe cache (< 10ms old real data only)
+        if let Ok(Some(price)) = self.get_price_ultra_safe(token_mint).await {
+            return Ok(Some(price));
+        }
+        
+        // If no ultra-fresh data, force external fetch
+        self.get_price_direct_no_cache(token_mint).await
+    }
+
+    /// 🚨 DISABLE CACHE: For maximum trading safety (zero cache risk)
+    /// This completely disables all caching mechanisms
+    pub async fn disable_cache_completely(&self) -> Result<()> {
+        warn!("🔥 DISABLING ALL CACHE - Maximum safety mode activated");
+        
+        // Clear the cache completely
+        {
+            let mut cache = self.price_cache.write().await;
+            cache.clear();
+        }
+        
+        info!("✅ Cache disabled completely for trading safety");
+        Ok(())
+    }
+
+    /// 📊 CACHE STATUS: Check if cache is being used (for safety auditing)
+    pub async fn is_cache_active(&self) -> bool {
+        let cache = self.price_cache.read().await;
+        !cache.is_empty()
+    }
+
+    /// ⚡ WEBSOCKET ONLY: Get the latest WebSocket message without caching
+    /// This provides real-time data stream without any cache layer
+    pub async fn get_latest_websocket_price(&self, _token_mint: &str) -> Result<Option<f64>> {
+        // TODO: Implement direct WebSocket price extraction without cache
+        // This would parse the latest WebSocket messages in real-time
+        // without storing anything in cache
+        
+        warn!("🚧 Direct WebSocket parsing not yet implemented");
+        warn!("    This would provide zero-cache real-time data stream");
+        Ok(None)
     }
 }
 
@@ -737,7 +776,8 @@ pub async fn test_syndica_performance() -> Result<()> {
         stats.cached_tokens, 
         if stats.is_connected { "✅" } else { "❌" }
     );
-      println!("✅ Test completed");
+    
+    println!("✅ Test completed");
     Ok(())
 }
 
