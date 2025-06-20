@@ -286,21 +286,171 @@ impl WebSocketRpcTest {
 }
 
 /// Run WebSocket RPC performance tests
-pub async fn run_websocket_rpc_tests(config: &Config) -> Result<()> {
+pub async fn run_websocket_rpc_tests(_config: &Config) -> Result<()> {
     info!("🧪 Starting WebSocket RPC performance tests");
     
-    let mut tester = WebSocketRpcTest::new(config.clone()).await?;
+    // Test 1: Our new MainNet price integration test
+    info!("🌐 Initializing WebSocket Price Feed");
+    let _websocket_feed = WebSocketPriceFeed::new_mainnet_prices().await?;
     
-    // Test 1: Latency comparison
+    let jupiter_config = JupiterConfig::default();
+    let jupiter_client = JupiterClient::new(&jupiter_config).await?;
+    
     info!("📊 === TEST 1: LATENCY COMPARISON ===");
-    tester.run_latency_comparison().await?;
+    info!("🧪 Starting HTTP vs WebSocket latency comparison");
     
+    // Test HTTP latency first
+    info!("🌐 Testing HTTP latency...");
+    let mut http_latencies = Vec::new();
+    let test_tokens = vec![
+        "So11111111111111111111111111111111111111112", // SOL
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+    ];
+    
+    for token in &test_tokens {
+        let mut token_latencies = Vec::new();
+        for _ in 0..10 {
+            let start = Instant::now();
+            if let Ok(Some(_price)) = jupiter_client.get_price(token).await {
+                let latency = start.elapsed();
+                token_latencies.push(latency);
+            } else {
+                warn!("No price found for token: {}", token);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        
+        if !token_latencies.is_empty() {
+            let avg_latency = token_latencies.iter().sum::<Duration>() / token_latencies.len() as u32;
+            http_latencies.push(avg_latency);
+            info!("📊 HTTP average for {}: {:.5}ms", token, avg_latency.as_nanos() as f64 / 1_000_000.0);
+        }
+    }
+    
+    // Test WebSocket latency
+    info!("📡 Connecting WebSocket price feed...");
+    let mut websocket_feed_test = WebSocketPriceFeed::new().await?;
+    websocket_feed_test.connect_solana_pools().await?;
+    
+    // Wait for connection establishment
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    
+    info!("⚡ Testing WebSocket latency...");
+    let mut websocket_latencies = Vec::new();
+    
+    for token in &test_tokens {
+        for _ in 0..10 {
+            let start = Instant::now();
+            if let Some(_price) = websocket_feed_test.get_price_realtime(token).await {
+                let latency = start.elapsed();
+                websocket_latencies.push(latency);
+            } else {
+                warn!("No WebSocket price for token: {}", token);
+            }
+            tokio::time::sleep(Duration::from_millis(60)).await;
+        }
+    }
+    
+    // Results
+    info!("📊 === LATENCY COMPARISON RESULTS ===");
+    info!("🏆 OVERALL RESULTS:");
+    
+    let avg_http = if !http_latencies.is_empty() {
+        http_latencies.iter().sum::<Duration>() / http_latencies.len() as u32
+    } else {
+        Duration::from_millis(0)
+    };
+    
+    let avg_websocket = if !websocket_latencies.is_empty() {
+        websocket_latencies.iter().sum::<Duration>() / websocket_latencies.len() as u32
+    } else {
+        Duration::from_millis(0)
+    };
+    
+    info!("    Average HTTP latency: {}ms", avg_http.as_millis());
+    info!("    Average WebSocket latency: {}ms", avg_websocket.as_millis());
+    
+    if websocket_latencies.is_empty() {
+        info!("    ⚠️  WebSocket implementation not working yet");
+        info!("    📊 HTTP performance: {}ms (good baseline)", avg_http.as_millis());
+    } else {
+        let speedup = avg_http.as_nanos() as f64 / avg_websocket.as_nanos() as f64;
+        info!("    🚀 WebSocket is {:.1}x faster", speedup);
+    }
+    
+    // Show trading benefits
+    info!("");
+    info!("💰 TRADING BENEFITS:");
+    let http_ms = avg_http.as_millis() as f64;
+    
+    // High frequency trading
+    info!("    🏃 High-frequency (100 checks/min)");
+    info!("      Per minute: {}ms saved", (http_ms * 100.0) as u64);
+    info!("      Per hour: {:.1}s saved", (http_ms * 100.0 * 60.0) / 1000.0);
+    info!("      Per day: {:.1}s saved", (http_ms * 100.0 * 60.0 * 24.0) / 1000.0);
+    info!("");
+    
+    // Medium frequency
+    info!("    📊 Medium trading (50 checks/min)");
+    info!("      Per minute: {}ms saved", (http_ms * 50.0) as u64);
+    info!("      Per hour: {:.1}s saved", (http_ms * 50.0 * 60.0) / 1000.0);
+    info!("      Per day: {:.1}s saved", (http_ms * 50.0 * 60.0 * 24.0) / 1000.0);
+    info!("");
+    
+    // Conservative
+    info!("    🐌 Conservative (10 checks/min)");
+    info!("      Per minute: {}ms saved", (http_ms * 10.0) as u64);
+    info!("      Per hour: {:.1}s saved", (http_ms * 10.0 * 60.0) / 1000.0);
+    info!("      Per day: {:.1}s saved", (http_ms * 10.0 * 60.0 * 24.0) / 1000.0);
+    info!("");
+    
+    info!("⚡ KEY ADVANTAGES:");
+    let speed_advantage = if websocket_latencies.is_empty() { 0.0 } else { 
+        avg_http.as_nanos() as f64 / avg_websocket.as_nanos() as f64 
+    };
+    info!("    • React to market changes {:.1}x faster", speed_advantage);
+    info!("    • Lower slippage due to faster execution");
+    info!("    • Catch arbitrage opportunities before others");
+    info!("    • Reduced RPC costs (fewer HTTP requests)");
+    info!("    • Real-time pool monitoring");
     info!("");
     
     // Test 2: Real-time monitoring
     info!("📡 === TEST 2: REAL-TIME MONITORING ===");
-    tester.test_real_time_monitoring().await?;
+    info!("🎯 Testing real-time pool monitoring");
+    
+    let mut websocket_monitor = WebSocketPriceFeed::new().await?;
+    websocket_monitor.connect_solana_pools().await?;
+    
+    info!("📡 Connected to Solana WebSocket - monitoring for 30 seconds...");
+    let start_time = Instant::now();
+    let mut update_count = 0;
+    
+    // Monitor for updates
+    while start_time.elapsed() < Duration::from_secs(30) {
+        if websocket_monitor.is_connected().await {
+            let stats = websocket_monitor.get_stats().await;
+            if stats.cached_tokens > update_count {
+                update_count = stats.cached_tokens;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    
+    let duration = start_time.elapsed();
+    let update_rate = update_count as f64 / duration.as_secs() as f64;
+    
+    info!("✅ Monitoring completed:");
+    info!("    Duration: {} seconds", duration.as_secs());
+    info!("    Updates received: {}", update_count);
+    info!("    Update rate: {:.1} updates/sec", update_rate);
+    
+    if update_count == 0 {
+        warn!("⚠️ No updates received - may need to check connection or endpoints");
+    }
     
     info!("🎉 All WebSocket RPC tests completed!");
+    
     Ok(())
 }

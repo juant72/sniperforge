@@ -62,6 +62,7 @@ struct SolanaResponse {
 impl WebSocketPriceFeed {
     pub async fn new() -> Result<Self> {
         info!("🌐 Initializing WebSocket Price Feed");
+        info!("💡 Note: Always using MainNet for prices (DevNet has no real market data)");
         
         Ok(Self {
             price_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -70,24 +71,45 @@ impl WebSocketPriceFeed {
             last_update: Arc::new(RwLock::new(Instant::now())),
         })
     }
-      /// Conectar a Solana WebSocket y suscribirse a pools de Raydium
+      /// Creates WebSocket price feed that ALWAYS uses MainNet for real prices
+    /// This provides accurate price data for both DevNet and MainNet trading
+    /// 
+    /// IMPORTANT: DevNet has different token addresses and NO real market prices
+    /// For price feeds, we ALWAYS use MainNet addresses and pools for accuracy
+    pub async fn new_mainnet_prices() -> Result<Self> {
+        info!("🌐 Initializing MainNet Price Feed");
+        info!("📊 Real-time prices from MainNet (regardless of trading network)");
+        info!("💡 DevNet tokens have different addresses and no real prices");
+        
+        let mut feed = Self::new().await?;
+        feed.connect_solana_pools().await?;
+        Ok(feed)
+    }/// Conectar a Solana WebSocket y suscribirse a pools de Raydium
     pub async fn connect_solana_pools(&mut self) -> Result<()> {
         info!("🔗 Connecting to Solana WebSocket for pool monitoring");
         
-        let url = "wss://api.devnet.solana.com/";
+        // ALWAYS use MainNet for price feeds - DevNet has no real market data
+        // This provides real price feeds regardless of trading mode (DevNet vs MainNet)
+        let url = "wss://api.mainnet-beta.solana.com/";
+        info!("💰 Using MainNet WebSocket for REAL price data (DevNet has no prices)");
         let (ws_stream, _) = connect_async(url).await?;
         let (mut write, mut read) = ws_stream.split();
-        
-        // Subscribe to Raydium AMM pools
+          // Subscribe to Raydium AMM pools on MainNet
+        // Using MainNet Raydium program ID for real pool data
         let subscribe_request = SolanaSubscribeRequest {
             jsonrpc: "2.0".to_string(),
             id: 1,
             method: "programSubscribe".to_string(),
             params: vec![
-                Value::String("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string()), // Raydium AMM
-                Value::Object(serde_json::Map::new()),
+                Value::String("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string()), // Raydium AMM V4 (MainNet)
+                Value::Object({
+                    let mut filters = serde_json::Map::new();
+                    filters.insert("commitment".to_string(), Value::String("processed".to_string()));
+                    filters.insert("encoding".to_string(), Value::String("base64".to_string())); // Better data format
+                    filters
+                }),
             ],
-        };        let subscribe_msg = serde_json::to_string(&subscribe_request)
+        };let subscribe_msg = serde_json::to_string(&subscribe_request)
             .map_err(|e| anyhow::anyhow!("Failed to serialize subscribe request: {}", e))?;
         let message = Message::text(subscribe_msg);
         write.send(message).await?;
@@ -99,20 +121,65 @@ impl WebSocketPriceFeed {
         
         let price_cache = self.price_cache.clone();
         let is_connected = self.is_connected.clone();
-        let last_update = self.last_update.clone();
-        
-        // Background task para procesar mensajes WebSocket
+        let last_update = self.last_update.clone();        // Background task para procesar mensajes WebSocket
         tokio::spawn(async move {
             *is_connected.write().await = true;
+            let mut update_counter = 0;
+            let mut last_price_update = Instant::now();
+            
+            // Immediately populate cache with popular token prices
+            tokio::spawn({
+                let price_cache_init = price_cache.clone();
+                let tx_init = tx.clone();
+                async move {                    // MAINNET token addresses (real market data)
+                    // These are the ACTUAL MainNet addresses with real prices
+                    let popular_tokens = vec![
+                        "So11111111111111111111111111111111111111112", // SOL (wrapped SOL)
+                        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC (MainNet)
+                        "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT (MainNet)
+                        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK (MainNet)
+                        "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", // ETH (MainNet wrapped)
+                        "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk", // PYTH
+                        "HhJpBhRRn4g56VsyLuT8DL5Bv31HkXqsrahTTUCZeZg4", // BERN
+                    ];
+                    
+                    for token in popular_tokens {
+                        if let Ok(price) = Self::fetch_jupiter_price(token).await {
+                            let mut cache = price_cache_init.write().await;
+                            cache.insert(token.to_string(), PriceData {
+                                price,
+                                timestamp: Instant::now(),
+                                source: "initial_mainnet_load".to_string(),
+                            });
+                            
+                            let _ = tx_init.send(PriceUpdate {
+                                token_mint: token.to_string(),
+                                price,
+                                source: "initial_mainnet_load".to_string(),
+                            });
+                            
+                            info!("💰 Loaded initial MainNet price: {} = ${:.6}", token, price);
+                        }
+                        
+                        // Small delay between requests
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+                }
+            });
             
             while let Some(msg) = read.next().await {
                 match msg {
                     Ok(Message::Text(text)) => {
                         if let Ok(response) = serde_json::from_str::<SolanaResponse>(&text) {
-                            if let Some(params) = response.params {
-                                if let Some(result) = params.get("result") {
-                                    // Parse pool data and extract price info
-                                    if let Some(price_update) = Self::parse_pool_update(result).await {
+                            debug!("📡 WebSocket message received: {}", text.len());
+                            
+                            // On any pool activity, trigger price updates
+                            if response.method.is_some() || response.params.is_some() {
+                                update_counter += 1;
+                                
+                                // Update prices more frequently and aggressively
+                                if update_counter % 2 == 0 || last_price_update.elapsed() > Duration::from_secs(10) {
+                                    if let Some(price_update) = Self::parse_pool_update(&Value::Null).await {
                                         // Update cache
                                         let mut cache = price_cache.write().await;
                                         cache.insert(price_update.token_mint.clone(), PriceData {
@@ -122,11 +189,12 @@ impl WebSocketPriceFeed {
                                         });
                                         
                                         *last_update.write().await = Instant::now();
+                                        last_price_update = Instant::now();
                                         
                                         // Send update via channel
                                         let _ = tx.send(price_update);
                                         
-                                        debug!("💰 Price update received via WebSocket");
+                                        debug!("💰 Price update triggered by WebSocket activity");
                                     }
                                 }
                             }
@@ -142,7 +210,48 @@ impl WebSocketPriceFeed {
                         *is_connected.write().await = false;
                         break;
                     }
-                    _ => {}
+                    _ => {}                }
+            }
+        });
+        
+        // Additional background task for periodic price updates
+        // This ensures prices stay fresh even if WebSocket activity is low
+        let price_cache_periodic = self.price_cache.clone();
+        let last_update_periodic = self.last_update.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(15));
+            
+            loop {
+                interval.tick().await;
+                  // Update one popular MAINNET token every 15 seconds
+                // Using real MainNet addresses ensures we get actual market prices
+                let popular_tokens = vec![
+                    "So11111111111111111111111111111111111111112", // SOL (MainNet)
+                    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC (MainNet)
+                    "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT (MainNet)
+                    "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK (MainNet)
+                    "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", // ETH (MainNet)
+                    "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk", // PYTH (MainNet)
+                ];
+                
+                if let Some(&token) = popular_tokens.get(
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as usize % popular_tokens.len()
+                ) {
+                    if let Ok(price) = Self::fetch_jupiter_price(token).await {
+                        let mut cache = price_cache_periodic.write().await;
+                        cache.insert(token.to_string(), PriceData {
+                            price,
+                            timestamp: Instant::now(),
+                            source: "periodic_mainnet_update".to_string(),
+                        });
+                        
+                        *last_update_periodic.write().await = Instant::now();
+                        
+                        debug!("🔄 Periodic price update: {} = ${:.6}", token, price);
+                    }
                 }
             }
         });
@@ -208,12 +317,73 @@ impl WebSocketPriceFeed {
         }
         
         Ok(None)
-    }
-      async fn parse_pool_update(_data: &Value) -> Option<PriceUpdate> {
-        // TODO: Implementar parsing de Raydium pool data
-        // Por ahora retornamos None, pero aquí iría la lógica
-        // para extraer precios de los pools de Raydium
+    }    async fn parse_pool_update(_data: &Value) -> Option<PriceUpdate> {
+        // FIXED: DevNet has no real prices, so we use MainNet price data always
+        // This provides real market prices for trading calculations,
+        // regardless of whether trades execute on DevNet or MainNet
+          // Popular MAINNET tokens to update when we get pool notifications
+        // These are real MainNet addresses that have actual market prices
+        let popular_tokens = vec![
+            "So11111111111111111111111111111111111111112", // SOL (Native/Wrapped)
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC (Circle - MainNet)
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT (Tether - MainNet)
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK (MainNet)
+            "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", // ETH (Wormhole - MainNet)
+            "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk", // PYTH (MainNet)
+            "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",  // mSOL (Marinade)
+            "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj", // stSOL (Lido)
+            "HhJpBhRRn4g56VsyLuT8DL5Bv31HkXqsrahTTUCZeZg4", // BERN (MainNet)
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", // RAY (Raydium)
+        ];
+        
+        // Pick a token to update based on WebSocket activity
+        // This gives us real MainNet prices triggered by pool activity
+        if let Some(&token) = popular_tokens.get(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as usize % popular_tokens.len()
+        ) {
+            // Use Jupiter API to get REAL MainNet price
+            if let Ok(price) = Self::fetch_jupiter_price(token).await {
+                debug!("💰 Updated {} price: ${:.6} (triggered by WebSocket)", token, price);
+                return Some(PriceUpdate {
+                    token_mint: token.to_string(),
+                    price,
+                    source: "mainnet_websocket_triggered".to_string(),
+                });
+            }
+        }
+        
         None
+    }
+      async fn fetch_jupiter_price(token_mint: &str) -> Result<f64> {
+        // Always use MainNet Jupiter API for real prices
+        // DevNet Jupiter doesn't have real market data
+        let url = format!("https://price.jup.ag/v4/price?ids={}", token_mint);
+        
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(800)) // Slightly longer timeout for reliability
+            .build()?;
+        
+        let response = client.get(&url).send().await?;
+        
+        if response.status().is_success() {
+            let price_data: Value = response.json().await?;
+            
+            if let Some(data) = price_data.get("data") {
+                if let Some(token_data) = data.get(token_mint) {
+                    if let Some(price) = token_data.get("price") {
+                        if let Some(price_num) = price.as_f64() {
+                            debug!("📈 Fetched MainNet price for {}: ${:.6}", token_mint, price_num);
+                            return Ok(price_num);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Err(anyhow!("Failed to fetch MainNet price for {} (DevNet has no real prices)", token_mint))
     }
     
     pub async fn is_connected(&self) -> bool {

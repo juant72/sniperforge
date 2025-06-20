@@ -398,6 +398,22 @@ impl TradeExecutor {
         &self.trading_mode
     }
 
+    /// Get quote for a potential trade (public method for testing)
+    pub async fn get_trade_quote(
+        &self,
+        input_mint: &str,
+        output_mint: &str,
+        amount_in: u64,
+        slippage_bps: Option<u16>,
+    ) -> Result<JupiterQuote> {
+        self.jupiter_client.get_quote(
+            input_mint,
+            output_mint,
+            amount_in,
+            slippage_bps,
+        ).await
+    }
+
     /// Health check
     pub async fn health_check(&self) -> Result<()> {
         // Check Jupiter connectivity
