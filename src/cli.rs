@@ -60,27 +60,25 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
                 .subcommand(Command::new("devnet-trade").about("Execute first real trade on DevNet"))
                 .subcommand(Command::new("paper-trading").about("Test paper trading with mainnet data"))
-                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading safety"))                .subcommand(Command::new("pools").about("Test pool detection and analysis (mainnet read-only)"))
-                .subcommand(
+                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading safety"))                .subcommand(Command::new("pools").about("Test pool detection and analysis (mainnet read-only)"))                .subcommand(
                     Command::new("monitor-pools")
                         .about("Continuous pool monitoring (mainnet)")
                         .arg(Arg::new("duration")
                             .short('d')
                             .long("duration")
-                            .value_name("MINUTES")
-                            .help("Monitoring duration in minutes (default: 30)")
-                            .default_value("30"))
-                )
-                .subcommand(
+                            .value_name("SECONDS")
+                            .help("Monitoring duration in seconds (default: 300)")
+                            .default_value("300"))
+                )                .subcommand(
                     Command::new("ultra-fast-pools")
                         .about("Ultra-fast pool monitoring with WebSocket + API hybrid")
                         .arg(Arg::new("duration")
                             .short('d')
                             .long("duration")
-                            .value_name("MINUTES")
-                            .help("Monitoring duration in minutes (default: 5)")
-                            .default_value("5"))
-                )        )
+                            .value_name("SECONDS")
+                            .help("Monitoring duration in seconds (default: 60)")
+                            .default_value("60"))
+                ))
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .subcommand(Command::new("help").about("Show help for commands"))
         .get_matches();    match matches.subcommand() {
@@ -1148,7 +1146,7 @@ async fn handle_test_pools() -> Result<()> {
 }
 
 /// Handle continuous pool monitoring command
-async fn handle_monitor_pools(duration_minutes: u64) -> Result<()> {
+async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
     println!("{}", "📡 Continuous Pool Monitoring (MainNet Real-Time)".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
@@ -1159,7 +1157,7 @@ async fn handle_monitor_pools(duration_minutes: u64) -> Result<()> {
     
     println!("🚀 CONTINUOUS POOL MONITORING");
     println!("=============================");
-    println!("⏱️ Duration: {} minutes", duration_minutes);
+    println!("⏱️ Duration: {} seconds ({:.1} minutes)", duration_seconds, duration_seconds as f64 / 60.0);
     println!("🌐 Data Source: Raydium + Orca APIs (MainNet)");
     println!("📊 Real-time opportunity detection enabled");
     
@@ -1198,15 +1196,13 @@ async fn handle_monitor_pools(duration_minutes: u64) -> Result<()> {
     println!("   Scan interval: {}ms", config.monitoring_interval_ms);
     println!("   Max tracked pools: {}", config.max_tracked_pools);
     
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;
-    
-    println!("\n🔍 Starting continuous monitoring...");
+    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;    println!("\n🔍 Starting continuous monitoring...");
     println!("   Status updates every 30 seconds");
     println!("   Press Ctrl+C to stop monitoring");
     println!("   All detected pools will include DexScreener validation links");
     
-    // Start the monitored detection
-    detector.start_monitoring_with_reports(duration_minutes).await?;
+    // Start the monitored detection with exact duration in seconds
+    detector.start_monitoring_with_reports_seconds(duration_seconds).await?;
     
     // Final summary
     let stats = detector.get_stats();
@@ -1256,13 +1252,13 @@ async fn handle_monitor_pools(duration_minutes: u64) -> Result<()> {
     }
     
     println!("\n✅ Monitoring session completed!");
-    println!("   💡 Tip: Use 'cargo run -- monitor-pools -d 60' for longer monitoring");
+    println!("   💡 Tip: Use 'cargo run -- test monitor-pools -d 300' for 5-minute monitoring");
     
     Ok(())
 }
 
 /// Handle ultra-fast pool monitoring with WebSocket + API hybrid
-async fn handle_ultra_fast_pools(duration_minutes: u64) -> Result<()> {
+async fn handle_ultra_fast_pools(duration_seconds: u64) -> Result<()> {
     println!("{}", "⚡ Ultra-Fast Pool Monitoring (WebSocket + API Hybrid)".bright_green().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_green());
     
@@ -1273,7 +1269,7 @@ async fn handle_ultra_fast_pools(duration_minutes: u64) -> Result<()> {
     
     println!("⚡ ULTRA-FAST POOL MONITORING");
     println!("=============================");
-    println!("⏱️ Duration: {} minutes", duration_minutes);
+    println!("⏱️ Duration: {} seconds ({:.1} minutes)", duration_seconds, duration_seconds as f64 / 60.0);
     println!("🌐 Data Sources: WebSocket (real-time) + REST APIs (backup)");
     println!("⚡ Target Latency: <100ms for WebSocket updates");
     println!("📊 Hybrid approach for maximum speed + reliability");
@@ -1289,12 +1285,11 @@ async fn handle_ultra_fast_pools(duration_minutes: u64) -> Result<()> {
         Ok(client) => {
             println!("⚡ Syndica WebSocket client initialized - REAL-TIME MODE ENABLED");
             Some(client)
-        }
-        Err(e) => {
+        }        Err(e) => {
             println!("❌ Syndica WebSocket failed: {}", e);
             println!("   Ultra-fast mode requires WebSocket connection!");
             println!("   Falling back to regular monitoring...");
-            return handle_monitor_pools(duration_minutes).await;
+            return handle_monitor_pools(duration_seconds).await;
         }
     };
     
@@ -1321,10 +1316,8 @@ async fn handle_ultra_fast_pools(duration_minutes: u64) -> Result<()> {
     println!("   🔄 API Backup: Comprehensive validation every 10s");
     println!("   📊 Status: Updates every 15s");
     println!("   🎯 Focus: Sub-second opportunity detection");
-    println!("   Press Ctrl+C to stop monitoring");
-    
-    // Start ultra-fast monitoring
-    detector.start_ultra_fast_monitoring(duration_minutes).await?;
+    println!("   Press Ctrl+C to stop monitoring");    // Start ultra-fast monitoring with exact duration in seconds
+    detector.start_ultra_fast_monitoring_seconds(duration_seconds).await?;
     
     // Final comprehensive summary
     let stats = detector.get_stats();
