@@ -55,6 +55,7 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("wallet").about("Test wallet functionality"))
                 .subcommand(Command::new("trade").about("Test trade execution"))                .subcommand(Command::new("integration").about("Test complete integration flow"))
                 .subcommand(Command::new("performance").about("Test performance and latency"))                .subcommand(Command::new("websocket-rpc").about("Compare HTTP vs WebSocket RPC latency"))
+                .subcommand(Command::new("websocket-prices").about("Test real-time WebSocket price feed system"))
                 .subcommand(Command::new("syndica").about("Test Syndica ultra-fast WebSocket performance"))
                 .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
                 .subcommand(Command::new("devnet-trade").about("Execute first real trade on DevNet"))
@@ -179,6 +180,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("wallet", _)) => handle_test_wallet().await?,
         Some(("trade", _)) => handle_test_trade().await?,
         Some(("integration", _)) => handle_test_integration().await?,        Some(("performance", _)) => handle_test_performance().await?,        Some(("websocket-rpc", _)) => handle_test_websocket_rpc().await?,
+        Some(("websocket-prices", _)) => handle_test_websocket_prices().await?,
         Some(("syndica", _)) => handle_test_syndica().await?,
         Some(("cache-safety", _)) => handle_test_cache_safety().await?,
         Some(("paper-trading", _)) => handle_test_paper_trading().await?,
@@ -208,8 +210,8 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  • {} - WebSocket connectivity", "websocket".bright_yellow());
             println!("  • {} - Wallet functionality", "wallet".bright_yellow());
             println!("  • {} - Trade execution", "trade".bright_yellow());
-            println!("  • {} - Complete integration flow", "integration".bright_yellow());            println!("  • {} - Performance and latency", "performance".bright_yellow());
-            println!("  • {} - WebSocket RPC performance", "websocket-rpc".bright_yellow());
+            println!("  • {} - Complete integration flow", "integration".bright_yellow());            println!("  • {} - Performance and latency", "performance".bright_yellow());            println!("  • {} - WebSocket RPC performance", "websocket-rpc".bright_yellow());
+            println!("  • {} - Real-time WebSocket price feed", "websocket-prices".bright_yellow());
             println!("  • {} - Syndica ultra-fast WebSocket", "syndica".bright_yellow());
             println!("  • {} - Cache safety and eviction", "cache-safety".bright_yellow());
             println!("  • {} - Paper trading with mainnet data", "paper-trading".bright_yellow());            println!("  • {} - Cache-free trading engine (SAFE)", "cache-free-trading".bright_yellow());
@@ -1421,8 +1423,8 @@ fn show_help() {
     println!("  cargo run -- test {}        - Wallet functionality", "wallet".bright_yellow());
     println!("  cargo run -- test {}         - Trade execution", "trade".bright_yellow());
     println!("  cargo run -- test {}   - Integration flow", "integration".bright_yellow());
-    println!("  cargo run -- test {}  - Performance tests", "performance".bright_yellow());
-    println!("  cargo run -- test {}  - HTTP vs WebSocket RPC", "websocket-rpc".bright_yellow());
+    println!("  cargo run -- test {}  - Performance tests", "performance".bright_yellow());    println!("  cargo run -- test {}  - HTTP vs WebSocket RPC", "websocket-rpc".bright_yellow());
+    println!("  cargo run -- test {} - Real-time price feed", "websocket-prices".bright_yellow());
     println!("  cargo run -- test {}       - Syndica ultra-fast", "syndica".bright_yellow());
     println!("  cargo run -- test {}  - Cache safety tests", "cache-safety".bright_yellow());
     println!("  cargo run -- test {}   - First real DevNet trade", "devnet-trade".bright_yellow());
@@ -1448,5 +1450,130 @@ async fn handle_test_websocket_rpc() -> Result<()> {
         Config::load("config/platform.toml").expect("Could not load config")    });
     
     run_websocket_rpc_tests(&config).await?;
+    Ok(())
+}
+
+async fn handle_test_websocket_prices() -> Result<()> {
+    use sniperforge::shared::websocket_price_feed::WebSocketPriceFeed;
+    use std::time::{Duration, Instant};
+    use tokio::time::timeout;
+    
+    println!("{}", "🧪 Testing WebSocket Real-Time Price Feed System".bright_green().bold());
+    println!("{}", "=====================================================".bright_cyan());
+    
+    // 1. Initialize WebSocket price feed
+    println!("\n📡 Initializing WebSocket price feed...");
+    let mut price_feed = WebSocketPriceFeed::new_mainnet_prices().await?;
+    
+    // 2. Wait for initial data to populate
+    println!("⏳ Waiting for initial price population...");
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    
+    // 3. Test popular tokens
+    let test_tokens = vec![
+        ("SOL", "So11111111111111111111111111111111111111112"),
+        ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+        ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
+        ("ETH", "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"),
+        ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+    ];
+    
+    println!("\n💰 Testing cached price retrieval (ultra-fast):");
+    for (symbol, mint) in &test_tokens {
+        let start = Instant::now();
+        match timeout(Duration::from_secs(1), price_feed.get_price_realtime(mint)).await {
+            Ok(Some(price)) => {
+                let latency = start.elapsed();
+                println!("   ⚡ {}: ${:.6} ({}µs)", 
+                        symbol.bright_yellow(), 
+                        price, 
+                        latency.as_micros().to_string().bright_green());
+            }
+            Ok(None) => {
+                println!("   ❌ {}: No cached price", symbol.bright_red());
+            }
+            Err(_) => {
+                println!("   ⏰ {}: Timeout", symbol.bright_red());
+            }
+        }
+    }
+    
+    println!("\n🌐 Testing hybrid price retrieval (cache + HTTP fallback):");
+    for (symbol, mint) in &test_tokens {
+        let start = Instant::now();
+        match timeout(Duration::from_secs(3), price_feed.get_price_hybrid(mint)).await {
+            Ok(Ok(Some(price))) => {
+                let latency = start.elapsed();
+                println!("   ✅ {}: ${:.6} ({}ms)", 
+                        symbol.bright_yellow(), 
+                        price, 
+                        latency.as_millis().to_string().bright_green());
+            }
+            Ok(Ok(None)) => {
+                println!("   ❌ {}: No price available", symbol.bright_red());
+            }
+            Ok(Err(e)) => {
+                println!("   ❌ {}: Error - {}", symbol.bright_red(), e);
+            }
+            Err(_) => {
+                println!("   ⏰ {}: Timeout", symbol.bright_red());
+            }
+        }
+        
+        // Small delay between requests
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    
+    // 4. Show price feed statistics
+    println!("\n📊 Price Feed Statistics:");
+    let stats = price_feed.get_stats().await;
+    println!("   • Cached tokens: {}", stats.cached_tokens.to_string().bright_cyan());
+    println!("   • WebSocket connected: {}", if stats.is_connected { "✅ YES".bright_green() } else { "❌ NO".bright_red() });
+    println!("   • Last update: {:?} ago", stats.last_update_age);
+    println!("   • Freshest price: {:?} old", stats.freshest_price_age);
+    println!("   • Oldest price: {:?} old", stats.oldest_price_age);
+    
+    // 5. Show all cached prices
+    println!("\n💾 All Cached Prices:");
+    let cached_prices = price_feed.get_all_cached_prices().await;
+    for (token, (price, age, source)) in cached_prices.iter().take(10) {
+        let token_short = if token.len() > 8 { 
+            format!("{}...", &token[0..8]) 
+        } else { 
+            token.clone() 
+        };
+        println!("   • {}: ${:.6} ({:?} old, {})", 
+                token_short.bright_yellow(), 
+                price, 
+                age, 
+                source.bright_blue());
+    }
+    
+    if cached_prices.len() > 10 {
+        println!("   • ... and {} more tokens", (cached_prices.len() - 10).to_string().bright_cyan());
+    }
+    
+    // 6. Force update test
+    println!("\n🔄 Testing force price update:");
+    let sol_mint = "So11111111111111111111111111111111111111112";
+    let start = Instant::now();
+    match price_feed.force_update_token(sol_mint).await {
+        Ok(Some(price)) => {
+            let latency = start.elapsed();
+            println!("   ✅ SOL force update: ${:.6} ({}ms)", 
+                    price, 
+                    latency.as_millis().to_string().bright_green());
+        }
+        Ok(None) => {
+            println!("   ❌ Force update failed: No price");
+        }
+        Err(e) => {
+            println!("   ❌ Force update error: {}", e);
+        }
+    }
+    
+    println!("\n✅ WebSocket price feed system test completed!");
+    println!("{}", "=====================================================".bright_cyan());
+    
     Ok(())
 }
