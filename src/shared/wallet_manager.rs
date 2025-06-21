@@ -10,14 +10,13 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use solana_client::rpc_client::RpcClient;
-use serde::{Serialize, Deserialize};
+// use serde::{Serialize, Deserialize}; // Temporarily commented for compilation
 
-use crate::config::WalletEnvironmentConfig;
-use crate::Config;
+use crate::config::{Config, WalletEnvironmentConfig};
 use crate::types::{PlatformError, HealthStatus};
 
 /// Wallet configuration for different purposes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct WalletConfig {
     pub name: String,
     pub wallet_type: WalletType,
@@ -29,7 +28,7 @@ pub struct WalletConfig {
 }
 
 /// Types of wallets in the system
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum WalletType {
     Trading,      // Main trading wallet
     Fee,          // For transaction fees
@@ -38,7 +37,7 @@ pub enum WalletType {
 }
 
 /// Risk management settings per wallet
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct RiskManagement {
     pub max_transaction_amount: f64,
     pub daily_limit: f64,
@@ -585,7 +584,7 @@ impl WalletManager {
 }
 
 /// Wallet information for external use
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct WalletInfo {
     pub name: String,
     pub wallet_type: WalletType,

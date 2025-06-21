@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};
 use anyhow::Result;
-use serde::{Serialize, Deserialize};
+// use serde::{Serialize, Deserialize}; // Temporarily commented for compilation
 use solana_sdk::{
     pubkey::Pubkey,
     signature::Signature,
@@ -14,7 +14,7 @@ use solana_sdk::{
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
-use crate::Config;
+use crate::config::Config;
 use crate::types::{PlatformError, HealthStatus};
 use crate::shared::wallet_manager::{WalletManager, WalletConfig, WalletType, RiskManagement};
 use crate::shared::trade_executor::{TradeExecutor, TradingMode};
@@ -22,7 +22,7 @@ use crate::shared::trade_executor::{TradeExecutor, TradingMode};
 use crate::shared::real_time_blockchain::RealTimeBlockchainEngine;
 
 /// MainNet trading configuration with strict risk controls
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MainNetTradingConfig {
     /// Maximum total capital at risk (USD)
     pub max_capital_usd: f64,
@@ -61,7 +61,7 @@ impl Default for MainNetTradingConfig {
 }
 
 /// Real trading position with risk tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct MainNetPosition {
     pub id: String,
     pub symbol: String,
@@ -77,7 +77,7 @@ pub struct MainNetPosition {
     pub status: PositionStatus,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PositionStatus {
     Open,
     ClosedProfit,
@@ -87,7 +87,7 @@ pub enum PositionStatus {
 }
 
 /// Real trading statistics and performance tracking
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TradingStats {
     pub total_trades: u32,
     pub profitable_trades: u32,
@@ -422,12 +422,10 @@ impl MainNetTradingEngine {
                 }
             }
         });
-    }
-
-    /// Start SOL price monitoring
+    }    /// Start SOL price monitoring
     async fn start_price_monitoring(&self) {
         let current_price = Arc::clone(&self.current_sol_price);
-        let blockchain_engine = Arc::clone(&self.blockchain_engine);
+        let _blockchain_engine = Arc::clone(&self.blockchain_engine);
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));

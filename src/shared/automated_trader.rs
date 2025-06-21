@@ -142,7 +142,7 @@ impl AutomatedTrader {
             *current = Some(session.clone());
         }        // Enable detector for trading session
         {
-            let mut detector = self.detector.lock().await;
+            let _detector = self.detector.lock().await;
             info!("🔥 Detector ready for trading session");
         }
 
@@ -281,9 +281,7 @@ impl AutomatedTrader {
         if opportunity.expected_profit_usd < self.config.min_profit_target {
             debug!("❌ Estimated profit too low: ${:.2}", opportunity.expected_profit_usd);
             return Ok(false);
-        }
-
-        debug!("✅ Trade approved for execution");
+        }        debug!("✅ Trade approved for execution");
         Ok(true)
     }
 
@@ -291,7 +289,7 @@ impl AutomatedTrader {
     async fn execute_automated_trade(
         &self,
         opportunity: TradingOpportunity,
-        session: &mut TradingSession,
+        _session: &mut TradingSession,
     ) -> Result<TradeResult> {
         info!("🎯 Executing automated trade for opportunity: {}", opportunity.pool.pool_address);
         
