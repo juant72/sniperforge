@@ -12,6 +12,7 @@ pub mod pool_detector;
 pub mod analytics;         // Pool analytics and pattern detection
 pub mod paper_trading_automation;  // Phase 3: Paper trading automation
 pub mod cache_free_trading;        // Phase 4: Cache-free trading engine
+pub mod real_time_blockchain;      // Phase 5: Real-time blockchain integration
 
 use anyhow::Result;
 use std::sync::Arc;
