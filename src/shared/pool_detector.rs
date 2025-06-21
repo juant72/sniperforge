@@ -68,7 +68,7 @@ pub struct TradingOpportunity {
 }
 
 /// Tipos de oportunidad
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum OpportunityType {
     NewPoolSnipe,    // Nuevo pool detectado
     PriceDiscrepancy, // Diferencia de precio entre DEXs

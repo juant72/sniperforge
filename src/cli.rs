@@ -4,6 +4,8 @@ use colored::*;
 use std::io::{self, Write};
 
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
+use crate::shared::analytics::PoolAnalyticsEngine;
+use crate::shared::pool_detector::{DetectedPool, TradingOpportunity};
 
 pub async fn run_cli() -> Result<()> {
     // Check for help argument first
@@ -95,8 +97,28 @@ pub async fn run_cli() -> Result<()> {
                             .short('d')
                             .long("duration")
                             .value_name("SECONDS")
-                            .help("Monitoring duration in seconds (default: 30)")
-                            .default_value("30"))
+                            .help("Monitoring duration in seconds (default: 30)")                            .default_value("30"))
+                )
+                .subcommand(
+                    Command::new("analyze-data")
+                        .about("🔍 Analyze collected pool monitoring data")
+                        .arg(Arg::new("duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("Monitoring duration for analysis in seconds (default: 180)")
+                            .default_value("180"))
+                        .arg(Arg::new("export")
+                            .short('e')
+                            .long("export")
+                            .value_name("FILE")
+                            .help("Export analytics to JSON file")
+                            .required(false))
+                        .arg(Arg::new("report")
+                            .short('r')
+                            .long("report")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("Generate comprehensive analytics report"))
                 ))
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .subcommand(Command::new("help").about("Show help for commands"))
@@ -228,6 +250,15 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
                 .unwrap_or(30);
             handle_ultra_fast_pools(duration).await?
         }
+        Some(("analyze-data", sub_matches)) => {
+            let duration = sub_matches.get_one::<String>("duration")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap_or(180);
+            let export_file = sub_matches.get_one::<String>("export").cloned();
+            let generate_report = sub_matches.get_flag("report");
+            handle_analyze_data(duration, export_file, generate_report).await?
+        }
         _ => {
             println!("{}", "🧪 Available tests:".bright_cyan().bold());
             println!("  • {} - Run all tests", "all".bright_yellow());
@@ -242,11 +273,12 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  • {} - Real-time WebSocket price feed", "websocket-prices".bright_yellow());
             println!("  • {} - Syndica ultra-fast WebSocket", "syndica".bright_yellow());
             println!("  • {} - Cache safety and eviction", "cache-safety".bright_yellow());            println!("  • {} - Paper trading with mainnet data", "paper-trading".bright_yellow());            println!("  • {} - Cache-free trading engine (SAFE)", "cache-free-trading".bright_yellow());
-            println!("  • {} - Execute first real trade on DevNet", "devnet-trade".bright_red());
-            println!("  • {} - Pool detection and analysis (MainNet)", "pools".bright_yellow());
+            println!("  • {} - Execute first real trade on DevNet", "devnet-trade".bright_red());            println!("  • {} - Pool detection and analysis (MainNet)", "pools".bright_yellow());
             println!("  • {} - Continuous pool monitoring", "monitor-pools".bright_yellow());
             println!("  • {} - 🎯 Phase 1: Extended pool monitoring (4-6h)", "pools-extended".bright_cyan());
             println!("  • {} - Ultra-fast WebSocket + API monitoring", "ultra-fast-pools".bright_green());
+            println!("  • {} - 🔍 Analyze collected pool monitoring data", "analyze-data".bright_green());
+            println!("  • {} - 🔍 Analyze collected monitoring data & generate insights", "analyze-data".bright_magenta());
         }
     }
     Ok(())
@@ -876,9 +908,6 @@ async fn handle_test_devnet_trade() -> Result<()> {
             println!("❌ Quote failed: {}", e);
             println!("💡 This is expected on DevNet - limited token pairs available");
             println!("   The system is working, but DevNet lacks liquidity for SOL→USDC");
-            println!("   ✅ Jupiter integration is functional");
-            println!("   ✅ Trade executor is ready");
-            println!("   ✅ Ready for MainNet with proper token pairs");
         }
     }
     
@@ -1266,7 +1295,7 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
             println!("      🔗 Validate: https://dexscreener.com/solana/{}", opp.pool.pool_address);
         }
     } else {
-        println!("\n📭 No high-confidence opportunities detected");
+        println!("📭 No high-confidence opportunities detected");
         println!("   Consider running for longer duration or adjusting thresholds");
     }
     
@@ -1417,375 +1446,109 @@ async fn handle_ultra_fast_pools(duration_seconds: u64) -> Result<()> {
     Ok(())
 }
 
-fn show_help() {
-    println!("{}", "🎯 SniperForge CLI Help".bright_cyan().bold());
-    println!("{}", "========================".bright_cyan());
-    println!();
-    println!("{}", "USAGE:".bright_white().bold());
-    println!("  cargo run -- <COMMAND> [OPTIONS]");
-    println!();
-    println!("{}", "COMMANDS:".bright_white().bold());
-    println!("  🚀 {}  - Start the platform or specific bots", "start".bright_green());
-    println!("  📊 {}  - Show platform status", "status".bright_green());
-    println!("  ⚙️  {}  - Show current configuration", "config".bright_green());
-    println!("  💰 {}  - Wallet management commands", "wallet".bright_green());
-    println!("  🧪 {}   - Run test suite", "test".bright_green());
-    println!("  🎮 {} - Interactive monitoring mode", "interactive".bright_green());
-    println!("  ❓ {}   - Show this help message", "help".bright_green());
-    println!();
-    println!("{}", "TEST SUBCOMMANDS:".bright_white().bold());
-    println!("  cargo run -- test {}           - Run all tests", "all".bright_yellow());
-    println!("  cargo run -- test {}         - Basic connectivity", "basic".bright_yellow());
-    println!("  cargo run -- test {}        - Solana connection", "solana".bright_yellow());
-    println!("  cargo run -- test {}       - Jupiter API", "jupiter".bright_yellow());
-    println!("  cargo run -- test {}  - Jupiter speed test", "jupiter-speed".bright_yellow());
-    println!("  cargo run -- test {}     - WebSocket test", "websocket".bright_yellow());
-    println!("  cargo run -- test {}        - Wallet functionality", "wallet".bright_yellow());
-    println!("  cargo run -- test {}         - Trade execution", "trade".bright_yellow());
-    println!("  cargo run -- test {}   - Integration flow", "integration".bright_yellow());
-    println!("  cargo run -- test {}  - Performance tests", "performance".bright_yellow());    println!("  cargo run -- test {}  - HTTP vs WebSocket RPC", "websocket-rpc".bright_yellow());
-    println!("  cargo run -- test {} - Real-time price feed", "websocket-prices".bright_yellow());
-    println!("  cargo run -- test {}       - Syndica ultra-fast", "syndica".bright_yellow());
-    println!("  cargo run -- test {}  - Cache safety tests", "cache-safety".bright_yellow());
-    println!("  cargo run -- test {}   - First real DevNet trade", "devnet-trade".bright_yellow());
-    println!("  cargo run -- test {}  - Paper trading test", "paper-trading".bright_yellow());
-    println!("  cargo run -- test {} - Cache-free trading", "cache-free-trading".bright_yellow());
-    println!("  cargo run -- test {}         - Pool detection", "pools".bright_yellow());
-    println!("  cargo run -- test {}  - Pool monitoring", "monitor-pools".bright_yellow());
-    println!("  cargo run -- test {} - Ultra-fast pools", "ultra-fast-pools".bright_yellow());
-    println!();
-    println!("{}", "EXAMPLES:".bright_white().bold());
-    println!("  cargo run -- start --devnet");
-    println!("  cargo run -- test wallet");
-    println!("  cargo run -- test ultra-fast-pools -d 10");
-    println!("  cargo run -- wallet balance");
-    println!();
-    println!("{}", "For more specific help, run the command without arguments.".bright_blue());
-}
-
-async fn handle_test_websocket_rpc() -> Result<()> {
-    use sniperforge::websocket_rpc_test::run_websocket_rpc_tests;
-    
-    let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-        Config::load("config/platform.toml").expect("Could not load config")    });
-    
-    run_websocket_rpc_tests(&config).await?;
-    Ok(())
-}
-
-async fn handle_test_websocket_prices() -> Result<()> {
-    use sniperforge::shared::websocket_price_feed::WebSocketPriceFeed;
-    use std::time::{Duration, Instant};
-    use tokio::time::timeout;
-    
-    println!("{}", "🧪 Testing WebSocket Real-Time Price Feed System".bright_green().bold());
-    println!("{}", "=====================================================".bright_cyan());
-    
-    // 1. Initialize WebSocket price feed
-    println!("\n📡 Initializing WebSocket price feed...");
-    let mut price_feed = WebSocketPriceFeed::new_mainnet_prices().await?;
-    
-    // 2. Wait for initial data to populate
-    println!("⏳ Waiting for initial price population...");
-    tokio::time::sleep(Duration::from_secs(5)).await;
-    
-    // 3. Test popular tokens
-    let test_tokens = vec![
-        ("SOL", "So11111111111111111111111111111111111111112"),
-        ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-        ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-        ("ETH", "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs"),
-        ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
-    ];
-    
-    println!("\n💰 Testing cached price retrieval (ultra-fast):");
-    for (symbol, mint) in &test_tokens {
-        let start = Instant::now();
-        match timeout(Duration::from_secs(1), price_feed.get_price_realtime(mint)).await {
-            Ok(Some(price)) => {
-                let latency = start.elapsed();
-                println!("   ⚡ {}: ${:.6} ({}µs)", 
-                        symbol.bright_yellow(), 
-                        price, 
-                        latency.as_micros().to_string().bright_green());
-            }
-            Ok(None) => {
-                println!("   ❌ {}: No cached price", symbol.bright_red());
-            }
-            Err(_) => {
-                println!("   ⏰ {}: Timeout", symbol.bright_red());
-            }
-        }
-    }
-    
-    println!("\n🌐 Testing hybrid price retrieval (cache + HTTP fallback):");
-    for (symbol, mint) in &test_tokens {
-        let start = Instant::now();
-        match timeout(Duration::from_secs(3), price_feed.get_price_hybrid(mint)).await {
-            Ok(Ok(Some(price))) => {
-                let latency = start.elapsed();
-                println!("   ✅ {}: ${:.6} ({}ms)", 
-                        symbol.bright_yellow(), 
-                        price, 
-                        latency.as_millis().to_string().bright_green());
-            }
-            Ok(Ok(None)) => {
-                println!("   ❌ {}: No price available", symbol.bright_red());
-            }
-            Ok(Err(e)) => {
-                println!("   ❌ {}: Error - {}", symbol.bright_red(), e);
-            }
-            Err(_) => {
-                println!("   ⏰ {}: Timeout", symbol.bright_red());
-            }
-        }
-        
-        // Small delay between requests
-        tokio::time::sleep(Duration::from_millis(200)).await;
-    }
-    
-    // 4. Show price feed statistics
-    println!("\n📊 Price Feed Statistics:");
-    let stats = price_feed.get_stats().await;
-    println!("   • Cached tokens: {}", stats.cached_tokens.to_string().bright_cyan());
-    println!("   • WebSocket connected: {}", if stats.is_connected { "✅ YES".bright_green() } else { "❌ NO".bright_red() });
-    println!("   • Last update: {:?} ago", stats.last_update_age);
-    println!("   • Freshest price: {:?} old", stats.freshest_price_age);
-    println!("   • Oldest price: {:?} old", stats.oldest_price_age);
-    
-    // 5. Show all cached prices
-    println!("\n💾 All Cached Prices:");
-    let cached_prices = price_feed.get_all_cached_prices().await;
-    for (token, (price, age, source)) in cached_prices.iter().take(10) {
-        let token_short = if token.len() > 8 { 
-            format!("{}...", &token[0..8]) 
-        } else { 
-            token.clone() 
-        };
-        println!("   • {}: ${:.6} ({:?} old, {})", 
-                token_short.bright_yellow(), 
-                price, 
-                age, 
-                source.bright_blue());
-    }
-    
-    if cached_prices.len() > 10 {
-        println!("   • ... and {} more tokens", (cached_prices.len() - 10).to_string().bright_cyan());
-    }
-    
-    // 6. Force update test
-    println!("\n🔄 Testing force price update:");
-    let sol_mint = "So11111111111111111111111111111111111111112";
-    let start = Instant::now();
-    match price_feed.force_update_token(sol_mint).await {
-        Ok(Some(price)) => {
-            let latency = start.elapsed();
-            println!("   ✅ SOL force update: ${:.6} ({}ms)", 
-                    price, 
-                    latency.as_millis().to_string().bright_green());
-        }
-        Ok(None) => {
-            println!("   ❌ Force update failed: No price");
-        }
-        Err(e) => {
-            println!("   ❌ Force update error: {}", e);
-        }
-    }
-    
-    println!("\n✅ WebSocket price feed system test completed!");
-    println!("{}", "=====================================================".bright_cyan());
-    
-    Ok(())
-}
-
-/// Handle extended pool monitoring for trading automation (Phase 1)
-async fn handle_pools_extended(duration_hours: u64) -> Result<()> {
-    println!("{}", "🎯 Phase 1: Extended Pool Monitoring for Trading Automation".bright_cyan().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_cyan());
-    
-    use crate::shared::pool_detector::{PoolDetector, PoolDetectorConfig, OpportunityType};
+/// Handle data analytics with comprehensive pattern analysis
+/// Handler for the 'analyze-data' CLI command
+async fn handle_analyze_data(duration_seconds: u64, export_file: Option<String>, generate_report: bool) -> Result<()> {
+    use crate::shared::pool_detector::{PoolDetector, PoolDetectorConfig};
     use crate::shared::jupiter::JupiterConfig;
     use crate::shared::jupiter::client::JupiterClient;
     use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
-    
-    println!("🚀 EXTENDED POOL MONITORING - PHASE 1 OF TRADING AUTOMATION");
-    println!("============================================================");
-    println!("⏱️ Duration: {} hours ({} minutes)", duration_hours, duration_hours * 60);
-    println!("🎯 Purpose: Gather comprehensive market data for trading optimization");
-    println!("📊 Analytics: Pattern analysis, success rate calculation, risk optimization");
-    println!("🌐 Data Source: Live Raydium + Orca APIs (MainNet)");
-    println!("💡 This is the foundation for automated trading implementation");
-    
-    println!("\n🔄 Phase Overview:");
-    println!("   Phase 1 (Current): Extended Monitoring (1-2 days)");
-    println!("   Phase 2 (Next): Ultra-Fast Mode Implementation");
-    println!("   Phase 3: Paper Trading Automation");
-    println!("   Phase 4: Cache-Free Trading");
-    println!("   Phase 5: Real Trading Implementation");
-    
-    // Setup Jupiter client for mainnet
+    use uuid::Uuid;
+
+    println!("{}", "🔍 Running analytics on pool monitoring data...".bright_cyan().bold());
+    println!("Duration for data collection: {} seconds", duration_seconds);
+
+    // Setup Jupiter and Syndica clients (reuse monitoring infra)
     let jupiter_config = JupiterConfig::mainnet();
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
-    println!("\n✅ Jupiter client initialized for mainnet");
-    
-    // Setup Syndica client (enhanced for extended monitoring)
     let syndica_config = SyndicaConfig::mainnet();
-    let syndica_client = match SyndicaWebSocketClient::new(syndica_config).await {
-        Ok(client) => {
-            println!("✅ Syndica WebSocket client initialized for enhanced monitoring");
-            Some(client)
-        }
-        Err(e) => {
-            println!("⚠️ Syndica client failed to initialize: {}", e);
-            println!("   Continuing with DEX API monitoring (still fully functional)");
-            None
-        }
-    };
-    
-    // Create pool detector with optimized settings for extended monitoring
+    let syndica_client = SyndicaWebSocketClient::new(syndica_config).await.ok();
+
+    // Use same config as monitoring
     let config = PoolDetectorConfig {
-        min_liquidity_usd: 2000.0,     // Lower threshold for comprehensive data
-        max_price_impact_1k: 15.0,     // Capture more opportunities for analysis
-        min_risk_score: 0.1,           // Lower threshold to analyze more patterns
-        monitoring_interval_ms: 3000,  // 3s intervals for thorough coverage
-        max_tracked_pools: 50,          // Track more pools for better data
+        min_liquidity_usd: 5000.0,
+        max_price_impact_1k: 15.0,
+        min_risk_score: 0.2,
+        monitoring_interval_ms: 3000,
+        max_tracked_pools: 50,
     };
-    
-    println!("\n📊 Extended Monitoring Configuration:");    println!("   Min liquidity: ${:.0} (lower for comprehensive analysis)", config.min_liquidity_usd);
-    println!("   Max price impact: {:.1}% (capture more opportunities)", config.max_price_impact_1k);
-    println!("   Min risk score: {:.1}% (analyze broader patterns)", config.min_risk_score * 100.0);
-    println!("   Scan interval: {}ms (thorough coverage)", config.monitoring_interval_ms);
-    println!("   Max tracked pools: {} (comprehensive tracking)", config.max_tracked_pools);
-    
     let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
-    
-    println!("\n🚀 Starting extended monitoring session...");
-    println!("   This will gather market data for {} hours", duration_hours);
-    println!("   Real-time analytics and pattern recognition");
-    println!("   Building foundation for automated trading");
-    println!("   Press Ctrl+C to stop early if needed");
-    
-    // Convert hours to minutes for the monitoring function
-    let duration_minutes = duration_hours * 60;
-    
-    // Run extended monitoring with enhanced reporting
-    if let Err(e) = detector.start_monitoring_with_reports(duration_minutes).await {
-        println!("⚠️ Extended monitoring encountered an error: {}", e);
+
+    // Start monitoring for the specified duration
+    detector.start_monitoring_with_reports_seconds(duration_seconds).await?;
+
+    // Gather data for analytics
+    let pools: Vec<DetectedPool> = detector.get_tracked_pools().values().cloned().collect();
+    let opportunities: Vec<TradingOpportunity> = detector.get_current_opportunities().iter().cloned().collect();
+    let total_scans = detector.get_stats().total_scans;
+
+    // Run analytics
+    let mut analytics = PoolAnalyticsEngine::new();
+    let session_id = Uuid::new_v4().to_string();
+    analytics.start_session(session_id.clone())?;
+    analytics.add_pools(pools)?;
+    analytics.add_opportunities(opportunities)?;
+    let session = analytics.end_session()?;
+
+    // Export if requested
+    if let Some(file) = export_file {
+        analytics.export_to_json(&session, &file)?;
+        println!("\n📦 Analytics exported to: {}", file.bright_green());
     }
-    
-    // Comprehensive results analysis
-    let stats = detector.get_stats();
-    let opportunities = detector.get_current_opportunities();
-    let pools = detector.get_tracked_pools();
-    
-    println!("\n📊 EXTENDED MONITORING RESULTS - PHASE 1 ANALYSIS:");
-    println!("================================================");
-    println!("⏱️ Session Duration: {} hours", duration_hours);
-    println!("🔍 Tracked pools: {}", stats.tracked_pools);
-    println!("🎯 Active opportunities: {}", stats.active_opportunities);
-    println!("⏱️ Last scan: {:?} ago", stats.last_scan_ago);
-    
-    // Enhanced analytics for trading automation
-    println!("\n📈 TRADING AUTOMATION ANALYTICS:");
-    println!("================================");
-    
-    if !opportunities.is_empty() {
-        // Calculate opportunity metrics
-        let total_expected_profit: f64 = opportunities.iter().map(|o| o.expected_profit_usd).sum();
-        let avg_confidence: f64 = opportunities.iter().map(|o| o.confidence).sum::<f64>() / opportunities.len() as f64;
-        let high_confidence_count = opportunities.iter().filter(|o| o.confidence > 0.7).count();
-        
-        println!("💰 Total Expected Profit: ${:.2}", total_expected_profit);
-        println!("📊 Average Confidence: {:.1}%", avg_confidence * 100.0);
-        println!("⭐ High Confidence Opportunities (>70%): {}", high_confidence_count);
-          // Opportunity type analysis
-        use crate::shared::pool_detector::OpportunityType;
-        let mut type_counts = std::collections::HashMap::new();
-        for opp in opportunities.iter() {
-            let type_name = match opp.opportunity_type {
-                OpportunityType::NewPoolSnipe => "New Pool Snipe",
-                OpportunityType::PriceDiscrepancy => "Price Arbitrage",
-                OpportunityType::LiquidityImbalance => "Liquidity Imbalance",
-                OpportunityType::VolumeSpike => "Volume Spike",
-            };
-            *type_counts.entry(type_name).or_insert(0) += 1;
-        }
-        
-        println!("\n🎯 Opportunity Types Distribution:");
-        for (opp_type, count) in type_counts.iter() {
-            println!("   • {}: {} opportunities", opp_type, count);
-        }
-          // Show top 3 opportunities for detailed analysis
-        println!("\n🏆 TOP 3 OPPORTUNITIES FOR TRADING AUTOMATION:");
-        let mut sorted_opportunities: Vec<_> = opportunities.iter().collect();
-        sorted_opportunities.sort_by(|a, b| {
-            (b.expected_profit_usd * b.confidence).partial_cmp(&(a.expected_profit_usd * a.confidence)).unwrap()
-        });
-        
-        for (i, opp) in sorted_opportunities.iter().take(3).enumerate() {
-            println!("\n   {}. 🚀 HIGH-PRIORITY TRADING TARGET", i + 1);
-            println!("      📍 Pool: {}", opp.pool.pool_address);
-            println!("      💱 Pair: {} / {}", opp.pool.token_a.symbol, opp.pool.token_b.symbol);
-            println!("      💰 Expected Profit: ${:.2}", opp.expected_profit_usd);
-            println!("      📊 Confidence: {:.1}%", opp.confidence * 100.0);
-            println!("      ⏰ Execution Window: {}ms", opp.time_window_ms);
-            println!("      💵 Recommended Size: ${:.0}", opp.recommended_size_usd);
-            println!("      🎯 Type: {:?}", opp.opportunity_type);
-            println!("      🔗 Validate: https://dexscreener.com/solana/{}", opp.pool.pool_address);
-        }
+
+    // Print report if requested
+    if generate_report {
+        let report = analytics.generate_report(&session);
+        println!("{}", report.bright_yellow());
     } else {
-        println!("📭 No opportunities detected during this session");
-        println!("   This provides important data about market conditions");
+        println!("\n✅ Analytics complete. Use --report for a full summary.");
     }
-    
-    // Pool analysis for trading patterns
-    if !pools.is_empty() {
-        println!("\n🏊 POOL ANALYSIS FOR TRADING OPTIMIZATION:");
-        println!("=========================================");
-        
-        let total_liquidity: f64 = pools.values().map(|p| p.liquidity_usd).sum();
-        let avg_liquidity = total_liquidity / pools.len() as f64;
-        let high_liquidity_count = pools.values().filter(|p| p.liquidity_usd > 50000.0).count();
-        
-        println!("💧 Total Tracked Liquidity: ${:.0}", total_liquidity);
-        println!("📊 Average Pool Liquidity: ${:.0}", avg_liquidity);
-        println!("🏆 High Liquidity Pools (>$50k): {}", high_liquidity_count);
-        
-        // Risk analysis for automation
-        let low_risk_pools = pools.values().filter(|p| p.risk_score.overall > 0.6).count();
-        let medium_risk_pools = pools.values().filter(|p| p.risk_score.overall > 0.3 && p.risk_score.overall <= 0.6).count();
-        
-        println!("\n⚖️ Risk Distribution for Automated Trading:");
-        println!("   🟢 Low Risk (>60%): {} pools", low_risk_pools);
-        println!("   🟡 Medium Risk (30-60%): {} pools", medium_risk_pools);
-        println!("   🔴 High Risk (<30%): {} pools", pools.len() - low_risk_pools - medium_risk_pools);
-    }
-    
-    println!("\n🎯 PHASE 1 COMPLETION - NEXT STEPS:");
-    println!("===================================");
-    println!("✅ Extended monitoring session completed successfully");
-    println!("📊 Market data gathered for trading automation");
-    println!("📈 Pattern analysis available for algorithm optimization");
-    
-    println!("\n🚀 READY FOR PHASE 2 - ULTRA-FAST MODE:");
-    println!("   Command: cargo run -- test ultra-fast-mode");
-    println!("   Purpose: Implement ultra-fast trading triggers");
-    println!("   Duration: 2-3 days");
-    println!("   Goal: Automatic execution logic integration");
-    
-    println!("\n💡 RECOMMENDATIONS FOR NEXT PHASE:");
-    if !opportunities.is_empty() {
-        println!("   • Focus on {:?} opportunities (most frequent)", 
-                 opportunities.iter().next().map(|o| &o.opportunity_type).unwrap_or(&OpportunityType::NewPoolSnipe));
-        println!("   • Target pools with >70% confidence score");
-        println!("   • Implement triggers for high-liquidity pools (>${:.0})", 
-                 pools.values().map(|p| p.liquidity_usd).fold(0.0, f64::max));
-    } else {
-        println!("   • Continue monitoring to identify optimal trading windows");
-        println!("   • Focus on ultra-fast detection improvements");
-    }
-    
-    println!("\n🎖️ PHASE 1 STATUS: ✅ COMPLETE - READY FOR AUTOMATION");
-    
+
     Ok(())
+}
+
+/// Show help information
+fn show_help() {
+    println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
+    println!("{}", "═══════════════════════════════════════════════════".bright_blue());
+    println!();
+    println!("{}", "Usage: cargo run -- test <command>".bright_white());
+    println!();
+    println!("{}", "Available commands:".bright_cyan().bold());
+    println!("  • {} - Run all tests", "all".bright_yellow());
+    println!("  • {} - Basic connectivity", "basic".bright_yellow());
+    println!("  • {} - Solana RPC connectivity", "solana".bright_yellow());
+    println!("  • {} - Jupiter API", "jupiter".bright_yellow());
+    println!("  • {} - Pool detection and analysis", "pools".bright_yellow());
+    println!("  • {} - Continuous pool monitoring", "monitor-pools".bright_yellow());
+    println!("  • {} - Analytics on collected data", "analyze-data".bright_green());
+}
+
+/// Handle WebSocket RPC testing
+async fn handle_test_websocket_rpc() -> Result<()> {
+    println!("{}", "🔌 Testing WebSocket RPC Performance".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    // Use existing websocket test for now
+    handle_test_websocket().await
+}
+
+/// Handle WebSocket price testing
+async fn handle_test_websocket_prices() -> Result<()> {
+    println!("{}", "💰 Testing WebSocket Price Feeds".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    // Use existing websocket test for now
+    handle_test_websocket().await
+}
+
+/// Handle extended pools monitoring
+async fn handle_pools_extended(duration_hours: u64) -> Result<()> {
+    println!("{}", "🎯 Phase 1: Extended Pool Monitoring".bright_cyan().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_cyan());
+    println!("Duration: {} hours ({} seconds)", duration_hours, duration_hours * 3600);
+    
+    // Convert hours to seconds and use regular monitoring
+    let duration_seconds = duration_hours * 3600;
+    handle_monitor_pools(duration_seconds).await
 }

@@ -12,6 +12,7 @@ pub mod cache_free_trader_simple;
 pub mod paper_trading;
 pub mod virtual_portfolio;
 pub mod pool_detector;
+pub mod analytics;
 
 use anyhow::Result;
 use std::sync::Arc;
