@@ -84,54 +84,50 @@ impl RiskManager {
     /// Comprehensive risk assessment of trading opportunity
     pub async fn assess_opportunity_risk(&self, opportunity: &TradingOpportunity) -> Result<RiskAssessment> {
         let mut risk_factors = Vec::new();
-        let mut risk_score = 0.0;
-
-        // 1. Check confidence score
-        if opportunity.confidence_score < self.config.confidence_threshold {
-            risk_factors.push(format!("Low confidence: {:.1}%", opportunity.confidence_score));
-            risk_score += 30.0;
+        let mut risk_score = 0.0;        // 1. Check confidence score
+        if opportunity.confidence < self.config.confidence_threshold {
+            risk_factors.push(format!("Low confidence: {:.1}%", opportunity.confidence));            risk_score += 30.0;
         } else {
-            risk_score += (100.0 - opportunity.confidence_score) * 0.2; // Lower is better
+            risk_score += (100.0 - opportunity.confidence) * 0.2; // Lower is better
         }
 
         // 2. Check price impact
-        if opportunity.price_impact > 5.0 {
-            risk_factors.push(format!("High price impact: {:.2}%", opportunity.price_impact));
+        if opportunity.pool.price_impact_1k > 5.0 {
+            risk_factors.push(format!("High price impact: {:.2}%", opportunity.pool.price_impact_1k));
             risk_score += 25.0;
-        } else if opportunity.price_impact > 2.0 {
-            risk_factors.push(format!("Moderate price impact: {:.2}%", opportunity.price_impact));
+        } else if opportunity.pool.price_impact_1k > 2.0 {
+            risk_factors.push(format!("Moderate price impact: {:.2}%", opportunity.pool.price_impact_1k));
             risk_score += 10.0;
         }
 
         // 3. Check liquidity
-        if opportunity.liquidity < 50000.0 {
-            risk_factors.push(format!("Low liquidity: ${:.0}", opportunity.liquidity));
+        if opportunity.pool.liquidity_usd < 50000.0 {
+            risk_factors.push(format!("Low liquidity: ${:.0}", opportunity.pool.liquidity_usd));
             risk_score += 20.0;
-        } else if opportunity.liquidity < 100000.0 {
-            risk_factors.push(format!("Moderate liquidity: ${:.0}", opportunity.liquidity));
+        } else if opportunity.pool.liquidity_usd < 100000.0 {
+            risk_factors.push(format!("Moderate liquidity: ${:.0}", opportunity.pool.liquidity_usd));
             risk_score += 10.0;
         }
 
         // 4. Check for blacklisted tokens
-        let token_a_str = opportunity.token_a_mint.to_string();
-        let token_b_str = opportunity.token_b_mint.to_string();
+        let token_a_str = opportunity.pool.token_a.mint.clone();
+        let token_b_str = opportunity.pool.token_b.mint.clone();
         
         if self.blacklisted_tokens.contains(&token_a_str) || self.blacklisted_tokens.contains(&token_b_str) {
             risk_factors.push("Blacklisted token detected".to_string());
             risk_score += 50.0;
-        }
-
-        // 5. Check opportunity age (newer pools are riskier)
-        if opportunity.pool_age_seconds.unwrap_or(0) < 300 { // Less than 5 minutes old
+        }        // 5. Check opportunity age (newer pools are riskier)
+        let pool_age = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() - opportunity.pool.created_at;
+        if pool_age < 300 { // Less than 5 minutes old
             risk_factors.push("Very new pool (< 5 min)".to_string());
             risk_score += 15.0;
-        } else if opportunity.pool_age_seconds.unwrap_or(0) < 3600 { // Less than 1 hour old
+        } else if pool_age < 3600 { // Less than 1 hour old
             risk_factors.push("New pool (< 1 hour)".to_string());
             risk_score += 8.0;
         }
 
         // 6. Check estimated profit vs risk
-        let profit_to_risk_ratio = opportunity.estimated_profit / opportunity.price_impact;
+        let profit_to_risk_ratio = opportunity.expected_profit_usd / opportunity.pool.price_impact_1k;
         if profit_to_risk_ratio < 10.0 {
             risk_factors.push(format!("Low profit-to-risk ratio: {:.1}", profit_to_risk_ratio));
             risk_score += 15.0;
@@ -155,12 +151,10 @@ impl RiskManager {
         };
 
         let recommended_position_size = base_position * risk_multiplier;
-        let max_acceptable_loss = recommended_position_size * (self.config.stop_loss_percentage / 100.0);
-
-        // Determine if opportunity is approved
+        let max_acceptable_loss = recommended_position_size * (self.config.stop_loss_percentage / 100.0);        // Determine if opportunity is approved
         let approved = risk_score < 70.0 && // Risk score threshold
-                      opportunity.confidence_score >= self.config.confidence_threshold &&
-                      opportunity.estimated_profit >= self.config.min_profit_target &&
+                      opportunity.confidence >= self.config.confidence_threshold &&
+                      opportunity.expected_profit_usd >= self.config.min_profit_target &&
                       !self.blacklisted_tokens.contains(&token_a_str) &&
                       !self.blacklisted_tokens.contains(&token_b_str);
 

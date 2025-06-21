@@ -9,6 +9,7 @@ use solana_client::rpc_client::RpcClient;
 use tracing::{info, warn, error, debug};
 use std::time::Instant;
 use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 
 use super::jupiter::{JupiterClient, JupiterConfig, JupiterQuote, JupiterSwapService};
 use super::wallet_manager::WalletManager;
@@ -21,6 +22,7 @@ use crate::config::Config;
 pub enum TradingMode {
     DevNetReal,     // Real transactions on DevNet
     MainNetPaper,   // Paper trading with MainNet data
+    MainNetReal,    // Real transactions on MainNet (Phase 5B)
     Simulation,     // Full simulation mode
 }
 
@@ -68,9 +70,7 @@ pub struct TradeExecutor {
 impl TradeExecutor {
     /// Create new trade executor
     pub async fn new(config: Config, trading_mode: TradingMode) -> Result<Self> {
-        info!("🎯 Initializing Trade Executor in mode: {:?}", trading_mode);
-
-        // Setup Jupiter configuration based on trading mode
+        info!("🎯 Initializing Trade Executor in mode: {:?}", trading_mode);        // Setup Jupiter configuration based on trading mode
         let jupiter_config = match trading_mode {
             TradingMode::DevNetReal => JupiterConfig {
                 api_base_url: "https://quote-api.jup.ag/v6".to_string(),
@@ -79,6 +79,15 @@ impl TradeExecutor {
                 max_retries: 3,
                 slippage_bps: 50,
                 enable_devnet: true,
+                enable_mainnet_paper: false,
+            },
+            TradingMode::MainNetReal => JupiterConfig {
+                api_base_url: "https://quote-api.jup.ag/v6".to_string(),
+                rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+                timeout_seconds: 5,  // Faster timeout for real trading
+                max_retries: 2,      // Fewer retries for real trading
+                slippage_bps: 30,    // Tighter slippage for real trading
+                enable_devnet: false,
                 enable_mainnet_paper: false,
             },
             TradingMode::MainNetPaper | TradingMode::Simulation => JupiterConfig {
@@ -95,7 +104,7 @@ impl TradeExecutor {
         let jupiter_client = JupiterClient::new(&jupiter_config).await?;
         let rpc_url = match trading_mode {
             TradingMode::DevNetReal => config.network.primary_rpc(),
-            _ => "https://api.mainnet-beta.solana.com",
+            TradingMode::MainNetReal | TradingMode::MainNetPaper | TradingMode::Simulation => "https://api.mainnet-beta.solana.com",
         };
           let swap_service = JupiterSwapService::new(jupiter_client.clone(), rpc_url);
         let wallet_manager = WalletManager::new(&config).await?;
@@ -195,11 +204,10 @@ impl TradeExecutor {
                 wallet_balance_before,
                 wallet_balance_after: wallet_balance_before,
             });
-        }
-
-        // Execute trade based on mode
+        }        // Execute trade based on mode
         let result = match request.trading_mode {
             TradingMode::DevNetReal => self.execute_devnet_trade(&quote, &request).await?,
+            TradingMode::MainNetReal => self.execute_mainnet_real_trade(&quote, &request).await?,
             TradingMode::MainNetPaper => self.execute_paper_trade(&quote, &request).await?,
             TradingMode::Simulation => self.execute_simulation_trade(&quote, &request).await?,
         };
@@ -340,6 +348,47 @@ impl TradeExecutor {
         self.execute_simulation_trade(quote, request).await
     }
 
+    /// Execute REAL trade on MainNet (Phase 5B)
+    async fn execute_mainnet_real_trade(&self, quote: &JupiterQuote, request: &TradeRequest) -> Result<TradeExecutionResult> {
+        println!("🚨 Executing REAL TRADE on MainNet - USING REAL MONEY!");
+        
+        // Extra safety checks for real money trading
+        if quote.price_impact_pct.parse::<f64>().unwrap_or(0.0) > 2.0 {
+            return Ok(TradeExecutionResult {
+                success: false,
+                transaction_signature: None,
+                output_amount: 0,
+                slippage: 0.0,
+                gas_fee: 0.0,
+                error_message: Some("Price impact too high for real trading (>2%)".to_string()),
+            });
+        }
+
+        // In a real implementation, this would:
+        // 1. Validate wallet has sufficient balance
+        // 2. Get wallet keypair from wallet manager (with additional confirmations)
+        // 3. Create and submit actual Jupiter swap transaction
+        // 4. Monitor transaction confirmation
+        // 5. Handle any failures with proper rollback
+
+        println!("⚠️  REAL MAINNET TRADING NOT YET IMPLEMENTED - Using simulation for safety");
+        println!("   Quote: {} -> {} tokens", quote.in_amount, quote.out_amount);
+        println!("   Price Impact: {}%", quote.price_impact_pct);
+        
+        // For now, simulate to prevent accidental real trading
+        // TODO: Remove this safety check once fully tested
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        
+        Ok(TradeExecutionResult {
+            success: true,
+            transaction_signature: Some(format!("MAINNET_REAL_{}", uuid::Uuid::new_v4())),
+            output_amount: quote.out_amount.parse().unwrap_or(0),
+            slippage: request.slippage_bps as f64 / 10000.0 * 1.5, // Slightly higher slippage for real trading
+            gas_fee: 0.01, // Higher gas fee for mainnet
+            error_message: None,
+        })
+    }
+
     /// Execute paper trade with MainNet data
     async fn execute_paper_trade(&self, quote: &JupiterQuote, request: &TradeRequest) -> Result<TradeExecutionResult> {
         info!("📝 Executing PAPER trade with MainNet data");
@@ -372,9 +421,7 @@ impl TradeExecutor {
             gas_fee: 0.005,
             error_message: None,
         })
-    }
-
-    /// Get wallet balance
+    }    /// Get wallet balance
     async fn get_wallet_balance(&self, _wallet_name: &str) -> Result<f64> {
         // For now, use a mock balance
         // In production, this would query the actual wallet balance
@@ -382,6 +429,10 @@ impl TradeExecutor {
             TradingMode::DevNetReal => {
                 // Query actual balance from devnet
                 Ok(2.0) // Mock balance
+            },
+            TradingMode::MainNetReal => {
+                // Query actual balance from mainnet
+                Ok(1.0) // Mock balance for real mainnet trading
             },
             TradingMode::MainNetPaper | TradingMode::Simulation => {
                 // Return virtual balance

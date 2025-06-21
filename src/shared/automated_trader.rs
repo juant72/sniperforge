@@ -12,7 +12,7 @@ use tracing::{info, warn, error, debug};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
-use super::pool_detector::{PoolDetector, PoolDetectionResult, TradingOpportunity};
+use super::pool_detector::{PoolDetector, TradingOpportunity};
 use super::trade_executor::{TradeExecutor, TradeRequest, TradeResult, TradingMode};
 use super::risk_manager::RiskManager;
 use super::performance_tracker::{PerformanceTracker, TradeMetric};
@@ -54,7 +54,7 @@ impl Default for AutomatedTradingConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradingSession {
     pub session_id: String,
-    pub start_time: Instant,
+    pub start_time: u64, // Unix timestamp instead of Instant for serialization
     pub config: AutomatedTradingConfig,
     pub opportunities_detected: u32,
     pub trades_executed: u32,
@@ -67,7 +67,7 @@ impl TradingSession {
     pub fn new(config: AutomatedTradingConfig) -> Self {
         Self {
             session_id: Uuid::new_v4().to_string(),
-            start_time: Instant::now(),
+            start_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
             config,
             opportunities_detected: 0,
             trades_executed: 0,
@@ -78,7 +78,8 @@ impl TradingSession {
     }
 
     pub fn elapsed_minutes(&self) -> f64 {
-        self.start_time.elapsed().as_secs_f64() / 60.0
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        (now - self.start_time) as f64 / 60.0
     }
 }
 
@@ -101,10 +102,17 @@ impl AutomatedTrader {
         info!("🤖 Initializing Automated Paper Trader");
         info!("   Mode: {:?}", trading_config.trading_mode);
         info!("   Max trades/hour: {}", trading_config.max_trades_per_hour);
-        info!("   Min profit: ${}", trading_config.min_profit_target);
-
-        // Initialize components
-        let detector = Arc::new(Mutex::new(PoolDetector::new(config.clone()).await?));
+        info!("   Min profit: ${}", trading_config.min_profit_target);        // Initialize components
+        let jupiter_config = super::jupiter::JupiterConfig::default();
+        let jupiter_client = super::jupiter::client::JupiterClient::new(&jupiter_config).await?;
+        let detector = Arc::new(Mutex::new(
+            PoolDetector::new(
+                super::pool_detector::PoolDetectorConfig::default(),
+                jupiter_client,
+                None, // No Syndica client for now
+                None, // No Helius client for now
+            ).await?
+        ));
         let executor = Arc::new(TradeExecutor::new(config.clone(), trading_config.trading_mode.clone()).await?);
         let risk_manager = Arc::new(RiskManager::new(trading_config.clone()).await?);
         let performance_tracker = Arc::new(Mutex::new(PerformanceTracker::new()));
@@ -132,13 +140,10 @@ impl AutomatedTrader {
         {
             let mut current = self.current_session.lock().await;
             *current = Some(session.clone());
-        }
-
-        // Enable ultra-fast mode for optimal detection
+        }        // Enable detector for trading session
         {
             let mut detector = self.detector.lock().await;
-            detector.enable_ultra_fast_mode().await?;
-            info!("🔥 Ultra-fast mode enabled for trading session");
+            info!("🔥 Detector ready for trading session");
         }
 
         // Start the trading loop
@@ -208,14 +213,10 @@ impl AutomatedTrader {
             }
 
             // Brief pause between detection cycles
-            sleep(Duration::from_millis(500)).await;
-
-            // Update session in shared state
+            sleep(Duration::from_millis(500)).await;            // Update session in shared state
             {
                 let mut current = self.current_session.lock().await;
-                if let Some(ref mut current_session) = current.as_mut() {
-                    *current_session = session.clone();
-                }
+                *current = Some(session.clone());
             }
 
             // Log progress every 60 seconds
@@ -225,30 +226,27 @@ impl AutomatedTrader {
         }
 
         // Final session summary
-        self.log_session_summary(&session).await;
-
-        Ok(())
+        self.log_session_summary(&session).await;        Ok(())
     }
 
     /// Detect trading opportunities using pool detector
     async fn detect_trading_opportunities(&self) -> Result<Vec<TradingOpportunity>> {
         let mut detector = self.detector.lock().await;
         
-        // Get ultra-fast opportunities
-        let detection_result = detector.detect_pools_mainnet().await?;
+        // Get opportunities
+        let opportunities = detector.detect_opportunities_once().await?;
         
         // Filter for high-quality opportunities
-        let opportunities: Vec<TradingOpportunity> = detection_result
-            .opportunities
+        let filtered_opportunities: Vec<TradingOpportunity> = opportunities
             .into_iter()
             .filter(|opp| {
-                opp.confidence_score >= self.config.confidence_threshold &&
-                opp.estimated_profit >= self.config.min_profit_target
+                opp.confidence >= self.config.confidence_threshold &&
+                opp.expected_profit_usd >= self.config.min_profit_target
             })
             .collect();
 
-        debug!("🎯 Filtered {} high-quality opportunities", opportunities.len());
-        Ok(opportunities)
+        debug!("🎯 Filtered {} high-quality opportunities", filtered_opportunities.len());
+        Ok(filtered_opportunities)
     }
 
     /// Determine if we should execute a trade for this opportunity
@@ -272,17 +270,16 @@ impl AutomatedTrader {
         // Check daily loss limits
         if session.total_profit_loss <= -self.config.max_daily_loss {
             warn!("❌ Daily loss limit reached: ${:.2}", session.total_profit_loss);
-            return Ok(false);
-        }
-
+            return Ok(false);        }
+        
         // Check opportunity quality
-        if opportunity.confidence_score < self.config.confidence_threshold {
-            debug!("❌ Opportunity confidence too low: {:.1}%", opportunity.confidence_score);
+        if opportunity.confidence < self.config.confidence_threshold {
+            debug!("❌ Opportunity confidence too low: {:.1}%", opportunity.confidence);
             return Ok(false);
         }
 
-        if opportunity.estimated_profit < self.config.min_profit_target {
-            debug!("❌ Estimated profit too low: ${:.2}", opportunity.estimated_profit);
+        if opportunity.expected_profit_usd < self.config.min_profit_target {
+            debug!("❌ Estimated profit too low: ${:.2}", opportunity.expected_profit_usd);
             return Ok(false);
         }
 
@@ -296,16 +293,18 @@ impl AutomatedTrader {
         opportunity: TradingOpportunity,
         session: &mut TradingSession,
     ) -> Result<TradeResult> {
-        info!("🎯 Executing automated trade for opportunity: {}", opportunity.pool_address);
+        info!("🎯 Executing automated trade for opportunity: {}", opportunity.pool.pool_address);
         
         // Create trade request
         let trade_request = TradeRequest {
-            input_mint: opportunity.token_a_mint,
-            output_mint: opportunity.token_b_mint,
+            input_mint: opportunity.pool.token_a.mint.parse()
+                .map_err(|e| anyhow!("Invalid input mint address: {}", e))?,
+            output_mint: opportunity.pool.token_b.mint.parse()
+                .map_err(|e| anyhow!("Invalid output mint address: {}", e))?,
             amount_in: self.calculate_position_size(&opportunity)?,
             slippage_bps: self.config.max_slippage_bps,
             wallet_name: "trading_wallet".to_string(), // Default trading wallet
-            max_price_impact: opportunity.price_impact,
+            max_price_impact: opportunity.pool.price_impact_1k,
             trading_mode: self.config.trading_mode.clone(),
         };
 
@@ -322,7 +321,7 @@ impl AutomatedTrader {
     /// Calculate appropriate position size based on opportunity and risk management
     fn calculate_position_size(&self, opportunity: &TradingOpportunity) -> Result<u64> {
         // Use confidence score to adjust position size
-        let confidence_factor = opportunity.confidence_score / 100.0;
+        let confidence_factor = opportunity.confidence / 100.0;
         let base_size = self.config.max_position_size * confidence_factor;
         
         // Convert to lamports (assuming SOL-based trades)

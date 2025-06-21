@@ -12,7 +12,8 @@ use solana_sdk::{
 use solana_client::rpc_client::RpcClient;
 use serde::{Serialize, Deserialize};
 
-use crate::config::{Config, WalletEnvironmentConfig};
+use crate::config::WalletEnvironmentConfig;
+use crate::Config;
 use crate::types::{PlatformError, HealthStatus};
 
 /// Wallet configuration for different purposes

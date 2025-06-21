@@ -12,5 +12,5 @@ pub mod jupiter_speed_test;
 pub mod websocket_rpc_test;
 pub mod ultimate_rpc_test;
 
-pub use config::Config;
+pub use crate::config::Config;
 pub use platform::SniperForgePlatform;
