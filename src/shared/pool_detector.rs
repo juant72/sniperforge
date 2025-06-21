@@ -1648,6 +1648,41 @@ impl PoolDetector {    /// Crear nuevo detector de pools
         };
         
         Ok(pool)
+    }    /// Run a single detection cycle and return opportunities
+    pub async fn detect_opportunities_once(&mut self) -> Result<Vec<TradingOpportunity>> {
+        let _start_time = Instant::now();
+        
+        // Clear previous opportunities
+        self.opportunities.clear();
+        
+        // Scan for new pools
+        match self.scan_for_new_pools().await {
+            Ok(new_pools) => {
+                if !new_pools.is_empty() {
+                    for pool in new_pools {
+                        self.analyze_pool_opportunity(&pool).await?;
+                    }
+                }
+            }
+            Err(e) => {
+                warn!("⚠️ Pool scan failed: {}", e);
+            }
+        }
+        
+        // Update tracked pools
+        if let Err(e) = self.update_tracked_pools().await {
+            warn!("⚠️ Pool update failed: {}", e);
+        }
+        
+        // Scan for opportunities
+        if let Err(e) = self.scan_for_opportunities().await {
+            warn!("⚠️ Opportunity scan failed: {}", e);
+        }
+        
+        self.last_scan = Instant::now();
+        
+        // Return a copy of current opportunities
+        Ok(self.opportunities.clone())
     }
 }
 

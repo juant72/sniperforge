@@ -8,11 +8,10 @@ pub mod websocket_manager;
 pub mod websocket_price_feed;
 pub mod syndica_websocket;
 pub mod helius_websocket;  // NUEVO: Cliente Helius WebSocket
-pub mod cache_free_trader_simple;
-pub mod paper_trading;
-pub mod virtual_portfolio;
 pub mod pool_detector;
-pub mod analytics;
+pub mod analytics;         // Pool analytics and pattern detection
+pub mod paper_trading_automation;  // Phase 3: Paper trading automation
+pub mod cache_free_trading;        // Phase 4: Cache-free trading engine
 
 use anyhow::Result;
 use std::sync::Arc;

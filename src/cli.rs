@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
 use crate::shared::analytics::PoolAnalyticsEngine;
 use crate::shared::pool_detector::{DetectedPool, TradingOpportunity};
+use crate::shared::paper_trading_automation::{PaperTradingEngine, PaperTradingConfig};
 
 pub async fn run_cli() -> Result<()> {
     // Check for help argument first
@@ -98,8 +99,7 @@ pub async fn run_cli() -> Result<()> {
                             .long("duration")
                             .value_name("SECONDS")
                             .help("Monitoring duration in seconds (default: 30)")                            .default_value("30"))
-                )
-                .subcommand(
+                )                .subcommand(
                     Command::new("analyze-data")
                         .about("🔍 Analyze collected pool monitoring data")
                         .arg(Arg::new("duration")
@@ -119,7 +119,72 @@ pub async fn run_cli() -> Result<()> {
                             .long("report")
                             .action(clap::ArgAction::SetTrue)
                             .help("Generate comprehensive analytics report"))
-                ))
+                )
+                .subcommand(
+                    Command::new("paper-trading-automation")
+                        .about("🚀 PHASE 3: Automated paper trading with real opportunities")
+                        .arg(Arg::new("duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("Automation duration in seconds (default: 300)")
+                            .default_value("300"))
+                        .arg(Arg::new("capital")
+                            .short('c')
+                            .long("capital")
+                            .value_name("USD")
+                            .help("Starting capital in USD (default: 10000)")
+                            .default_value("10000"))
+                        .arg(Arg::new("confidence")
+                            .long("min-confidence")
+                            .value_name("PERCENTAGE")
+                            .help("Minimum confidence threshold for trades (default: 70)")
+                            .default_value("70"))
+                        .arg(Arg::new("export")
+                            .short('e')
+                            .long("export")
+                            .value_name("FILE")
+                            .help("Export trading results to JSON file"))
+                        .arg(Arg::new("report")
+                            .short('r')
+                            .long("report")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("Generate comprehensive trading report"))
+                )
+                .subcommand(
+                    Command::new("cache-free-trading")
+                        .about("🎯 PHASE 4: Cache-free trading with real-time validation")
+                        .arg(Arg::new("duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("Trading session duration in seconds (default: 180)")
+                            .default_value("180"))
+                        .arg(Arg::new("max-slippage")
+                            .long("max-slippage")
+                            .value_name("PERCENTAGE")
+                            .help("Maximum allowed slippage percentage (default: 1.0)")
+                            .default_value("1.0"))
+                        .arg(Arg::new("min-profit")
+                            .long("min-profit")
+                            .value_name("USD")
+                            .help("Minimum profit threshold in USD (default: 1.0)")
+                            .default_value("1.0"))
+                        .arg(Arg::new("safety-mode")
+                            .long("safety-mode")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("Enable extra safety checks (recommended for first runs)"))
+                        .arg(Arg::new("export")
+                            .short('e')
+                            .long("export")
+                            .value_name("FILE")
+                            .help("Export trading results to JSON file"))
+                        .arg(Arg::new("report")
+                            .short('r')
+                            .long("report")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("Generate comprehensive trading report"))
+                )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .subcommand(Command::new("help").about("Show help for commands"))
         .get_matches();    match matches.subcommand() {
@@ -249,8 +314,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
                 .parse::<u64>()
                 .unwrap_or(30);
             handle_ultra_fast_pools(duration).await?
-        }
-        Some(("analyze-data", sub_matches)) => {
+        }        Some(("analyze-data", sub_matches)) => {
             let duration = sub_matches.get_one::<String>("duration")
                 .unwrap()
                 .parse::<u64>()
@@ -258,6 +322,23 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             let export_file = sub_matches.get_one::<String>("export").cloned();
             let generate_report = sub_matches.get_flag("report");
             handle_analyze_data(duration, export_file, generate_report).await?
+        }
+        Some(("paper-trading-automation", sub_matches)) => {
+            let duration = sub_matches.get_one::<String>("duration")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap_or(300);
+            let capital = sub_matches.get_one::<String>("capital")
+                .unwrap()
+                .parse::<f64>()
+                .unwrap_or(10000.0);
+            let min_confidence = sub_matches.get_one::<String>("confidence")
+                .unwrap()
+                .parse::<f64>()
+                .unwrap_or(70.0) / 100.0;
+            let export_file = sub_matches.get_one::<String>("export").cloned();
+            let generate_report = sub_matches.get_flag("report");
+            handle_paper_trading_automation(duration, capital, min_confidence, export_file, generate_report).await?
         }
         _ => {
             println!("{}", "🧪 Available tests:".bright_cyan().bold());
@@ -278,7 +359,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  • {} - 🎯 Phase 1: Extended pool monitoring (4-6h)", "pools-extended".bright_cyan());
             println!("  • {} - Ultra-fast WebSocket + API monitoring", "ultra-fast-pools".bright_green());
             println!("  • {} - 🔍 Analyze collected pool monitoring data", "analyze-data".bright_green());
-            println!("  • {} - 🔍 Analyze collected monitoring data & generate insights", "analyze-data".bright_magenta());
+            println!("  • {} - � PHASE 3: Automated paper trading", "paper-trading-automation".bright_magenta());
         }
     }
     Ok(())
@@ -1359,40 +1440,6 @@ async fn handle_ultra_fast_pools(duration_seconds: u64) -> Result<()> {
         Err(e) => {
             println!("❌ CRITICAL: Syndica WebSocket failed: {}", e);
             println!("   Ultra-fast mode requires low-latency WebSocket connection!");
-            return Ok(());
-        }
-    };
-    
-    // Ultra-fast configuration optimized for auto-triggers
-    let config = PoolDetectorConfig {
-        min_liquidity_usd: 25000.0,    // High threshold for auto-triggers
-        max_price_impact_1k: 3.0,      // Very strict for safety
-        min_risk_score: 0.8,           // High confidence required
-        monitoring_interval_ms: 50,    // 50ms ultra-fast scanning
-        max_tracked_pools: 30,         // Focused tracking for performance
-    };
-    
-    println!("\n🔥 AUTO-TRIGGER Configuration:");
-    println!("   Min liquidity: ${:.0} (HIGH threshold for safety)", config.min_liquidity_usd);
-    println!("   Max price impact: {:.1}% (STRICT for auto-execution)", config.max_price_impact_1k);
-    println!("   Min risk score: {:.0}% (HIGH confidence required)", config.min_risk_score * 100.0);
-    println!("   Scan interval: {}ms (ULTRA-FAST)", config.monitoring_interval_ms);
-    println!("   Auto-trigger conditions: HIGH_LIQUIDITY + HIGH_CONFIDENCE + LOW_IMPACT");
-    
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
-    
-    println!("\n🔥 Starting ultra-fast auto-trigger monitoring...");
-    println!("   🚀 SIMULATED auto-execution for qualifying opportunities");
-    println!("   ⚡ Real-time trigger evaluation every 50ms");
-    println!("   🛡️ Safety checks: Liquidity validation, confidence scoring, impact analysis");
-    println!("   📊 Trigger reports every 10 seconds");
-    println!("   Press Ctrl+C to stop");
-    
-    // Start ultra-fast monitoring
-    detector.start_ultra_fast_monitoring_seconds(duration_seconds).await?;
-    
-    // Auto-trigger results analysis
-    let stats = detector.get_stats();
     let opportunities = detector.get_current_opportunities();
     
     println!("\n🔥 AUTO-TRIGGER SESSION RESULTS:");
@@ -1480,7 +1527,7 @@ async fn handle_analyze_data(duration_seconds: u64, export_file: Option<String>,
     // Gather data for analytics
     let pools: Vec<DetectedPool> = detector.get_tracked_pools().values().cloned().collect();
     let opportunities: Vec<TradingOpportunity> = detector.get_current_opportunities().iter().cloned().collect();
-    let total_scans = detector.get_stats().total_scans;
+    let _total_scans = detector.get_stats().total_scans;
 
     // Run analytics
     let mut analytics = PoolAnalyticsEngine::new();
@@ -1551,4 +1598,249 @@ async fn handle_pools_extended(duration_hours: u64) -> Result<()> {
     // Convert hours to seconds and use regular monitoring
     let duration_seconds = duration_hours * 3600;
     handle_monitor_pools(duration_seconds).await
+}
+
+/// Handle automated paper trading with real market data
+async fn handle_paper_trading_automation(
+    duration_seconds: u64, 
+    initial_capital: f64, 
+    min_confidence: f64, 
+    export_file: Option<String>, 
+    generate_report: bool
+) -> Result<()> {
+    println!("{}", "🚀 PHASE 3: AUTOMATED PAPER TRADING".bright_magenta().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_magenta());
+    
+    use crate::shared::pool_detector::{PoolDetector, PoolDetectorConfig};
+    use crate::shared::jupiter::JupiterConfig;
+    use crate::shared::jupiter::client::JupiterClient;
+    use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
+    use std::time::Duration;
+    use tokio::time;
+    
+    println!("🎯 AUTOMATED PAPER TRADING SYSTEM");
+    println!("=================================");
+    println!("⏱️ Duration: {} seconds ({:.1} minutes)", duration_seconds, duration_seconds as f64 / 60.0);
+    println!("💰 Starting Capital: ${:.2}", initial_capital);
+    println!("🎯 Min Confidence: {:.0}%", min_confidence * 100.0);
+    println!("📊 Real-time opportunity execution enabled");
+      // Setup paper trading configuration
+    let mut trading_config = PaperTradingConfig::default();
+    trading_config.initial_balance_usd = initial_capital;
+    trading_config.min_confidence_threshold = min_confidence;
+    trading_config.max_position_size_pct = 4.0; // Conservative 4% per trade
+    trading_config.min_liquidity_usd = 20000.0; // $20K minimum for safety
+    trading_config.max_price_impact_pct = 2.5;  // Very strict price impact
+    
+    // Store values we'll need later before moving the config
+    let min_liquidity_for_detector = trading_config.min_liquidity_usd;
+    let max_price_impact_for_detector = trading_config.max_price_impact_pct;
+    
+    println!("\n📊 Trading Configuration:");
+    println!("   Max position size: {:.1}% per trade", trading_config.max_position_size_pct);
+    println!("   Stop loss: {:.0}%", trading_config.stop_loss_pct);
+    println!("   Take profit: {:.0}%", trading_config.take_profit_pct);
+    println!("   Max concurrent positions: {}", trading_config.max_concurrent_positions);
+    println!("   Min liquidity: ${:.0}", trading_config.min_liquidity_usd);
+    println!("   Max price impact: {:.1}%", trading_config.max_price_impact_pct);
+    
+    // Initialize paper trading engine
+    let mut paper_trader = PaperTradingEngine::new(trading_config);
+    
+    // Setup pool detection (same as monitoring)
+    let jupiter_config = JupiterConfig::mainnet();
+    let jupiter_client = JupiterClient::new(&jupiter_config).await?;
+    println!("✅ Jupiter client initialized for real market data");
+    
+    let syndica_config = SyndicaConfig::mainnet();
+    let syndica_client = match SyndicaWebSocketClient::new(syndica_config).await {
+        Ok(client) => {
+            println!("🚀 Syndica WebSocket client initialized - ULTRA-FAST MODE");
+            Some(client)
+        }
+        Err(e) => {
+            println!("⚠️ Syndica client failed: {}", e);
+            println!("   Continuing with API-only detection");
+            None
+        }
+    };
+      // Pool detection config optimized for trading
+    let detection_config = PoolDetectorConfig {
+        min_liquidity_usd: min_liquidity_for_detector,
+        max_price_impact_1k: max_price_impact_for_detector,
+        min_risk_score: 0.6, // Higher risk threshold for trading
+        monitoring_interval_ms: 2000, // 2s for rapid response
+        max_tracked_pools: 30,
+    };
+    
+    let mut detector = PoolDetector::new(detection_config, jupiter_client, syndica_client, None).await?;
+    
+    println!("\n🚀 Starting automated paper trading...");
+    println!("   💰 Real trading simulation with market data");
+    println!("   🎯 Automatic trade execution on qualifying opportunities");
+    println!("   📊 Real-time P&L tracking and risk management");
+    println!("   🛡️ Multi-layer safety checks before each trade");
+    println!("   Press Ctrl+C to stop");
+    
+    let start_time = std::time::Instant::now();
+    let end_time = start_time + std::time::Duration::from_secs(duration_seconds);
+    
+    let mut total_opportunities_found = 0;
+    let mut total_trades_executed = 0;
+    let mut last_report_time = start_time;
+    
+    // Main automation loop
+    while std::time::Instant::now() < end_time {
+        // Run pool detection cycle
+        let scan_start = std::time::Instant::now();
+        
+        // Detect opportunities (reuse pool detection logic)
+        let opportunities = match detector.detect_opportunities_once().await {
+            Ok(opps) => opps,
+            Err(e) => {
+                println!("⚠️ Detection cycle failed: {}", e);
+                time::sleep(Duration::from_millis(1000)).await;
+                continue;
+            }
+        };
+        
+        total_opportunities_found += opportunities.len();
+        
+        // Process each opportunity for potential trading
+        for opportunity in &opportunities {
+            if paper_trader.should_trade(opportunity) {
+                match paper_trader.execute_trade(opportunity) {
+                    Ok(result) => {
+                        total_trades_executed += 1;
+                        println!("\n🎯 TRADE EXECUTED #{}", total_trades_executed);
+                        println!("   Type: {} Opportunity", match opportunity.opportunity_type {
+                            crate::shared::pool_detector::OpportunityType::NewPoolSnipe => "New Pool",
+                            crate::shared::pool_detector::OpportunityType::PriceDiscrepancy => "Arbitrage",
+                            crate::shared::pool_detector::OpportunityType::LiquidityImbalance => "Low Slippage",
+                            crate::shared::pool_detector::OpportunityType::VolumeSpike => "Volume Spike",
+                        });
+                        println!("   Size: ${:.0}", result.size_usd);
+                        println!("   Expected Profit: ${:.2}", opportunity.expected_profit_usd);
+                        println!("   Confidence: {:.1}%", opportunity.confidence * 100.0);
+                        println!("   Portfolio Value: ${:.2}", result.portfolio_value_after);
+                    },
+                    Err(e) => {
+                        println!("❌ Trade execution failed: {}", e);
+                    }
+                }
+            }
+        }
+        
+        // Update existing positions with current market data
+        let pools: Vec<crate::shared::pool_detector::DetectedPool> = detector.get_tracked_pools().values().cloned().collect();
+        let position_updates = paper_trader.update_positions(&pools);
+        
+        // Report position closures
+        for update in position_updates {
+            if update.success {
+                println!("\n✅ POSITION CLOSED: {} profit", if update.pnl_usd > 0.0 { "PROFIT" } else { "LOSS" });
+            } else {
+                println!("\n❌ POSITION CLOSED: STOP LOSS");
+            }
+            println!("   Action: {:?}", update.action);
+            println!("   P&L: ${:.2}", update.pnl_usd);
+            println!("   Portfolio Value: ${:.2}", update.portfolio_value_after);
+        }
+        
+        // Status report every 30 seconds
+        if scan_start.duration_since(last_report_time).as_secs() >= 30 {
+            let stats = paper_trader.get_portfolio_stats();
+            let elapsed = scan_start.duration_since(start_time).as_secs();
+            let remaining = duration_seconds.saturating_sub(elapsed);
+            
+            println!("\n📊 TRADING STATUS REPORT");
+            println!("==========================");
+            println!("⏱️ Running time: {:.1} minutes", elapsed as f64 / 60.0);
+            println!("⏳ Time remaining: {:.1} minutes", remaining as f64 / 60.0);
+            println!("🔍 Opportunities found: {}", total_opportunities_found);
+            println!("💰 Trades executed: {}", total_trades_executed);
+            println!("📊 Portfolio value: ${:.2} ({:+.2}%)", stats.total_value_usd, stats.total_return_pct);
+            println!("🎯 Active positions: {}", stats.active_positions);
+            println!("💵 Available cash: ${:.2}", stats.available_cash_usd);
+            if stats.total_trades > 0 {
+                println!("📈 Win rate: {:.1}%", stats.win_rate_pct);
+                println!("💡 Avg trade P&L: ${:.2}", stats.average_trade_pnl);
+            }
+            println!("==========================");
+            
+            last_report_time = scan_start;
+        }
+        
+        // Sleep until next detection cycle
+        let cycle_duration = scan_start.elapsed();
+        let target_cycle_time = Duration::from_millis(2000); // 2 second cycles
+        if cycle_duration < target_cycle_time {
+            time::sleep(target_cycle_time - cycle_duration).await;
+        }
+    }
+    
+    // Final session results
+    let final_stats = paper_trader.get_portfolio_stats();
+    let session_duration = start_time.elapsed().as_secs();
+    
+    println!("\n🎉 AUTOMATED PAPER TRADING SESSION COMPLETED");
+    println!("===========================================");
+    println!("⏱️ Total Duration: {:.1} minutes", session_duration as f64 / 60.0);
+    println!("🔍 Total Opportunities: {}", total_opportunities_found);
+    println!("💰 Total Trades: {}", total_trades_executed);
+    println!("📊 Final Portfolio Value: ${:.2}", final_stats.total_value_usd);
+    println!("📈 Total Return: {:+.2}% (${:+.2})", final_stats.total_return_pct, final_stats.total_pnl_usd);
+    
+    if final_stats.total_trades > 0 {
+        println!("🎯 Trading Performance:");
+        println!("   Win Rate: {:.1}% ({}/{} trades)", final_stats.win_rate_pct, 
+                 final_stats.winning_trades, final_stats.total_trades);
+        println!("   Average Trade P&L: ${:.2}", final_stats.average_trade_pnl);
+        println!("   Largest Win: ${:.2}", final_stats.largest_win_usd);
+        println!("   Largest Loss: ${:.2}", final_stats.largest_loss_usd);
+        println!("   Max Drawdown: {:.2}%", final_stats.max_drawdown_pct);
+        
+        if final_stats.sharpe_ratio != 0.0 {
+            println!("   Sharpe Ratio: {:.3}", final_stats.sharpe_ratio);
+        }
+    }
+    
+    // Export results if requested
+    if let Some(file) = export_file {
+        match paper_trader.export_to_json() {
+            Ok(json_data) => {
+                std::fs::write(&file, json_data)?;
+                println!("\n📦 Trading results exported to: {}", file.bright_green());
+            },
+            Err(e) => {
+                println!("\n❌ Failed to export results: {}", e);
+            }
+        }
+    }
+    
+    // Generate comprehensive report if requested
+    if generate_report {
+        let report = paper_trader.generate_report();
+        println!("{}", report.bright_yellow());
+    }
+    
+    // Performance assessment
+    println!("\n💡 PHASE 3 ASSESSMENT:");
+    if final_stats.total_trades >= 3 && final_stats.total_return_pct > 2.0 {
+        println!("✅ SUCCESS: Automated trading system demonstrated profitability");
+        println!("   Ready for Phase 4: Cache-Free Trading implementation");
+    } else if final_stats.total_trades >= 1 {
+        println!("⚠️ PARTIAL SUCCESS: System executed trades but needs optimization");
+        println!("   Consider adjusting confidence thresholds or position sizing");
+    } else {
+        println!("📊 DATA COLLECTION: No qualifying trades found during session");
+        println!("   Consider longer duration or relaxed trading criteria");
+    }
+    
+    println!("\n🎯 NEXT STEPS:");
+    println!("   1. Review trading performance and optimize parameters");
+    println!("   2. Proceed to Phase 4: Cache-Free Trading for price accuracy");
+    println!("   3. Phase 5: Real trading deployment with minimal capital");
+    
+    Ok(())
 }
