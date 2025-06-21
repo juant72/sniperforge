@@ -7,6 +7,7 @@ pub mod trade_executor;
 pub mod websocket_manager;
 pub mod websocket_price_feed;
 pub mod syndica_websocket;
+pub mod helius_websocket;  // NUEVO: Cliente Helius WebSocket
 pub mod cache_free_trader_simple;
 pub mod paper_trading;
 pub mod virtual_portfolio;

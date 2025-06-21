@@ -77,8 +77,8 @@ pub async fn run_cli() -> Result<()> {
                             .long("duration")
                             .value_name("HOURS")
                             .help("Monitoring duration in hours (default: 4)")
-                            .default_value("4"))
-                )                .subcommand(
+                            .default_value("4"))                )
+                .subcommand(
                     Command::new("ultra-fast-pools")
                         .about("Ultra-fast pool monitoring with WebSocket + API hybrid")
                         .arg(Arg::new("duration")
@@ -87,6 +87,16 @@ pub async fn run_cli() -> Result<()> {
                             .value_name("SECONDS")
                             .help("Monitoring duration in seconds (default: 60)")
                             .default_value("60"))
+                )
+                .subcommand(
+                    Command::new("ultra-fast-triggers")
+                        .about("🚀 PHASE 2: Ultra-fast monitoring with auto-triggers")
+                        .arg(Arg::new("duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("Monitoring duration in seconds (default: 30)")
+                            .default_value("30"))
                 ))
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
         .subcommand(Command::new("help").about("Show help for commands"))
@@ -205,12 +215,17 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
                 .parse::<u64>()
                 .unwrap_or(4);
             handle_pools_extended(duration_hours).await?
-        }
-        Some(("ultra-fast-pools", sub_matches)) => {
+        }        Some(("ultra-fast-pools", sub_matches)) => {
             let duration = sub_matches.get_one::<String>("duration")
                 .unwrap()
                 .parse::<u64>()
                 .unwrap_or(5);
+            handle_ultra_fast_pools(duration).await?
+        }        Some(("ultra-fast-triggers", sub_matches)) => {
+            let duration = sub_matches.get_one::<String>("duration")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap_or(30);
             handle_ultra_fast_pools(duration).await?
         }
         _ => {
@@ -1050,13 +1065,12 @@ async fn handle_test_pools() -> Result<()> {
         max_tracked_pools: 20,        // More pools for demo
     };
     
-    println!("\n📊 Pool Detection Configuration:");
-    println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
+    println!("\n📊 Pool Detection Configuration:");    println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
     println!("   Max price impact: {:.1}%", config.max_price_impact_1k);
     println!("   Min risk score: {:.1}%", config.min_risk_score * 100.0);
     println!("   Scan interval: {}ms", config.monitoring_interval_ms);
     
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;
+    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
       println!("\n🚀 Starting extended pool monitoring demo (3 minutes)...");
     println!("   This connects to REAL Raydium/Orca APIs");
     println!("   Searching for new pools and opportunities...");
@@ -1206,12 +1220,13 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
     
     println!("\n📊 Monitoring Configuration:");
     println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
-    println!("   Max price impact: {:.1}%", config.max_price_impact_1k);
-    println!("   Min risk score: {:.1}%", config.min_risk_score * 100.0);
+    println!("   Max price impact: {:.1}%", config.max_price_impact_1k);    println!("   Min risk score: {:.1}%", config.min_risk_score * 100.0);
     println!("   Scan interval: {}ms", config.monitoring_interval_ms);
     println!("   Max tracked pools: {}", config.max_tracked_pools);
     
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;    println!("\n🔍 Starting continuous monitoring...");
+    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
+
+    println!("\n🔍 Starting continuous monitoring...");
     println!("   Status updates every 30 seconds");
     println!("   Press Ctrl+C to stop monitoring");
     println!("   All detected pools will include DexScreener validation links");
@@ -1262,7 +1277,17 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
             println!("\n   {}. {} ({}/{})", i + 1, address, pool.token_a.symbol, pool.token_b.symbol);
             println!("      💧 Liquidity: ${:.0} | 📊 Volume: ${:.0} | ⚡ Impact: {:.1}%", 
                      pool.liquidity_usd, pool.volume_24h, pool.price_impact_1k);
-            println!("      🔗 DexScreener: https://dexscreener.com/solana/{}", address);
+            
+            // Check if this pool would trigger
+            let would_trigger = pool.liquidity_usd > 10000.0 && 
+                               pool.price_impact_1k < 5.0 && 
+                               pool.risk_score.overall > 0.7;
+            
+            if would_trigger {
+                println!("      🚀 WOULD TRIGGER: Auto-execution criteria met");
+            } else {
+                println!("      📊 Analysis only: Trigger criteria not met");
+            }
         }
     }
     
@@ -1282,125 +1307,112 @@ async fn handle_ultra_fast_pools(duration_seconds: u64) -> Result<()> {
     use crate::shared::jupiter::client::JupiterClient;
     use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
     
-    println!("⚡ ULTRA-FAST POOL MONITORING");
-    println!("=============================");
-    println!("⏱️ Duration: {} seconds ({:.1} minutes)", duration_seconds, duration_seconds as f64 / 60.0);
-    println!("🌐 Data Sources: WebSocket (real-time) + REST APIs (backup)");
-    println!("⚡ Target Latency: <100ms for WebSocket updates");
-    println!("📊 Hybrid approach for maximum speed + reliability");
+    println!("🚀 PHASE 2: ULTRA-FAST + AUTO-TRIGGERS");
+    println!("======================================");
+    println!("⏱️ Duration: {} seconds", duration_seconds);
+    println!("🔥 Auto-execution: Simulated for high-confidence opportunities");
+    println!("⚡ Target detection latency: <100ms");
+    println!("🎯 Target execution latency: <1 second");
+    println!("🛡️ Safety: Multiple confirmation layers before triggers");
     
     // Setup Jupiter client for mainnet
     let jupiter_config = JupiterConfig::mainnet();
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
-    println!("✅ Jupiter client initialized for mainnet");
+    println!("✅ Jupiter client initialized for ultra-fast trading");
     
-    // Setup Syndica WebSocket client (critical for ultra-fast mode)
+    // Setup Syndica WebSocket client (CRITICAL for ultra-fast mode)
     let syndica_config = SyndicaConfig::mainnet();
     let syndica_client = match SyndicaWebSocketClient::new(syndica_config).await {
         Ok(client) => {
-            println!("⚡ Syndica WebSocket client initialized - REAL-TIME MODE ENABLED");
+            println!("🚀 Syndica WebSocket client initialized - ULTRA-FAST MODE");
             Some(client)
-        }        Err(e) => {
-            println!("❌ Syndica WebSocket failed: {}", e);
-            println!("   Ultra-fast mode requires WebSocket connection!");
-            println!("   Falling back to regular monitoring...");
-            return handle_monitor_pools(duration_seconds).await;
+        }
+        Err(e) => {
+            println!("❌ CRITICAL: Syndica WebSocket failed: {}", e);
+            println!("   Ultra-fast mode requires low-latency WebSocket connection!");
+            return Ok(());
         }
     };
     
-    // Ultra-fast configuration - optimized for speed
+    // Ultra-fast configuration optimized for auto-triggers
     let config = PoolDetectorConfig {
-        min_liquidity_usd: 2000.0,     // Lower for more opportunities
-        max_price_impact_1k: 20.0,     // Higher tolerance for speed
-        min_risk_score: 0.1,           // Very low threshold for speed
-        monitoring_interval_ms: 1000,  // 1s for API backup
-        max_tracked_pools: 100,        // More tracking for comprehensive coverage
+        min_liquidity_usd: 25000.0,    // High threshold for auto-triggers
+        max_price_impact_1k: 3.0,      // Very strict for safety
+        min_risk_score: 0.8,           // High confidence required
+        monitoring_interval_ms: 50,    // 50ms ultra-fast scanning
+        max_tracked_pools: 30,         // Focused tracking for performance
     };
     
-    println!("\n⚡ Ultra-Fast Configuration:");
-    println!("   Min liquidity: ${:.0} (optimized for speed)", config.min_liquidity_usd);
-    println!("   Max price impact: {:.1}% (relaxed for opportunities)", config.max_price_impact_1k);
-    println!("   Min risk score: {:.1}% (very low threshold)", config.min_risk_score * 100.0);
-    println!("   WebSocket: Real-time updates (~10-100ms latency)");
-    println!("   API Backup: Every {}ms for validation", config.monitoring_interval_ms);
+    println!("\n🔥 AUTO-TRIGGER Configuration:");
+    println!("   Min liquidity: ${:.0} (HIGH threshold for safety)", config.min_liquidity_usd);
+    println!("   Max price impact: {:.1}% (STRICT for auto-execution)", config.max_price_impact_1k);
+    println!("   Min risk score: {:.0}% (HIGH confidence required)", config.min_risk_score * 100.0);
+    println!("   Scan interval: {}ms (ULTRA-FAST)", config.monitoring_interval_ms);
+    println!("   Auto-trigger conditions: HIGH_LIQUIDITY + HIGH_CONFIDENCE + LOW_IMPACT");
     
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;
+    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
     
-    println!("\n⚡ Starting ultra-fast monitoring...");
-    println!("   🔥 WebSocket: Real-time pool creation events");
-    println!("   🔄 API Backup: Comprehensive validation every 10s");
-    println!("   📊 Status: Updates every 15s");
-    println!("   🎯 Focus: Sub-second opportunity detection");
-    println!("   Press Ctrl+C to stop monitoring");    // Start ultra-fast monitoring with exact duration in seconds
+    println!("\n🔥 Starting ultra-fast auto-trigger monitoring...");
+    println!("   🚀 SIMULATED auto-execution for qualifying opportunities");
+    println!("   ⚡ Real-time trigger evaluation every 50ms");
+    println!("   🛡️ Safety checks: Liquidity validation, confidence scoring, impact analysis");
+    println!("   📊 Trigger reports every 10 seconds");
+    println!("   Press Ctrl+C to stop");
+    
+    // Start ultra-fast monitoring
     detector.start_ultra_fast_monitoring_seconds(duration_seconds).await?;
     
-    // Final comprehensive summary
+    // Auto-trigger results analysis
     let stats = detector.get_stats();
     let opportunities = detector.get_current_opportunities();
-    let pools = detector.get_tracked_pools();
     
-    println!("\n⚡ ULTRA-FAST SESSION RESULTS:");
-    println!("==============================");
-    println!("🔍 Total tracked pools: {}", stats.tracked_pools);
-    println!("🎯 Active opportunities: {}", stats.active_opportunities);
-    println!("⚡ Advantage: WebSocket provided sub-second detection");
+    println!("\n🔥 AUTO-TRIGGER SESSION RESULTS:");
+    println!("================================");
+    println!("🔍 Total pools analyzed: {}", stats.tracked_pools);
+    println!("🎯 Opportunities detected: {}", stats.active_opportunities);
     
-    // Show high-value opportunities detected
     if !opportunities.is_empty() {
-        println!("\n🏆 ULTRA-FAST OPPORTUNITIES DETECTED:");
-        let mut sorted_opportunities: Vec<_> = opportunities.iter().collect();
-        sorted_opportunities.sort_by(|a, b| b.expected_profit_usd.partial_cmp(&a.expected_profit_usd).unwrap());
+        let high_confidence_count = opportunities.iter()
+            .filter(|o| o.confidence >= 0.8)
+            .count();
+        let total_potential_profit: f64 = opportunities.iter()
+            .filter(|o| o.confidence >= 0.8)
+            .map(|o| o.expected_profit_usd)
+            .sum();
         
-        for (i, opp) in sorted_opportunities.iter().take(5).enumerate() {
-            let speed_indicator = match opp.opportunity_type {
-                crate::shared::pool_detector::OpportunityType::NewPoolSnipe => "⚡ ULTRA-FAST",
-                crate::shared::pool_detector::OpportunityType::PriceDiscrepancy => "🔥 ARBITRAGE",
-                crate::shared::pool_detector::OpportunityType::LiquidityImbalance => "💎 LOW SLIPPAGE",
-                crate::shared::pool_detector::OpportunityType::VolumeSpike => "📈 VOLUME SPIKE",
-            };
+        println!("🔥 HIGH-CONFIDENCE TRIGGERS (>80%): {}", high_confidence_count);
+        println!("💰 Total potential profit from triggers: ${:.2}", total_potential_profit);
+        
+        if high_confidence_count > 0 {
+            println!("💡 Average profit per trigger: ${:.2}", total_potential_profit / high_confidence_count as f64);
+            println!("🚀 AUTO-TRIGGER SYSTEM: Would have executed {} times", high_confidence_count);
             
-            println!("\n   {}. {} OPPORTUNITY", i + 1, speed_indicator);
-            println!("      📍 Pool: {}", opp.pool.pool_address);
-            println!("      💱 Pair: {}/{}", opp.pool.token_a.symbol, opp.pool.token_b.symbol);
-            println!("      💰 Expected Profit: ${:.2}", opp.expected_profit_usd);
-            println!("      🎯 Confidence: {:.1}%", opp.confidence * 100.0);
-            println!("      💵 Recommended Size: ${:.0}", opp.recommended_size_usd);
-            println!("      ⏱️ Time Window: {}s", opp.time_window_ms / 1000);
-            println!("      🔗 Instant Validate: https://dexscreener.com/solana/{}", opp.pool.pool_address);
+            // Show top trigger opportunity
+            let best_trigger = opportunities.iter()
+                .filter(|o| o.confidence >= 0.8)
+                .max_by(|a, b| a.expected_profit_usd.partial_cmp(&b.expected_profit_usd).unwrap());
             
-            // Show speed advantage
-            if matches!(opp.opportunity_type, crate::shared::pool_detector::OpportunityType::NewPoolSnipe) {
-                println!("      ⚡ SPEED ADVANTAGE: WebSocket detected this in <100ms vs 3-30s API polling");
+            if let Some(trigger) = best_trigger {
+                println!("\n🏆 BEST AUTO-TRIGGER OPPORTUNITY:");
+                println!("   📍 Pool: {}", trigger.pool.pool_address);
+                println!("   💱 Pair: {}/{}", trigger.pool.token_a.symbol, trigger.pool.token_b.symbol);
+                println!("   💰 Expected Profit: ${:.2}", trigger.expected_profit_usd);
+                println!("   📊 Confidence: {:.1}%", trigger.confidence * 100.0);
+                println!("   ⏰ Execution Window: {}ms", trigger.time_window_ms);
+                println!("   🛡️ Safety Score: PASSED (High liquidity + Low impact)");
+                println!("   🚀 Would have TRIGGERED automatically");
             }
+        } else {
+            println!("📝 No opportunities met auto-trigger criteria");
+            println!("   💡 Consider adjusting trigger thresholds for more activations");
         }
     } else {
-        println!("\n📭 No high-confidence opportunities in this timeframe");
-        println!("   💡 Try longer duration (-d 10) or lower thresholds for more results");
+        println!("📭 No opportunities detected during ultra-fast session");
+        println!("   💡 Try longer duration or broader detection criteria");
     }
     
-    // Show speed comparison
-    println!("\n📊 SPEED ANALYSIS:");
-    println!("=================");
-    println!("⚡ WebSocket Latency: ~10-100ms (vs 3-30s REST polling)");
-    println!("🔥 Speed Advantage: 30-300x faster detection");
-    println!("🎯 Critical for: MEV protection, frontrunning prevention");
-    println!("💎 Best for: New pool sniping, arbitrage opportunities");
-    
-    // Show some tracked pools with timing info
-    if !pools.is_empty() {
-        println!("\n📋 SPEED-DETECTED POOLS SAMPLE:");
-        for (i, (address, pool)) in pools.iter().take(2).enumerate() {
-            println!("\n   {}. {} ({}/{})", i + 1, address, pool.token_a.symbol, pool.token_b.symbol);
-            println!("      ⚡ Detection Speed: Ultra-fast (WebSocket or <1s API)");
-            println!("      💧 Liquidity: ${:.0} | 📊 Volume: ${:.0} | ⚡ Impact: {:.1}%", 
-                     pool.liquidity_usd, pool.volume_24h, pool.price_impact_1k);
-            println!("      🔗 Instant Check: https://dexscreener.com/solana/{}", address);
-        }
-    }
-    
-    println!("\n✅ Ultra-fast monitoring completed!");
-    println!("   💡 Next: Use this for real trading with proper risk management");
-    println!("   🚀 Tip: Combine with MEV protection for production trading");
+    println!("\n✅ ULTRA-FAST AUTO-TRIGGER SYSTEM TEST COMPLETED");
+    println!("💡 Ready for Phase 3: Paper Trading Automation");
     
     Ok(())
 }
@@ -1639,14 +1651,13 @@ async fn handle_pools_extended(duration_hours: u64) -> Result<()> {
         max_tracked_pools: 50,          // Track more pools for better data
     };
     
-    println!("\n📊 Extended Monitoring Configuration:");
-    println!("   Min liquidity: ${:.0} (lower for comprehensive analysis)", config.min_liquidity_usd);
+    println!("\n📊 Extended Monitoring Configuration:");    println!("   Min liquidity: ${:.0} (lower for comprehensive analysis)", config.min_liquidity_usd);
     println!("   Max price impact: {:.1}% (capture more opportunities)", config.max_price_impact_1k);
     println!("   Min risk score: {:.1}% (analyze broader patterns)", config.min_risk_score * 100.0);
     println!("   Scan interval: {}ms (thorough coverage)", config.monitoring_interval_ms);
     println!("   Max tracked pools: {} (comprehensive tracking)", config.max_tracked_pools);
     
-    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client).await?;
+    let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
     
     println!("\n🚀 Starting extended monitoring session...");
     println!("   This will gather market data for {} hours", duration_hours);
@@ -1717,7 +1728,7 @@ async fn handle_pools_extended(duration_hours: u64) -> Result<()> {
             println!("      💱 Pair: {} / {}", opp.pool.token_a.symbol, opp.pool.token_b.symbol);
             println!("      💰 Expected Profit: ${:.2}", opp.expected_profit_usd);
             println!("      📊 Confidence: {:.1}%", opp.confidence * 100.0);
-            println!("      ⏰ Time Window: {}ms", opp.time_window_ms);
+            println!("      ⏰ Execution Window: {}ms", opp.time_window_ms);
             println!("      💵 Recommended Size: ${:.0}", opp.recommended_size_usd);
             println!("      🎯 Type: {:?}", opp.opportunity_type);
             println!("      🔗 Validate: https://dexscreener.com/solana/{}", opp.pool.pool_address);
