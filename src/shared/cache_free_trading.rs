@@ -269,10 +269,8 @@ impl CacheFreeTradeEngine {
             .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token A"))?;
         
         let token_b_price = self.market_data.get_validated_price(&opportunity.pool.token_b.mint)
-            .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token B"))?;
-
-        // Step 3: Calculate real-time slippage
-        let expected_price = opportunity.expected_profit_usd / opportunity.size_usd;
+            .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token B"))?;        // Step 3: Calculate real-time slippage
+        let expected_price = opportunity.expected_profit_usd / opportunity.recommended_size_usd;
         let current_price = token_a_price.price_usd / token_b_price.price_usd;
         let actual_slippage = ((current_price - expected_price).abs() / expected_price) * 100.0;
 

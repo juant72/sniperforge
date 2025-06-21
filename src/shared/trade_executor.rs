@@ -12,7 +12,8 @@ use serde::{Serialize, Deserialize};
 
 use super::jupiter::{JupiterClient, JupiterConfig, JupiterQuote, JupiterSwapService};
 use super::wallet_manager::WalletManager;
-use super::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig, SwapResult};
+// TODO: Re-enable when cache_free_trader_simple is implemented
+// use super::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig, SwapResult};
 use crate::config::Config;
 
 /// Trade execution mode
@@ -55,13 +56,13 @@ pub struct TradeResult {
 
 /// Trade Execution Engine
 pub struct TradeExecutor {
-    config: Config,
-    jupiter_client: JupiterClient,
+    config: Config,    jupiter_client: JupiterClient,
     swap_service: JupiterSwapService,
     wallet_manager: WalletManager,
     rpc_client: RpcClient,
     trading_mode: TradingMode,
-    cache_free_trader: Option<CacheFreeTraderSimple>,
+    // TODO: Re-enable when cache_free_trader_simple is implemented
+    // cache_free_trader: Option<CacheFreeTraderSimple>,
 }
 
 impl TradeExecutor {
@@ -96,22 +97,20 @@ impl TradeExecutor {
             TradingMode::DevNetReal => config.network.primary_rpc(),
             _ => "https://api.mainnet-beta.solana.com",
         };
-        
-        let swap_service = JupiterSwapService::new(jupiter_client.clone(), rpc_url);
+          let swap_service = JupiterSwapService::new(jupiter_client.clone(), rpc_url);
         let wallet_manager = WalletManager::new(&config).await?;
-        let rpc_client = RpcClient::new(rpc_url.to_string());
-
+        let rpc_client = RpcClient::new(rpc_url.to_string());        // TODO: Re-enable when cache_free_trader_simple is implemented
         // Initialize cache-free trader for maximum safety
-        let cache_free_trader = match CacheFreeTraderSimple::new(TradingSafetyConfig::default()).await {
-            Ok(trader) => {
-                info!("🛡️ Cache-free trader initialized for safe trading");
-                Some(trader)
-            }
-            Err(e) => {
-                warn!("⚠️ Failed to initialize cache-free trader: {}", e);
-                None
-            }
-        };
+        // let cache_free_trader = match CacheFreeTraderSimple::new(TradingSafetyConfig::default()).await {
+        //     Ok(trader) => {
+        //         info!("🛡️ Cache-free trader initialized for safe trading");
+        //         Some(trader)
+        //     }
+        //     Err(e) => {
+        //         warn!("⚠️ Failed to initialize cache-free trader: {}", e);
+        //         None
+        //     }
+        // };
 
         info!("✅ Trade Executor initialized successfully");
 
@@ -122,7 +121,7 @@ impl TradeExecutor {
             wallet_manager,
             rpc_client,
             trading_mode,
-            cache_free_trader,
+            // cache_free_trader,
         })
     }
 
@@ -226,62 +225,60 @@ impl TradeExecutor {
             wallet_balance_before,
             wallet_balance_after,
         })
-    }
-
-    /// Execute a safe trade using cache-free pricing (RECOMMENDED for real trading)
+    }    /// Execute a safe trade using cache-free pricing (RECOMMENDED for real trading)
     pub async fn execute_safe_trade(&self, request: TradeRequest) -> Result<TradeResult> {
-        let start_time = Instant::now();
+        let _start_time = Instant::now();
         
         info!("🛡️ Executing SAFE trade with cache-free pricing: {} -> {} ({})", 
               request.input_mint, request.output_mint, request.amount_in);
-              
+                // TODO: Re-enable when cache_free_trader_simple is implemented
         // Use cache-free trader if available
-        if let Some(ref cache_free_trader) = self.cache_free_trader {
-            match cache_free_trader.execute_safe_swap(
-                &request.input_mint.to_string(),
-                &request.output_mint.to_string(),
-                request.amount_in,
-            ).await {
-                Ok(swap_result) => {
-                    return Ok(TradeResult {
-                        success: swap_result.success,
-                        transaction_signature: None, // TODO: Add when swap execution is implemented
-                        input_amount: swap_result.input_amount,
-                        output_amount: swap_result.output_amount,
-                        actual_price_impact: 0.0, // TODO: Calculate from price data
-                        actual_slippage: 0.0,     // TODO: Calculate actual slippage
-                        gas_fee: 0.0,             // TODO: Add gas calculation
-                        trading_mode: request.trading_mode,
-                        execution_time_ms: start_time.elapsed().as_millis() as u64,
-                        error_message: None,
-                        jupiter_quote: None,      // TODO: Add quote from cache-free trader
-                        wallet_balance_before: 0.0, // TODO: Get from wallet
-                        wallet_balance_after: 0.0,   // TODO: Get from wallet
-                    });
-                }
-                Err(e) => {
-                    error!("❌ Cache-free trade execution failed: {}", e);
-                    return Ok(TradeResult {
-                        success: false,
-                        transaction_signature: None,
-                        input_amount: request.amount_in,
-                        output_amount: 0,
-                        actual_price_impact: 0.0,
-                        actual_slippage: 0.0,
-                        gas_fee: 0.0,
-                        trading_mode: request.trading_mode,
-                        execution_time_ms: start_time.elapsed().as_millis() as u64,
-                        error_message: Some(e.to_string()),
-                        jupiter_quote: None,
-                        wallet_balance_before: 0.0,
-                        wallet_balance_after: 0.0,
-                    });
-                }
-            }
-        } else {
-            warn!("⚠️ Cache-free trader not available, falling back to regular execution");
-            return self.execute_trade(request).await;
-        }
+        // if let Some(ref cache_free_trader) = self.cache_free_trader {
+        //     match cache_free_trader.execute_safe_swap(
+        //         &request.input_mint.to_string(),
+        //         &request.output_mint.to_string(),
+        //         request.amount_in,
+        //     ).await {
+        //         Ok(swap_result) => {
+        //             return Ok(TradeResult {
+        //                 success: swap_result.success,
+        //                 transaction_signature: None, // TODO: Add when swap execution is implemented
+        //                 input_amount: swap_result.input_amount,
+        //                 output_amount: swap_result.output_amount,
+        //                 actual_price_impact: 0.0, // TODO: Calculate from price data
+        //                 actual_slippage: 0.0,     // TODO: Calculate actual slippage
+        //                 gas_fee: 0.0,             // TODO: Add gas calculation
+        //                 trading_mode: request.trading_mode,
+        //                 execution_time_ms: start_time.elapsed().as_millis() as u64,
+        //                 error_message: None,
+        //                 jupiter_quote: None,      // TODO: Add quote from cache-free trader
+        //                 wallet_balance_before: 0.0, // TODO: Get from wallet
+        //                 wallet_balance_after: 0.0,   // TODO: Get from wallet
+        //             });
+        //         }
+        //         Err(e) => {
+        //             error!("❌ Cache-free trade execution failed: {}", e);
+        //             return Ok(TradeResult {
+        //                 success: false,
+        //                 transaction_signature: None,
+        //                 input_amount: request.amount_in,
+        //                 output_amount: 0,
+        //                 actual_price_impact: 0.0,
+        //                 actual_slippage: 0.0,
+        //                 gas_fee: 0.0,
+        //                 trading_mode: request.trading_mode,
+        //                 execution_time_ms: start_time.elapsed().as_millis() as u64,
+        //                 error_message: Some(e.to_string()),
+        //                 jupiter_quote: None,        //                 wallet_balance_before: 0.0,
+        //                 wallet_balance_after: 0.0,
+        //             });
+        //         }
+        //     }
+        // }
+        
+        // Fallback to regular execution since cache-free trader is not available
+        warn!("⚠️ Cache-free trader not available, falling back to regular execution");
+        return self.execute_trade(request).await;
     }
 
     /// Get Jupiter quote for trade
