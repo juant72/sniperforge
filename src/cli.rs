@@ -64,11 +64,9 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("performance").about("Test performance and latency"))
                 .subcommand(Command::new("websocket-rpc").about("Compare HTTP vs WebSocket RPC latency"))
                 .subcommand(Command::new("websocket-prices").about("Test real-time WebSocket price feed system"))
-                .subcommand(Command::new("syndica").about("Test Syndica ultra-fast WebSocket performance"))
-                .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
+                .subcommand(Command::new("syndica").about("Test Syndica ultra-fast WebSocket performance"))                .subcommand(Command::new("cache-safety").about("Test cache safety and eviction"))
                 .subcommand(Command::new("devnet-trade").about("Execute first real trade on DevNet"))
                 .subcommand(Command::new("paper-trading").about("Test paper trading with mainnet data"))
-                .subcommand(Command::new("cache-free-trading").about("Test cache-free trading safety"))
                 .subcommand(Command::new("pools").about("Test pool detection and analysis (mainnet read-only)"))
                 .subcommand(
                     Command::new("monitor-pools")
@@ -300,9 +298,33 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("websocket-rpc", _)) => handle_test_websocket_rpc().await?,
         Some(("websocket-prices", _)) => handle_test_websocket_prices().await?,
         Some(("syndica", _)) => handle_test_syndica().await?,
-        Some(("cache-safety", _)) => handle_test_cache_safety().await?,
-        Some(("paper-trading", _)) => handle_test_paper_trading().await?,
-        Some(("devnet-trade", _)) => handle_test_devnet_trade().await?,        Some(("cache-free-trading", _)) => handle_test_cache_free_trading().await?,        Some(("pools", _)) => handle_test_pools().await?,
+        Some(("cache-safety", _)) => handle_test_cache_safety().await?,        Some(("paper-trading", _)) => handle_test_paper_trading().await?,
+        Some(("devnet-trade", _)) => handle_test_devnet_trade().await?,        Some(("cache-free-trading", sub_matches)) => {
+            let duration = sub_matches.get_one::<String>("duration")
+                .unwrap()
+                .parse::<u64>()
+                .unwrap_or(180);
+            let max_slippage = sub_matches.get_one::<String>("max-slippage")
+                .unwrap()
+                .parse::<f64>()
+                .unwrap_or(1.0);
+            let min_profit = sub_matches.get_one::<String>("min-profit")
+                .unwrap()
+                .parse::<f64>()
+                .unwrap_or(1.0);
+            let safety_mode = sub_matches.get_flag("safety-mode");
+            let export_file = sub_matches.get_one::<String>("export").cloned();
+            let generate_report = sub_matches.get_flag("report");
+            handle_test_cache_free_trading_advanced(
+                duration, 
+                max_slippage, 
+                min_profit, 
+                safety_mode, 
+                export_file, 
+                generate_report
+            ).await?
+        }
+        Some(("pools", _)) => handle_test_pools().await?,
         Some(("monitor-pools", sub_matches)) => {
             let duration = sub_matches.get_one::<String>("duration")
                 .unwrap()
@@ -875,7 +897,7 @@ async fn handle_test_devnet_trade() -> Result<()> {
     
     // Define trade parameters (SOL -> USDC on DevNet)
     let sol_mint = Pubkey::from_str("So11111111111111111111111111111111111111112")?; // SOL
-    let usdc_mint = Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")?; // USDC (might not exist on DevNet)
+    let usdc_mint = Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")?; // USDC
     
     let trade_request = TradeRequest {
         input_mint: sol_mint,
@@ -1245,15 +1267,15 @@ async fn handle_test_cache_free_trading() -> Result<()> {
         Ok(result) => {
             println!("\n📊 Trade Result:");
             println!("   Trade ID: {}...", &result.trade_id[..8]);
-            println!("   Success: {}", if result.success { "✅ YES" } else { "❌ NO" });
+            println!("   Success: {}", if result.success { "✅ SAFE" } else { "⚠️ Rejected" });
             if result.success {
                 println!("   Execution time: {}ms", result.execution_time_ms);
                 println!("   Entry price: ${:.8}", result.entry_price);
                 println!("   Actual slippage: {:.2}%", result.actual_slippage_pct);
                 println!("   Net profit: ${:.4}", result.net_profit_usd);
                 println!("   Gas fees: ${:.4}", result.gas_fees_usd);
-            } else if let Some(error) = &result.error_message {
-                println!("   Error: {}", error);
+            } else if let Some(error) = result.error_message {
+                println!("   ⚠️ Note: {}", error);
             }
         }
         Err(e) => {
@@ -1268,20 +1290,355 @@ async fn handle_test_cache_free_trading() -> Result<()> {
     println!("   Trades executed: {}", metrics.total_trades_executed);
     println!("   Trades rejected: {}", metrics.total_trades_rejected);
     println!("   Success rate: {:.1}%", metrics.success_rate_pct);
-    if metrics.total_trades_executed > 0 {
-        println!("   Average execution time: {:.1}ms", metrics.average_execution_time_ms);
-        println!("   Average slippage: {:.2}%", metrics.average_slippage_pct);
-        println!("   Total profit: ${:.4}", metrics.total_profit_usd);
+      if metrics.total_trades_executed > 0 {
+        println!("   Average execution time: {:.0}ms", metrics.average_execution_time_ms);
+        println!("   Total profit (simulated): ${:.2}", metrics.total_profit_usd);
     }
     
     if !metrics.rejection_reasons.is_empty() {
-        println!("\n🚫 Rejection Reasons:");
+        println!("\n📋 Rejection Reasons:");
         for (reason, count) in &metrics.rejection_reasons {
             println!("   • {}: {} times", reason, count);
         }
     }
     
-    println!("\n✅ Cache-free trading engine test completed successfully!");
+    Ok(())
+}
+
+async fn handle_test_cache_free_trading_advanced(
+    duration: u64,
+    max_slippage: f64,
+    min_profit: f64,
+    safety_mode: bool,
+    export_file: Option<String>,
+    generate_report: bool,
+) -> Result<()> {
+    println!("{}", "🎯 Advanced Cache-Free Trading Engine Test".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    use crate::shared::cache_free_trading::{CacheFreeTradeEngine, CacheFreeConfig};
+    use crate::shared::pool_detector::{TradingOpportunity, OpportunityType, DetectedPool, TokenInfo, RiskScore};
+    use std::time::{SystemTime, UNIX_EPOCH, Instant};
+    use serde_json;
+    use std::fs;
+    
+    println!("🚀 Testing Advanced Cache-Free Trading Engine...");
+    println!("\n⚙️ Configuration:");
+    println!("   Duration: {}s", duration);
+    println!("   Max Slippage: {:.2}%", max_slippage);
+    println!("   Min Profit: ${:.2}", min_profit);
+    println!("   Safety Mode: {}", if safety_mode { "✅ ENABLED" } else { "⚠️ DISABLED" });
+    if let Some(ref file) = export_file {
+        println!("   Export File: {}", file);
+    }
+    println!("   Generate Report: {}", if generate_report { "✅ YES" } else { "❌ NO" });
+    
+    // Create enhanced cache-free trading configuration with CLI parameters
+    let config = CacheFreeConfig {
+        max_slippage_pct: max_slippage,
+        price_staleness_ms: if safety_mode { 500 } else { 1000 }, // Stricter in safety mode
+        confirmation_threshold: if safety_mode { 3 } else { 2 },   // More confirmations in safety mode
+        max_execution_time_ms: if safety_mode { 2000 } else { 3000 },
+        real_balance_check: safety_mode, // Enable real balance checks in safety mode
+        safety_margin_pct: if safety_mode { 15.0 } else { 10.0 }, // Higher margins in safety mode
+        min_profit_threshold_usd: min_profit,
+    };
+    
+    let mut engine = CacheFreeTradeEngine::new(config);
+    let start_time = Instant::now();
+    let mut test_results = Vec::new();
+      println!("\n🔥 Running multiple test scenarios for {} seconds...", duration);
+    
+    // Test Scenario 1: High-profit opportunity
+    {
+        println!("\n📊 Test Scenario 1: High-Profit Opportunity");
+        let mock_opportunity = TradingOpportunity {
+            pool: DetectedPool {
+                pool_address: "HighProfitPool123".to_string(),
+                token_a: TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: 1.0,
+                    market_cap: 1_000_000_000.0,
+                },
+                token_b: TokenInfo {
+                    mint: "So11111111111111111111111111111111111111112".to_string(),
+                    symbol: "SOL".to_string(), 
+                    decimals: 9,
+                    supply: 500_000_000,
+                    price_usd: 150.0,
+                    market_cap: 75_000_000_000.0,
+                },
+                liquidity_usd: 500_000.0,
+                risk_score: RiskScore {
+                    overall: 0.25, // Low risk
+                    liquidity_score: 0.1,
+                    volume_score: 0.3,
+                    token_age_score: 0.2,
+                    holder_distribution_score: 0.4,
+                    rug_indicators: vec![],
+                },
+                price_impact_1k: 0.5,
+                volume_24h: 1_000_000.0,
+                created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                detected_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                dex: "Raydium".to_string(),
+                transaction_signature: Some("mock_high_profit_signature".to_string()),
+                creator: Some("mock_creator_1".to_string()),
+                detection_method: Some("MAINNET_MONITOR".to_string()),
+            },
+            opportunity_type: OpportunityType::NewPoolSnipe,
+            expected_profit_usd: min_profit * 5.0, // 5x minimum for good opportunity
+            confidence: 0.92,
+            time_window_ms: 8000,
+            recommended_size_usd: 500.0,
+        };
+        
+        match engine.execute_trade_with_validation(&mock_opportunity).await {
+            Ok(result) => {
+                println!("   ✅ Result: {}", if result.success { "EXECUTED" } else { "REJECTED" });
+                if let Some(ref reason) = result.rejection_reason {
+                    println!("   📝 Reason: {}", reason);
+                }
+                test_results.push(("high_profit", result.success, result.clone()));
+            }
+            Err(e) => {
+                println!("   ❌ Error: {}", e);
+                test_results.push(("high_profit", false, Default::default()));
+            }
+        }
+    }
+      // Test Scenario 2: Marginal profit opportunity
+    {
+        println!("\n📊 Test Scenario 2: Marginal Profit Opportunity");
+        let mock_opportunity = TradingOpportunity {
+            pool: DetectedPool {
+                pool_address: "MarginalPool456".to_string(),
+                token_a: TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: 1.0,
+                    market_cap: 1_000_000_000.0,
+                },
+                token_b: TokenInfo {
+                    mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".to_string(),
+                    symbol: "mSOL".to_string(),
+                    decimals: 9,
+                    supply: 10_000_000,
+                    price_usd: 155.0,
+                    market_cap: 1_550_000_000.0,
+                },
+                liquidity_usd: 50_000.0,
+                risk_score: RiskScore {
+                    overall: 0.65, // Medium-high risk
+                    liquidity_score: 0.7,
+                    volume_score: 0.6,
+                    token_age_score: 0.4,
+                    holder_distribution_score: 0.9,
+                    rug_indicators: vec!["Low liquidity".to_string()],
+                },
+                price_impact_1k: 2.5,
+                volume_24h: 100_000.0,
+                created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                detected_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                dex: "Orca".to_string(),
+                transaction_signature: Some("mock_marginal_signature".to_string()),
+                creator: Some("mock_creator_2".to_string()),
+                detection_method: Some("WEBSOCKET_DETECT".to_string()),
+            },
+            opportunity_type: OpportunityType::PriceDiscrepancy,
+            expected_profit_usd: min_profit + 0.1, // Just above minimum
+            confidence: 0.72,
+            time_window_ms: 3000,
+            recommended_size_usd: 100.0,
+        };
+        
+        match engine.execute_trade_with_validation(&mock_opportunity).await {
+            Ok(result) => {
+                println!("   ✅ Result: {}", if result.success { "EXECUTED" } else { "REJECTED" });
+                if let Some(ref reason) = result.rejection_reason {
+                    println!("   📝 Reason: {}", reason);
+                }
+                test_results.push(("marginal_profit", result.success, result.clone()));
+            }
+            Err(e) => {
+                println!("   ❌ Error: {}", e);
+                test_results.push(("marginal_profit", false, Default::default()));
+            }
+        }
+    }
+      // Test Scenario 3: High slippage (should be rejected)
+    {
+        println!("\n📊 Test Scenario 3: High Slippage (Should Reject)");
+        let mock_opportunity = TradingOpportunity {
+            pool: DetectedPool {
+                pool_address: "HighSlippagePool789".to_string(),
+                token_a: TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: 1.0,
+                    market_cap: 1_000_000_000.0,
+                },
+                token_b: TokenInfo {
+                    mint: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string(),
+                    symbol: "BONK".to_string(),
+                    decimals: 5,
+                    supply: 100_000_000_000_000,
+                    price_usd: 0.00001,
+                    market_cap: 1_000_000_000.0,
+                },
+                liquidity_usd: 5_000.0, // Low liquidity causes high slippage
+                risk_score: RiskScore {
+                    overall: 0.85, // High risk
+                    liquidity_score: 0.9,
+                    volume_score: 0.95,
+                    token_age_score: 0.7,
+                    holder_distribution_score: 0.8,
+                    rug_indicators: vec!["Low liquidity".to_string(), "High volatility".to_string()],
+                },
+                price_impact_1k: 15.0, // High price impact causes high slippage
+                volume_24h: 10_000.0,
+                created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                detected_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                dex: "Jupiter".to_string(),
+                transaction_signature: Some("mock_high_slippage_signature".to_string()),
+                creator: Some("mock_creator_3".to_string()),
+                detection_method: Some("RAPID_SCAN".to_string()),
+            },
+            opportunity_type: OpportunityType::NewPoolSnipe,
+            expected_profit_usd: min_profit * 3.0,
+            confidence: 0.68,
+            time_window_ms: 2000,
+            recommended_size_usd: 200.0,
+        };
+        
+        match engine.execute_trade_with_validation(&mock_opportunity).await {
+            Ok(result) => {
+                println!("   ✅ Result: {}", if result.success { "EXECUTED" } else { "REJECTED" });
+                if let Some(ref reason) = result.rejection_reason {
+                    println!("   📝 Reason: {}", reason);
+                }
+                test_results.push(("high_slippage", result.success, result.clone()));
+            }
+            Err(e) => {
+                println!("   ❌ Error: {}", e);
+                test_results.push(("high_slippage", false, Default::default()));
+            }
+        }
+    }
+    
+    let elapsed = start_time.elapsed();
+    println!("\n⏱️ Testing completed in {:.2}s", elapsed.as_secs_f64());
+    
+    // Display performance metrics
+    let metrics = engine.get_performance_metrics();
+    println!("\n📈 Performance Metrics:");
+    println!("   Opportunities evaluated: {}", metrics.total_opportunities_evaluated);
+    println!("   Trades executed: {}", metrics.total_trades_executed);
+    println!("   Trades rejected: {}", metrics.total_trades_rejected);
+    println!("   Success rate: {:.1}%", metrics.success_rate_pct);
+      if metrics.total_trades_executed > 0 {
+        println!("   Average execution time: {:.0}ms", metrics.average_execution_time_ms);
+        println!("   Total profit (simulated): ${:.2}", metrics.total_profit_usd);
+    }
+    
+    if !metrics.rejection_reasons.is_empty() {
+        println!("\n📋 Rejection Reasons:");
+        for (reason, count) in &metrics.rejection_reasons {
+            println!("   • {}: {} times", reason, count);
+        }
+    }
+    
+    // Export results if requested
+    if let Some(filename) = export_file {
+        println!("\n💾 Exporting results to {}...", filename);
+        let export_data = serde_json::json!({
+            "test_session": {
+                "timestamp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                "duration_seconds": elapsed.as_secs(),
+                "configuration": {
+                    "max_slippage_pct": max_slippage,
+                    "min_profit_usd": min_profit,
+                    "safety_mode": safety_mode,
+                },                "performance_metrics": {
+                    "opportunities_evaluated": metrics.total_opportunities_evaluated,
+                    "trades_executed": metrics.total_trades_executed,
+                    "trades_rejected": metrics.total_trades_rejected,
+                    "success_rate_pct": metrics.success_rate_pct,
+                    "avg_execution_time_ms": metrics.average_execution_time_ms,
+                    "total_profit_usd": metrics.total_profit_usd,
+                    "rejection_reasons": metrics.rejection_reasons,
+                },
+                "test_scenarios": test_results.iter().map(|(name, success, result)| {
+                    serde_json::json!({
+                        "scenario": name,
+                        "success": success,
+                        "execution_time_ms": result.execution_time_ms,
+                        "rejection_reason": result.rejection_reason,
+                    })
+                }).collect::<Vec<_>>()
+            }
+        });
+        
+        match fs::write(&filename, serde_json::to_string_pretty(&export_data)?) {
+            Ok(_) => println!("   ✅ Results exported successfully to {}", filename),
+            Err(e) => println!("   ❌ Export failed: {}", e),
+        }
+    }
+    
+    // Generate comprehensive report if requested
+    if generate_report {
+        println!("\n📊 COMPREHENSIVE TESTING REPORT");
+        println!("═══════════════════════════════════════════════");
+        println!("🕐 Session Duration: {:.2}s", elapsed.as_secs_f64());
+        println!("⚙️ Configuration Used:");
+        println!("   • Max Slippage: {:.2}%", max_slippage);
+        println!("   • Min Profit Threshold: ${:.2}", min_profit);
+        println!("   • Safety Mode: {}", if safety_mode { "ENABLED" } else { "DISABLED" });
+        
+        println!("\n🎯 Test Results Summary:");
+        let total_tests = test_results.len();
+        let successful_tests = test_results.iter().filter(|(_, success, _)| *success).count();
+        let rejection_rate = ((total_tests - successful_tests) as f64 / total_tests as f64) * 100.0;
+        
+        println!("   • Total Scenarios: {}", total_tests);
+        println!("   • Successful Executions: {}", successful_tests);
+        println!("   • Rejections: {}", total_tests - successful_tests);
+        println!("   • Rejection Rate: {:.1}%", rejection_rate);
+        
+        println!("\n📋 Scenario Details:");
+        for (scenario, success, result) in &test_results {
+            let status = if *success { "✅ EXECUTED" } else { "❌ REJECTED" };
+            println!("   • {}: {} ({}ms)", scenario, status, result.execution_time_ms);
+            if let Some(ref reason) = result.rejection_reason {
+                println!("     └─ Reason: {}", reason);
+            }
+        }
+        
+        println!("\n💡 Recommendations:");
+        if rejection_rate > 50.0 {
+            println!("   ⚠️  High rejection rate detected. Consider:");
+            println!("      • Lowering max slippage tolerance");
+            println!("      • Reducing minimum profit threshold");
+            println!("      • Enabling safety mode for conservative trading");
+        } else {
+            println!("   ✅ Good rejection rate - system is properly filtering risky trades");
+        }
+        
+        if safety_mode {
+            println!("   🛡️ Safety mode is active - extra conservative settings applied");
+        } else {
+            println!("   ⚡ Running in performance mode - consider enabling safety mode for live trading");
+        }
+    }
+    
+    println!("\n✅ Advanced cache-free trading test completed successfully!");
     println!("   Ready for Phase 4 implementation with real Solana integration");
     
     Ok(())

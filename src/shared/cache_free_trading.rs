@@ -62,6 +62,68 @@ pub struct CacheFreeTradeResult {
     pub net_profit_usd: f64,
     pub success: bool,
     pub error_message: Option<String>,
+    pub rejection_reason: Option<String>,
+}
+
+impl Default for CacheFreeTradeResult {
+    fn default() -> Self {
+        Self {
+            trade_id: String::new(),
+            opportunity: TradingOpportunity {
+                pool: DetectedPool {
+                    pool_address: String::new(),
+                    token_a: crate::shared::pool_detector::TokenInfo {
+                        mint: String::new(),
+                        symbol: String::new(),
+                        decimals: 0,
+                        supply: 0,
+                        price_usd: 0.0,
+                        market_cap: 0.0,
+                    },
+                    token_b: crate::shared::pool_detector::TokenInfo {
+                        mint: String::new(),
+                        symbol: String::new(),
+                        decimals: 0,
+                        supply: 0,
+                        price_usd: 0.0,
+                        market_cap: 0.0,
+                    },
+                    liquidity_usd: 0.0,
+                    price_impact_1k: 0.0,
+                    volume_24h: 0.0,
+                    created_at: 0,
+                    detected_at: 0,
+                    dex: String::new(),
+                    risk_score: crate::shared::pool_detector::RiskScore {
+                        overall: 0.0,
+                        liquidity_score: 0.0,
+                        volume_score: 0.0,
+                        token_age_score: 0.0,
+                        holder_distribution_score: 0.0,
+                        rug_indicators: Vec::new(),
+                    },
+                    transaction_signature: None,
+                    creator: None,
+                    detection_method: None,
+                },
+                opportunity_type: OpportunityType::NewPoolSnipe,
+                expected_profit_usd: 0.0,
+                confidence: 0.0,
+                time_window_ms: 0,
+                recommended_size_usd: 0.0,
+            },
+            executed_at: Utc::now(),
+            execution_time_ms: 0,
+            entry_price: 0.0,
+            actual_slippage_pct: 0.0,
+            profit_loss_usd: 0.0,
+            gas_fees_usd: 0.0,
+            net_profit_usd: 0.0,
+            success: false,
+            error_message: None,
+            rejection_reason: None,
+        }
+    }
 }
 
 /// Real-time market data aggregator
@@ -309,11 +371,10 @@ impl CacheFreeTradeEngine {
         let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
         // Check execution time limit
-        if execution_time_ms > self.config.max_execution_time_ms {
-            let error_msg = format!("Execution timeout: {}ms > {}ms", execution_time_ms, self.config.max_execution_time_ms);
+        if execution_time_ms > self.config.max_execution_time_ms {            let error_msg = format!("Execution timeout: {}ms > {}ms", execution_time_ms, self.config.max_execution_time_ms);
             return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
         }
-
+        
         // Step 7: Create successful trade result
         let trade_result = CacheFreeTradeResult {
             trade_id: trade_id.clone(),
@@ -327,6 +388,7 @@ impl CacheFreeTradeEngine {
             net_profit_usd: net_profit,
             success: true,
             error_message: None,
+            rejection_reason: None,
         };
 
         println!("   🎯 TRADE EXECUTED SUCCESSFULLY");
@@ -362,7 +424,8 @@ impl CacheFreeTradeEngine {
             gas_fees_usd: 0.0,
             net_profit_usd: 0.0,
             success: false,
-            error_message: Some(error_message),
+            error_message: Some(error_message.clone()),
+            rejection_reason: Some(error_message),
         })
     }
 
