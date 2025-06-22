@@ -18,6 +18,13 @@ use config::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Check for help flag early, before setting up logging
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
+        cli::show_help_early();
+        return Ok(());
+    }
+    
     // Load environment variables from .env file
     dotenv().ok();
     

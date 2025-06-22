@@ -1,5 +1,5 @@
 use anyhow::Result;
-use clap::{Command, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use colored::*;
 use std::io::{self, Write};
 
@@ -10,21 +10,36 @@ use crate::shared::pool_detector::{DetectedPool, TradingOpportunity};
 use crate::shared::paper_trading_automation::{PaperTradingEngine, PaperTradingConfig};
 use crate::shared::real_time_blockchain::RealTimeBlockchainEngine;
 
+/// Show help information early (before logging setup)
+pub fn show_help_early() {
+    println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
+    println!("{}", "═══════════════════════════════════════════════════".bright_blue());
+    println!();
+    println!("{}", "Usage: cargo run -- [COMMAND] [OPTIONS]".bright_white());
+    println!();
+    println!("{}", "Available commands:".bright_cyan().bold());
+    println!("  🚀 {} - Start the platform", "start".bright_green());
+    println!("  📊 {} - Show platform status", "status".bright_blue());
+    println!("  ⚙️  {} - Show configuration", "config".bright_cyan());
+    println!("  💰 {} - Wallet management", "wallet".bright_yellow());
+    println!("  🧪 {} - Run tests", "test".bright_purple());
+    println!("  🎮 {} - Interactive mode", "interactive".bright_white());
+    println!();
+    println!("{}", "Examples:".bright_white().bold());
+    println!("  cargo run -- test --help");
+    println!("  cargo run -- test pools");
+    println!("  cargo run -- test mainnet-real-trading --help");
+    println!();
+    println!("Use {} for detailed help on any command", "cargo run -- [COMMAND] --help".bright_white());
+}
+
 pub async fn run_cli() -> Result<()> {
-    // Check for help argument first
-    let args: Vec<String> = std::env::args().collect();
-    if args.len() > 1 && (args[1] == "--help" || args[1] == "-h") {
-        show_help();
-        return Ok(());
-    }
-    
     let matches = Command::new("SniperForge CLI")
         .version("0.1.0")
         .about("Interactive CLI for SniperForge Multi-Bot Platform")
-        .disable_help_flag(true)
-        .disable_version_flag(false)
         .subcommand_required(false)
-        .arg_required_else_help(false)
+        .arg_required_else_help(true)
+        .allow_external_subcommands(false)
         .subcommand(
             Command::new("start")
                 .about("Start the platform or specific bots")
@@ -230,9 +245,46 @@ pub async fn run_cli() -> Result<()> {
                     Command::new("real-time-blockchain")
                         .about("🚀 Phase 5: Real-time blockchain integration test")
                 )
+                .subcommand(
+                    Command::new("mainnet-real-trading")
+                        .about("💰 PHASE 5B: MainNet Real Trading with Minimal Capital")
+                        .arg(Arg::new("max-capital")
+                            .long("max-capital")
+                            .value_name("USD")
+                            .help("Maximum total capital at risk in USD (default: 500)")
+                            .default_value("500"))
+                        .arg(Arg::new("max-trade")
+                            .long("max-trade")
+                            .value_name("USD")
+                            .help("Maximum single trade size in USD (default: 50)")
+                            .default_value("50"))
+                        .arg(Arg::new("daily-limit")
+                            .long("daily-limit")
+                            .value_name("USD")
+                            .help("Daily trading limit in USD (default: 200)")
+                            .default_value("200"))
+                        .arg(Arg::new("duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("Trading session duration in seconds (default: 60)")
+                            .default_value("60"))
+                        .arg(Arg::new("test-mode")
+                            .long("test-mode")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("Run in test mode (simulation only, no real trades)"))
+                        .arg(Arg::new("live-mode")
+                            .long("live-mode")
+                            .action(clap::ArgAction::SetTrue)
+                            .help("⚠️ DANGER: Enable real MainNet trading with real money"))
+                        .arg(Arg::new("export")
+                            .short('e')
+                            .long("export")
+                            .value_name("FILE")
+                            .help("Export trading session results to JSON file"))
+                )
         )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
-        .subcommand(Command::new("help").about("Show help for commands"))
         .get_matches();
 
     match matches.subcommand() {
@@ -242,11 +294,8 @@ pub async fn run_cli() -> Result<()> {
         Some(("wallet", sub_matches)) => handle_wallet_command(sub_matches).await?,
         Some(("test", sub_matches)) => handle_test_command(sub_matches).await?,
         Some(("interactive", _)) => handle_interactive_command().await?,
-        Some(("help", _)) => {
-            show_help();
-        },
         _ => {
-            println!("{}", "No command specified. Use 'help' for available commands.".yellow());
+            println!("{}", "No command specified. Use --help for available commands.".yellow());
             show_main_menu().await?;
         }
     }
@@ -1807,27 +1856,40 @@ fn show_help() {
     println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
     println!("{}", "═══════════════════════════════════════════════════".bright_blue());
     println!();
-    println!("{}", "Usage: cargo run -- test <command>".bright_white());
+    println!("{}", "Usage: cargo run -- <command> [args]".bright_white());
     println!();
-    println!("{}", "Available commands:".bright_cyan().bold());
+    println!("{}", "Main commands:".bright_cyan().bold());
+    println!("  • {} - Start the platform", "start".bright_green());
+    println!("  • {} - Show platform status", "status".bright_blue());
+    println!("  • {} - Show configuration", "config".bright_cyan());
+    println!("  • {} - Wallet management", "wallet".bright_yellow());
+    println!("  • {} - Testing suite", "test".bright_purple());
+    println!("  • {} - Interactive mode", "interactive".bright_white());
+    println!();
+    println!("{}", "Test commands (cargo run -- test <subcommand>):".bright_cyan().bold());
     println!("  • {} - Run all tests", "all".bright_yellow());
     println!("  • {} - Basic connectivity", "basic".bright_yellow());
     println!("  • {} - Solana RPC connectivity", "solana".bright_yellow());
     println!("  • {} - Jupiter API", "jupiter".bright_yellow());
-    println!("  • {} - Pool detection and analysis", "pools".bright_yellow());
+    println!("  • {} - Jupiter API speed/performance", "jupiter-speed".bright_yellow());
+    println!("  • {} - WebSocket connectivity", "websocket".bright_yellow());
+    println!("  • {} - Wallet functionality", "wallet".bright_yellow());
+    println!("  • {} - Trade execution", "trade".bright_yellow());
+    println!("  • {} - Complete integration flow", "integration".bright_yellow());            println!("  • {} - Performance and latency", "performance".bright_yellow());            println!("  • {} - WebSocket RPC performance", "websocket-rpc".bright_yellow());
+    println!("  • {} - Real-time WebSocket price feed", "websocket-prices".bright_yellow());
+    println!("  • {} - Syndica ultra-fast WebSocket", "syndica".bright_yellow());
+    println!("  • {} - Cache safety and eviction", "cache-safety".bright_yellow());            println!("  • {} - Paper trading with mainnet data", "paper-trading".bright_yellow());            println!("  • {} - Cache-free trading engine (SAFE)", "cache-free-trading".bright_yellow());
+    println!("  • {} - Phase 5: Real-time blockchain integration", "real-time-blockchain".bright_green());
+    println!("  • {} - 💰 Phase 5B: MainNet REAL trading", "mainnet-real-trading".bright_red());
+    println!("  • {} - Execute first real trade on DevNet", "devnet-trade".bright_red());            println!("  • {} - Pool detection and analysis (MainNet)", "pools".bright_yellow());
     println!("  • {} - Continuous pool monitoring", "monitor-pools".bright_yellow());
-    println!("  • {} - Analytics on collected data", "analyze-data".bright_green());
-    println!("  • {} - Paper trading automation", "paper-trading-automation".bright_green());
-    println!("  • {} - Cache-free trading", "cache-free-trading".bright_green());
-    println!("  • {} - Real-time blockchain integration", "real-time-blockchain".bright_green());
-    println!("  • {} - 💰 MAINNET REAL TRADING (Phase 5B)", "mainnet-real-trading".bright_red().bold());
-    println!();
-    println!("{}", "Phase 5B Example:".bright_white().bold());
-    println!("  {} --max-capital 500 --max-trade 50 --duration 60", "cargo run -- test mainnet-real-trading".bright_yellow());
-    println!("  {} --test", "cargo run -- test mainnet-real-trading".bright_yellow());
+    println!("  • {} - 🎯 Phase 1: Extended pool monitoring (4-6h)", "pools-extended".bright_cyan());
+    println!("  • {} - Ultra-fast WebSocket + API monitoring", "ultra-fast-pools".bright_green());
+    println!("  • {} - 🔍 Analyze collected pool monitoring data", "analyze-data".bright_green());
+    println!("  • {} - � PHASE 3: Automated paper trading", "paper-trading-automation".bright_magenta());
+    println!("  • {} - Phase 5: Real-time blockchain testing", "real-time-blockchain".bright_green());
 }
 
-/// Handle WebSocket RPC testing
 async fn handle_test_websocket_rpc() -> Result<()> {
     println!("{}", "🔌 Testing WebSocket RPC Performance".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
