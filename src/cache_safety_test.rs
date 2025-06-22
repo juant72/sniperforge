@@ -1,6 +1,6 @@
-/// Test de seguridad de cache - Demuestra diferentes niveles de seguridad
-/// 
-/// Ejecutar con: cargo run -- test cache-safety
+//! Test de seguridad de cache - Demuestra diferentes niveles de seguridad
+//! 
+//! Ejecutar con: cargo run -- test cache-safety
 
 use anyhow::Result;
 use std::time::Instant;
@@ -116,14 +116,13 @@ pub async fn test_cache_safety_levels() -> Result<()> {
     println!("\n🎯 RECOMENDACIONES FINALES:");
     println!("===========================");
     println!("💰 Para TRADING REAL:");
-    println!("   ✅ Usar get_price_direct_no_cache() o deshabilitar cache");
-    println!("   ✅ Verificar precios con múltiples fuentes");
+    println!("   ✅ Usar get_price_direct_no_cache() o deshabilitar cache");    println!("   ✅ Verificar precios con múltiples fuentes");
     println!("   ✅ Nunca confiar en datos > 10ms para arbitrage");
-    println!("");
+    println!();
     println!("📊 Para MONITORING:");
     println!("   ✅ get_price_ultra_fast() es OK (acepta cache)");
     println!("   ✅ Cache puede mejorar performance para dashboards");
-    println!("");
+    println!();
     println!("⚡ Para HIGH-FREQUENCY:");
     println!("   🚨 NUNCA usar cache - solo WebSocket directo");
     println!("   🚨 Latencia < 1ms requerida");

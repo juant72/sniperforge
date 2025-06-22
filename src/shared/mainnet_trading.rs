@@ -1,6 +1,6 @@
-/// Phase 5B: MainNet Real Trading with Minimal Capital
-/// Implements safe real trading on MainNet with strict risk controls
-/// Target capital: $100-$500 with maximum risk management
+//! Phase 5B: MainNet Real Trading with Minimal Capital
+//! Implements safe real trading on MainNet with strict risk controls
+//! Target capital: $100-$500 with maximum risk management
 
 use std::sync::Arc;
 use tokio::sync::{RwLock, Mutex};

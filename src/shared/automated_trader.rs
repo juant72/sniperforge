@@ -1,7 +1,7 @@
-/// Automated Paper Trading System
-/// 
-/// Connects pool detection to automated paper trading with full end-to-end execution
-/// Phase 3: Paper Trading Automation
+//! Automated Paper Trading System
+//! 
+//! Connects pool detection to automated paper trading with full end-to-end execution
+//! Phase 3: Paper Trading Automation
 
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -336,13 +336,11 @@ impl AutomatedTrader {
         if !trade_result.success {
             return 0.0;
         }
-        
-        // Simple profit calculation for paper trading
+          // Simple profit calculation for paper trading
         let input_value = trade_result.input_amount as f64 / 1_000_000_000.0; // Convert from lamports
         let output_value = trade_result.output_amount as f64 / 1_000_000_000.0;
-        let profit = output_value - input_value - trade_result.gas_fee;
         
-        profit
+        output_value - input_value - trade_result.gas_fee
     }
 
     /// Track trade performance metrics

@@ -284,27 +284,21 @@ impl WalletManager {
         }
         
         Ok(())
-    }
-
-    /// Get wallet information
+    }    /// Get wallet information
     pub async fn get_wallet_info(&self, wallet_name: &str) -> Option<WalletInfo> {
         let wallets = self.wallets.read().await;
         let daily_volumes = self.daily_volumes.read().await;
         
-        if let Some(wallet) = wallets.get(wallet_name) {
-            Some(WalletInfo {
+        wallets.get(wallet_name).map(|wallet| WalletInfo {
                 name: wallet.config.name.clone(),
                 wallet_type: wallet.config.wallet_type.clone(),
                 pubkey: wallet.pubkey,
                 balance_sol: wallet.balance_sol,
-                daily_volume: daily_volumes.get(wallet_name).unwrap_or(&0.0).clone(),
+                daily_volume: *daily_volumes.get(wallet_name).unwrap_or(&0.0),
                 is_locked: wallet.is_locked,
                 lock_reason: wallet.lock_reason.clone(),
                 last_balance_check: wallet.last_balance_check,
             })
-        } else {
-            None
-        }
     }
 
     /// List all managed wallets
@@ -318,7 +312,7 @@ impl WalletManager {
                 wallet_type: wallet.config.wallet_type.clone(),
                 pubkey: wallet.pubkey,
                 balance_sol: wallet.balance_sol,
-                daily_volume: daily_volumes.get(&wallet.config.name).unwrap_or(&0.0).clone(),
+                daily_volume: *daily_volumes.get(&wallet.config.name).unwrap_or(&0.0),
                 is_locked: wallet.is_locked,
                 lock_reason: wallet.lock_reason.clone(),
                 last_balance_check: wallet.last_balance_check,

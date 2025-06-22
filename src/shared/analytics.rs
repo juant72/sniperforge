@@ -1,7 +1,7 @@
-/// Pool Analytics and Pattern Detection System
-/// 
-/// Analyzes collected pool data for patterns, trends, and insights
-/// Provides data export and visualization capabilities for trading strategy optimization
+//! Pool Analytics and Pattern Detection System
+//! 
+//! Analyzes collected pool data for patterns, trends, and insights
+//! Provides data export and visualization capabilities for trading strategy optimization
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
@@ -67,7 +67,7 @@ pub struct TokenActivity {
 }
 
 /// Opportunity analysis patterns
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct OpportunityPatterns {
     pub opportunity_distribution: HashMap<OpportunityType, u32>,
     pub profitability_analysis: ProfitabilityAnalysis,
@@ -649,17 +649,6 @@ impl Default for TokenPatterns {
     }
 }
 
-impl Default for OpportunityPatterns {
-    fn default() -> Self {
-        Self {
-            opportunity_distribution: HashMap::new(),
-            profitability_analysis: ProfitabilityAnalysis::default(),
-            confidence_distribution: HashMap::new(),
-            timing_analysis: TimingAnalysis::default(),
-        }
-    }
-}
-
 impl Default for ProfitabilityAnalysis {
     fn default() -> Self {
         Self {
@@ -732,6 +721,11 @@ impl Default for SystemEfficiency {
             opportunities_per_scan: 0.0,
             false_positive_rate: 0.0,
             resource_utilization: 0.0,
-        }
+        }    }
+}
+
+impl Default for PoolAnalyticsEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }

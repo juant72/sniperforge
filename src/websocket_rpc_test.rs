@@ -1,7 +1,7 @@
-/// WebSocket RPC Testing para Solana
-/// 
-/// Tests para comparar latencia HTTP vs WebSocket RPC
-/// y demostrar los beneficios en trading real
+//! WebSocket RPC Testing para Solana
+//! 
+//! Tests para comparar latencia HTTP vs WebSocket RPC
+//! y demostrar los beneficios en trading real
 
 use anyhow::Result;
 use std::time::{Duration, Instant};

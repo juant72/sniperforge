@@ -1,6 +1,6 @@
-/// Jupiter Quote Engine
-/// 
-/// High-level interface for getting price quotes and market data
+//! Jupiter Quote Engine
+//! 
+//! High-level interface for getting price quotes and market data
 
 use anyhow::Result;
 use solana_sdk::pubkey::Pubkey;

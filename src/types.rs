@@ -58,6 +58,12 @@ impl BotId {
     }
 }
 
+impl Default for BotId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl std::fmt::Display for BotId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -415,14 +421,14 @@ pub struct ActivePosition {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PlatformEvent {
     MarketEvent(MarketEvent),
-    BotEvent(BotEvent),
+    BotEvent(Box<BotEvent>),
     SystemEvent(SystemEvent),
     OpportunityEvent(OpportunityEvent),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MarketEvent {
-    NewPool(PoolInfo),
+    NewPool(Box<PoolInfo>),
     PriceChange {
         token: Pubkey,
         old_price: f64,
@@ -465,7 +471,7 @@ pub enum SystemEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OpportunityEvent {
-    OpportunityCreated(TradingOpportunity),
+    OpportunityCreated(Box<TradingOpportunity>),
     OpportunityAssigned(Uuid, BotId),
     OpportunityExpired(Uuid),
     OpportunityConflict(Vec<Uuid>),

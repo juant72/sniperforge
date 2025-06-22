@@ -1,10 +1,10 @@
-/// Ultimate RPC Performance Comparison
-/// 
-/// Compara diferentes proveedores de RPC para encontrar el más rápido:
-/// 1. Current HTTP Jupiter API
-/// 2. Syndica WebSocket
-/// 3. Helius WebSocket  
-/// 4. Standard Solana RPC WebSocket
+//! Ultimate RPC Performance Comparison
+//! 
+//! Compara diferentes proveedores de RPC para encontrar el más rápido:
+//! 1. Current HTTP Jupiter API
+//! 2. Syndica WebSocket
+//! 3. Helius WebSocket  
+//! 4. Standard Solana RPC WebSocket
 
 use anyhow::Result;
 use std::time::{Duration, Instant};
@@ -169,7 +169,7 @@ impl UltimateRpcComparison {
                     let mut flags = Vec::new();
                     if duration.as_micros() < 1 { flags.push("SUSPICIOUSLY_FAST"); }
                     if duration.as_micros() > 50000 { flags.push("SLOW"); }
-                    if price < 50.0 || price > 500.0 { flags.push("PRICE_OUT_OF_RANGE"); }
+                    if !(50.0..=500.0).contains(&price) { flags.push("PRICE_OUT_OF_RANGE"); }
                     
                     // Determine likely data source based on timing and cache status
                     let cache_health = syndica.get_cache_health().await;

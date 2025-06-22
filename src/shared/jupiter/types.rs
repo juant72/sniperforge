@@ -1,6 +1,6 @@
-/// Jupiter API Types
-/// 
-/// Type definitions for Jupiter API requests and responses
+//! Jupiter API Types
+//! 
+//! Type definitions for Jupiter API requests and responses
 
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;

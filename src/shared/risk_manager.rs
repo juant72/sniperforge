@@ -1,6 +1,6 @@
-/// Risk Management System for Automated Trading
-/// 
-/// Provides comprehensive risk assessment and position management
+//! Risk Management System for Automated Trading
+//! 
+//! Provides comprehensive risk assessment and position management
 
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;

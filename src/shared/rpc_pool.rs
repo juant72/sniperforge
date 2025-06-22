@@ -367,7 +367,7 @@ impl RpcConnectionPool {
         for (pubkey, account) in raydium_pools {
             // Basic validation - in a real implementation, you'd parse the account data
             // to extract pool information like liquidity, token pairs, creation time, etc.
-            if account.lamports > 0 && account.data.len() > 0 {
+            if account.lamports > 0 && !account.data.is_empty() {
                 debug!("📊 Found potential pool: {}", pubkey);
                 new_pools.push(pubkey);
                 

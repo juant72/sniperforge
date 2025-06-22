@@ -1,7 +1,7 @@
-/// Syndica WebSocket Client para Ultra-Low Latency Trading
-/// 
-/// Cliente especializado para conexión WebSocket con Syndica RPC
-/// Optimizado para price feeds en tiempo real y trading de alta frecuencia
+//! Syndica WebSocket Client para Ultra-Low Latency Trading
+//! 
+//! Cliente especializado para conexión WebSocket con Syndica RPC
+//! Optimizado para price feeds en tiempo real y trading de alta frecuencia
 
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
@@ -581,7 +581,7 @@ impl SyndicaWebSocketClient {
             oldest_age_ms: oldest_age.as_millis() as u64,
             newest_age_ms: newest_age.as_millis() as u64,
             is_connected: *self.is_connected.read().await,
-            cache_hit_rate: if cache.len() > 0 { 
+            cache_hit_rate: if !cache.is_empty() { 
                 (real_data_entries as f64 / cache.len() as f64) * 100.0 
             } else { 
                 0.0 

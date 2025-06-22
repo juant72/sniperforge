@@ -1,6 +1,6 @@
-/// Performance Tracking System for Automated Trading
-/// 
-/// Tracks trading performance metrics, generates reports, and provides analytics
+//! Performance Tracking System for Automated Trading
+//! 
+//! Tracks trading performance metrics, generates reports, and provides analytics
 
 use anyhow::{Result, anyhow};
 use std::collections::VecDeque;
@@ -330,8 +330,12 @@ impl PerformanceTracker {
             mean_return / std_dev
         } else {
             0.0
-        };
+        };        Ok(sharpe_ratio)
+    }
+}
 
-        Ok(sharpe_ratio)
+impl Default for PerformanceTracker {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -411,12 +411,10 @@ impl RealTimeBlockchainEngine {
                         tx.transaction.meta.as_ref().map(|m| m.fee),
                         tx.transaction.meta.as_ref().and_then(|m| m.err.as_ref().map(|e| format!("{:?}", e)))                    ),
                     Err(_) => (None, None, None),
-                };
-
-                Ok(RealTimeTransaction {
+                };                Ok(RealTimeTransaction {
                     signature: signature.to_string(),
                     status: tx_status,
-                    slot: slot,
+                    slot,
                     confirmation_status: "confirmed".to_string(),
                     timestamp_ms: current_time,
                     fee_lamports: fee,

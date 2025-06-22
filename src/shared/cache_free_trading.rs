@@ -454,6 +454,12 @@ pub struct CacheFreePerformanceMetrics {
     pub rejection_reasons: HashMap<String, u64>,
 }
 
+impl Default for CacheFreePerformanceMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CacheFreePerformanceMetrics {
     pub fn new() -> Self {
         Self {

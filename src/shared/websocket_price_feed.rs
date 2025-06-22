@@ -1,7 +1,7 @@
-/// WebSocket Price Feed Client para Solana
-/// 
-/// Obtiene precios de tokens en tiempo real usando WebSocket connections
-/// Mucho más rápido que HTTP REST para trading bots
+//! WebSocket Price Feed Client para Solana
+//! 
+//! Obtiene precios de tokens en tiempo real usando WebSocket connections
+//! Mucho más rápido que HTTP REST para trading bots
 
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
@@ -234,14 +234,13 @@ impl WebSocketPriceFeed {
                         match msg {
                             Ok(Message::Text(_)) => {
                                 activity_counter += 1;
-                                
-                                // Trigger more aggressive price updates on high activity
+                                  // Trigger more aggressive price updates on high activity
                                 if activity_counter % 3 == 0 || last_triggered_update.elapsed() > Duration::from_secs(8) {
                                     // Pick a random popular token to update
-                                    let tokens = vec![
+                                    let tokens = [
                                         "So11111111111111111111111111111111111111112", // SOL
                                         "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
-                                        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+                                        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" // BONK
                                     ];
                                     
                                     if let Some(&token) = tokens.get(activity_counter % tokens.len()) {

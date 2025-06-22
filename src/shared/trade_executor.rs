@@ -1,7 +1,7 @@
-/// Trade Execution Engine
-/// 
-/// Handles actual trade execution combining Jupiter API with Wallet Management
-/// Supports both DevNet real trading and MainNet paper trading
+//! Trade Execution Engine
+//! 
+//! Handles actual trade execution combining Jupiter API with Wallet Management
+//! Supports both DevNet real trading and MainNet paper trading
 
 use anyhow::{Result, anyhow};
 use solana_sdk::{signature::Keypair, signer::Signer, pubkey::Pubkey, transaction::Transaction};

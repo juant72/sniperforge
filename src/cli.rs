@@ -498,10 +498,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_basic().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Basic");
+            println!("{} Basic test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Basic", e);
+            println!("{} Basic test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -510,10 +510,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_solana().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Solana");
+            println!("{} Solana test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Solana", e);
+            println!("{} Solana test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -522,10 +522,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_jupiter().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Jupiter");
+            println!("{} Jupiter test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Jupiter", e);
+            println!("{} Jupiter test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -534,10 +534,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_websocket().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "WebSocket");
+            println!("{} WebSocket test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "WebSocket", e);
+            println!("{} WebSocket test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -546,10 +546,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_wallet().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Wallet");
+            println!("{} Wallet test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Wallet", e);
+            println!("{} Wallet test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -558,10 +558,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_integration().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Integration");
+            println!("{} Integration test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Integration", e);
+            println!("{} Integration test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -570,10 +570,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_websocket_rpc().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "WebSocket RPC");
+            println!("{} WebSocket RPC test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "WebSocket RPC", e);
+            println!("{} WebSocket RPC test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -582,10 +582,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_cache_safety().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Cache Safety");
+            println!("{} Cache Safety test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Cache Safety", e);
+            println!("{} Cache Safety test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -594,10 +594,10 @@ async fn handle_test_all() -> Result<()> {
     match handle_test_cache_free_trading().await {
         Ok(_) => {
             passed += 1;
-            println!("{} {} test completed", "✅".bright_green(), "Cache-Free Trading");
+            println!("{} Cache-Free Trading test completed", "✅".bright_green());
         }
         Err(e) => {
-            println!("{} {} test failed: {}", "❌".bright_red(), "Cache-Free Trading", e);
+            println!("{} Cache-Free Trading test failed: {}", "❌".bright_red(), e);
         }
     }
     
@@ -1778,7 +1778,7 @@ async fn handle_analyze_data(duration_seconds: u64, export_file: Option<String>,
 
     // Gather data for analytics
     let pools: Vec<DetectedPool> = detector.get_tracked_pools().values().cloned().collect();
-    let opportunities: Vec<TradingOpportunity> = detector.get_current_opportunities().iter().cloned().collect();
+    let opportunities: Vec<TradingOpportunity> = detector.get_current_opportunities().to_vec();
     let _total_scans = detector.get_stats().total_scans;
 
     // Run analytics
@@ -1886,12 +1886,14 @@ async fn handle_paper_trading_automation(
     println!("🎯 Min Confidence: {:.0}%", min_confidence * 100.0);
     println!("📊 Real-time opportunity execution enabled");
       // Setup paper trading configuration
-    let mut trading_config = PaperTradingConfig::default();
-    trading_config.initial_balance_usd = initial_capital;
-    trading_config.min_confidence_threshold = min_confidence;
-    trading_config.max_position_size_pct = 4.0; // Conservative 4% per trade
-    trading_config.min_liquidity_usd = 20000.0; // $20K minimum for safety
-    trading_config.max_price_impact_pct = 2.5;  // Very strict price impact
+    let trading_config = PaperTradingConfig {
+        initial_balance_usd: initial_capital,
+        min_confidence_threshold: min_confidence,
+        max_position_size_pct: 4.0, // Conservative 4% per trade
+        min_liquidity_usd: 20000.0, // $20K minimum for safety
+        max_price_impact_pct: 2.5,  // Very strict price impact
+        ..Default::default()
+    };
     
     // Store values we'll need later before moving the config
     let _min_liquidity_for_detector = trading_config.min_liquidity_usd;

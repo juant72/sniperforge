@@ -1,7 +1,7 @@
-/// Jupiter API Client
-/// 
-/// Low-level HTTP client for Jupiter's REST API
-/// Handles authentication, retries, and rate limiting
+//! Jupiter API Client
+//! 
+//! Low-level HTTP client for Jupiter's REST API
+//! Handles authentication, retries, and rate limiting
 
 use anyhow::{Result, anyhow};
 use reqwest::{Client, Response};
@@ -419,14 +419,12 @@ impl JupiterClient {    /// Create new Jupiter client
         }
         
         Err(anyhow!("Failed to parse quote output amount"))
-    }
-
-    /// Robust price API with better error handling
+    }    /// Robust price API with better error handling
     async fn get_price_api_robust(&self, token_mint: &str) -> Result<f64> {
         // Try multiple endpoints for redundancy
-        let endpoints = vec![
+        let endpoints = [
             format!("https://price.jup.ag/v4/price?ids={}", token_mint),
-            format!("https://quote-api.jup.ag/v6/price?ids={}", token_mint),
+            format!("https://quote-api.jup.ag/v6/price?ids={}", token_mint)
         ];
         
         for (i, endpoint) in endpoints.iter().enumerate() {

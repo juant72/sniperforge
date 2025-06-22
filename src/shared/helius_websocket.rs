@@ -1,7 +1,7 @@
-/// Helius WebSocket Client para Pool Detection en Tiempo Real
-/// 
-/// Cliente especializado para detectar transacciones de creación de pools
-/// usando Helius WebSocket API y filtros de program subscriptions
+//! Helius WebSocket Client para Pool Detection en Tiempo Real
+//! 
+//! Cliente especializado para detectar transacciones de creación de pools
+//! usando Helius WebSocket API y filtros de program subscriptions
 
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};
@@ -43,15 +43,15 @@ impl Default for HeliusConfig {
     }
 }
 
-impl HeliusConfig {    /// Create mainnet configuration
+impl HeliusConfig {
+    /// Create mainnet configuration
     pub fn mainnet() -> Self {
-        let config = Self::default();
-        config
+        Self::default()
     }
-      /// Create devnet configuration  
+    
+    /// Create devnet configuration  
     pub fn devnet() -> Self {
-        let config = Self::default();
-        config
+        Self::default()
     }
 }
 
@@ -238,8 +238,7 @@ impl HeliusWebSocketClient {
             ]
         }).to_string()
     }
-    
-    /// Parse pool creation from transaction notification    /// Process WebSocket message and detect pool creations
+      /// Process WebSocket message and detect pool creations
     async fn process_message(
         message: &str, 
         pool_sender: &mpsc::UnboundedSender<HeliusPoolCreation>
@@ -339,10 +338,10 @@ impl HeliusWebSocketClient {
                 }
             }
         }
-        
-        Ok(None)
+          Ok(None)
     }
-      /// Check if account data represents Raydium pool initialization
+    
+    /// Check if account data represents Raydium pool initialization
     fn is_raydium_pool_init(data: &str) -> bool {
         // Raydium pool accounts have specific patterns
         // This is a simplified check - in production, decode the full account structure
@@ -352,14 +351,15 @@ impl HeliusWebSocketClient {
             let decoded = base64::engine::general_purpose::STANDARD.decode(data).unwrap_or_default();
             decoded.len() > 100 && 
             // Check for specific byte patterns that indicate Raydium pool structure
-            decoded.get(0..8).map_or(false, |prefix| {
+            decoded.get(0..8).is_some_and(|prefix| {
                 // Raydium pools typically start with specific discriminators
                 prefix == [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] || // New pool
                 prefix[0] == 0x01 // Initialized pool
             })
         }
     }
-      /// Check if account data represents Orca pool initialization
+
+    /// Check if account data represents Orca pool initialization
     fn is_orca_pool_init(data: &str) -> bool {
         // Orca (Whirlpool) pools have different patterns
         data.len() > 300 && {
@@ -367,13 +367,13 @@ impl HeliusWebSocketClient {
             let decoded = base64::engine::general_purpose::STANDARD.decode(data).unwrap_or_default();
             decoded.len() > 100 &&
             // Check for Orca/Whirlpool-specific patterns
-            decoded.get(0..8).map_or(false, |prefix| {
+            decoded.get(0..8).is_some_and(|prefix| {
                 prefix[0] == 0x02 || // Whirlpool discriminator
                 prefix[0] == 0x03    // Whirlpool position
-            })
-        }
+            })        }
     }
-      /// Extract token mints from Raydium pool data
+    
+    /// Extract token mints from Raydium pool data
     fn extract_raydium_tokens(data: &str) -> Result<(String, String)> {
         use base64::Engine;
         let decoded = base64::engine::general_purpose::STANDARD.decode(data)?;
@@ -401,7 +401,8 @@ impl HeliusWebSocketClient {
             format!("Token_{}", rand::random::<u32>())
         ))
     }
-      /// Extract token mints from Orca pool data
+
+    /// Extract token mints from Orca pool data
     fn extract_orca_tokens(data: &str) -> Result<(String, String)> {
         use base64::Engine;
         let decoded = base64::engine::general_purpose::STANDARD.decode(data)?;

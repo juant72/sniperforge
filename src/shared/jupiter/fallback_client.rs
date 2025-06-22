@@ -1,6 +1,6 @@
-/// Jupiter Fallback Client - Copia exacta del cliente normal con cache
-/// 
-/// Para casos donde el ultra-fast client tenga problemas de conectividad
+//! Jupiter Fallback Client - Copia exacta del cliente normal con cache
+//! 
+//! Para casos donde el ultra-fast client tenga problemas de conectividad
 
 use anyhow::{Result, anyhow};
 use reqwest::Client;

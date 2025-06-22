@@ -319,7 +319,7 @@ impl MarketDataFeeds {
           let stale_prices = cached_prices.values()
             .filter(|price| now.signed_duration_since(price.timestamp) > stale_threshold)
             .count();
-          if stale_prices > 0 && cached_prices.len() > 0 {
+          if stale_prices > 0 && !cached_prices.is_empty() {
             Ok(HealthStatus {
                 is_healthy: true,
                 component: "market_data_feeds".to_string(),

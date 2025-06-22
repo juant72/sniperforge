@@ -1,6 +1,6 @@
-/// Ultra-Fast Jupiter Client para Trading de Alta Frecuencia
-/// 
-/// Cliente especializado con todas las optimizaciones de velocidad aplicadas
+//! Ultra-Fast Jupiter Client para Trading de Alta Frecuencia
+//! 
+//! Cliente especializado con todas las optimizaciones de velocidad aplicadas
 
 use anyhow::Result;
 use reqwest::Client;

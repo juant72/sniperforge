@@ -1,12 +1,12 @@
-/// WebSocket Manager for Low-Latency Solana Communication
-/// 
-/// This module provides:
-/// - Real-time account updates
-/// - Transaction confirmations
-/// - Pool state changes
-/// - Price feeds
-/// 
-/// Optimized for minimal latency in trading operations
+//! WebSocket Manager for Low-Latency Solana Communication
+//! 
+//! This module provides:
+//! - Real-time account updates
+//! - Transaction confirmations
+//! - Pool state changes
+//! - Price feeds
+//! 
+//! Optimized for minimal latency in trading operations
 
 use anyhow::{Result, anyhow};
 use futures_util::{SinkExt, StreamExt};

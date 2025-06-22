@@ -1,12 +1,12 @@
-/// Jupiter API Integration Module
-/// 
-/// This module provides integration with Jupiter's API for:
-/// - Price quotes and route finding
-/// - Swap execution on Solana
-/// - Market data aggregation
-/// 
-/// Jupiter is Solana's leading DEX aggregator that finds the best
-/// prices across multiple DEXs like Raydium, Orca, Serum, etc.
+//! Jupiter API Integration Module
+//! 
+//! This module provides integration with Jupiter's API for:
+//! - Price quotes and route finding
+//! - Swap execution on Solana
+//! - Market data aggregation
+//! 
+//! Jupiter is Solana's leading DEX aggregator that finds the best
+//! prices across multiple DEXs like Raydium, Orca, Serum, etc.
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};

@@ -1,6 +1,6 @@
-/// Jupiter Speed Performance Test
-/// 
-/// Benchmarks Jupiter API response times and optimizations
+//! Jupiter Speed Performance Test
+//! 
+//! Benchmarks Jupiter API response times and optimizations
 
 use anyhow::Result;
 use std::time::Instant;

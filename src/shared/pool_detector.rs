@@ -1,25 +1,25 @@
-/// Pool Detection System for Real-Time Monitoring
-/// 
-/// Detecta nuevos pools de liquidez en Raydium/Orca usando datos de mainnet
-/// Sistema real-time event-driven con WebSocket triggers
-///
-/// ⏱️ TIME UNITS CLARIFICATION:
-/// This module uses multiple time units depending on the context:
-/// - SECONDS: Most monitoring methods (start_*_monitoring_seconds)
-/// - MINUTES: Legacy methods only (start_monitoring_with_reports - DEPRECATED)
-/// - MILLISECONDS: High-frequency operations (intervals, timeouts, config fields with _ms suffix)
-/// 
-/// 📚 For complete documentation, see: docs/TIME_UNITS_QUICK_REFERENCE.md
-/// 
-/// ✅ RECOMMENDED: Use *_seconds methods for all new code
-/// ⚠️ DEPRECATED: Methods using minutes are being phased out
-///
-/// Method naming convention:
-/// - start_*_monitoring_seconds() -> duration parameter is in SECONDS
-/// - start_*_monitoring() (no suffix) -> usually MINUTES (legacy, avoid)
-/// - config fields with _ms suffix -> MILLISECONDS
-/// - config fields with _minutes suffix -> MINUTES
-/// - config fields with _seconds suffix -> SECONDS
+//! Pool Detection System for Real-Time Monitoring
+//! 
+//! Detecta nuevos pools de liquidez en Raydium/Orca usando datos de mainnet
+//! Sistema real-time event-driven con WebSocket triggers
+//!
+//! ⏱️ TIME UNITS CLARIFICATION:
+//! This module uses multiple time units depending on the context:
+//! - SECONDS: Most monitoring methods (start_*_monitoring_seconds)
+//! - MINUTES: Legacy methods only (start_monitoring_with_reports - DEPRECATED)
+//! - MILLISECONDS: High-frequency operations (intervals, timeouts, config fields with _ms suffix)
+//! 
+//! 📚 For complete documentation, see: docs/TIME_UNITS_QUICK_REFERENCE.md
+//! 
+//! ✅ RECOMMENDED: Use *_seconds methods for all new code
+//! ⚠️ DEPRECATED: Methods using minutes are being phased out
+//!
+//! Method naming convention:
+//! - start_*_monitoring_seconds() -> duration parameter is in SECONDS
+//! - start_*_monitoring() (no suffix) -> usually MINUTES (legacy, avoid)
+//! - config fields with _ms suffix -> MILLISECONDS
+//! - config fields with _minutes suffix -> MINUTES
+//! - config fields with _seconds suffix -> SECONDS
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
@@ -402,11 +402,10 @@ impl PoolDetector {
         
         Ok(())
     }
-    
-    /// Buscar oportunidades de arbitraje entre DEXs
+      /// Buscar oportunidades de arbitraje entre DEXs
     async fn scan_for_arbitrage_opportunities(&mut self) -> Result<()> {
         // Obtener precios de los mismos tokens en diferentes DEXs
-        for (_, pool) in &self.tracked_pools {
+        for pool in self.tracked_pools.values() {
             // Verificar precios en Jupiter vs precios del pool
             if let Some(jupiter_price_a) = self.get_token_price_from_jupiter(&pool.token_a.mint).await {
                 if let Some(jupiter_price_b) = self.get_token_price_from_jupiter(&pool.token_b.mint).await {
@@ -434,10 +433,9 @@ impl PoolDetector {
         
         Ok(())
     }
-    
-    /// Buscar oportunidades basadas en price impact favorable
+      /// Buscar oportunidades basadas en price impact favorable
     async fn scan_for_price_impact_opportunities(&mut self) -> Result<()> {
-        for (_, pool) in &self.tracked_pools {
+        for pool in self.tracked_pools.values() {
             // Pools con muy bajo price impact son oportunidades para trades grandes
             if pool.price_impact_1k < 1.0 && pool.liquidity_usd > 50000.0 {
                 let opportunity = TradingOpportunity {
@@ -459,7 +457,7 @@ impl PoolDetector {
     
     /// Buscar picos de volumen inusual
     async fn scan_for_volume_spike_opportunities(&mut self) -> Result<()> {
-        for (_, pool) in &self.tracked_pools {
+        for pool in self.tracked_pools.values() {
             // Volume spike: volumen > 2x liquidez (inusual)
             if pool.volume_24h > pool.liquidity_usd * 2.0 && pool.volume_24h > 10000.0 {
                 let opportunity = TradingOpportunity {
@@ -1228,67 +1226,55 @@ impl PoolDetector {
             .timeout(Duration::from_secs(3))
             .user_agent("SniperForge/1.0")
             .build().ok()?;
-        
-        // Método 1: Jupiter Price API v6
+          // Método 1: Jupiter Price API v6
         let url = format!("https://price.jup.ag/v6/price?ids={}", mint);
         
-        match client.get(&url).send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
-                        if let Some(data) = price_data.get("data").and_then(|d| d.get(mint)) {
-                            if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
-                                if let Ok(parsed_price) = price.parse::<f64>() {
-                                    return Some(parsed_price);
-                                }
+        if let Ok(response) = client.get(&url).send().await {
+            if response.status().is_success() {
+                if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                    if let Some(data) = price_data.get("data").and_then(|d| d.get(mint)) {
+                        if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
+                            if let Ok(parsed_price) = price.parse::<f64>() {
+                                return Some(parsed_price);
                             }
-                            // Fallback: intentar como number directo
-                            if let Some(price) = data.get("price").and_then(|p| p.as_f64()) {
-                                return Some(price);
-                            }
+                        }
+                        // Fallback: intentar como number directo
+                        if let Some(price) = data.get("price").and_then(|p| p.as_f64()) {
+                            return Some(price);
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
-        
-        // Método 2: CoinGecko API como fallback
+          // Método 2: CoinGecko API como fallback
         let coingecko_url = format!("https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses={}&vs_currencies=usd", mint);
         
-        match client.get(&coingecko_url).send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
-                        if let Some(token_data) = price_data.get(mint) {
-                            if let Some(usd_price) = token_data.get("usd").and_then(|p| p.as_f64()) {
-                                return Some(usd_price);
-                            }
+        if let Ok(response) = client.get(&coingecko_url).send().await {
+            if response.status().is_success() {
+                if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                    if let Some(token_data) = price_data.get(mint) {
+                        if let Some(usd_price) = token_data.get("usd").and_then(|p| p.as_f64()) {
+                            return Some(usd_price);
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
-        
-        // Método 3: Birdeye API como último fallback
+          // Método 3: Birdeye API como último fallback
         let birdeye_url = format!("https://public-api.birdeye.so/defi/price?address={}", mint);
         
-        match client.get(&birdeye_url)
+        if let Ok(response) = client.get(&birdeye_url)
             .header("X-API-KEY", "YOUR_BIRDEYE_API_KEY") // TODO: Add real API key
             .send().await {
-            Ok(response) => {
-                if response.status().is_success() {
-                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
-                        if let Some(data) = price_data.get("data") {
-                            if let Some(price) = data.get("value").and_then(|p| p.as_f64()) {
-                                return Some(price);
-                            }
+            if response.status().is_success() {
+                if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                    if let Some(data) = price_data.get("data") {
+                        if let Some(price) = data.get("value").and_then(|p| p.as_f64()) {
+                            return Some(price);
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
         
         // Si todo falla, retornar None en lugar de precio simulado
@@ -1349,48 +1335,40 @@ impl PoolDetector {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(3))
             .build().ok()?;
-        
-        // Método 1: Usar Jupiter strict list (tokens verificados y conocidos)
+          // Método 1: Usar Jupiter strict list (tokens verificados y conocidos)
         let url = "https://token.jup.ag/strict";
         
-        match client.get(url).send().await {
-            Ok(response) => {
-                if let Ok(tokens) = response.json::<serde_json::Value>().await {
-                    if let Some(token_list) = tokens.as_array() {
-                        for token in token_list {
-                            if let Some(token_mint) = token.get("address").and_then(|v| v.as_str()) {
-                                if token_mint == mint {
-                                    if let Some(symbol) = token.get("symbol").and_then(|v| v.as_str()) {
-                                        return Some(symbol.to_string());
-                                    }
+        if let Ok(response) = client.get(url).send().await {
+            if let Ok(tokens) = response.json::<serde_json::Value>().await {
+                if let Some(token_list) = tokens.as_array() {
+                    for token in token_list {
+                        if let Some(token_mint) = token.get("address").and_then(|v| v.as_str()) {
+                            if token_mint == mint {
+                                if let Some(symbol) = token.get("symbol").and_then(|v| v.as_str()) {
+                                    return Some(symbol.to_string());
                                 }
                             }
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
-        
-        // Método 2: Intentar lista completa de Jupiter para tokens nuevos
+          // Método 2: Intentar lista completa de Jupiter para tokens nuevos
         let url_all = "https://token.jup.ag/all";
-        match client.get(url_all).send().await {
-            Ok(response) => {
-                if let Ok(tokens) = response.json::<serde_json::Value>().await {
-                    if let Some(token_list) = tokens.as_array() {
-                        for token in token_list {
-                            if let Some(token_mint) = token.get("address").and_then(|v| v.as_str()) {
-                                if token_mint == mint {
-                                    if let Some(symbol) = token.get("symbol").and_then(|v| v.as_str()) {
-                                        return Some(symbol.to_string());
-                                    }
+        if let Ok(response) = client.get(url_all).send().await {
+            if let Ok(tokens) = response.json::<serde_json::Value>().await {
+                if let Some(token_list) = tokens.as_array() {
+                    for token in token_list {
+                        if let Some(token_mint) = token.get("address").and_then(|v| v.as_str()) {
+                            if token_mint == mint {
+                                if let Some(symbol) = token.get("symbol").and_then(|v| v.as_str()) {
+                                    return Some(symbol.to_string());
                                 }
                             }
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
         
         None
@@ -1401,49 +1379,45 @@ impl PoolDetector {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(3))
             .build().ok()?;
-            
-        // Usar endpoint de pools en lugar de tokens individuales
+              // Usar endpoint de pools en lugar de tokens individuales
         let url = format!("https://api.dexscreener.com/latest/dex/pairs/solana/{}", pool_address);
         
-        match client.get(&url).send().await {
-            Ok(response) => {
-                if let Ok(data) = response.json::<serde_json::Value>().await {
-                    // DexScreener retorna un array de pairs, no un objeto pair único
-                    if let Some(pairs) = data.get("pairs").and_then(|p| p.as_array()) {
-                        if let Some(pair) = pairs.first() {
-                            let base_symbol = pair.get("baseToken")
-                                .and_then(|t| t.get("symbol"))
-                                .and_then(|s| s.as_str())
-                                .unwrap_or("UNKNOWN");
-                                
-                            let quote_symbol = pair.get("quoteToken")
-                                .and_then(|t| t.get("symbol"))
-                                .and_then(|s| s.as_str())
-                                .unwrap_or("UNKNOWN");
-                                
-                            let base_mint = pair.get("baseToken")
-                                .and_then(|t| t.get("address"))
-                                .and_then(|a| a.as_str())
-                                .unwrap_or("unknown");
-                                
-                            let quote_mint = pair.get("quoteToken")
-                                .and_then(|t| t.get("address"))
-                                .and_then(|a| a.as_str())
-                                .unwrap_or("unknown");
-                                
-                            if base_symbol != "UNKNOWN" && quote_symbol != "UNKNOWN" {
-                                return Some((
-                                    base_symbol.to_string(),
-                                    quote_symbol.to_string(),
-                                    base_mint.to_string(),
-                                    quote_mint.to_string()
-                                ));
-                            }
+        if let Ok(response) = client.get(&url).send().await {
+            if let Ok(data) = response.json::<serde_json::Value>().await {
+                // DexScreener retorna un array de pairs, no un objeto pair único
+                if let Some(pairs) = data.get("pairs").and_then(|p| p.as_array()) {
+                    if let Some(pair) = pairs.first() {
+                        let base_symbol = pair.get("baseToken")
+                            .and_then(|t| t.get("symbol"))
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("UNKNOWN");
+                            
+                        let quote_symbol = pair.get("quoteToken")
+                            .and_then(|t| t.get("symbol"))
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("UNKNOWN");
+                            
+                        let base_mint = pair.get("baseToken")
+                            .and_then(|t| t.get("address"))
+                            .and_then(|a| a.as_str())
+                            .unwrap_or("unknown");
+                            
+                        let quote_mint = pair.get("quoteToken")
+                            .and_then(|t| t.get("address"))
+                            .and_then(|a| a.as_str())
+                            .unwrap_or("unknown");
+                            
+                        if base_symbol != "UNKNOWN" && quote_symbol != "UNKNOWN" {
+                            return Some((
+                                base_symbol.to_string(),
+                                quote_symbol.to_string(),
+                                base_mint.to_string(),
+                                quote_mint.to_string()
+                            ));
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
         
         None
@@ -1497,27 +1471,23 @@ impl PoolDetector {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(2))
             .build().ok()?;
-            
-        // Intentar Solana Token List Registry
+              // Intentar Solana Token List Registry
         let url = "https://raw.githubusercontent.com/solana-labs/token-list/main/src/tokens/solana.tokenlist.json";
         
-        match client.get(url).send().await {
-            Ok(response) => {
-                if let Ok(data) = response.json::<serde_json::Value>().await {
-                    if let Some(tokens) = data.get("tokens").and_then(|t| t.as_array()) {
-                        for token in tokens {
-                            if let Some(address) = token.get("address").and_then(|a| a.as_str()) {
-                                if address == mint {
-                                    if let Some(symbol) = token.get("symbol").and_then(|s| s.as_str()) {
-                                        return Some(symbol.to_string());
-                                    }
+        if let Ok(response) = client.get(url).send().await {
+            if let Ok(data) = response.json::<serde_json::Value>().await {
+                if let Some(tokens) = data.get("tokens").and_then(|t| t.as_array()) {
+                    for token in tokens {
+                        if let Some(address) = token.get("address").and_then(|a| a.as_str()) {
+                            if address == mint {
+                                if let Some(symbol) = token.get("symbol").and_then(|s| s.as_str()) {
+                                    return Some(symbol.to_string());
                                 }
                             }
                         }
                     }
                 }
             }
-            Err(_) => {}
         }
         
         None
@@ -1648,12 +1618,9 @@ impl PoolDetector {
     }
 
     /// Generar par de tokens realista para simulación
-    async fn generate_realistic_token_pair(&self) -> (TokenInfo, TokenInfo) {
-        let common_tokens = vec![
-            ("SOL", "So11111111111111111111111111111111111111112", 9, 180.0),
+    async fn generate_realistic_token_pair(&self) -> (TokenInfo, TokenInfo) {        let common_tokens = [("SOL", "So11111111111111111111111111111111111111112", 9, 180.0),
             ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 6, 1.0),
-            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 6, 1.0),
-        ];
+            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 6, 1.0)];
         
         let base_token_data = &common_tokens[rand::random::<usize>() % common_tokens.len()];
         
