@@ -1605,12 +1605,8 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
     
     println!("\n📊 Monitoring Configuration:");
     println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
-        enable_new_pool_events: true,  // ✅ Enable new pool events
-    };
-    
-    println!("\n📊 Monitoring Configuration:");
-    println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
-    println!("   Max price impact: {:.1}%", config.max_price_impact_1k);    println!("   Min risk score: {:.1}%", config.min_risk_score * 100.0);
+    println!("   Max price impact: {:.1}%", config.max_price_impact_1k);
+    println!("   Min risk score: {:.1}%", config.min_risk_score * 100.0);
     println!("   Scan interval: {}ms", config.monitoring_interval_ms);
     println!("   Max tracked pools: {}", config.max_tracked_pools);
     
