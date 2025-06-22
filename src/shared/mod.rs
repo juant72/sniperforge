@@ -16,6 +16,7 @@ pub mod analytics;         // Pool analytics and pattern detection
 pub mod paper_trading_automation;  // Phase 3: Paper trading automation
 pub mod cache_free_trading;        // Phase 4: Cache-free trading engine
 pub mod real_time_blockchain;      // Phase 5: Real-time blockchain integration
+pub mod real_time_trading;         // Phase 5A: Real-time trading with live blockchain integration
 pub mod mainnet_trading;           // Phase 5B: MainNet real trading with minimal capital
 
 use anyhow::Result;
