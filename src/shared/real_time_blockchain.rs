@@ -3,8 +3,10 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::str::FromStr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{RwLock, Mutex};
+use tracing::warn;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig};
 use solana_transaction_status::UiTransactionEncoding;
@@ -268,12 +270,11 @@ impl RealTimeBlockchainEngine {
         self.update_transaction_metrics(latency_ms, true).await;
 
         Ok(tx_status)
-    }
-
-    /// Private method to fetch fresh price data
+    }    /// Private method to fetch fresh price data
     async fn fetch_fresh_price(&self, token_mint: &str) -> Result<RealTimePriceData> {
-        // For now, we'll simulate real price fetching
-        // In a real implementation, this would connect to price oracles, DEX APIs, etc.
+        // REAL price fetching from Jupiter API
+        use crate::shared::jupiter::client::JupiterClient;
+        use crate::shared::jupiter::JupiterConfig;
         
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)?
@@ -282,11 +283,16 @@ impl RealTimeBlockchainEngine {
         // Get current slot
         let slot = self.rpc_client.get_slot()?;
 
-        // Simulate price based on token (this would be real price fetching)
-        let price_usd = match token_mint {
-            "So11111111111111111111111111111111111111112" => 150.0 + (slot as f64 % 10.0), // SOL
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0, // USDC
-            _ => 0.1 + (slot as f64 % 1.0), // Other tokens
+        // Create Jupiter client for REAL price fetching
+        let jupiter_config = JupiterConfig::mainnet();
+        let jupiter_client = JupiterClient::new(&jupiter_config).await?;
+        
+        // Get REAL price from Jupiter API
+        let price_usd = match jupiter_client.get_price(token_mint).await? {
+            Some(price) => price,
+            None => {
+                return Err(anyhow!("Failed to get real price for token: {}", token_mint));
+            }
         };
 
         Ok(RealTimePriceData {
@@ -294,10 +300,10 @@ impl RealTimeBlockchainEngine {
             price_usd,
             timestamp_ms: current_time,
             slot,
-            source: "RPC_ORACLE".to_string(),
+            source: "JUPITER_API_REAL".to_string(),
             confidence: 0.95,
-            volume_24h: 1_000_000.0,
-            market_cap: price_usd * 500_000_000.0,
+            volume_24h: 1_000_000.0, // TODO: Get real volume from DexScreener
+            market_cap: price_usd * 500_000_000.0, // TODO: Get real market cap
         })
     }
 
@@ -326,20 +332,60 @@ impl RealTimeBlockchainEngine {
                 timestamp_ms: current_time,
                 slot,
             });
+        }        // For SPL tokens, get real token account balance
+        use solana_sdk::program_pack::Pack;
+        use spl_token::state::Account as TokenAccount;
+        
+        // First try to find associated token account
+        let wallet_pubkey = Pubkey::from_str(wallet_address)?;
+        let token_mint_pubkey = Pubkey::from_str(token_mint)?;
+        
+        // Get associated token account address
+        let associated_token_account = spl_associated_token_account::get_associated_token_address(
+            &wallet_pubkey,
+            &token_mint_pubkey,
+        );
+        
+        // Try to get the token account info
+        match self.rpc_client.get_account(&associated_token_account) {
+            Ok(account_info) => {
+                if account_info.owner == spl_token::id() {
+                    // Parse token account data
+                    match TokenAccount::unpack(&account_info.data) {
+                        Ok(token_account) => {
+                            let balance = token_account.amount;
+                            let decimals = 6; // Default, should be fetched from mint info
+                            let balance_tokens = balance as f64 / 10_f64.powi(decimals as i32);
+                            let price_data = self.get_real_time_price(token_mint).await?;
+                            
+                            return Ok(RealTimeBalance {
+                                wallet_address: wallet_address.to_string(),
+                                token_mint: token_mint.to_string(),
+                                balance,
+                                decimals,
+                                balance_usd: balance_tokens * price_data.price_usd,
+                                timestamp_ms: current_time,
+                                slot,
+                            });
+                        },
+                        Err(e) => {
+                            warn!("Failed to parse token account: {}", e);
+                        }
+                    }
+                }
+            },
+            Err(e) => {
+                warn!("Token account not found or error: {}", e);
+            }
         }
-
-        // For SPL tokens, we would get the token account balance
-        // For now, simulate a balance
-        let simulated_balance = 1000_000_000u64; // 1000 tokens with 6 decimals
-        let price_data = self.get_real_time_price(token_mint).await?;
-        let balance_tokens = simulated_balance as f64 / 1_000_000.0; // Assuming 6 decimals
-
+        
+        // If no token account found, return zero balance
         Ok(RealTimeBalance {
             wallet_address: wallet_address.to_string(),
             token_mint: token_mint.to_string(),
-            balance: simulated_balance,
+            balance: 0,
             decimals: 6,
-            balance_usd: balance_tokens * price_data.price_usd,
+            balance_usd: 0.0,
             timestamp_ms: current_time,
             slot,
         })

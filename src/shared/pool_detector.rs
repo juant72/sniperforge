@@ -114,7 +114,8 @@ pub struct PoolDetector {
     last_scan: Instant,
 }
 
-impl PoolDetector {    /// Crear nuevo detector de pools
+impl PoolDetector {
+    /// Crear nuevo detector de pools
     pub async fn new(
         config: PoolDetectorConfig, 
         jupiter_client: JupiterClient,
@@ -183,26 +184,27 @@ impl PoolDetector {    /// Crear nuevo detector de pools
             if sleep_time.as_millis() > 0 {
                 tokio::time::sleep(sleep_time).await;
             }
-            
-            self.last_scan = Instant::now();
+              self.last_scan = Instant::now();
         }
-    }    /// Escanear nuevos pools usando APIs concurrentes (como go routines) 
+    }
+
+    /// Escanear nuevos pools usando APIs concurrentes (como go routines)
     async fn scan_for_new_pools(&self) -> Result<Vec<DetectedPool>> {
         debug!("🔍 Scanning for new pools using CONCURRENT APIs...");
         
         // Usar detección concurrente (3-4x más rápido)
         let concurrent_pools = self.scan_for_new_pools_concurrent().await?;
         
-        // Si no hay pools reales disponibles, usar datos de prueba como fallback
+        // REMOVED: mock data fallback - force real API usage
         if concurrent_pools.is_empty() {
-            warn!("🔄 No real pools found, using mock data for demo");
-            return self.generate_mock_pools().await;
+            warn!("🔄 No real pools found in current scan - continuing with real APIs only");
         }
         
         Ok(concurrent_pools)
     }
     
-    /// Generar pools de prueba con datos realistas
+    /// Generar pools de prueba con datos realistas (DEPRECATED - kept for compilation)
+    #[allow(dead_code)]
     async fn generate_mock_pools(&self) -> Result<Vec<DetectedPool>> {
         let mut pools = Vec::new();
         
@@ -876,13 +878,11 @@ impl PoolDetector {    /// Crear nuevo detector de pools
                     }
                 }
             }
-            Err(_) => {}
-        }
+            Err(_) => {}        }
         
-        // Si todo falla, usar precio simulado basado en mint
-        let hash = mint.chars().fold(0u32, |acc, c| acc.wrapping_add(c as u32));
-        let simulated_price = (hash % 1000) as f64 / 1000.0; // Entre 0.0 y 1.0
-        Some(simulated_price.max(0.001)) // Mínimo $0.001
+        // Si todo falla, retornar None en lugar de precio simulado
+        warn!("⚠️ Failed to get price for token from all sources: {}", mint);
+        None
     }    
     /// Obtener símbolo de token desde mint usando múltiples fuentes
     async fn get_token_symbol_from_mint(&self, mint: &str) -> Option<String> {

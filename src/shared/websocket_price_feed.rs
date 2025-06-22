@@ -360,102 +360,28 @@ impl WebSocketPriceFeed {
             }
         }
     }    async fn fetch_jupiter_price(token_mint: &str) -> Result<f64> {
-        // Use a simulated price provider that always works for testing
-        // In production, this would connect to real price APIs
+        debug!("📡 Fetching REAL price for {}", token_mint);
         
-        debug!("📡 Fetching price for {}", token_mint);
+        // Use REAL Jupiter API client
+        use crate::shared::jupiter::client::JupiterClient;
+        use crate::shared::jupiter::JupiterConfig;
         
-        // For testing: Use realistic simulated prices based on token type
-        let simulated_price = match token_mint {
-            // SOL (Native Solana)
-            "So11111111111111111111111111111111111111112" => {
-                // Simulate SOL price between $180-220
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                token_mint.hash(&mut hasher);
-                let hash = hasher.finish();
-                180.0 + ((hash % 40) as f64) // $180-220 range
-            }
-            
-            // USDC (Stable coin)
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0,
-            
-            // USDT (Stable coin)
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0,
-            
-            // BONK (Meme coin)
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => 0.000023,
-            
-            // ETH (Wrapped Ethereum)
-            "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs" => {
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                token_mint.hash(&mut hasher);
-                let hash = hasher.finish();
-                3200.0 + ((hash % 600) as f64) // $3200-3800 range
-            }
-            
-            // PYTH
-            "2FPyTwcZLUg1MDrwsyoP4D6s1tM7hAkHYRjkNb5w6Pxk" => 0.42,
-            
-            // RAY (Raydium)
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 2.15,
-            
-            // mSOL (Marinade staked SOL)
-            "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So" => {
-                // mSOL is typically 1.05-1.1x SOL price
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                token_mint.hash(&mut hasher);
-                let hash = hasher.finish();
-                let sol_price = 180.0 + ((hash % 40) as f64);
-                sol_price * 1.07 // About 7% premium for staking
-            }
-            
-            // stSOL (Lido staked SOL)
-            "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj" => {
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                token_mint.hash(&mut hasher);
-                let hash = hasher.finish();
-                let sol_price = 180.0 + ((hash % 40) as f64);
-                sol_price * 1.05 // About 5% premium for staking
-            }
-            
-            // BERN
-            "HhJpBhRRn4g56VsyLuT8DL5Bv31HkXqsrahTTUCZeZg4" => 0.0015,
-            
-            // Default for unknown tokens
-            _ => {
-                use std::collections::hash_map::DefaultHasher;
-                use std::hash::{Hash, Hasher};
-                let mut hasher = DefaultHasher::new();
-                token_mint.hash(&mut hasher);
-                let hash = hasher.finish();
-                0.1 + ((hash % 1000) as f64 / 10000.0) // $0.1-0.2 range
-            }
-        };
+        let jupiter_config = JupiterConfig::mainnet();
+        let jupiter_client = JupiterClient::new(&jupiter_config).await?;
         
-        // Add small random fluctuation to simulate real market movement
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let fluctuation = ((now % 100) as f64 - 50.0) / 1000.0; // ±5% fluctuation
-        let final_price = simulated_price * (1.0 + fluctuation);
-        
-        debug!("📈 Generated realistic price for {}: ${:.6}", token_mint, final_price);
-        
-        // Simulate network delay for realism
-        tokio::time::sleep(Duration::from_millis(50 + (now % 100))).await;
-        
-        Ok(final_price)
+        // Get REAL price from Jupiter API
+        match jupiter_client.get_price(token_mint).await? {
+            Some(price) => {
+                debug!("✅ REAL price from Jupiter: {} = ${:.6}", token_mint, price);
+                Ok(price)
+            },
+            None => {
+                warn!("⚠️ No price found for token: {}", token_mint);
+                Err(anyhow!("Price not available for token: {}", token_mint))
+            }        }
     }
-      pub async fn is_connected(&self) -> bool {
+    
+    pub async fn is_connected(&self) -> bool {
         *self.is_connected.read().await
     }
     
