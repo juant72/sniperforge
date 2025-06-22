@@ -1,5 +1,12 @@
 # SniperForge Mainnet Configuration
 # Paper Trading with Real Mainnet Data
+#
+# TIME UNITS GUIDE:
+# - _ms suffix: MILLISECONDS (high-frequency operations, 1000ms = 1 second)
+# - _seconds suffix: SECONDS (monitoring durations, API calls)
+# - _minutes suffix: MINUTES (session timeouts, 60 minutes = 1 hour)
+# - _hours suffix: HOURS (long-term limits, 24 hours = 1 day)
+# Always check the suffix and comments for the exact unit used.
 
 [network]
 name = "mainnet"
@@ -33,7 +40,8 @@ execution_latency_ms = 150    # Realistic execution latency
 
 [safety]
 # Ultra-safe settings for mainnet
-max_price_age_ms = 50         # Only accept prices < 50ms old
+# Time units: milliseconds (ms) for high-frequency operations
+max_price_age_ms = 50         # Only accept prices < 50ms old (MILLISECONDS)
 min_price_sources = 2         # Require at least 2 price sources
 price_tolerance_percent = 0.5 # Max 0.5% difference between sources
 disable_cache_for_trading = true  # Never use cache for trading decisions
@@ -51,3 +59,27 @@ max_trade_size_sol = 1.0      # Max 1 SOL per trade in paper mode
 max_daily_trades = 100        # Max 100 trades per day
 enable_circuit_breaker = true # Stop trading on consecutive losses
 max_consecutive_losses = 5    # Stop after 5 consecutive losses
+
+[pool_detection]
+# Pool detection parameters - easily adjustable without recompiling
+# Time units clearly specified for each parameter
+min_liquidity_usd = 1000.0    # Minimum pool liquidity (lower for testing)
+max_price_impact_1k = 15.0    # Maximum price impact for 1K trade (higher for testing)
+min_risk_score = 0.1          # Minimum risk score (0.1 = 10%, lower for testing)
+monitoring_interval_ms = 2000 # How often to scan for pools (MILLISECONDS - 2000ms = 2 seconds)
+max_tracked_pools = 200       # Maximum pools to track simultaneously
+
+# Opportunity detection thresholds
+min_profit_threshold_usd = 5.0    # Minimum profit to consider (lower for testing)
+min_confidence_score = 0.6        # Minimum confidence (60%, lower for testing)
+max_execution_time_ms = 5000      # Maximum time to execute trade (MILLISECONDS - 5000ms = 5 seconds)
+enable_new_pool_detection = true  # Enable event-based new pool detection
+enable_websocket_triggers = true  # Use WebSocket events instead of polling
+
+[trading_session]
+# Default trading session parameters
+# Time units: minutes for session-level timeouts and durations
+default_max_capital = 1000.0      # Default max capital
+default_max_trade = 100.0         # Default max single trade
+default_daily_limit = 200.0       # Default daily loss limit
+default_duration_minutes = 30     # Default session duration (MINUTES - 30min = 0.5 hours)

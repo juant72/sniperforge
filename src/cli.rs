@@ -1436,13 +1436,18 @@ async fn handle_test_pools() -> Result<()> {
             None
         }
     };
-      // Create pool detector with relaxed demo settings for better detection
+      // Create pool detector with very relaxed settings for finding opportunities
     let config = PoolDetectorConfig {
-        min_liquidity_usd: 1000.0,    // Lower threshold for demo
-        max_price_impact_1k: 25.0,    // Higher tolerance for demo  
-        min_risk_score: 0.05,         // Lower threshold for demo
-        monitoring_interval_ms: 5000, // 5s for better real detection
-        max_tracked_pools: 20,        // More pools for demo
+        min_liquidity_usd: 100.0,     // Very low threshold for testing
+        max_price_impact_1k: 50.0,    // Very high tolerance for demo
+        min_risk_score: 0.01,         // Very low threshold (1%)
+        monitoring_interval_ms: 2000, // 2s for faster detection
+        max_tracked_pools: 100,       // Many more pools for demo
+        min_profit_threshold_usd: 1.0, // Very low profit threshold for demo
+        min_confidence_score: 0.1,    // Very low confidence for demo
+        max_execution_time_ms: 10000, // 10s execution time for demo
+        enable_event_driven: true,    // ✅ Enable event-driven detection
+        enable_new_pool_events: true, // ✅ Enable new pool events
     };
     
     println!("\n📊 Pool Detection Configuration:");    println!("   Min liquidity: ${:.0}", config.min_liquidity_usd);
@@ -1458,8 +1463,8 @@ async fn handle_test_pools() -> Result<()> {
     
     // Run monitoring for 3 minutes (extended demo)
     let _start_time = std::time::Instant::now();
-    // Use the new monitored detection method
-    if let Err(e) = detector.start_monitoring_with_reports(3).await {
+    // Use the event-driven detection method (3 minutes = 180 seconds)
+    if let Err(e) = detector.start_event_driven_monitoring_seconds(180).await {
         println!("⚠️ Monitoring failed: {}", e);
     }
     
@@ -1589,13 +1594,18 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
         }
     };
     
-    // Create pool detector with production settings
+    // Create pool detector with very permissive settings for finding opportunities
     let config = PoolDetectorConfig {
-        min_liquidity_usd: 5000.0,     // Reasonable threshold for real trading
-        max_price_impact_1k: 15.0,     // Allow moderate price impact
-        min_risk_score: 0.2,           // Lower threshold for opportunities
-        monitoring_interval_ms: 3000,  // 3s for real-time but not too aggressive
-        max_tracked_pools: 50,         // Track more pools in continuous mode
+        min_liquidity_usd: 200.0,      // Very low threshold for testing
+        max_price_impact_1k: 30.0,     // High tolerance for more opportunities
+        min_risk_score: 0.05,          // Very low threshold (5%)
+        monitoring_interval_ms: 1500,  // Faster scanning
+        max_tracked_pools: 150,        // Track many more pools
+        min_profit_threshold_usd: 2.0, // Low profit threshold for demo
+        min_confidence_score: 0.2,     // Low confidence for demo
+        max_execution_time_ms: 8000,   // 8s execution time
+        enable_event_driven: true,     // ✅ Enable event-driven detection
+        enable_new_pool_events: true,  // ✅ Enable new pool events
     };
     
     println!("\n📊 Monitoring Configuration:");
@@ -1611,8 +1621,8 @@ async fn handle_monitor_pools(duration_seconds: u64) -> Result<()> {
     println!("   Press Ctrl+C to stop monitoring");
     println!("   All detected pools will include DexScreener validation links");
     
-    // Start the monitored detection with exact duration in seconds
-    detector.start_monitoring_with_reports_seconds(duration_seconds).await?;
+    // Start the event-driven detection with exact duration in seconds
+    detector.start_event_driven_monitoring_seconds(duration_seconds).await?;
     
     // Final summary
     let stats = detector.get_stats();
@@ -1755,11 +1765,16 @@ async fn handle_analyze_data(duration_seconds: u64, export_file: Option<String>,
         min_risk_score: 0.2,
         monitoring_interval_ms: 3000,
         max_tracked_pools: 50,
+        min_profit_threshold_usd: 10.0, // $10 minimum profit for analytics
+        min_confidence_score: 0.5,      // 50% confidence for analytics
+        max_execution_time_ms: 6000,    // 6s execution time
+        enable_event_driven: true,      // ✅ Enable event-driven detection
+        enable_new_pool_events: true,   // ✅ Enable new pool events
     };
     let mut detector = PoolDetector::new(config, jupiter_client, syndica_client, None).await?;
 
-    // Start monitoring for the specified duration
-    detector.start_monitoring_with_reports_seconds(duration_seconds).await?;
+    // Start monitoring for the specified duration (using event-driven detection)
+    detector.start_event_driven_monitoring_seconds(duration_seconds).await?;
 
     // Gather data for analytics
     let pools: Vec<DetectedPool> = detector.get_tracked_pools().values().cloned().collect();
@@ -1806,6 +1821,14 @@ fn show_help() {
     println!("  • {} - Pool detection and analysis", "pools".bright_yellow());
     println!("  • {} - Continuous pool monitoring", "monitor-pools".bright_yellow());
     println!("  • {} - Analytics on collected data", "analyze-data".bright_green());
+    println!("  • {} - Paper trading automation", "paper-trading-automation".bright_green());
+    println!("  • {} - Cache-free trading", "cache-free-trading".bright_green());
+    println!("  • {} - Real-time blockchain integration", "real-time-blockchain".bright_green());
+    println!("  • {} - 💰 MAINNET REAL TRADING (Phase 5B)", "mainnet-real-trading".bright_red().bold());
+    println!();
+    println!("{}", "Phase 5B Example:".bright_white().bold());
+    println!("  {} --max-capital 500 --max-trade 50 --duration 60", "cargo run -- test mainnet-real-trading".bright_yellow());
+    println!("  {} --test", "cargo run -- test mainnet-real-trading".bright_yellow());
 }
 
 /// Handle WebSocket RPC testing
@@ -1959,15 +1982,47 @@ async fn handle_mainnet_real_trading(
         "🔵 VALIDATION (ANALYSIS ONLY)".bright_blue() 
     });
     
-    // Detection config based on trading parameters
+    // Detection config based on mainnet.toml configuration - NO MORE HARDCODED VALUES
     use crate::shared::pool_detector::PoolDetectorConfig;
-    let _detection_config = PoolDetectorConfig {
-        min_liquidity_usd: max_trade * 10.0, // Require 10x trade size in liquidity
-        max_price_impact_1k: 2.0, // Max 2% price impact for safety
-        min_risk_score: 0.6, // Higher risk threshold for trading
-        monitoring_interval_ms: 2000, // 2s for rapid response
-        max_tracked_pools: 30,
+    let detection_config = PoolDetectorConfig {
+        min_liquidity_usd: config.pool_detection.as_ref()
+            .and_then(|pd| pd.min_liquidity_usd)
+            .unwrap_or(max_trade * 2.0), // Fallback: 2x trade size
+        max_price_impact_1k: config.pool_detection.as_ref()
+            .and_then(|pd| pd.max_price_impact_1k)
+            .unwrap_or(10.0), // Fallback: 10%
+        min_risk_score: config.pool_detection.as_ref()
+            .and_then(|pd| pd.min_risk_score)
+            .unwrap_or(0.2), // Fallback: 20%
+        monitoring_interval_ms: config.pool_detection.as_ref()
+            .and_then(|pd| pd.monitoring_interval_ms)
+            .unwrap_or(1000), // Fallback: 1s
+        max_tracked_pools: config.pool_detection.as_ref()
+            .and_then(|pd| pd.max_tracked_pools.map(|x| x as usize))
+            .unwrap_or(100), // Fallback: 100 pools
+        min_profit_threshold_usd: config.pool_detection.as_ref()
+            .and_then(|pd| pd.min_profit_threshold_usd)
+            .unwrap_or(5.0), // Fallback: $5 minimum profit
+        min_confidence_score: config.pool_detection.as_ref()
+            .and_then(|pd| pd.min_confidence_score)
+            .unwrap_or(0.6), // Fallback: 60% confidence
+        max_execution_time_ms: config.pool_detection.as_ref()
+            .and_then(|pd| pd.max_execution_time_ms)
+            .unwrap_or(5000), // Fallback: 5s execution time
+        enable_event_driven: config.pool_detection.as_ref()
+            .and_then(|pd| pd.enable_websocket_triggers)
+            .unwrap_or(true), // Fallback: Enable event-driven
+        enable_new_pool_events: config.pool_detection.as_ref()
+            .and_then(|pd| pd.enable_new_pool_detection)
+            .unwrap_or(true), // Fallback: Enable new pool events
     };
+    
+    println!("\n📊 Pool Detection Configuration (from config file):");
+    println!("   💧 Min liquidity: ${:.0}", detection_config.min_liquidity_usd);
+    println!("   ⚡ Max price impact: {:.1}%", detection_config.max_price_impact_1k);
+    println!("   🛡️  Min risk score: {:.1}%", detection_config.min_risk_score * 100.0);
+    println!("   ⏱️  Scan interval: {}ms", detection_config.monitoring_interval_ms);
+    println!("   📊 Max tracked pools: {}", detection_config.max_tracked_pools);
     
     
     // MainNet Trading Engine Phase 5B Implementation

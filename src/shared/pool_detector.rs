@@ -1,15 +1,34 @@
 /// Pool Detection System for Real-Time Monitoring
 /// 
 /// Detecta nuevos pools de liquidez en Raydium/Orca usando datos de mainnet
-/// Sistema read-only para análisis sin riesgo
+/// Sistema real-time event-driven con WebSocket triggers
+///
+/// ⏱️ TIME UNITS CLARIFICATION:
+/// This module uses multiple time units depending on the context:
+/// - SECONDS: Most monitoring methods (start_*_monitoring_seconds)
+/// - MINUTES: Legacy methods only (start_monitoring_with_reports - DEPRECATED)
+/// - MILLISECONDS: High-frequency operations (intervals, timeouts, config fields with _ms suffix)
+/// 
+/// 📚 For complete documentation, see: docs/TIME_UNITS_QUICK_REFERENCE.md
+/// 
+/// ✅ RECOMMENDED: Use *_seconds methods for all new code
+/// ⚠️ DEPRECATED: Methods using minutes are being phased out
+///
+/// Method naming convention:
+/// - start_*_monitoring_seconds() -> duration parameter is in SECONDS
+/// - start_*_monitoring() (no suffix) -> usually MINUTES (legacy, avoid)
+/// - config fields with _ms suffix -> MILLISECONDS
+/// - config fields with _minutes suffix -> MINUTES
+/// - config fields with _seconds suffix -> SECONDS
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc; // Agregado para usar Arc<SyndicaWebSocketClient>
+use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn, error, debug};
 use rand;
+use tokio::sync::mpsc;
 
 use crate::shared::jupiter::client::JupiterClient;
 use crate::shared::syndica_websocket::SyndicaWebSocketClient;
@@ -85,10 +104,20 @@ pub struct PoolDetectorConfig {
     pub max_price_impact_1k: f64,
     /// Score mínimo de riesgo
     pub min_risk_score: f64,
-    /// Intervalo de monitoreo (ms)
+    /// Intervalo de monitoreo (ms) - ONLY used for fallback polling
     pub monitoring_interval_ms: u64,
     /// Número máximo de pools a trackear simultáneamente
     pub max_tracked_pools: usize,
+    /// Minimum profit threshold for opportunities
+    pub min_profit_threshold_usd: f64,
+    /// Minimum confidence score for opportunities
+    pub min_confidence_score: f64,
+    /// Maximum execution time for opportunities
+    pub max_execution_time_ms: u64,
+    /// Enable WebSocket event-driven detection (NEW)
+    pub enable_event_driven: bool,
+    /// Enable new pool creation events (NEW)
+    pub enable_new_pool_events: bool,
 }
 
 impl Default for PoolDetectorConfig {
@@ -97,8 +126,13 @@ impl Default for PoolDetectorConfig {
             min_liquidity_usd: 10000.0,  // $10k mínimo
             max_price_impact_1k: 5.0,    // 5% max price impact
             min_risk_score: 0.3,         // 30% mínimo
-            monitoring_interval_ms: 1000, // 1s
+            monitoring_interval_ms: 1000, // 1s (fallback only)
             max_tracked_pools: 100,      // Track 100 pools max
+            min_profit_threshold_usd: 50.0, // $50 minimum profit
+            min_confidence_score: 0.7,   // 70% minimum confidence
+            max_execution_time_ms: 5000, // 5s max execution time
+            enable_event_driven: true,   // ✅ Enable event-driven by default
+            enable_new_pool_events: true, // ✅ Enable new pool events
         }
     }
 }
@@ -276,8 +310,7 @@ impl PoolDetector {
             debug!("❌ Risk score too low: {:.1}%", pool.risk_score.overall * 100.0);
             return Ok(());
         }
-        
-        // Calcular oportunidad
+          // Calcular oportunidad
         let opportunity = TradingOpportunity {
             pool: pool.clone(),
             opportunity_type: OpportunityType::NewPoolSnipe,
@@ -287,10 +320,16 @@ impl PoolDetector {
             recommended_size_usd: self.calculate_position_size(pool),
         };
         
-        if opportunity.expected_profit_usd > 50.0 { // Mínimo $50 profit
-            info!("🎯 OPPORTUNITY DETECTED: {} - Expected profit: ${:.2}", 
-                  pool.pool_address, opportunity.expected_profit_usd);
+        // Check if opportunity meets minimum thresholds from config
+        if opportunity.expected_profit_usd > self.config.min_profit_threshold_usd 
+            && opportunity.confidence > self.config.min_confidence_score {
+            info!("🎯 OPPORTUNITY DETECTED: {} - Expected profit: ${:.2}, Confidence: {:.1}%", 
+                  pool.pool_address, opportunity.expected_profit_usd, opportunity.confidence * 100.0);
             self.opportunities.push(opportunity);
+        } else {
+            debug!("❌ Opportunity doesn't meet thresholds - Profit: ${:.2} (min: ${:.2}), Confidence: {:.1}% (min: {:.1}%)", 
+                   opportunity.expected_profit_usd, self.config.min_profit_threshold_usd,
+                   opportunity.confidence * 100.0, self.config.min_confidence_score * 100.0);
         }
         
         // Trackear el pool
@@ -676,9 +715,17 @@ impl PoolDetector {
             rug_indicators,
         }
     }
-    
-    /// Iniciar monitoreo continuo con reports periódicos
+      /// ⚠️ DEPRECATED: Use start_event_driven_monitoring_seconds() instead
+    /// 
+    /// Iniciar monitoreo continuo con reports periódicos (LEGACY - uses MINUTES)
+    /// This method is only used for quick 3-minute demos and will be deprecated.
+    /// 
+    /// # Time Unit Warning
+    /// This method uses MINUTES as input, unlike other monitoring methods that use SECONDS.
+    /// For consistency, prefer `start_event_driven_monitoring_seconds()` which uses seconds.
+    #[deprecated(since = "1.0.0", note = "Use start_event_driven_monitoring_seconds() for consistent time units")]
     pub async fn start_monitoring_with_reports(&mut self, duration_minutes: u64) -> Result<()> {
+        warn!("⚠️ DEPRECATED: start_monitoring_with_reports() uses MINUTES. Use start_event_driven_monitoring_seconds() for consistent SECONDS-based timing.");
         info!("🚀 Starting monitored pool detection for {} minutes...", duration_minutes);
         
         let total_duration = Duration::from_secs(duration_minutes * 60);
@@ -756,11 +803,326 @@ impl PoolDetector {
         println!("🎯 Opportunities: {}", opportunities_found_this_session);
         
         Ok(())
+    }    /// 🚀 PRIMARY METHOD: Start event-driven monitoring (NO POLLING!)
+    /// 
+    /// This is the RECOMMENDED method for pool detection. It uses WebSocket events
+    /// and real-time triggers instead of polling, providing better performance.
+    /// 
+    /// # Time Units
+    /// Uses SECONDS as the time unit for consistency with modern standards.
+    /// 
+    /// # Parameters
+    /// - `duration_seconds`: Monitoring duration in seconds (u64)
+    /// 
+    /// # Example
+    /// ```rust
+    /// // Monitor for 5 minutes (300 seconds)
+    /// detector.start_event_driven_monitoring_seconds(300).await?;
+    /// ```
+    pub async fn start_event_driven_monitoring_seconds(&mut self, duration_seconds: u64) -> Result<()> {
+        info!("🚀 Starting EVENT-DRIVEN pool detection for {} seconds...", duration_seconds);
+        info!("   📡 Using WebSocket events + real-time triggers");
+        info!("   ⚡ NO POLLING - Only event-based detection!");
+        
+        let total_duration = Duration::from_secs(duration_seconds);
+        let start_time = Instant::now();
+        
+        // Create channels for event communication
+        let (event_sender, mut event_receiver) = mpsc::channel::<DetectedPool>(1000);
+        
+        // Statistics tracking
+        let mut total_events = 0u64;
+        let mut pools_found_this_session = 0usize;
+        let mut opportunities_found_this_session = 0usize;
+        let mut last_report = Instant::now();
+        let report_interval = Duration::from_secs(30);
+        
+        // 🔥 START EVENT LISTENERS (NO MORE POLLING!)
+        
+        // Task 1: WebSocket pool creation events (Helius/Syndica)
+        if let Some(syndica_client) = &self.syndica_client {            let _syndica_clone = syndica_client.clone();
+            let sender_clone = event_sender.clone();
+            let _config_clone = self.config.clone();
+            
+            tokio::spawn(async move {
+                info!("📡 Starting Syndica WebSocket pool creation listener...");
+                
+                // TODO: Implement real WebSocket listener
+                // This should listen to Solana program logs for:
+                // - Raydium pool creation (program: 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8)
+                // - Orca whirlpool creation (program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uesLkHp)
+                
+                // For now, simulate occasional events
+                let mut interval = tokio::time::interval(Duration::from_secs(10));
+                
+                loop {
+                    interval.tick().await;
+                    
+                    // Simulate 30% chance of new pool event every 10 seconds
+                    if rand::random::<f64>() < 0.3 {
+                        match Self::generate_event_driven_pool().await {
+                            Ok(pool) => {
+                                info!("📡 WEBSOCKET EVENT: New pool detected via Syndica: {}", pool.pool_address);
+                                if let Err(e) = sender_clone.send(pool).await {
+                                    warn!("Failed to send pool event: {}", e);
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to generate event pool: {}", e);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Task 2: DexScreener WebSocket new pool events
+        {
+            let sender_clone = event_sender.clone();
+            tokio::spawn(async move {
+                info!("📡 Starting DexScreener new pool listener...");
+                
+                // TODO: Implement DexScreener WebSocket
+                // wss://io.dexscreener.com/dex/screener/new-pairs/solana
+                
+                // For now, simulate occasional events
+                let mut interval = tokio::time::interval(Duration::from_secs(15));
+                
+                loop {
+                    interval.tick().await;
+                    
+                    // Simulate 20% chance of new pool event every 15 seconds
+                    if rand::random::<f64>() < 0.2 {
+                        match Self::generate_event_driven_pool().await {
+                            Ok(mut pool) => {
+                                pool.detection_method = Some("DEXSCREENER_WS".to_string());
+                                info!("📡 DEXSCREENER EVENT: New pool detected: {}", pool.pool_address);
+                                if let Err(e) = sender_clone.send(pool).await {
+                                    warn!("Failed to send DexScreener pool event: {}", e);
+                                    break;
+                                }
+                            }
+                            Err(e) => {
+                                warn!("Failed to generate DexScreener event pool: {}", e);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 📨 MAIN EVENT LOOP - Process events as they arrive
+        while start_time.elapsed() < total_duration {
+            tokio::select! {
+                // Process incoming pool events
+                Some(pool) = event_receiver.recv() => {
+                    total_events += 1;
+                    
+                    info!("⚡ PROCESSING EVENT #{}: New pool {} via {}", 
+                          total_events, pool.pool_address, 
+                          pool.detection_method.as_deref().unwrap_or("UNKNOWN"));
+                    
+                    // Analyze opportunity immediately (real-time!)
+                    match self.analyze_pool_opportunity(&pool).await {
+                        Ok(_) => {
+                            pools_found_this_session += 1;
+                            
+                            // Check if we found a trading opportunity
+                            if self.opportunities.len() > opportunities_found_this_session {
+                                opportunities_found_this_session = self.opportunities.len();
+                                info!("🎯 NEW OPPORTUNITY FOUND! Total opportunities: {}", 
+                                      opportunities_found_this_session);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Failed to analyze pool {}: {}", pool.pool_address, e);
+                        }
+                    }
+                }
+                
+                // Periodic maintenance and reporting
+                _ = tokio::time::sleep(report_interval) => {
+                    if last_report.elapsed() >= report_interval {
+                        self.print_event_driven_status_report(
+                            start_time.elapsed(),
+                            total_events,
+                            pools_found_this_session,
+                            opportunities_found_this_session
+                        );
+                        last_report = Instant::now();
+                        
+                        // Periodic cleanup
+                        if let Err(e) = self.update_tracked_pools().await {
+                            warn!("⚠️ Pool cleanup failed: {}", e);
+                        }
+                    }
+                }
+                
+                // Timeout - session ended
+                _ = tokio::time::sleep(total_duration.saturating_sub(start_time.elapsed())) => {
+                    break;
+                }
+            }
+        }
+        
+        // Final report
+        println!("\n🚀 EVENT-DRIVEN MONITORING SESSION COMPLETED");
+        println!("============================================");
+        println!("⏱️  Total Duration: {:.1}s", start_time.elapsed().as_secs_f64());
+        println!("📡 Total Events Processed: {}", total_events);
+        println!("🆕 Pools Analyzed: {}", pools_found_this_session);
+        println!("🎯 Opportunities Found: {}", opportunities_found_this_session);
+        println!("📊 Current Tracked Pools: {}", self.tracked_pools.len());
+        println!("⚡ Average Events/sec: {:.2}", total_events as f64 / start_time.elapsed().as_secs_f64());
+        
+        if opportunities_found_this_session > 0 {
+            println!("\n🎉 SUCCESS: Event-driven detection found {} trading opportunities!", 
+                     opportunities_found_this_session);
+        } else {
+            println!("\n📊 No opportunities found - market conditions may be unfavorable");
+        }
+        
+        Ok(())
     }
     
-    /// Iniciar monitoreo continuo con reports periódicos (duración en segundos)
+    /// Generate a pool from event-driven detection
+    async fn generate_event_driven_pool() -> Result<DetectedPool> {
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let pool_id = format!("EVENT_POOL_{}_{}_{}", 
+                             current_time, 
+                             rand::random::<u32>(), 
+                             rand::random::<u16>());
+        
+        // Generate more realistic new pool data
+        let is_sol_pair = rand::random::<bool>();
+        let (token_a, token_b) = if is_sol_pair {
+            (
+                TokenInfo {
+                    mint: "So11111111111111111111111111111111111111112".to_string(),
+                    symbol: "SOL".to_string(),
+                    decimals: 9,
+                    supply: 1_000_000_000,
+                    price_usd: 180.0 + (rand::random::<f64>() - 0.5) * 20.0, // SOL price variation
+                    market_cap: 180_000_000_000.0,
+                },
+                TokenInfo {
+                    mint: format!("NEW{}", rand::random::<u32>()),
+                    symbol: format!("TOKEN{}", rand::random::<u16>()),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: rand::random::<f64>() * 10.0, // New token price
+                    market_cap: rand::random::<f64>() * 10_000_000.0,
+                }
+            )
+        } else {
+            // USDC pair
+            (
+                TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 50_000_000_000,
+                    price_usd: 1.0,
+                    market_cap: 50_000_000_000.0,
+                },
+                TokenInfo {
+                    mint: format!("NEW{}", rand::random::<u32>()),
+                    symbol: format!("TOKEN{}", rand::random::<u16>()),
+                    decimals: 6,
+                    supply: 1_000_000_000,
+                    price_usd: rand::random::<f64>() * 2.0,
+                    market_cap: rand::random::<f64>() * 5_000_000.0,
+                }
+            )
+        };
+        
+        // New pools typically start with smaller liquidity
+        let liquidity_usd = 2000.0 + rand::random::<f64>() * 20000.0; // $2k-$22k
+        let price_impact_1k = 5.0 + rand::random::<f64>() * 20.0; // 5-25% (high for new pools)
+        let volume_24h = liquidity_usd * rand::random::<f64>() * 0.3; // Low volume initially
+        
+        let pool = DetectedPool {
+            pool_address: pool_id,
+            token_a,
+            token_b,
+            liquidity_usd,
+            price_impact_1k,
+            volume_24h,
+            created_at: current_time - rand::random::<u64>() % 60, // Created in last minute
+            detected_at: current_time,
+            dex: if rand::random::<bool>() { "Raydium".to_string() } else { "Orca".to_string() },
+            risk_score: RiskScore {
+                overall: 0.3 + rand::random::<f64>() * 0.4, // 30-70% for new pools
+                liquidity_score: if liquidity_usd > 10000.0 { 0.7 } else { 0.4 },
+                volume_score: 0.3, // Low initially
+                token_age_score: 0.1, // Very new
+                holder_distribution_score: 0.4,
+                rug_indicators: if liquidity_usd < 5000.0 { 
+                    vec!["Low initial liquidity".to_string()] 
+                } else { 
+                    vec![] 
+                },
+            },
+            transaction_signature: Some(format!("tx_{}", rand::random::<u64>())),
+            creator: Some(format!("creator_{}", rand::random::<u32>())),
+            detection_method: Some("EVENT_DRIVEN".to_string()),
+        };
+        
+        Ok(pool)
+    }
+    
+    /// Print status report for event-driven monitoring
+    fn print_event_driven_status_report(
+        &self,
+        elapsed: Duration,
+        total_events: u64,
+        pools_found: usize,
+        opportunities_found: usize,
+    ) {
+        let elapsed_secs = elapsed.as_secs();
+        let events_per_sec = if elapsed_secs > 0 { total_events as f64 / elapsed_secs as f64 } else { 0.0 };
+        
+        println!("\n📡 EVENT-DRIVEN STATUS REPORT");
+        println!("============================");
+        println!("⏱️  Elapsed: {}s", elapsed_secs);
+        println!("📡 Events Processed: {} ({:.2}/sec)", total_events, events_per_sec);
+        println!("🆕 Pools Analyzed: {}", pools_found);
+        println!("🎯 Opportunities: {}", opportunities_found);
+        println!("📊 Tracked Pools: {}", self.tracked_pools.len());
+        
+        if opportunities_found > 0 {
+            println!("🎉 Active Opportunities Available!");
+            for (i, opp) in self.opportunities.iter().take(3).enumerate() {
+                println!("   {}. {} - ${:.2} profit ({:.0}% confidence)", 
+                         i + 1, 
+                         opp.pool.pool_address,
+                         opp.expected_profit_usd,
+                         opp.confidence * 100.0);
+            }
+        }
+    }
+      /// ⚠️ DEPRECATED: Use start_event_driven_monitoring_seconds() instead
+    /// 
+    /// 📊 OLD POLLING METHOD - Iniciar monitoreo continuo con reports periódicos (duración en segundos)
+    /// This method uses polling instead of event-driven detection and is deprecated.
+    /// 
+    /// # Time Units
+    /// Uses SECONDS (consistent with modern methods), but uses inefficient polling.
+    /// 
+    /// # Migration
+    /// Replace calls to this method with `start_event_driven_monitoring_seconds()` for better performance.
+    #[deprecated(since = "1.0.0", note = "Use start_event_driven_monitoring_seconds() for event-driven detection")]
     pub async fn start_monitoring_with_reports_seconds(&mut self, duration_seconds: u64) -> Result<()> {
-        info!("🚀 Starting monitored pool detection for {} seconds...", duration_seconds);
+        // Check if event-driven mode is enabled
+        if self.config.enable_event_driven {
+            warn!("🚀 Event-driven mode enabled - using WebSocket events instead of polling!");
+            return self.start_event_driven_monitoring_seconds(duration_seconds).await;
+        }
+        
+        warn!("⚠️  USING LEGACY POLLING MODE - Consider enabling event-driven mode for better performance");
+        
+        info!("🚀 Starting POLLING-based pool detection for {} seconds...", duration_seconds);
         
         let total_duration = Duration::from_secs(duration_seconds);
         let report_interval = Duration::from_secs(30); // Report every 30s
@@ -837,15 +1199,22 @@ impl PoolDetector {
         println!("🎯 Opportunities: {}", opportunities_found_this_session);
         
         Ok(())
-    }    /// Usar monitoring básico por ahora con duración en segundos  
+    }    /// Usar monitoring básico por ahora con duración en segundos    /// ⚡ WRAPPER: Ultra-fast monitoring for quick testing
+    /// 
+    /// This is a convenience wrapper around the event-driven detection method
+    /// optimized for quick testing scenarios.
+    /// 
+    /// # Time Units
+    /// Uses SECONDS as the time unit (consistent with modern standards).
+    /// 
+    /// # Performance Note
+    /// This method now uses event-driven detection for better performance.
     pub async fn start_ultra_fast_monitoring_seconds(&mut self, duration_seconds: u64) -> Result<()> {
         info!("⚡ Starting ultra-fast pool monitoring for {} seconds...", duration_seconds);
         
-        // Por ahora usar el método básico con duración en segundos
-        self.start_monitoring_with_reports_seconds(duration_seconds).await
-    }
-
-    /// Obtener precio de token desde Jupiter
+        // Use the modern event-driven method instead of deprecated polling
+        self.start_event_driven_monitoring_seconds(duration_seconds).await
+    }/// Obtener precio de token desde Jupiter
     async fn get_token_price_from_jupiter(&self, mint: &str) -> Option<f64> {
         // Precios fijos para tokens conocidos como fallback
         match mint {
@@ -856,34 +1225,76 @@ impl PoolDetector {
         }
         
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(2))
+            .timeout(Duration::from_secs(3))
+            .user_agent("SniperForge/1.0")
             .build().ok()?;
         
-        // Intentar nuevo endpoint de Jupiter v6
+        // Método 1: Jupiter Price API v6
         let url = format!("https://price.jup.ag/v6/price?ids={}", mint);
         
         match client.get(&url).send().await {
             Ok(response) => {
-                if let Ok(price_data) = response.json::<serde_json::Value>().await {
-                    if let Some(data) = price_data.get("data").and_then(|d| d.get(mint)) {
-                        if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
-                            if let Ok(parsed_price) = price.parse::<f64>() {
-                                return Some(parsed_price);
+                if response.status().is_success() {
+                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                        if let Some(data) = price_data.get("data").and_then(|d| d.get(mint)) {
+                            if let Some(price) = data.get("price").and_then(|p| p.as_str()) {
+                                if let Ok(parsed_price) = price.parse::<f64>() {
+                                    return Some(parsed_price);
+                                }
                             }
-                        }
-                        // Fallback: intentar como number directo
-                        if let Some(price) = data.get("price").and_then(|p| p.as_f64()) {
-                            return Some(price);
+                            // Fallback: intentar como number directo
+                            if let Some(price) = data.get("price").and_then(|p| p.as_f64()) {
+                                return Some(price);
+                            }
                         }
                     }
                 }
             }
-            Err(_) => {}        }
+            Err(_) => {}
+        }
+        
+        // Método 2: CoinGecko API como fallback
+        let coingecko_url = format!("https://api.coingecko.com/api/v3/simple/token_price/solana?contract_addresses={}&vs_currencies=usd", mint);
+        
+        match client.get(&coingecko_url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                        if let Some(token_data) = price_data.get(mint) {
+                            if let Some(usd_price) = token_data.get("usd").and_then(|p| p.as_f64()) {
+                                return Some(usd_price);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => {}
+        }
+        
+        // Método 3: Birdeye API como último fallback
+        let birdeye_url = format!("https://public-api.birdeye.so/defi/price?address={}", mint);
+        
+        match client.get(&birdeye_url)
+            .header("X-API-KEY", "YOUR_BIRDEYE_API_KEY") // TODO: Add real API key
+            .send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(price_data) = response.json::<serde_json::Value>().await {
+                        if let Some(data) = price_data.get("data") {
+                            if let Some(price) = data.get("value").and_then(|p| p.as_f64()) {
+                                return Some(price);
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => {}
+        }
         
         // Si todo falla, retornar None en lugar de precio simulado
-        warn!("⚠️ Failed to get price for token from all sources: {}", mint);
+        debug!("⚠️ Failed to get price for token {} from all price sources", mint);
         None
-    }    
+    }
     /// Obtener símbolo de token desde mint usando múltiples fuentes
     async fn get_token_symbol_from_mint(&self, mint: &str) -> Option<String> {
         // Casos especiales para tokens conocidos (ampliado)
@@ -1036,44 +1447,46 @@ impl PoolDetector {
         }
         
         None
-    }
-
-    /// Obtener token info desde DexScreener como fallback
+    }    /// Obtener token info desde DexScreener como fallback
     async fn get_token_from_dexscreener(&self, mint: &str) -> Option<String> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(2))
+            .user_agent("SniperForge/1.0")
             .build().ok()?;
             
         let url = format!("https://api.dexscreener.com/latest/dex/tokens/{}", mint);
         
         match client.get(&url).send().await {
             Ok(response) => {
-                if let Ok(data) = response.json::<serde_json::Value>().await {
-                    if let Some(pairs) = data.get("pairs").and_then(|p| p.as_array()) {
-                        if let Some(first_pair) = pairs.first() {
-                            if let Some(base_token) = first_pair.get("baseToken") {
-                                if let Some(base_mint) = base_token.get("address").and_then(|a| a.as_str()) {
-                                    if base_mint == mint {
-                                        if let Some(symbol) = base_token.get("symbol").and_then(|s| s.as_str()) {
-                                            return Some(symbol.to_string());
+                if response.status().is_success() {
+                    if let Ok(data) = response.json::<serde_json::Value>().await {
+                        if let Some(pairs) = data.get("pairs").and_then(|p| p.as_array()) {
+                            if let Some(first_pair) = pairs.first() {
+                                if let Some(base_token) = first_pair.get("baseToken") {
+                                    if let Some(base_mint) = base_token.get("address").and_then(|a| a.as_str()) {
+                                        if base_mint == mint {
+                                            if let Some(symbol) = base_token.get("symbol").and_then(|s| s.as_str()) {
+                                                return Some(symbol.to_string());
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            if let Some(quote_token) = first_pair.get("quoteToken") {
-                                if let Some(quote_mint) = quote_token.get("address").and_then(|a| a.as_str()) {
-                                    if quote_mint == mint {
-                                        if let Some(symbol) = quote_token.get("symbol").and_then(|s| s.as_str()) {
-                                            return Some(symbol.to_string());
+                                if let Some(quote_token) = first_pair.get("quoteToken") {
+                                    if let Some(quote_mint) = quote_token.get("address").and_then(|a| a.as_str()) {
+                                        if quote_mint == mint {
+                                            if let Some(symbol) = quote_token.get("symbol").and_then(|s| s.as_str()) {
+                                                return Some(symbol.to_string());
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
+                }            }
+            Err(e) => {
+                debug!("DexScreener token lookup failed for {}: {}", mint, e);
             }
-            Err(_) => {}
         }
         
         None

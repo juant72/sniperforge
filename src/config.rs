@@ -15,6 +15,8 @@ pub struct Config {
     pub bots: BotsConfig,
     pub development: DevelopmentConfig,
     pub performance: PerformanceConfig,
+    pub pool_detection: Option<PoolDetectionConfig>, // New for Phase 5B
+    pub trading_session: Option<TradingSessionConfig>, // New for Phase 5B
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -172,6 +174,29 @@ pub struct WalletEnvironmentConfig {
     pub initial_balance_sol: Option<f64>,
     pub virtual_balance_sol: Option<f64>,
     pub max_trade_amount_sol: f64,
+}
+
+// New configurations for Phase 5B - Pool Detection
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PoolDetectionConfig {
+    pub min_liquidity_usd: Option<f64>,
+    pub max_price_impact_1k: Option<f64>,
+    pub min_risk_score: Option<f64>,
+    pub monitoring_interval_ms: Option<u64>,
+    pub max_tracked_pools: Option<u64>,
+    pub min_profit_threshold_usd: Option<f64>,
+    pub min_confidence_score: Option<f64>,
+    pub max_execution_time_ms: Option<u64>,
+    pub enable_new_pool_detection: Option<bool>,
+    pub enable_websocket_triggers: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TradingSessionConfig {
+    pub default_max_capital: Option<f64>,
+    pub default_max_trade: Option<f64>,
+    pub default_daily_limit: Option<f64>,
+    pub default_duration_minutes: Option<u64>,
 }
 
 impl Config {
@@ -401,8 +426,9 @@ impl Default for Config {
                     initial_balance_sol: Some(0.5),
                     virtual_balance_sol: Some(0.1),
                     max_trade_amount_sol: 0.01,
-                },
-            }),
+                },            }),
+            pool_detection: None, // Will be loaded from config file
+            trading_session: None, // Will be loaded from config file
         }
     }
 }

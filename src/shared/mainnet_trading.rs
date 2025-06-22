@@ -161,13 +161,17 @@ impl MainNetTradingEngine {
             TradeExecutor::new(platform_config.clone(), TradingMode::MainNetReal).await?
         );        // Initialize pool detector for opportunity detection
         let jupiter_config = JupiterConfig::mainnet();
-        let jupiter_client = JupiterClient::new(&jupiter_config).await?;
-        let detector_config = PoolDetectorConfig {
-            min_liquidity_usd: 1000.0, // Reduced from 5x trade size - more realistic
-            max_price_impact_1k: 5.0, // Increased to 5% for more opportunities  
-            min_risk_score: 0.5, // Reduced to 50% for more opportunities
-            monitoring_interval_ms: 2000, // Faster 2s intervals
-            max_tracked_pools: 50, // More pools to track
+        let jupiter_client = JupiterClient::new(&jupiter_config).await?;        let detector_config = PoolDetectorConfig {
+            min_liquidity_usd: 500.0, // Very low threshold for testing
+            max_price_impact_1k: 15.0, // Much higher price impact allowed
+            min_risk_score: 0.1, // Very low risk threshold (10%)
+            monitoring_interval_ms: 1000, // Faster 1s intervals
+            max_tracked_pools: 100, // Many more pools to track
+            min_profit_threshold_usd: 1.0, // Minimum $1 profit for testing
+            min_confidence_score: 0.6, // 60% confidence minimum
+            max_execution_time_ms: 5000, // 5 seconds max execution time
+            enable_event_driven: true, // ✅ Enable event-driven detection
+            enable_new_pool_events: true, // ✅ Enable new pool events
         };
         let pool_detector = Arc::new(Mutex::new(
             PoolDetector::new(detector_config, jupiter_client, None, None).await?
