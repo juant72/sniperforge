@@ -369,14 +369,20 @@ cargo outdated  # Verificar deps desactualizadas
 
 ```bash
 cd c:\work\encrypia\labs\sniperforge
-cargo run -- test cache-free-trading
+cargo run -- test mainnet-real-trading --test-mode --max-capital 20 --max-trade 2 --duration 5
 ```
 
-**Si hay errores, revisar:**
+**⚠️ CRITICAL UPDATE - PHASE 5B EN PROGRESO:**
 
-- `src/shared/real_time_trading.rs` (últimas ediciones manuales)
-- `src/cli.rs` (últimas ediciones manuales)
-- Ejecutar `cargo check` primero
+- **Phase 5A**: ✅ COMPLETADA (real-time-trading DevNet funcional)
+- **Phase 5B**: 🔥 EN PROGRESO ACTIVO (MainNet testing)
+  - ✅ Test Mode: Validado exitosamente
+  - ✅ Wallet Management: DevNet + MainNet paper wallets
+  - ✅ Risk Controls: Capital limits y safety measures
+  - ⏳ Live Mode Preparation: En curso
+  - 📅 Target: Primera operación real profitable en MainNet (hoy)
+
+**Estado actual (22 Jun 2025, 13:12)**: Sistema listo para transición a live trading
 
 ---
 
