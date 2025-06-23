@@ -13,7 +13,6 @@ pub mod websocket_rpc_test;
 pub mod ultimate_rpc_test;
 pub mod strategies;
 pub mod analysis;
-pub mod cli_phase6a;
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;

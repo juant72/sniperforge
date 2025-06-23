@@ -8,15 +8,34 @@ use solana_sdk::signer::{Signer, keypair::Keypair};
 use sniperforge::{Config, SniperForgePlatform, solana_testing};
 use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
 use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
-use sniperforge::shared::wallet_manager::WalletManager;
+use sniperforge::strategies::{TrendFollowingStrategy, MeanReversionStrategy, MomentumStrategy, ArbitrageStrategy};
+use sniperforge::analysis::{MultiTimeframeAnalyzer, PatternRecognizer};
 
-// Phase 6A imports for advanced strategies and analysis
-use sniperforge::strategies::trend_following::TrendFollowingStrategy;
-use sniperforge::strategies::mean_reversion::MeanReversionStrategy;
-use sniperforge::strategies::momentum::MomentumStrategy;
-use sniperforge::strategies::arbitrage::ArbitrageStrategy;
-use sniperforge::analysis::timeframe::MultiTimeframeAnalyzer;
-use sniperforge::analysis::patterns::PatternRecognizer;
+/// Show help information early (before logging setup)
+pub fn show_help_early() {
+    println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
+    println!("{}", "═══════════════════════════════════════════════════".bright_blue());
+    println!();
+    println!("{}", "Usage: cargo run -- [COMMAND] [OPTIONS]".bright_white());
+    println!();
+    println!("{}", "Available commands:".bright_cyan().bold());
+    println!("  🚀 {} - Start the platform", "start".bright_green());
+    println!("  📊 {} - Show platform status", "status".bright_blue());
+    println!("  ⚙️  {} - Show configuration", "config".bright_cyan());
+    println!("  💰 {} - Wallet management", "wallet".bright_yellow());
+    println!("  🧪 {} - Run tests", "test".bright_purple());
+    println!("  🎯 {} - Multi-strategy trading", "multi-strategy-trading".bright_magenta());
+    println!("  📈 {} - Strategy backtesting", "strategy-backtest".bright_cyan());
+    println!("  🔍 {} - Pattern analysis", "pattern-analysis".bright_blue());
+    println!("  ⚡ {} - Arbitrage opportunities", "arbitrage-scan".bright_yellow());
+    println!();
+    println!("{}", "Examples:".bright_white().bold());
+    println!("  cargo run -- test all");
+    println!("  cargo run -- multi-strategy-trading --strategies trend,momentum --duration 60");
+    println!("  cargo run -- strategy-backtest --strategy trend --period 7");
+    println!();
+    println!("Use {} for detailed help on any command", "cargo run -- [COMMAND] --help".bright_white());
+}
 
 pub async fn run_cli() -> Result<()> {
     let matches = Command::new("SniperForge CLI")
@@ -58,7 +77,6 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("integration").about("Test complete integration flow"))
                 .subcommand(Command::new("performance").about("Test performance and latency"))        )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
-        // Phase 6A Commands
         .subcommand(
             Command::new("multi-strategy-trading")
                 .about("🎯 PHASE 6A: Execute multiple trading strategies concurrently")
@@ -167,18 +185,13 @@ pub async fn run_cli() -> Result<()> {
                     .value_name("FILE")
                     .help("Export arbitrage opportunities to JSON file"))
         )
-        .get_matches();    match matches.subcommand() {
+        .get_matches();match matches.subcommand() {
         Some(("start", sub_matches)) => handle_start_command(sub_matches).await?,
         Some(("status", _)) => handle_status_command().await?,
         Some(("config", _)) => handle_config_command().await?,
         Some(("wallet", sub_matches)) => handle_wallet_command(sub_matches).await?,
         Some(("test", sub_matches)) => handle_test_command(sub_matches).await?,
         Some(("interactive", _)) => handle_interactive_command().await?,
-        // Phase 6A command handlers
-        Some(("multi-strategy-trading", sub_matches)) => handle_multi_strategy_trading_command(sub_matches).await?,
-        Some(("strategy-backtest", sub_matches)) => handle_strategy_backtest_command(sub_matches).await?,
-        Some(("pattern-analysis", sub_matches)) => handle_pattern_analysis_command(sub_matches).await?,
-        Some(("arbitrage-scan", sub_matches)) => handle_arbitrage_scan_command(sub_matches).await?,
         _ => {
             println!("{}", "No command specified. Use --help for available commands.".yellow());
             show_main_menu().await?;
@@ -293,33 +306,21 @@ async fn handle_test_all_command() -> Result<()> {
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
     let tests = vec![
-        "Basic Connectivity",
-        "Solana RPC", 
-        "Jupiter API",
-        "Wallet Functions",
-        "WebSocket",
-        "Trade Execution",
-        "Integration Flow",
+        ("Basic Connectivity", handle_test_basic_command()),
+        ("Solana RPC", handle_test_solana_command()),
+        ("Jupiter API", handle_test_jupiter_command()),
+        ("Wallet Functions", handle_test_wallet_command()),
+        ("WebSocket", handle_test_websocket_command()),
+        ("Trade Execution", handle_test_trade_command()),
+        ("Integration Flow", handle_test_integration_command()),
     ];
     
     let mut passed = 0;
     let total = tests.len();
     
-    for test_name in tests {
+    for (test_name, test_future) in tests {
         println!("\n{} {}", "🏃".bright_blue(), test_name.bright_white().bold());
-        
-        let result = match test_name {
-            "Basic Connectivity" => handle_test_basic_command().await,
-            "Solana RPC" => handle_test_solana_command().await,
-            "Jupiter API" => handle_test_jupiter_command().await,
-            "Wallet Functions" => handle_test_wallet_command().await,
-            "WebSocket" => handle_test_websocket_command().await,
-            "Trade Execution" => handle_test_trade_command().await,
-            "Integration Flow" => handle_test_integration_command().await,
-            _ => Ok(()),
-        };
-        
-        match result {
+        match test_future.await {
             Ok(_) => {
                 passed += 1;
                 println!("{} {} completed", "✅".bright_green(), test_name);
@@ -335,7 +336,32 @@ async fn handle_test_all_command() -> Result<()> {
     if passed == total {
         println!("{}", "🎉 All tests passed!".bright_green().bold());
     } else {
-        println!("{} Some tests failed. Check logs above.", "⚠️".bright_yellow());
+        println!("{} Some tests failed. Check logs above.".bright_yellow(), "⚠️");
+    }
+    
+    Ok(())
+}
+
+async fn handle_test_basic_command() -> Result<()> {
+    println!("{}", "🧪 Running Basic Connectivity Tests".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    // Test RPC connection
+    print!("🌐 Testing RPC connection... ");
+    io::stdout().flush()?;
+    
+    match solana_testing::test_rpc_connection().await {
+        Ok(_) => println!("{}", "✅ OK".bright_green()),
+        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+    }
+    
+    // Test basic wallet creation
+    print!("💰 Testing wallet creation... ");
+    io::stdout().flush()?;
+    
+    match solana_testing::test_wallet_creation().await {
+        Ok(_) => println!("{}", "✅ OK".bright_green()),
+        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
     
     Ok(())
@@ -346,7 +372,8 @@ async fn handle_test_websocket_command() -> Result<()> {
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
     use sniperforge::simple_testing::test_websocket_basic;
-      test_websocket_basic().await;
+    
+    test_websocket_basic().await;
     
     println!("{}", "🎉 WebSocket tests completed!".bright_green());
     Ok(())
@@ -364,15 +391,11 @@ async fn handle_test_basic_command() -> Result<()> {
     Ok(())
 }
 
-// Duplicate function removed - keeping the first implementation
-
 async fn handle_test_solana_command() -> Result<()> {
     println!("{}", "🧪 Testing Solana Connectivity".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
-    use sniperforge::simple_testing::test_basic_integration;
-    test_basic_integration().await;
-    
+    solana_testing::run_all_tests().await?;
     Ok(())
 }
 
@@ -419,7 +442,59 @@ async fn handle_test_wallets_command() -> Result<()> {
     Ok(())
 }
 
-// Duplicate function removed - using the first implementation above
+async fn handle_test_all_command() -> Result<()> {
+    println!("{}", "🧪 Running System Tests".bright_blue().bold());
+    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    // Test configuration loading
+    print!("📋 Loading configuration... ");
+    io::stdout().flush()?;
+    match Config::load("config/platform.toml") {
+        Ok(config) => {
+            println!("{}", "✅ OK".bright_green());
+            
+            // Test configuration validation
+            print!("🔍 Validating configuration... ");
+            io::stdout().flush()?;
+            match config.validate() {
+                Ok(_) => println!("{}", "✅ OK".bright_green()),
+                Err(e) => {
+                    println!("{} {}", "❌ FAILED:".bright_red(), e);
+                    return Ok(());
+                }
+            }
+            
+            // Test RPC connection
+            print!("🌐 Testing RPC connection... ");
+            io::stdout().flush()?;
+            match test_rpc_connection(config.network.primary_rpc()).await {
+                Ok(_) => println!("{}", "✅ OK".bright_green()),
+                Err(e) => {
+                    println!("{} {}", "❌ FAILED:".bright_red(), e);
+                      // Try backup RPCs
+                    for (i, backup_rpc) in config.network.backup_rpc().iter().enumerate() {
+                        print!("🌐 Testing backup RPC {}... ", i + 1);
+                        io::stdout().flush()?;
+                        match test_rpc_connection(backup_rpc).await {
+                            Ok(_) => {
+                                println!("{}", "✅ OK".bright_green());
+                                break;
+                            },
+                            Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("{} {}", "❌ FAILED:".bright_red(), e);
+            return Ok(());
+        }
+    }
+    
+    println!("\n{}", "✅ Basic system tests completed".bright_green().bold());
+    Ok(())
+}
 
 async fn handle_interactive_command() -> Result<()> {
     println!("{}", "🎮 Interactive Monitoring Mode".bright_blue().bold());
@@ -616,7 +691,7 @@ async fn handle_test_jupiter_command() -> Result<()> {
     let output_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC
     let amount = 1000000; // 0.001 SOL
     
-    match client.get_quote(input_mint, output_mint, amount, None).await {
+    match client.get_quote(input_mint, output_mint, amount).await {
         Ok(quote) => {
             println!("{}", "✅ OK".bright_green());
             println!("   Input: {} lamports", quote.in_amount);
@@ -629,14 +704,11 @@ async fn handle_test_jupiter_command() -> Result<()> {
     // Test price lookup
     print!("💰 Testing price API... ");
     io::stdout().flush()?;
-      match client.get_price("So11111111111111111111111111111111111111112").await {
+    
+    match client.get_price("So11111111111111111111111111111111111111112").await {
         Ok(price) => {
             println!("{}", "✅ OK".bright_green());
-            if let Some(p) = price {
-                println!("   SOL price: ${:.2}", p);
-            } else {
-                println!("   SOL price: Not available");
-            }
+            println!("   SOL price: ${:.2}", price.price);
         }
         Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
@@ -655,18 +727,22 @@ async fn handle_test_wallet_command() -> Result<()> {
     print!("👛 Testing wallet creation... ");
     io::stdout().flush()?;
     
-    let config = Config::load("config/platform.toml")?;
-    match WalletManager::new(&config).await {
-        Ok(_wallet) => {
-            println!("{}", "✅ OK".bright_green());            println!("   Pubkey: {}", "wallet_address_placeholder");
+    match WalletManager::new() {
+        Ok(wallet) => {
+            println!("{}", "✅ OK".bright_green());
+            println!("   Pubkey: {}", wallet.get_pubkey());
             
-            // Test balance check (simplified)
+            // Test balance check
             print!("💰 Testing balance check... ");
             io::stdout().flush()?;
             
-            // Simplified balance check
-            println!("{}", "✅ OK".bright_green());
-            println!("   Balance: {} SOL", "0.0");
+            match wallet.get_balance().await {
+                Ok(balance) => {
+                    println!("{}", "✅ OK".bright_green());
+                    println!("   Balance: {} SOL", balance);
+                }
+                Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+            }
         }
         Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
@@ -685,11 +761,11 @@ async fn handle_test_trade_command() -> Result<()> {
     print!("🏗️ Testing trade executor creation... ");
     io::stdout().flush()?;
     
-    let config = Config::load("config/platform.toml")?;
-    match TradeExecutor::new(config, TradingMode::Simulation).await {
-        Ok(_executor) => {
+    match TradeExecutor::new().await {
+        Ok(executor) => {
             println!("{}", "✅ OK".bright_green());
-            println!("   Mode: {}", "Simulation".bright_cyan());
+            println!("   Max slippage: {}%", executor.max_slippage_bps as f64 / 100.0);
+            println!("   Priority fee: {} lamports", executor.priority_fee_lamports);
             
             // Test trade validation (without execution)
             print!("🔍 Testing trade validation... ");
@@ -723,386 +799,60 @@ async fn handle_test_performance_command() -> Result<()> {
     println!("{}", "⚡ Testing Performance & Latency".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
     
-    println!("📊 Simulating performance tests...");
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    use sniperforge::websocket_testing::test_websocket_performance;
+    use std::time::Instant;
     
-    println!("🌐 RPC Latency: {}ms", "45".bright_green());
-    println!("� Jupiter Quote Time: {}ms", "120".bright_green());
-    println!("🔍 Pattern Analysis Time: {}ms", "250".bright_green());
-    println!("💾 Memory Usage: {}MB", "85".bright_yellow());
+    // Test RPC latency
+    print!("🌐 Testing RPC latency... ");
+    io::stdout().flush()?;
     
-    println!("{}", "🎉 Performance tests completed!".bright_green().bold());
-    Ok(())
-}
-/// Show help information early (before logging setup)
-pub fn show_help_early() {
-    println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
-    println!("{}", "═══════════════════════════════════════════════════".bright_blue());
-    println!();
-    println!("{}", "Usage: cargo run -- [COMMAND] [OPTIONS]".bright_white());
-    println!();
-    println!("{}", "Available commands:".bright_cyan().bold());
-    println!("  🚀 {} - Start the platform", "start".bright_green());
-    println!("  📊 {} - Show platform status", "status".bright_blue());
-    println!("  ⚙️  {} - Show configuration", "config".bright_cyan());
-    println!("  💰 {} - Wallet management", "wallet".bright_yellow());
-    println!("  🧪 {} - Run tests", "test".bright_purple());
-    println!("  🎯 {} - Multi-strategy trading", "multi-strategy-trading".bright_magenta());
-    println!("  📈 {} - Strategy backtesting", "strategy-backtest".bright_cyan());
-    println!("  🔍 {} - Pattern analysis", "pattern-analysis".bright_blue());
-    println!("  ⚡ {} - Arbitrage opportunities", "arbitrage-scan".bright_yellow());
-    println!();
-    println!("{}", "Examples:".bright_white().bold());
-    println!("  cargo run -- test all");
-    println!("  cargo run -- multi-strategy-trading --strategies trend,momentum --duration 60");
-    println!("  cargo run -- strategy-backtest --strategy trend --period 7");    println!();
-    println!("Use {} for detailed help on any command", "cargo run -- [COMMAND] --help".bright_white());
-}
-
-// =============================================================================
-// PHASE 6A COMMAND HANDLERS
-// =============================================================================
-
-async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🎯 PHASE 6A: Multi-Strategy Trading Engine".bright_magenta().bold());
-    println!("{}", "═══════════════════════════════════════════".bright_magenta());
-    
-    let strategies_str = matches.get_one::<String>("strategies").unwrap();
-    let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
-    let capital_per_strategy: f64 = matches.get_one::<String>("capital-per-strategy").unwrap().parse()?;
-    let timeframes_str = matches.get_one::<String>("timeframes").unwrap();
-    
-    let strategies: Vec<&str> = strategies_str.split(',').collect();
-    let timeframes: Vec<&str> = timeframes_str.split(',').collect();
-    
-    println!("📊 Configuration:");
-    println!("   • Strategies: {}", strategies.join(", "));
-    println!("   • Capital per strategy: ${:.2}", capital_per_strategy);
-    println!("   • Duration: {}s", duration);
-    println!("   • Timeframes: {}", timeframes.join(", "));
-    
-    // Initialize strategy engines
-    let mut active_strategies = Vec::new();
-    
-    for strategy in &strategies {
-        match *strategy {
-            "trend" => {
-                println!("🔄 Initializing Trend Following Strategy...");
-                let _trend_strategy = TrendFollowingStrategy::new();
-                active_strategies.push(format!("Trend Following"));
-            },
-            "momentum" => {
-                println!("⚡ Initializing Momentum Strategy...");
-                let _momentum_strategy = MomentumStrategy::new();
-                active_strategies.push(format!("Momentum"));
-            },
-            "mean-reversion" => {
-                println!("🔄 Initializing Mean Reversion Strategy...");
-                let _mean_reversion_strategy = MeanReversionStrategy::new();
-                active_strategies.push(format!("Mean Reversion"));
-            },
-            "arbitrage" => {
-                println!("⚡ Initializing Arbitrage Strategy...");
-                let _arbitrage_strategy = ArbitrageStrategy::new();
-                active_strategies.push(format!("Arbitrage"));
-            },
-            _ => {
-                println!("{}", format!("⚠️  Unknown strategy: {}", strategy).yellow());
-            }
+    let start = Instant::now();
+    match solana_testing::test_rpc_connection().await {
+        Ok(_) => {
+            let latency = start.elapsed();
+            println!("{} ({:?})", "✅ OK".bright_green(), latency);
         }
+        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
     
-    // Initialize multi-timeframe analyzer
-    println!("📈 Initializing Multi-Timeframe Analyzer...");
-    let _analyzer = MultiTimeframeAnalyzer::new();
+    // Test WebSocket performance
+    println!("🔌 Testing WebSocket performance...");
+    test_websocket_performance().await;
     
-    println!("\n🚀 Starting Multi-Strategy Trading Session...");
-    println!("   Active Strategies: {}", active_strategies.join(", "));
+    // Test Jupiter API latency
+    print!("🪐 Testing Jupiter API latency... ");
+    io::stdout().flush()?;
     
-    // Simulate trading session
-    let start_time = std::time::Instant::now();
-    let mut total_pnl = 0.0;
-    let mut total_trades = 0;
-    
-    while start_time.elapsed().as_secs() < duration {
-        // Simulate strategy execution cycle
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-        
-        // Mock strategy results
-        for strategy_name in &active_strategies {
-            let mock_pnl = (rand::random::<f64>() - 0.5) * 10.0; // -5 to +5 USD
-            total_pnl += mock_pnl;
-            total_trades += 1;
-            
-            println!("📊 {} - PnL: ${:.2}", strategy_name, mock_pnl);
-        }
-        
-        println!("💰 Session Total PnL: ${:.2} | Trades: {}", total_pnl, total_trades);
-        println!("⏱️  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
-        println!();
-    }
-    
-    println!("{}", "✅ Multi-Strategy Trading Session Complete!".bright_green().bold());
-    println!("📊 Final Results:");
-    println!("   • Total PnL: ${:.2}", total_pnl);
-    println!("   • Total Trades: {}", total_trades);
-    println!("   • Active Strategies: {}", active_strategies.len());
-    println!("   • Session Duration: {}s", duration);
-    
-    Ok(())
-}
-
-async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "📈 PHASE 6A: Strategy Backtesting Engine".bright_cyan().bold());
-    println!("{}", "══════════════════════════════════════════".bright_cyan());
-    
-    let strategy = matches.get_one::<String>("strategy").unwrap();
-    let period: u64 = matches.get_one::<String>("period").unwrap().parse()?;
-    let initial_capital: f64 = matches.get_one::<String>("initial-capital").unwrap().parse()?;
-    let export_file = matches.get_one::<String>("export");
-    
-    println!("📊 Backtest Configuration:");
-    println!("   • Strategy: {}", strategy);
-    println!("   • Historical Period: {} days", period);
-    println!("   • Initial Capital: ${:.2}", initial_capital);
-    
-    // Initialize strategy for backtesting
-    match strategy.as_str() {
-        "trend" => {
-            println!("🔄 Backtesting Trend Following Strategy...");
-            let _trend_strategy = TrendFollowingStrategy::new();
-        },
-        "momentum" => {
-            println!("⚡ Backtesting Momentum Strategy...");
-            let _momentum_strategy = MomentumStrategy::new();
-        },
-        "mean-reversion" => {
-            println!("🔄 Backtesting Mean Reversion Strategy...");
-            let _mean_reversion_strategy = MeanReversionStrategy::new();
-        },
-        "arbitrage" => {
-            println!("⚡ Backtesting Arbitrage Strategy...");
-            let _arbitrage_strategy = ArbitrageStrategy::new();
-        },
-        "all" => {
-            println!("🎯 Backtesting All Strategies...");
-            let _trend_strategy = TrendFollowingStrategy::new();
-            let _momentum_strategy = MomentumStrategy::new();
-            let _mean_reversion_strategy = MeanReversionStrategy::new();
-            let _arbitrage_strategy = ArbitrageStrategy::new();
-        },
-        _ => {
-            println!("{}", format!("❌ Unknown strategy: {}", strategy).red());
+    let start = Instant::now();
+    let config = sniperforge::shared::jupiter::JupiterConfig::default();
+    let client = match sniperforge::shared::jupiter::JupiterClient::new(&config).await {
+        Ok(c) => c,
+        Err(e) => {
+            println!("{} {}", "❌ FAILED:".bright_red(), e);
             return Ok(());
         }
-    }
-    
-    println!("\n🚀 Running Backtest Simulation...");
-    
-    // Simulate backtest execution
-    let mut current_capital = initial_capital;
-    let mut total_trades = 0;
-    let mut winning_trades = 0;
-    let mut losing_trades = 0;
-    
-    for day in 1..=period {
-        // Simulate daily trading
-        let daily_trades = rand::random::<u8>() % 5 + 1; // 1-5 trades per day
-        
-        for _ in 0..daily_trades {
-            total_trades += 1;
-            let trade_pnl = (rand::random::<f64>() - 0.4) * 50.0; // Slightly positive bias
-            current_capital += trade_pnl;
-            
-            if trade_pnl > 0.0 {
-                winning_trades += 1;
-            } else {
-                losing_trades += 1;
-            }
+    };
+    match client.get_price("So11111111111111111111111111111111111111112").await {
+        Ok(_) => {
+            let latency = start.elapsed();
+            println!("{} ({:?})", "✅ OK".bright_green(), latency);
         }
-        
-        if day % 2 == 0 {
-            println!("Day {}: Capital = ${:.2}, Trades = {}", day, current_capital, daily_trades);
-        }
+        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
     
-    let total_return = current_capital - initial_capital;
-    let return_percentage = (total_return / initial_capital) * 100.0;
-    let win_rate = (winning_trades as f64 / total_trades as f64) * 100.0;
-    
-    println!("\n{}", "✅ Backtest Complete!".bright_green().bold());
-    println!("📊 Performance Summary:");
-    println!("   • Initial Capital: ${:.2}", initial_capital);
-    println!("   • Final Capital: ${:.2}", current_capital);
-    println!("   • Total Return: ${:.2} ({:.2}%)", total_return, return_percentage);
-    println!("   • Total Trades: {}", total_trades);
-    println!("   • Win Rate: {:.1}% ({}/{})", win_rate, winning_trades, total_trades);
-    println!("   • Losing Trades: {}", losing_trades);
-    
-    // Export results if requested
-    if let Some(file) = export_file {
-        println!("💾 Exporting results to: {}", file);
-        // TODO: Implement JSON export
-    }
-    
+    println!("{}", "🎉 Performance tests completed!".bright_green());
     Ok(())
 }
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter("info")
+        .init();
 
-async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🔍 PHASE 6A: Market Pattern Analysis".bright_blue().bold());
-    println!("{}", "═══════════════════════════════════".bright_blue());
-    
-    let pattern_type = matches.get_one::<String>("pattern-type").unwrap();
-    let timeframe = matches.get_one::<String>("timeframe").unwrap();
-    let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
-    let export_file = matches.get_one::<String>("export");
-    
-    println!("📊 Analysis Configuration:");
-    println!("   • Pattern Type: {}", pattern_type);
-    println!("   • Timeframe: {}", timeframe);
-    println!("   • Duration: {}s", duration);
-    
-    // Initialize pattern recognizer
-    println!("🔍 Initializing Pattern Recognition Engine...");
-    let _pattern_recognizer = PatternRecognizer::new();
-    
-    println!("\n🚀 Starting Pattern Analysis...");
-    
-    let start_time = std::time::Instant::now();
-    let mut detected_patterns = Vec::new();
-    
-    while start_time.elapsed().as_secs() < duration {
-        tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
-        
-        // Simulate pattern detection
-        match pattern_type.as_str() {
-            "support-resistance" => {
-                let pattern = format!("Support at $45.20, Resistance at $47.80");
-                detected_patterns.push(pattern.clone());
-                println!("📊 Detected: {}", pattern);
-            },
-            "breakout" => {
-                let pattern = format!("Bullish breakout above $46.50");
-                detected_patterns.push(pattern.clone());
-                println!("📈 Detected: {}", pattern);
-            },
-            "reversal" => {
-                let pattern = format!("Potential reversal pattern forming");
-                detected_patterns.push(pattern.clone());
-                println!("🔄 Detected: {}", pattern);
-            },
-            "all" => {
-                let patterns = vec![
-                    "Support level at $45.80",
-                    "Resistance at $48.20",
-                    "Ascending triangle formation",
-                    "RSI divergence detected"
-                ];
-                for pattern in &patterns {
-                    detected_patterns.push(pattern.to_string());
-                    println!("🔍 Detected: {}", pattern);
-                }
-            },
-            _ => {
-                println!("{}", format!("⚠️  Unknown pattern type: {}", pattern_type).yellow());
-            }
-        }
-        
-        println!("⏱️  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
-        println!();
-    }
-    
-    println!("{}", "✅ Pattern Analysis Complete!".bright_green().bold());
-    println!("📊 Analysis Results:");
-    println!("   • Patterns Detected: {}", detected_patterns.len());
-    println!("   • Analysis Duration: {}s", duration);
-    println!("   • Timeframe: {}", timeframe);
-    
-    println!("\n🔍 Detected Patterns:");
-    for (i, pattern) in detected_patterns.iter().enumerate() {
-        println!("   {}. {}", i + 1, pattern);
-    }
-    
-    // Export results if requested
-    if let Some(file) = export_file {
-        println!("\n💾 Exporting pattern analysis to: {}", file);
-        // TODO: Implement JSON export
-    }
-    
-    Ok(())
-}
-
-async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "⚡ PHASE 6A: Arbitrage Opportunity Scanner".bright_yellow().bold());
-    println!("{}", "════════════════════════════════════════════".bright_yellow());
-    
-    let min_profit: f64 = matches.get_one::<String>("min-profit").unwrap().parse()?;
-    let max_slippage: f64 = matches.get_one::<String>("max-slippage").unwrap().parse()?;
-    let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
-    let export_file = matches.get_one::<String>("export");
-    
-    println!("📊 Scanner Configuration:");
-    println!("   • Minimum Profit: ${:.2}", min_profit);
-    println!("   • Max Slippage: {:.1}%", max_slippage);
-    println!("   • Scan Duration: {}s", duration);
-    
-    // Initialize arbitrage strategy
-    println!("⚡ Initializing Arbitrage Scanner...");
-    let _arbitrage_strategy = ArbitrageStrategy::new();
-    
-    println!("\n🚀 Starting Arbitrage Scan...");
-    println!("🔍 Monitoring DEX price differences...");
-    
-    let start_time = std::time::Instant::now();
-    let mut opportunities_found = 0;
-    let mut total_potential_profit = 0.0;
-    
-    while start_time.elapsed().as_secs() < duration {
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-        
-        // Simulate arbitrage opportunity detection
-        let profit = rand::random::<f64>() * 20.0; // 0-20 USD potential profit
-        
-        if profit >= min_profit {
-            opportunities_found += 1;
-            total_potential_profit += profit;
-            
-            println!("💰 Arbitrage Opportunity Detected!");
-            println!("   • Pair: SOL/USDC");
-            println!("   • DEX A Price: ${:.4}", 45.20 + rand::random::<f64>() * 0.1);
-            println!("   • DEX B Price: ${:.4}", 45.25 + rand::random::<f64>() * 0.1);
-            println!("   • Potential Profit: ${:.2}", profit);
-            println!("   • Estimated Slippage: {:.2}%", rand::random::<f64>() * max_slippage);
-            println!();
-        }
-        
-        if start_time.elapsed().as_secs() % 15 == 0 {
-            println!("📊 Scan Progress: {}s / {}s | Opportunities: {}", 
-                start_time.elapsed().as_secs(), duration, opportunities_found);
-        }
-    }
-    
-    println!("{}", "✅ Arbitrage Scan Complete!".bright_green().bold());
-    println!("📊 Scan Results:");
-    println!("   • Opportunities Found: {}", opportunities_found);
-    println!("   • Total Potential Profit: ${:.2}", total_potential_profit);
-    println!("   • Average Profit per Opportunity: ${:.2}", 
-        if opportunities_found > 0 { total_potential_profit / opportunities_found as f64 } else { 0.0 });
-    println!("   • Scan Duration: {}s", duration);
-    
-    if opportunities_found > 0 {
-        println!("\n⚡ Arbitrage Efficiency:");
-        println!("   • Opportunities per minute: {:.1}", 
-            (opportunities_found as f64 / duration as f64) * 60.0);
-        println!("   • Profit rate: ${:.2}/min", 
-            (total_potential_profit / duration as f64) * 60.0);
-    }
-    
-    // Export results if requested
-    if let Some(file) = export_file {
-        println!("\n💾 Exporting arbitrage scan results to: {}", file);
-        // TODO: Implement JSON export
-    }
+    // This is a placeholder CLI main function
+    // In practice, this would have proper CLI argument parsing
+    println!("SniperForge CLI - Use the main binary for full functionality");
     
     Ok(())
 }

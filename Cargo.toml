@@ -5,7 +5,7 @@ edition = "2021"
 
 [[bin]]
 name = "sniperforge"
-path = "src/main_phase6a.rs"
+path = "src/main.rs"
 
 [lib]
 name = "sniperforge"
