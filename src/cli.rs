@@ -344,9 +344,9 @@ async fn handle_test_all_command() -> Result<()> {
 async fn handle_test_websocket_command() -> Result<()> {
     println!("{}", "🔌 Testing WebSocket Connectivity".bright_blue().bold());
     println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+      use sniperforge::simple_testing::test_websocket_basic;
     
-    use sniperforge::simple_testing::test_websocket_basic;
-      test_websocket_basic().await;
+    test_websocket_basic().await;
     
     println!("{}", "🎉 WebSocket tests completed!".bright_green());
     Ok(())
@@ -595,9 +595,9 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
 }
 
 async fn handle_test_jupiter_command() -> Result<()> {
-    println!("{}", "🪐 Testing Jupiter API Integration".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
-      use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
+    println!("{}", "🪐 Testing Jupiter API Integration".bright_blue().bold());    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    
+    use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
     
     let config = JupiterConfig::default();
     let client = match JupiterClient::new(&config).await {
@@ -626,10 +626,10 @@ async fn handle_test_jupiter_command() -> Result<()> {
         Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
     }
     
-    // Test price lookup
-    print!("💰 Testing price API... ");
+    // Test price lookup    print!("💰 Testing price API... ");
     io::stdout().flush()?;
-      match client.get_price("So11111111111111111111111111111111111111112").await {
+    
+    match client.get_price("So11111111111111111111111111111111111111112").await {
         Ok(price) => {
             println!("{}", "✅ OK".bright_green());
             if let Some(p) = price {
