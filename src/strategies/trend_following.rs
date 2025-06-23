@@ -256,9 +256,7 @@ impl TrendFollowingStrategy {
 impl TradingStrategy for TrendFollowingStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }
-
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
         // Only analyze if we have sufficient data
         if market_data.price_history.len() < 20 {
             return Ok(None);

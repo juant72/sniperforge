@@ -2,8 +2,11 @@ use anyhow::Result;
 use clap::{Arg, ArgMatches, Command};
 use colored::*;
 
-use sniperforge::strategies::{TrendFollowingStrategy, MeanReversionStrategy, MomentumStrategy, ArbitrageStrategy};
-use sniperforge::analysis::{MultiTimeframeAnalyzer, PatternRecognizer};
+use crate::strategies::trend_following::TrendFollowingStrategy;
+use crate::strategies::mean_reversion::MeanReversionStrategy;
+use crate::strategies::momentum::MomentumStrategy;
+use crate::strategies::arbitrage::ArbitrageStrategy;
+use crate::analysis::{MultiTimeframeAnalyzer, PatternRecognizer};
 
 pub async fn run_cli() -> Result<()> {
     let matches = Command::new("SniperForge CLI - Phase 6A")

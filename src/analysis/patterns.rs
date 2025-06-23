@@ -165,10 +165,8 @@ impl PatternRecognizer {
 
         if prices.len() < 20 {
             return Ok(patterns);
-        }
-
-        let highs: Vec<f64> = prices.iter().map(|p| p.high).collect();
-        let lows: Vec<f64> = prices.iter().map(|p| p.low).collect();
+        }        let highs: Vec<f64> = prices.iter().map(|p| p.high).collect();
+        let _lows: Vec<f64> = prices.iter().map(|p| p.low).collect();
 
         // Look for head and shoulders pattern
         for i in 10..highs.len()-10 {
@@ -506,7 +504,7 @@ impl PatternRecognizer {
     }
 
     // Helper methods for calculations
-    fn find_local_maximum(&self, data: &[f64], start_offset: usize, global_offset: usize) -> Result<Option<usize>> {
+    fn find_local_maximum(&self, data: &[f64], _start_offset: usize, global_offset: usize) -> Result<Option<usize>> {
         if data.len() < 3 {
             return Ok(None);
         }
@@ -517,9 +515,7 @@ impl PatternRecognizer {
             }
         }
         Ok(None)
-    }
-
-    fn find_local_minimum(&self, data: &[f64], start_offset: usize, global_offset: usize) -> Result<Option<usize>> {
+    }    fn find_local_minimum(&self, data: &[f64], _start_offset: usize, global_offset: usize) -> Result<Option<usize>> {
         if data.len() < 3 {
             return Ok(None);
         }
@@ -590,19 +586,15 @@ impl PatternRecognizer {
 
     fn calculate_support_level(&self, lows: &[f64]) -> f64 {
         lows.iter().fold(f64::INFINITY, |a, &b| a.min(b))
-    }
-
-    fn analyze_pattern_volume(&self, volumes: &[VolumePoint], start_idx: usize, end_idx: usize) -> PatternVolumeProfile {
-        if volumes.is_empty() || start_idx >= volumes.len() || end_idx >= volumes.len() {
+    }    fn analyze_pattern_volume(&self, _volumes: &[VolumePoint], start_idx: usize, end_idx: usize) -> PatternVolumeProfile {
+        if _volumes.is_empty() || start_idx >= _volumes.len() || end_idx >= _volumes.len() {
             return PatternVolumeProfile {
                 volume_confirmation: false,
                 volume_trend: "Unknown".to_string(),
                 breakout_volume: None,
                 average_volume: 0.0,
             };
-        }
-
-        let pattern_volumes: Vec<f64> = volumes[start_idx..=end_idx].iter().map(|v| v.volume).collect();
+        }        let pattern_volumes: Vec<f64> = _volumes[start_idx..=end_idx].iter().map(|v| v.volume).collect();
         let average_volume = pattern_volumes.iter().sum::<f64>() / pattern_volumes.len() as f64;
 
         let volume_trend = if pattern_volumes.len() >= 2 {
@@ -723,9 +715,7 @@ impl PatternRecognizer {
         targets.truncate(5); // Keep top 5 targets
 
         targets
-    }
-
-    fn check_volume_confirmation(&self, patterns: &[Pattern], volumes: &[VolumePoint]) -> bool {
+    }    fn check_volume_confirmation(&self, patterns: &[Pattern], _volumes: &[VolumePoint]) -> bool {
         if !self.volume_confirmation_enabled || patterns.is_empty() {
             return true; // Default to true if not checking volume
         }

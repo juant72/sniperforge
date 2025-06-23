@@ -293,9 +293,7 @@ impl ArbitrageStrategy {
 impl TradingStrategy for ArbitrageStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }
-
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
         // Arbitrage requires real-time price data from multiple sources
         // For this analysis, we'll simulate having multiple exchange prices
 

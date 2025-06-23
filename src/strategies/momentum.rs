@@ -299,9 +299,7 @@ impl MomentumStrategy {
 impl TradingStrategy for MomentumStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }
-
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
         // Need sufficient data for momentum analysis
         if market_data.price_history.len() < 20 {
             return Ok(None);

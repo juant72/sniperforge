@@ -489,9 +489,7 @@ impl MultiTimeframeAnalyzer {
         let max_aligned = bullish_count.max(bearish_count);
 
         max_aligned as f64 / total_count as f64
-    }
-
-    fn determine_entry_timing(&self, analyses: &HashMap<Timeframe, TimeframeAnalysis>, alignment: f64) -> EntryTiming {
+    }    fn determine_entry_timing(&self, _analyses: &HashMap<Timeframe, TimeframeAnalysis>, alignment: f64) -> EntryTiming {
         if alignment >= 0.8 {
             EntryTiming::Immediate
         } else if alignment >= 0.6 {

@@ -140,9 +140,7 @@ impl MeanReversionStrategy {
 
         let stoch_k = ((current - lowest) / (highest - lowest)) * 100.0;
         Some(stoch_k)
-    }
-
-    fn detect_support_resistance(&self, prices: &[f64], volume: &[f64]) -> Option<(f64, f64)> {
+    }    fn detect_support_resistance(&self, prices: &[f64], _volume: &[f64]) -> Option<(f64, f64)> {
         if prices.len() < 30 {
             return None;
         }
@@ -299,9 +297,7 @@ impl MeanReversionStrategy {
 impl TradingStrategy for MeanReversionStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }
-
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
         // Need sufficient price history for mean reversion analysis
         if market_data.price_history.len() < 30 {
             return Ok(None);
