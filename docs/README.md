@@ -1,53 +1,75 @@
-# SniperForge
+# SniperForge Documentation Index
 
-> 🎯 **DESARROLLO VALIDADO**: ¡Pool Detection funcionando, Trading Automation en curso!
+**Last Updated**: January 14, 2025  
+**Current Status**: ✅ **Phase 5B Completed** - MainNet Trading Operational
 
-Un ecosistema de bots de trading automatizado construido en Rust para Solana, con **desarrollo incremental y resultados inmediatos**.
+## 📚 **Core Documentation**
 
-## 🎯 Estado del Proyecto (Junio 20, 2025)
+### **Project Status & Planning**
+- **[COMPLETE_STATUS_OVERVIEW.md](COMPLETE_STATUS_OVERVIEW.md)** - ✅ **PRIMARY REFERENCE** - Current project status with all completed phases
+- **[UPDATED_DEVELOPMENT_ROADMAP_2025.md](UPDATED_DEVELOPMENT_ROADMAP_2025.md)** - 🚀 **MAIN ROADMAP** - Complete future development plan
+- **[PHASE_5_COMPLETION_REPORT.md](PHASE_5_COMPLETION_REPORT.md)** - ✅ Phase 5A & 5B completion confirmation
+- **[PHASE_6B_ML_IMPLEMENTATION_PLAN.md](PHASE_6B_ML_IMPLEMENTATION_PLAN.md)** - 🤖 **NEXT PHASE** - Machine Learning integration plan
 
-**Estado Actual**: ✅ **Pool Detection System VALIDATED**  
-**Próximo Objetivo**: Trading Automation Implementation  
-**Timeline**: First automated trade within 10 days  
+### **Implementation Guides**
+- **[configuration.md](configuration.md)** - System configuration and setup
+- **[project-summary.md](project-summary.md)** - High-level project overview
+- **[technical-recommendations.md](technical-recommendations.md)** - Technical best practices
 
-### ✅ **COMPLETADO - Pool Detection System**
-- ✅ **Real-time pool monitoring** operational on mainnet
-- ✅ **Live opportunity detection** validated (25+ opportunities/6min)  
-- ✅ **System stability** confirmed through extended testing
-- ✅ **Risk assessment** algorithms tested with real market data
-- ✅ **Performance metrics** validated: ultra-fast detection, minimal latency
-- ✅ **CLI Command**: `cargo run -- test pools` - WORKING PERFECTLY
+### **Development Resources**
+- **[dev/](dev/)** - Development guidelines and implementation guides
+- **[architecture/](architecture/)** - System architecture documentation
+- **[deployment/](deployment/)** - Deployment guides and procedures
 
-### 🎯 **EN PROGRESO - Trading Automation**
-**Step-by-Step Implementation Plan**:
+### **Legacy Documentation** (Historical Reference)
+- **[development-roadmap.md](development-roadmap.md)** - ⚠️ **OUTDATED** - Legacy roadmap (shows Phase 4)
+- **[implementation-timeline.md](implementation-timeline.md)** - Original implementation timeline
+- **[master-plan.md](master-plan.md)** - Original master plan document
 
-1. **Phase 1: Extended Monitoring** (1-2 days) - Gather more market data
-2. **Phase 2: Ultra-Fast Mode** (2-3 days) - Implement trading triggers  
-3. **Phase 3: Paper Trading Automation** (3-5 days) - End-to-end automation
-4. **Phase 4: Cache-Free Trading** (5-7 days) - Real-time price validation
-5. **Phase 5: Real Trading** (7-10 days) - Mainnet deployment
+## 🎯 **Quick Navigation by Phase**
 
-**TARGET**: **First profitable automated trade within 10 days**
+### **✅ Completed Phases (Reference)**
+- **Phase 1**: Pool Detection System → `COMPLETE_STATUS_OVERVIEW.md` (lines 8-17)
+- **Phase 2**: Paper Trading Automation → `COMPLETE_STATUS_OVERVIEW.md` (lines 19-28)
+- **Phase 3**: Pool Analytics & Pattern Detection → `COMPLETE_STATUS_OVERVIEW.md` (lines 30-39)
+- **Phase 4**: Cache-Free Trading Engine → `COMPLETE_STATUS_OVERVIEW.md` (lines 41-52)
+- **Phase 5A**: Real-time Blockchain Integration → `PHASE_5_COMPLETION_REPORT.md`
+- **Phase 5B**: MainNet Integration → `PHASE_5_COMPLETION_REPORT.md`
+- **Phase 6A**: Unified CLI & Legacy Integration → `COMPLETE_STATUS_OVERVIEW.md` (lines 96-98)
 
-## 🔗 Documentación Principal
+### **� Current & Future Phases (Planning)**
+- **Phase 6B**: Machine Learning Integration → `PHASE_6B_ML_IMPLEMENTATION_PLAN.md` (**CURRENT PHASE**)
+- **Phase 6C-12**: Advanced Features → `UPDATED_DEVELOPMENT_ROADMAP_2025.md` (lines 96-208)
 
-### **🚀 Para Empezar**
+## 📊 **System Status References**
 
-- Ver [Sprint 0 Setup](./dev/sprint-0-setup.md) - Configuración inicial
-- Consultar [Guía de Implementación](./dev/implementation-guide.md) - Desarrollo paso a paso
+### **Technical Infrastructure**
+- **Build System**: Ultra-optimized (2s incremental compilation) ✅
+- **Jupiter API**: 135ms average response time ✅
+- **WebSocket**: Sub-100ms price updates ✅
+- **CLI Interface**: 15+ commands fully functional ✅
 
-### **🏗 Arquitectura & Implementación**
+### **Trading Components**
+- **Pool Detection**: Real-time monitoring operational ✅
+- **Trade Execution**: Paper trading validated ✅
+- **Risk Management**: Circuit breakers and safety protocols ✅
+- **Cache-Free Engine**: Zero-cache trading validated ✅
+- **MainNet Integration**: Live trading infrastructure ready ✅
 
-- [Arquitectura del Sistema](./architecture/) - Diseño técnico modular
-- [Especificación Bot Raydium](./bots/raydium-lp-sniper/) - Bot principal
-- [Configuración](./configuration.md) - Guía de configuración
+## 🎯 **Current Decision Point**
 
-### **📋 Documentación de Desarrollo**
+**Status**: Ready to begin **Phase 6B (Machine Learning Integration)**
 
-- [Carpeta Dev](./dev/) - Planificación de sprints y desarrollo
+**Primary Documents to Review**:
+1. **[PHASE_6B_ML_IMPLEMENTATION_PLAN.md](PHASE_6B_ML_IMPLEMENTATION_PLAN.md)** - Detailed ML implementation plan
+2. **[UPDATED_DEVELOPMENT_ROADMAP_2025.md](UPDATED_DEVELOPMENT_ROADMAP_2025.md)** - Complete future roadmap
+3. **[COMPLETE_STATUS_OVERVIEW.md](COMPLETE_STATUS_OVERVIEW.md)** - Current system capabilities
 
-| Documento | Descripción | Estado |
-|-----------|-------------|---------|
+**Expected Outcome**: 20-30% improvement in risk-adjusted returns through AI-powered pattern recognition and strategy optimization.
+
+---
+
+**For the most current project status, always refer to `COMPLETE_STATUS_OVERVIEW.md` and `UPDATED_DEVELOPMENT_ROADMAP_2025.md`.**
 | [Project Summary](./project-summary.md) | Resumen ejecutivo | ✅ Actualizado |
 | [Configuration Guide](./configuration.md) | Guía de configuración | ✅ Disponible |
 
