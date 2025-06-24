@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use rand::{Rng, thread_rng};
+use crate::strategies::MarketData;
 
 use super::{StrategyOptimizerConfig, MLPrediction, FeatureVector};
 
@@ -96,12 +97,10 @@ impl StrategyOptimizer {
             fitness_history: Vec::new(),
             last_optimization: Utc::now(),
         })
-    }
-
-    /// Optimize trading strategy parameters using genetic algorithm
+    }    /// Optimize trading strategy parameters using genetic algorithm
     pub async fn optimize_parameters(
         &mut self,
-        historical_data: &[crate::types::MarketData],
+        historical_data: &[MarketData],
         initial_parameters: &HashMap<String, f64>,
     ) -> Result<HashMap<String, f64>> {
         let start_time = std::time::Instant::now();
@@ -201,7 +200,7 @@ impl StrategyOptimizer {
         Ok(())
     }
 
-    async fn evaluate_population(&mut self, historical_data: &[crate::types::MarketData]) -> Result<()> {
+    async fn evaluate_population(&mut self, historical_data: &[MarketData]) -> Result<()> {
         for individual in &mut self.population {
             if individual.fitness.is_none() {
                 let fitness = self.evaluate_individual(individual, historical_data).await?;
@@ -227,10 +226,9 @@ impl StrategyOptimizer {
         Ok(())
     }
 
-    async fn evaluate_individual(
-        &self, 
+    async fn evaluate_individual(        &self, 
         individual: &Individual, 
-        historical_data: &[crate::types::MarketData]
+        historical_data: &[MarketData]
     ) -> Result<FitnessScore> {
         // Run backtest with individual's parameters
         let backtest_result = self.run_backtest(&individual.parameters, historical_data).await?;
@@ -239,12 +237,10 @@ impl StrategyOptimizer {
         let fitness = self.calculate_fitness(&backtest_result)?;
         
         Ok(fitness)
-    }
-
-    async fn run_backtest(
+    }    async fn run_backtest(
         &self,
         parameters: &HashMap<String, f64>,
-        historical_data: &[crate::types::MarketData]
+        historical_data: &[MarketData]
     ) -> Result<BacktestResult> {
         let mut trades = Vec::new();
         let mut equity_curve = Vec::new();
@@ -317,13 +313,11 @@ impl StrategyOptimizer {
             volatility,
             trade_details: trades,
         })
-    }
-
-    fn should_enter_position(
+    }    fn should_enter_position(
         &self,
-        market_data: &crate::types::MarketData,
+        market_data: &MarketData,
         parameters: &HashMap<String, f64>,
-        historical_data: &[crate::types::MarketData],
+        historical_data: &[MarketData],
         current_index: usize,
     ) -> Option<String> {
         // Simple RSI-based entry strategy

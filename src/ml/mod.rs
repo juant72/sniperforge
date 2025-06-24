@@ -23,6 +23,7 @@ pub use data_preprocessor::{DataPreprocessor, ProcessedFeatures, RawMarketData, 
 pub use model_manager::{ModelManager, ModelMetadata, ModelType, PerformanceMetrics};
 
 use anyhow::Result;
+use crate::strategies::MarketData;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
@@ -277,14 +278,13 @@ impl MLEngine {
             data_preprocessor,
             model_manager,
             metrics: MLMetrics::new(),
-        })
-    }
+        })    }
 
     /// Generate comprehensive ML prediction for a trading opportunity
     pub async fn predict_trading_opportunity(
         &mut self,
         symbol: &str,
-        market_data: &crate::types::MarketData,
+        market_data: &MarketData,
     ) -> Result<MLPrediction> {
         // Preprocess data
         let features = self.data_preprocessor
@@ -341,7 +341,7 @@ impl MLEngine {
     /// Optimize trading strategy using genetic algorithms
     pub async fn optimize_strategy(
         &mut self,
-        historical_data: &[crate::types::MarketData],
+        historical_data: &[MarketData],
         strategy_params: &HashMap<String, f64>,
     ) -> Result<HashMap<String, f64>> {
         self.strategy_optimizer
