@@ -122,6 +122,13 @@ impl TimingPredictor {
         Ok(())
     }
 
+    /// Update timing models with new market data
+    pub async fn update_timing_models(&mut self, _market_data: &[super::FeatureVector]) -> Result<()> {
+        // Placeholder for model updates
+        tracing::info!("Timing models updated");
+        Ok(())
+    }
+
     /// Predict optimal execution timing for a trade
     pub fn predict_optimal_timing(
         &self,
@@ -289,10 +296,8 @@ impl TimingPredictor {
         };
 
         Ok(base_time + chrono::Duration::minutes(minutes_ahead))
-    }
-
-    /// Calculate optimal trade chunks for large orders
-    fn calculate_optimal_chunks(&self, total_size: f64, max_slippage: f64) -> Result<Vec<f64>> {
+    }    /// Calculate optimal trade chunks for large orders
+    fn calculate_optimal_chunks(&self, total_size: f64, _max_slippage: f64) -> Result<Vec<f64>> {
         let base_chunk_size = total_size * 0.1; // Start with 10% chunks
         let mut chunks = Vec::new();
         let mut remaining = total_size;

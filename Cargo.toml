@@ -89,6 +89,9 @@ metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.0"
 sysinfo = "0.35.2"
 
+# Temporary files for ML model storage
+tempfile = "3.8"
+
 [dev-dependencies]
 assert_matches = "1.5"
 mockall = "0.13.1"

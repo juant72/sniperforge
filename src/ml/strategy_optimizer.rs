@@ -107,10 +107,9 @@ impl StrategyOptimizer {
         
         // Initialize population
         self.initialize_population(initial_parameters).await?;
-        
-        // Run genetic algorithm
+          // Run genetic algorithm
         for generation in 0..self.config.generations {
-            self.generation = generation;
+            self.generation = generation as u32;
             
             // Evaluate fitness for all individuals
             self.evaluate_population(historical_data).await?;
@@ -198,14 +197,20 @@ impl StrategyOptimizer {
         
         tracing::info!("Initialized population with {} individuals", self.population.len());
         Ok(())
-    }
-
-    async fn evaluate_population(&mut self, historical_data: &[MarketData]) -> Result<()> {
-        for individual in &mut self.population {
+    }    async fn evaluate_population(&mut self, historical_data: &[MarketData]) -> Result<()> {
+        let mut fitness_values = Vec::new();
+          for individual in &self.population {
             if individual.fitness.is_none() {
                 let fitness = self.evaluate_individual(individual, historical_data).await?;
-                individual.fitness = Some(fitness);
+                fitness_values.push(fitness);
+            } else {
+                fitness_values.push(individual.fitness.clone().unwrap());
             }
+        }
+        
+        // Update fitness values
+        for (i, fitness) in fitness_values.into_iter().enumerate() {
+            self.population[i].fitness = Some(fitness);
         }
         
         // Update best individual
@@ -247,17 +252,15 @@ impl StrategyOptimizer {
         let mut current_equity = 10000.0; // Starting capital
         let mut position: Option<Position> = None;
         
-        for (i, market_data) in historical_data.iter().enumerate() {
-            let price = market_data.price;
+        for (i, market_data) in historical_data.iter().enumerate() {            let price = market_data.current_price;
             equity_curve.push(current_equity);
             
             // Simple strategy implementation for backtesting
             if let Some(pos) = &position {
                 // Check exit conditions
                 let should_exit = self.should_exit_position(pos, price, parameters);
-                
-                if should_exit {
-                    let exit_time = market_data.timestamp;
+                  if should_exit {
+                    let exit_time = Utc::now(); // Use current time since MarketData doesn't have timestamp
                     let pnl = (price - pos.entry_price) * pos.quantity;
                     let return_pct = pnl / (pos.entry_price * pos.quantity);
                     
@@ -282,9 +285,8 @@ impl StrategyOptimizer {
                 if let Some(signal) = self.should_enter_position(market_data, parameters, historical_data, i) {
                     let position_size = parameters.get("position_size").unwrap_or(&0.1);
                     let quantity = (current_equity * position_size) / price;
-                    
-                    position = Some(Position {
-                        entry_time: market_data.timestamp,
+                      position = Some(Position {
+                        entry_time: Utc::now(), // Use current time since MarketData doesn't have timestamp
                         entry_price: price,
                         quantity,
                         trade_type: signal,
@@ -328,14 +330,13 @@ impl StrategyOptimizer {
         let volume_threshold = parameters.get("volume_threshold").unwrap_or(&1.5);
         
         // Calculate simple RSI
-        let recent_prices: Vec<f64> = historical_data[current_index-14..=current_index]
-            .iter().map(|d| d.price).collect();
+        let recent_prices: Vec<f64> = historical_data[current_index-14..=current_index]            .iter().map(|d| d.current_price).collect();
         
         if let Ok(rsi) = self.calculate_simple_rsi(&recent_prices) {
             let avg_volume = historical_data[current_index-10..current_index]
-                .iter().map(|d| d.volume).sum::<f64>() / 10.0;
+                .iter().map(|d| d.volume_24h).sum::<f64>() / 10.0;
             
-            let volume_spike = market_data.volume > avg_volume * volume_threshold;
+            let volume_spike = market_data.volume_24h > avg_volume * volume_threshold;
             
             if rsi < *rsi_oversold && volume_spike {
                 return Some("long".to_string());
@@ -530,9 +531,8 @@ impl StrategyOptimizer {
         while new_population.len() < self.config.population_size {
             let parent1 = self.tournament_selection(&sorted_population);
             let parent2 = self.tournament_selection(&sorted_population);
-            
-            let mut offspring = if rng.gen::<f64>() < self.config.crossover_rate {
-                self.crossover(parent1, parent2)?
+              let mut offspring = if rng.gen::<f64>() < self.config.crossover_rate {
+                self.crossover(&parent1, &parent2)?
             } else {
                 parent1.clone()
             };
@@ -548,13 +548,11 @@ impl StrategyOptimizer {
         
         self.population = new_population;
         Ok(())
-    }
-
-    fn tournament_selection(&self, population: &[Individual]) -> &Individual {
+    }    fn tournament_selection(&self, population: &[Individual]) -> Individual {
         let mut rng = thread_rng();
         let tournament_size = 3;
         
-        let mut best_individual = &population[rng.gen_range(0..population.len())];
+        let mut best_individual = population[rng.gen_range(0..population.len())].clone();
         let mut best_fitness = best_individual.fitness.as_ref().map(|f| f.combined_score).unwrap_or(0.0);
         
         for _ in 1..tournament_size {
@@ -562,7 +560,7 @@ impl StrategyOptimizer {
             let candidate_fitness = candidate.fitness.as_ref().map(|f| f.combined_score).unwrap_or(0.0);
             
             if candidate_fitness > best_fitness {
-                best_individual = candidate;
+                best_individual = candidate.clone();
                 best_fitness = candidate_fitness;
             }
         }

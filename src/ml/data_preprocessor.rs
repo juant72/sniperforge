@@ -4,7 +4,7 @@
 //! Ensures high-quality input data for pattern recognition and optimization.
 
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Datelike, Timelike};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use tracing::{debug, info, warn};
@@ -182,6 +182,39 @@ impl DataPreprocessor {
 
         info!("Successfully processed {} feature vectors", processed_features.len());
         Ok(processed_features)
+    }
+
+    /// Extract features from cleaned market data
+    pub fn extract_features(&self, market_data: &[RawMarketData]) -> Result<Vec<super::FeatureVector>> {
+        let mut feature_vectors = Vec::new();
+        
+        for data in market_data {
+            if let Some(price) = data.price {
+                let mut features = super::FeatureVector::new(data.symbol.clone());
+                
+                // Basic price features
+                features.add_feature("price".to_string(), price);
+                  if let Some(volume) = data.volume {
+                    features.add_feature("volume".to_string(), volume);
+                }
+                
+                // Calculate bid-ask spread if both bid and ask are available
+                if let (Some(bid), Some(ask)) = (data.bid, data.ask) {
+                    let bid_ask_spread = ask - bid;
+                    features.add_feature("bid_ask_spread".to_string(), bid_ask_spread);
+                    features.add_feature("bid".to_string(), bid);
+                    features.add_feature("ask".to_string(), ask);
+                }
+                
+                // Time-based features
+                features.add_feature("hour".to_string(), data.timestamp.hour() as f64);
+                features.add_feature("weekday".to_string(), data.timestamp.weekday().num_days_from_monday() as f64);
+                
+                feature_vectors.push(features);
+            }
+        }
+        
+        Ok(feature_vectors)
     }
 
     /// Clean raw data and handle missing values

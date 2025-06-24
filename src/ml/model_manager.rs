@@ -488,20 +488,20 @@ impl ModelManager {
         } else {
             0.0
         }
-    }
-
-    /// Cleanup old model versions
-    async fn cleanup_old_versions(&mut self, model_type: &ModelType) -> Result<()> {
-        let mut type_models: Vec<_> = self.models
+    }    /// Cleanup old model versions
+    async fn cleanup_old_versions(&mut self, model_type: &ModelType) -> Result<()> {        let mut type_models: Vec<_> = self.models
             .iter()
             .filter(|(_, metadata)| metadata.model_type == *model_type)
+            .map(|(id, metadata)| (id.clone(), metadata.clone()))
             .collect();
 
         // Sort by creation date, newest first
         type_models.sort_by(|a, b| b.1.created_at.cmp(&a.1.created_at));
 
-        if type_models.len() > self.config.max_model_versions {
-            let to_remove = &type_models[self.config.max_model_versions..];
+        if type_models.len() > self.config.max_model_versions {            let to_remove: Vec<_> = type_models[self.config.max_model_versions..]
+                .iter()
+                .map(|(id, metadata)| (id.clone(), metadata.clone()))
+                .collect();
             
             for (model_id, metadata) in to_remove {
                 info!("Removing old model version: {}", model_id);
@@ -514,9 +514,9 @@ impl ModelManager {
                 }
 
                 // Remove from memory and registry
-                self.models.remove(*model_id);
-                self.model_registry.models.remove(*model_id);
-                self.loaded_models.remove(*model_id);
+                self.models.remove(&model_id);
+                self.model_registry.models.remove(&model_id);
+                self.loaded_models.remove(&model_id);
             }
 
             self.save_registry().await?;

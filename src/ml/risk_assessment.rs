@@ -202,20 +202,18 @@ impl RiskAssessor {
         self.correlation_analyzer.systemic_risk_score = correlation_risk;
 
         Ok(correlation_risk)
-    }
-
-    fn calculate_risk_confidence(&self, overall_risk: &f64) -> f64 {
+    }    fn calculate_risk_confidence(&self, overall_risk: &f64) -> f64 {
         // Confidence based on data quality and model certainty
-        let base_confidence = 0.75;
+        let base_confidence: f64 = 0.75;
         
         // Higher confidence for extreme risk levels
-        let risk_adjustment = if *overall_risk > 0.8 || *overall_risk < 0.2 {
+        let risk_adjustment: f64 = if *overall_risk > 0.8 || *overall_risk < 0.2 {
             0.15
         } else {
             0.0
         };
 
-        (base_confidence + risk_adjustment).min(0.95)
+        (base_confidence + risk_adjustment).min(0.95_f64)
     }
 
     fn generate_risk_recommendations(&self, risk_level: &RiskLevel, overall_risk: f64) -> Vec<String> {

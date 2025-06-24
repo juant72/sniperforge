@@ -214,10 +214,9 @@ impl PatternRecognizer {
     /// Predict price movement using LSTM and technical analysis
     pub async fn predict_price_movement(&mut self, features: &FeatureVector) -> Result<MLPrediction> {
         let symbol = &features.symbol;
-        
-        // Extract price and volume data from features
-        let price = features.features.get("price").unwrap_or(&0.0);
-        let volume = features.features.get("volume").unwrap_or(&0.0);
+          // Extract price and volume data from features
+        let _price = features.features.get("price").unwrap_or(&0.0);
+        let _volume = features.features.get("volume").unwrap_or(&0.0);
         
         // For demo purposes, we'll use simplified pattern recognition
         // In production, this would use the full LSTM model
@@ -277,7 +276,7 @@ impl PatternRecognizer {
     }
 
     async fn analyze_technical_indicators(&self, features: &FeatureVector) -> Result<f64> {
-        let mut technical_score = 0.5; // Neutral base
+        let mut technical_score: f64 = 0.5; // Neutral base
         let mut indicator_count = 0;
 
         // RSI analysis
@@ -313,11 +312,9 @@ impl PatternRecognizer {
             } else if bb_position < 0.2 {
                 technical_score -= 0.1; // Near lower band
             }
-        }
-
-        // Normalize score
+        }        // Normalize score
         if indicator_count > 0 {
-            technical_score = technical_score.clamp(0.0, 1.0);
+            technical_score = technical_score.clamp(0.0_f64, 1.0_f64);
         }
 
         Ok(technical_score)
@@ -388,10 +385,8 @@ impl PatternRecognizer {
         
         tracing::info!("Pattern recognition model retrained with {} samples", training_data.len());
         Ok(())
-    }
-
-    /// Get cached patterns for a symbol
-    pub fn get_cached_patterns(&self, symbol: &str) -> Option<&PatternCache> {
+    }    /// Get cached patterns for a symbol (internal use)
+    fn get_cached_patterns(&self, symbol: &str) -> Option<&PatternCache> {
         self.pattern_cache.get(symbol)
     }
 

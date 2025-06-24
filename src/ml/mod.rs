@@ -14,6 +14,7 @@ pub mod risk_assessment;
 pub mod timing_predictor;
 pub mod data_preprocessor;
 pub mod model_manager;
+pub mod advanced_analytics;
 
 pub use pattern_recognition::PatternRecognizer;
 pub use strategy_optimizer::StrategyOptimizer;
@@ -21,6 +22,10 @@ pub use risk_assessment::RiskAssessor;
 pub use timing_predictor::{TimingPredictor, TimingPrediction, ExecutionStrategy, TradeDirection};
 pub use data_preprocessor::{DataPreprocessor, ProcessedFeatures, RawMarketData, DataQuality};
 pub use model_manager::{ModelManager, ModelMetadata, ModelType, PerformanceMetrics};
+pub use advanced_analytics::{
+    AdvancedAnalyticsEngine, AdvancedPrediction, MarketRegime, TradingAction,
+    OptimizationStrategy, RiskAssessment, EnsemblePrediction
+};
 
 use anyhow::Result;
 use crate::strategies::MarketData;
@@ -34,7 +39,7 @@ pub struct MLConfig {
     pub pattern_recognition: PatternRecognitionConfig,
     pub strategy_optimizer: StrategyOptimizerConfig,
     pub risk_assessment: RiskAssessmentConfig,
-    pub timing_predictor: TimingPredictorConfig,
+    pub timing_predictor: timing_predictor::TimingPredictorConfig,
     pub data_retention_days: u32,
     pub model_update_interval_hours: u32,
     pub confidence_threshold: f64,
@@ -66,13 +71,7 @@ pub struct RiskAssessmentConfig {
     pub risk_metrics: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimingPredictorConfig {
-    pub microstructure_features: Vec<String>,
-    pub liquidity_threshold: f64,
-    pub slippage_threshold: f64,
-    pub execution_horizon_seconds: u64,
-}
+
 
 impl Default for MLConfig {
     fn default() -> Self {
@@ -113,17 +112,7 @@ impl Default for MLConfig {
                     "expected_shortfall".to_string(),
                     "volatility".to_string(),
                 ],
-            },
-            timing_predictor: TimingPredictorConfig {
-                microstructure_features: vec![
-                    "bid_ask_spread".to_string(),
-                    "order_book_depth".to_string(),
-                    "trade_intensity".to_string(),
-                ],
-                liquidity_threshold: 10000.0,
-                slippage_threshold: 0.005,
-                execution_horizon_seconds: 300,
-            },
+            },            timing_predictor: timing_predictor::TimingPredictorConfig::default(),
             data_retention_days: 90,
             model_update_interval_hours: 24,
             confidence_threshold: 0.75,
@@ -261,13 +250,11 @@ pub struct MLEngine {
 }
 
 impl MLEngine {
-    pub async fn new(config: MLConfig) -> Result<Self> {
-        let pattern_recognizer = PatternRecognizer::new(config.pattern_recognition.clone()).await?;
+    pub async fn new(config: MLConfig) -> Result<Self> {        let pattern_recognizer = PatternRecognizer::new(config.pattern_recognition.clone()).await?;
         let strategy_optimizer = StrategyOptimizer::new(config.strategy_optimizer.clone()).await?;
         let risk_assessor = RiskAssessor::new(config.risk_assessment.clone()).await?;
-        let timing_predictor = TimingPredictor::new(config.timing_predictor.clone()).await?;
-        let data_preprocessor = DataPreprocessor::new().await?;
-        let model_manager = ModelManager::new().await?;
+        let timing_predictor = TimingPredictor::new(config.timing_predictor.clone());        let data_preprocessor = DataPreprocessor::new(data_preprocessor::DataPreprocessorConfig::default());
+        let model_manager = ModelManager::new(model_manager::ModelManagerConfig::default()).await?;
 
         Ok(Self {
             config,
@@ -285,34 +272,43 @@ impl MLEngine {
         &mut self,
         symbol: &str,
         market_data: &MarketData,
-    ) -> Result<MLPrediction> {
-        // Preprocess data
-        let features = self.data_preprocessor
-            .extract_features(symbol, market_data).await?;
+    ) -> Result<MLPrediction> {        // Convert MarketData to RawMarketData format
+        let raw_data = vec![data_preprocessor::RawMarketData {
+            timestamp: Utc::now(),
+            symbol: symbol.to_string(),
+            price: Some(market_data.current_price),
+            volume: Some(market_data.volume_24h),
+            bid: None, // Not available in MarketData
+            ask: None, // Not available in MarketData
+            trades: None, // Not available in MarketData
+            market_cap: None, // Not available in MarketData
+        }];
+          // Preprocess data
+        let feature_vectors = self.data_preprocessor
+            .extract_features(&raw_data)?;
+            
+        // Use the first feature vector (or combine them if multiple)
+        let features = if let Some(first_features) = feature_vectors.first() {
+            first_features
+        } else {
+            return Err(anyhow::anyhow!("No features extracted from market data"));
+        };
 
         // Get pattern recognition prediction
         let pattern_prediction = self.pattern_recognizer
-            .predict_price_movement(&features).await?;
+            .predict_price_movement(features).await?;
 
         // Get risk assessment
         let risk_score = self.risk_assessor
-            .assess_trade_risk(&features).await?;
-
-        // Get timing recommendation
+            .assess_trade_risk(features).await?;// Get timing recommendation
         let timing_score = self.timing_predictor
-            .predict_optimal_timing(&features).await?;
-
-        // Combine predictions with weighted average
-        let combined_confidence = (
+            .predict_optimal_timing("SOL/USDC", 100.0, TradeDirection::Buy)?;// Combine predictions with weighted average
+        let combined_confidence = 
             pattern_prediction.confidence * 0.4 +
             risk_score.confidence * 0.3 +
-            timing_score.confidence * 0.3
-        );
-
-        let combined_value = (
-            pattern_prediction.value * 0.5 +
-            timing_score.value * 0.5
-        ) * (1.0 - risk_score.value); // Risk adjustment
+            timing_score.confidence * 0.3;        let combined_value = 
+            (pattern_prediction.value * 0.5 +
+            timing_score.confidence * 0.5) * (1.0 - risk_score.value); // Risk adjustment
 
         let mut prediction = MLPrediction::new(
             "combined_trading_opportunity".to_string(),
