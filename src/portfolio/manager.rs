@@ -186,6 +186,8 @@ impl PortfolioManager {
             average_win,
             average_loss,
             correlation_score: 0.5, // Placeholder - would need correlation analysis
+            var_95: total_value * 0.05, // Simple VaR approximation
+            var_99: total_value * 0.08, // Simple VaR approximation
         })
     }
 

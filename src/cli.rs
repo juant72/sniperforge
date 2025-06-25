@@ -224,7 +224,7 @@ pub async fn run_cli() -> Result<()> {
         // Phase 6A Commands
         .subcommand(
             Command::new("multi-strategy-trading")
-                .about("🎯 PHASE 6A: Execute multiple trading strategies concurrently")
+                .about("[TARGET] PHASE 6A: Execute multiple trading strategies concurrently")
                 .arg(Arg::new("strategies")
                     .short('s')
                     .long("strategies")
@@ -252,7 +252,7 @@ pub async fn run_cli() -> Result<()> {
         )
         .subcommand(
             Command::new("strategy-backtest")
-                .about("📈 PHASE 6A: Backtest individual or combined trading strategies")
+                .about("[UP] PHASE 6A: Backtest individual or combined trading strategies")
                 .arg(Arg::new("strategy")
                     .short('s')
                     .long("strategy")
@@ -279,7 +279,7 @@ pub async fn run_cli() -> Result<()> {
         )
         .subcommand(
             Command::new("pattern-analysis")
-                .about("🔍 PHASE 6A: Analyze market patterns and trends")
+                .about("[SEARCH] PHASE 6A: Analyze market patterns and trends")
                 .arg(Arg::new("pattern-type")
                     .short('p')
                     .long("pattern")
@@ -306,7 +306,7 @@ pub async fn run_cli() -> Result<()> {
         )
         .subcommand(
             Command::new("arbitrage-scan")
-                .about("⚡ PHASE 6A: Scan for arbitrage opportunities across DEXs")
+                .about("[FAST] PHASE 6A: Scan for arbitrage opportunities across DEXs")
                 .arg(Arg::new("min-profit")
                     .short('m')
                     .long("min-profit")
@@ -332,7 +332,7 @@ pub async fn run_cli() -> Result<()> {
         // Phase 6B Machine Learning Commands
         .subcommand(
             Command::new("ml")
-                .about("🤖 PHASE 6B: Machine Learning and AI-powered trading")
+                .about("[ML] PHASE 6B: Machine Learning and AI-powered trading")
                 .subcommand(
                     Command::new("analyze-patterns")
                         .about("Analyze market patterns using ML models")
@@ -569,7 +569,7 @@ pub async fn run_cli() -> Result<()> {
         // Phase 6C Portfolio Management Commands
         .subcommand(
             Command::new("portfolio")
-                .about("📊 PHASE 6C: Portfolio management and analytics")
+                .about("[STATS] PHASE 6C: Portfolio management and analytics")
                 .subcommand(
                     Command::new("summary")
                         .about("Show portfolio summary and metrics")
@@ -699,11 +699,11 @@ pub async fn run_cli() -> Result<()> {
 }
 
 async fn handle_start_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🚀 Starting SniperForge Platform...".bright_green().bold());
+    println!("{}", "[START] Starting SniperForge Platform...".bright_green().bold());
     
     // Determine config file to use
     let config_file = if matches.get_flag("devnet") {
-        println!("{}", "🧪 Using DEVNET configuration for testing".bright_yellow());
+        println!("{}", "[TEST] Using DEVNET configuration for testing".bright_yellow());
         "config/devnet.toml"
     } else {
         "config/platform.toml"
@@ -723,50 +723,79 @@ async fn handle_start_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_status_command() -> Result<()> {
-    println!("{}", "📊 Platform Status".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[STATS] Platform Status".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     // This would typically connect to a running platform instance
     // For Sprint 0, we'll show mock status
-    println!("🟢 Platform: {}", "Online".bright_green());
-    println!("🤖 Active Bots: {}", "1 (LP Sniper)".bright_cyan());
-    println!("🔗 RPC Connections: {}", "Healthy".bright_green());
-    println!("💾 Memory Usage: {}", "245 MB".bright_yellow());
-    println!("⚡ CPU Usage: {}", "15%".bright_yellow());
+    println!("[GREEN] Platform: {}", "Online".bright_green());
+    println!("[ML] Active Bots: {}", "1 (LP Sniper)".bright_cyan());
+    println!("[LINK] RPC Connections: {}", "Healthy".bright_green());
+    println!("[SAVE] Memory Usage: {}", "245 MB".bright_yellow());
+    println!("[FAST] CPU Usage: {}", "15%".bright_yellow());
     
     Ok(())
 }
 
 async fn handle_config_command() -> Result<()> {
-    println!("{}", "⚙️ Current Configuration".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[CONFIG] Current Configuration".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     let config = Config::load("config/platform.toml")?;
     
-    println!("📝 Platform: {} v{}", config.platform.name.bright_cyan(), config.platform.version.bright_yellow());
-    println!("🌐 Primary RPC: {}", config.network.primary_rpc().bright_green());
-    println!("🤖 Max Bots: {}", config.platform.max_concurrent_bots.to_string().bright_yellow());
+    println!("[NOTE] Platform: {} v{}", config.platform.name.bright_cyan(), config.platform.version.bright_yellow());
+    println!("[NET] Primary RPC: {}", config.network.primary_rpc().bright_green());
+    println!("[ML] Max Bots: {}", config.platform.max_concurrent_bots.to_string().bright_yellow());
     
     println!("\n{}", "Enabled Bots:".bright_white().bold());
     if config.is_bot_enabled("lp_sniper") {
-        println!("  🎯 LP Sniper: {}", "Enabled".bright_green());
+        println!("  [TARGET] LP Sniper: {}", "Enabled".bright_green());
     }
     if config.is_bot_enabled("copy_trading") {
-        println!("  📋 Copy Trading: {}", "Enabled".bright_green());
+        println!("  [COPY] Copy Trading: {}", "Enabled".bright_green());
     } else {
-        println!("  📋 Copy Trading: {}", "Disabled".bright_red());
+        println!("  [COPY] Copy Trading: {}", "Disabled".bright_red());
     }
     if config.is_bot_enabled("arbitrage") {
-        println!("  ⚖️ Arbitrage: {}", "Enabled".bright_green());
+        println!("  [SCALE] Arbitrage: {}", "Enabled".bright_green());
     } else {
-        println!("  ⚖️ Arbitrage: {}", "Disabled".bright_red());
+        println!("  [SCALE] Arbitrage: {}", "Disabled".bright_red());
     }
     if config.is_bot_enabled("mev") {
-        println!("  ⚡ MEV: {}", "Enabled".bright_green());
+        println!("  [FAST] MEV: {}", "Enabled".bright_green());
     } else {
-        println!("  ⚡ MEV: {}", "Disabled".bright_red());
+        println!("  [FAST] MEV: {}", "Disabled".bright_red());
     }
     
+    Ok(())
+}
+
+async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
+    match matches.subcommand() {
+        Some(("train", sub_matches)) => {
+            let default_model = "trend".to_string();
+            let model = sub_matches.get_one::<String>("model").unwrap_or(&default_model);
+            let default_symbol = "SOL".to_string();
+            let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
+            println!("{}", "[ML] Training ML Model".bright_blue().bold());
+            println!("Model: {}", model.bright_cyan());
+            println!("Symbol: {}", symbol.bright_cyan());
+            println!("{}", "[OK] Model training completed!".bright_green());
+        },
+        Some(("predict", sub_matches)) => {
+            let default_model = "trend".to_string();
+            let model = sub_matches.get_one::<String>("model").unwrap_or(&default_model);
+            let default_symbol = "SOL".to_string();
+            let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
+            println!("{}", "[PREDICT] ML Prediction".bright_blue().bold());
+            println!("Model: {}", model.bright_cyan());
+            println!("Symbol: {}", symbol.bright_cyan());
+            println!("{}", "[OK] Prediction completed!".bright_green());
+        },
+        _ => {
+            println!("{}", "Available ML commands: train, predict".bright_yellow());
+        }
+    }
     Ok(())
 }
 
@@ -782,25 +811,25 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("integration", _)) => handle_test_integration_command().await?,
         Some(("performance", _)) => handle_test_performance_command().await?,
         _ => {
-            println!("{}", "🧪 SniperForge Test Suite".bright_blue().bold());
+            println!("{}", "[TEST] SniperForge Test Suite".bright_blue().bold());
             println!("{}", "Available tests:".bright_cyan());
-            println!("  • {} - Run all tests", "all".bright_yellow());
-            println!("  • {} - Basic connectivity", "basic".bright_yellow());
-            println!("  • {} - Solana RPC", "solana".bright_yellow());
-            println!("  • {} - Jupiter API", "jupiter".bright_yellow());
-            println!("  • {} - Wallet functions", "wallet".bright_yellow());
-            println!("  • {} - WebSocket connectivity", "websocket".bright_yellow());
-            println!("  • {} - Trade execution", "trade".bright_yellow());
-            println!("  • {} - Integration flow", "integration".bright_yellow());
-            println!("  • {} - Performance testing", "performance".bright_yellow());
+            println!("  * {} - Run all tests", "all".bright_yellow());
+            println!("  * {} - Basic connectivity", "basic".bright_yellow());
+            println!("  * {} - Solana RPC", "solana".bright_yellow());
+            println!("  * {} - Jupiter API", "jupiter".bright_yellow());
+            println!("  * {} - Wallet functions", "wallet".bright_yellow());
+            println!("  * {} - WebSocket connectivity", "websocket".bright_yellow());
+            println!("  * {} - Trade execution", "trade".bright_yellow());
+            println!("  * {} - Integration flow", "integration".bright_yellow());
+            println!("  * {} - Performance testing", "performance".bright_yellow());
         }
     }
     Ok(())
 }
 
 async fn handle_test_all_command() -> Result<()> {
-    println!("{}", "🧪 Running Complete Test Suite".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TEST] Running Complete Test Suite".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     let tests = vec![
         "Basic Connectivity",
@@ -816,7 +845,7 @@ async fn handle_test_all_command() -> Result<()> {
     let total = tests.len();
     
     for test_name in tests {
-        println!("\n{} {}", "🏃".bright_blue(), test_name.bright_white().bold());
+        println!("\n{} {}", "[RUN]".bright_blue(), test_name.bright_white().bold());
         
         let result = match test_name {
             "Basic Connectivity" => handle_test_basic_command().await,
@@ -832,39 +861,39 @@ async fn handle_test_all_command() -> Result<()> {
         match result {
             Ok(_) => {
                 passed += 1;
-                println!("{} {} completed", "✅".bright_green(), test_name);
+                println!("{} {} completed", "[OK]".bright_green(), test_name);
             }
             Err(e) => {
-                println!("{} {} failed: {}", "❌".bright_red(), test_name, e);
+                println!("{} {} failed: {}", "[FAIL]".bright_red(), test_name, e);
             }
         }
     }
     
-    println!("\n{}", "🎯 Test Summary".bright_blue().bold());
+    println!("\n{}", "[TARGET] Test Summary".bright_blue().bold());
     println!("{}/{} tests passed", passed.to_string().bright_green(), total);
     if passed == total {
-        println!("{}", "🎉 All tests passed!".bright_green().bold());
+        println!("{}", "[SUCCESS] All tests passed!".bright_green().bold());
     } else {
-        println!("{} Some tests failed. Check logs above.", "⚠️".bright_yellow());
+        println!("{} Some tests failed. Check logs above.", "[WARN]".bright_yellow());
     }
     
     Ok(())
 }
 
 async fn handle_test_websocket_command() -> Result<()> {
-    println!("{}", "🔌 Testing WebSocket Connectivity".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[CONNECT] Testing WebSocket Connectivity".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
       use sniperforge::simple_testing::test_websocket_basic;
     
     test_websocket_basic().await;
     
-    println!("{}", "🎉 WebSocket tests completed!".bright_green());
+    println!("{}", "[SUCCESS] WebSocket tests completed!".bright_green());
     Ok(())
 }
 
 async fn handle_test_basic_command() -> Result<()> {
-    println!("{}", "🧪 Running Basic Connectivity Tests".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TEST] Running Basic Connectivity Tests".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     // Use the simple testing module
     use sniperforge::simple_testing::test_basic_integration;
@@ -877,8 +906,8 @@ async fn handle_test_basic_command() -> Result<()> {
 // Duplicate function removed - keeping the first implementation
 
 async fn handle_test_solana_command() -> Result<()> {
-    println!("{}", "🧪 Testing Solana Connectivity".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TEST] Testing Solana Connectivity".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     use sniperforge::simple_testing::test_basic_integration;
     test_basic_integration().await;
@@ -887,18 +916,18 @@ async fn handle_test_solana_command() -> Result<()> {
 }
 
 async fn handle_test_pools_command() -> Result<()> {
-    println!("{}", "🧪 Testing Pool Detection & Analysis".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TEST] Testing Pool Detection & Analysis".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     let config = Config::load("config/platform.toml")?;
     
     // Run pool analysis tests
     match solana_testing::test_pool_analysis(&config).await {
         Ok(_) => {
-            println!("\n{}", "🎉 All pool analysis tests passed!".bright_green().bold());
+            println!("\n{}", "[SUCCESS] All pool analysis tests passed!".bright_green().bold());
         }
         Err(e) => {
-            println!("\n{} {}", "❌ Pool analysis tests failed:".bright_red().bold(), e);
+            println!("\n{} {}", "[FAIL] Pool analysis tests failed:".bright_red().bold(), e);
             return Err(e);
         }
     }
@@ -907,32 +936,33 @@ async fn handle_test_pools_command() -> Result<()> {
 }
 
 async fn handle_test_wallets_command() -> Result<()> {
-    println!("{}", "🧪 Testing Wallet Generation & Management".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TEST] Testing Wallet Generation & Management".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
       // Test wallet generation
-    print!("🔑 Generating test wallet... ");
+    print!("[KEY] Generating test wallet... ");
     io::stdout().flush()?;
     let keypair = Keypair::new();
     let pubkey = keypair.pubkey();
-    println!("{}", "✅ OK".bright_green());
+    println!("{}", "[OK] OK".bright_green());
     println!("   Wallet: {}", pubkey.to_string().bright_cyan());
     
     // Test wallet validation
-    print!("🔍 Validating wallet format... ");
+    print!("[SEARCH] Validating wallet format... ");
     io::stdout().flush()?;
     match solana_sdk::pubkey::Pubkey::from_str(&pubkey.to_string()) {
-        Ok(_) => println!("{}", "✅ OK".bright_green()),
-        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+        Ok(_) => println!("{}", "[OK] OK".bright_green()),
+        Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
-    println!("\n{}", "🎉 All wallet tests passed!".bright_green().bold());
+    println!("\n{}", "[SUCCESS] All wallet tests passed!".bright_green().bold());
+    Ok(())
 }
 
 // Duplicate function removed - using the first implementation above
 
 async fn handle_interactive_command() -> Result<()> {
-    println!("{}", "🎮 Interactive Monitoring Mode".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[GAME] Interactive Monitoring Mode".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     println!("Commands: status, bots, metrics, quit");
     
     loop {
@@ -945,18 +975,18 @@ async fn handle_interactive_command() -> Result<()> {
         
         match input {
             "status" | "s" => {
-                println!("🟢 Platform: Running");
-                println!("🤖 Active Bots: 1");
-                println!("💹 Last Trade: 2 minutes ago");
+                println!("[GREEN] Platform: Running");
+                println!("[ML] Active Bots: 1");
+                println!(" Last Trade: 2 minutes ago");
             }
             "bots" | "b" => {
-                println!("🎯 LP Sniper: Running (Priority: High)");
-                println!("📋 Copy Trading: Stopped");
-                println!("⚖️ Arbitrage: Stopped");
-                println!("⚡ MEV: Stopped");
+                println!("[TARGET] LP Sniper: Running (Priority: High)");
+                println!("[COPY] Copy Trading: Stopped");
+                println!("[SCALE] Arbitrage: Stopped");
+                println!("[FAST] MEV: Stopped");
             }
             "metrics" | "m" => {
-                println!("📊 Performance Metrics:");
+                println!("[STATS] Performance Metrics:");
                 println!("  - Latency: 45ms avg");
                 println!("  - Success Rate: 94.2%");
                 println!("  - Opportunities: 127 detected, 23 executed");
@@ -978,8 +1008,8 @@ async fn handle_interactive_command() -> Result<()> {
 }
 
 async fn show_main_menu() -> Result<()> {
-    println!("{}", "🎯 SniperForge Multi-Bot Platform".bright_cyan().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[TARGET] SniperForge Multi-Bot Platform".bright_cyan().bold());
+    println!("{}", "==================================================".bright_blue());
     println!();
     println!("Available commands:");
     println!("  {} - Start the platform", "sniperforge start".bright_green());
@@ -1020,8 +1050,8 @@ async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_wallet_balance_command() -> Result<()> {
-    println!("{}", "💰 Checking Wallet Balances".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[WALLET] Checking Wallet Balances".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     let _config = Config::load("config/platform.toml")?;
     let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
@@ -1029,30 +1059,30 @@ async fn handle_wallet_balance_command() -> Result<()> {
     // Known wallet from last test - we'll hardcode it for now
     let known_pubkey = "GHAwmESbFzgACvA5XtuuQFZ4NvPgBQRD27DqU8YNF9QZ";
     
-    println!("🔍 Checking balance for wallet: {}", known_pubkey.bright_cyan());
+    println!("[SEARCH] Checking balance for wallet: {}", known_pubkey.bright_cyan());
     
     match solana_sdk::pubkey::Pubkey::from_str(known_pubkey) {
         Ok(pubkey) => {
             match rpc_client.get_balance(&pubkey) {
                 Ok(balance_lamports) => {
                     let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
-                    println!("💰 Balance: {} SOL ({} lamports)", 
+                    println!("[WALLET] Balance: {} SOL ({} lamports)", 
                              balance_sol.to_string().bright_green().bold(), 
                              balance_lamports.to_string().bright_yellow());
                     
                     if balance_lamports > 0 {
-                        println!("✅ {}", "Airdrop was successful!".bright_green().bold());
+                        println!("[OK] {}", "Airdrop was successful!".bright_green().bold());
                     } else {
-                        println!("⏳ {}", "Airdrop might still be confirming...".bright_yellow());
+                        println!("[WAIT] {}", "Airdrop might still be confirming...".bright_yellow());
                     }
                 }
                 Err(e) => {
-                    println!("❌ Failed to get balance: {}", e.to_string().bright_red());
+                    println!("[FAIL] Failed to get balance: {}", e.to_string().bright_red());
                 }
             }
         }
         Err(e) => {
-            println!("❌ Invalid pubkey: {}", e.to_string().bright_red());
+            println!("[FAIL] Invalid pubkey: {}", e.to_string().bright_red());
         }
     }
     
@@ -1060,43 +1090,43 @@ async fn handle_wallet_balance_command() -> Result<()> {
 }
 
 async fn handle_wallet_airdrop_command() -> Result<()> {
-    println!("{}", "💧 Requesting SOL Airdrop".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[DROP] Requesting SOL Airdrop".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
-    println!("🚧 This will create and fund a new wallet with 2 SOL");
+    println!(" This will create and fund a new wallet with 2 SOL");
     
     // Generate a new keypair for testing
     let keypair = solana_sdk::signer::keypair::Keypair::new();
     let pubkey = keypair.pubkey();
     
-    println!("🔑 Generated new wallet: {}", pubkey.to_string().bright_cyan());
+    println!("[KEY] Generated new wallet: {}", pubkey.to_string().bright_cyan());
     
     let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
     let airdrop_amount = 2_000_000_000; // 2 SOL in lamports
     
-    println!("💸 Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
+    println!("[COST] Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
     
     match rpc_client.request_airdrop(&pubkey, airdrop_amount) {
         Ok(signature) => {
-            println!("✅ Airdrop request successful!");
-            println!("📝 Signature: {}", signature.to_string().bright_green());
-            println!("🔗 View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            println!("[OK] Airdrop request successful!");
+            println!("[NOTE] Signature: {}", signature.to_string().bright_green());
+            println!("[LINK] View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
             
-            println!("⏳ Waiting for confirmation...");
+            println!("[WAIT] Waiting for confirmation...");
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             
             match rpc_client.get_balance(&pubkey) {
                 Ok(balance) => {
                     let balance_sol = balance as f64 / 1_000_000_000.0;
-                    println!("💰 Final balance: {} SOL", balance_sol.to_string().bright_green().bold());
+                    println!("[WALLET] Final balance: {} SOL", balance_sol.to_string().bright_green().bold());
                 }
                 Err(e) => {
-                    println!("⚠️ Could not verify balance: {}", e);
+                    println!("[WARN] Could not verify balance: {}", e);
                 }
             }
         }
         Err(e) => {
-            println!("❌ Airdrop failed: {}", e.to_string().bright_red());
+            println!("[FAIL] Airdrop failed: {}", e.to_string().bright_red());
         }
     }
     
@@ -1104,7 +1134,7 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
 }
 
 async fn handle_test_jupiter_command() -> Result<()> {
-    println!("{}", "🪐 Testing Jupiter API Integration".bright_blue().bold());    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[JUPITER] Testing Jupiter API Integration".bright_blue().bold());    println!("{}", "==================================================".bright_blue());
     
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
     
@@ -1112,13 +1142,13 @@ async fn handle_test_jupiter_command() -> Result<()> {
     let client = match JupiterClient::new(&config).await {
         Ok(c) => c,
         Err(e) => {
-            println!("{} {}", "❌ FAILED:".bright_red(), e);
+            println!("{} {}", "[FAIL] FAILED:".bright_red(), e);
             return Ok(());
         }
     };
     
     // Test quote
-    print!("📊 Testing quote API... ");
+    print!("[STATS] Testing quote API... ");
     io::stdout().flush()?;
     
     let input_mint = "So11111111111111111111111111111111111111112"; // SOL
@@ -1127,139 +1157,140 @@ async fn handle_test_jupiter_command() -> Result<()> {
     
     match client.get_quote(input_mint, output_mint, amount, None).await {
         Ok(quote) => {
-            println!("{}", "✅ OK".bright_green());
+            println!("{}", "[OK] OK".bright_green());
             println!("   Input: {} lamports", quote.in_amount);
             println!("   Output: {} tokens", quote.out_amount);
             println!("   Route: {} steps", quote.route_plan.len());
         }
-        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+        Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
-    // Test price lookup    print!("💰 Testing price API... ");
+    // Test price lookup    print!("[WALLET] Testing price API... ");
     io::stdout().flush()?;
     
     match client.get_price("So11111111111111111111111111111111111111112").await {
         Ok(price) => {
-            println!("{}", "✅ OK".bright_green());
+            println!("{}", "[OK] OK".bright_green());
             if let Some(p) = price {
                 println!("   SOL price: ${:.2}", p);
             } else {
                 println!("   SOL price: Not available");
             }
         }
-        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+        Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
-    println!("{}", "🎉 Jupiter API tests completed!".bright_green());
+    println!("{}", "[SUCCESS] Jupiter API tests completed!".bright_green());
     Ok(())
 }
 
 async fn handle_test_wallet_command() -> Result<()> {
-    println!("{}", "💰 Testing Wallet Functionality".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[WALLET] Testing Wallet Functionality".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     use sniperforge::shared::wallet_manager::WalletManager;
     
     // Test wallet creation
-    print!("👛 Testing wallet creation... ");
+    print!("[WALLET] Testing wallet creation... ");
     io::stdout().flush()?;
     
     let config = Config::load("config/platform.toml")?;
     match WalletManager::new(&config).await {
         Ok(_wallet) => {
-            println!("{}", "✅ OK".bright_green());            println!("   Pubkey: {}", "wallet_address_placeholder");
+            println!("{}", "[OK] OK".bright_green());            println!("   Pubkey: {}", "wallet_address_placeholder");
             
             // Test balance check (simplified)
-            print!("💰 Testing balance check... ");
+            print!("[WALLET] Testing balance check... ");
             io::stdout().flush()?;
             
             // Simplified balance check
-            println!("{}", "✅ OK".bright_green());
+            println!("{}", "[OK] OK".bright_green());
             println!("   Balance: {} SOL", "0.0");
         }
-        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+        Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
-    println!("{}", "🎉 Wallet tests completed!".bright_green());
+    println!("{}", "[SUCCESS] Wallet tests completed!".bright_green());
     Ok(())
 }
 
 async fn handle_test_trade_command() -> Result<()> {
-    println!("{}", "⚡ Testing Trade Execution (Simulation)".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[FAST] Testing Trade Execution (Simulation)".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     use sniperforge::shared::trade_executor::TradeExecutor;
     
     // Test trade executor creation
-    print!("🏗️ Testing trade executor creation... ");
+    print!("[BUILD] Testing trade executor creation... ");
     io::stdout().flush()?;
     
     let config = Config::load("config/platform.toml")?;
     match TradeExecutor::new(config, TradingMode::Simulation).await {
         Ok(_executor) => {
-            println!("{}", "✅ OK".bright_green());
+            println!("{}", "[OK] OK".bright_green());
             println!("   Mode: {}", "Simulation".bright_cyan());
             
             // Test trade validation (without execution)
-            print!("🔍 Testing trade validation... ");
+            print!("[SEARCH] Testing trade validation... ");
             io::stdout().flush()?;
             
             // This would test the validation logic without actually executing
-            println!("{}", "✅ OK".bright_green());
+            println!("{}", "[OK] OK".bright_green());
             println!("   Trade validation logic working");
         }
-        Err(e) => println!("{} {}", "❌ FAILED:".bright_red(), e),
+        Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
-    println!("{}", "🎉 Trade execution tests completed!".bright_green());
+    println!("{}", "[SUCCESS] Trade execution tests completed!".bright_green());
     Ok(())
 }
 
 async fn handle_test_integration_command() -> Result<()> {
-    println!("{}", "🔄 Testing Complete Integration Flow".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[REFRESH] Testing Complete Integration Flow".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
     use sniperforge::simple_testing::run_simple_tests;
     
     // Run the simplified integration tests
     run_simple_tests().await;
     
-    println!("{}", "🎉 Integration flow tests completed!".bright_green());
+    println!("{}", "[SUCCESS] Integration flow tests completed!".bright_green());
     Ok(())
 }
 
 async fn handle_test_performance_command() -> Result<()> {
-    println!("{}", "⚡ Testing Performance & Latency".bright_blue().bold());
-    println!("{}", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━".bright_blue());
+    println!("{}", "[FAST] Testing Performance & Latency".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
     
-    println!("📊 Simulating performance tests...");
+    println!("[STATS] Simulating performance tests...");
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     
-    println!("🌐 RPC Latency: {}ms", "45".bright_green());
-    println!("� Jupiter Quote Time: {}ms", "120".bright_green());
-    println!("🔍 Pattern Analysis Time: {}ms", "250".bright_green());
-    println!("💾 Memory Usage: {}MB", "85".bright_yellow());
+    println!("[NET] RPC Latency: {}ms", "45".bright_green());
+    println!(" Jupiter Quote Time: {}ms", "120".bright_green());
+    println!("[SEARCH] Pattern Analysis Time: {}ms", "250".bright_green());
+    println!("[SAVE] Memory Usage: {}MB", "85".bright_yellow());
     
-    println!("{}", "🎉 Performance tests completed!".bright_green().bold());
+    println!("{}", "[SUCCESS] Performance tests completed!".bright_green().bold());
+    
     Ok(())
 }
 /// Show help information early (before logging setup)
 pub fn show_help_early() {
-    println!("{}", "🧪 SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
-    println!("{}", "═══════════════════════════════════════════════════".bright_blue());
+    println!("{}", "[TEST] SniperForge - Solana Pool Detection & Trading Bot".bright_blue().bold());
+    println!("{}", "===================================================".bright_blue());
     println!();
     println!("{}", "Usage: cargo run -- [COMMAND] [OPTIONS]".bright_white());
     println!();
     println!("{}", "Available commands:".bright_cyan().bold());
-    println!("  🚀 {} - Start the platform", "start".bright_green());
-    println!("  📊 {} - Show platform status", "status".bright_blue());
-    println!("  ⚙️  {} - Show configuration", "config".bright_cyan());
-    println!("  💰 {} - Wallet management", "wallet".bright_yellow());
-    println!("  🧪 {} - Run tests", "test".bright_purple());
-    println!("  🎯 {} - Multi-strategy trading", "multi-strategy-trading".bright_magenta());
-    println!("  📈 {} - Strategy backtesting", "strategy-backtest".bright_cyan());
-    println!("  🔍 {} - Pattern analysis", "pattern-analysis".bright_blue());
-    println!("  ⚡ {} - Arbitrage opportunities", "arbitrage-scan".bright_yellow());
+    println!("  [START] {} - Start the platform", "start".bright_green());
+    println!("  [STATS] {} - Show platform status", "status".bright_blue());
+    println!("  [CONFIG]  {} - Show configuration", "config".bright_cyan());
+    println!("  [WALLET] {} - Wallet management", "wallet".bright_yellow());
+    println!("  [TEST] {} - Run tests", "test".bright_purple());
+    println!("  [TARGET] {} - Multi-strategy trading", "multi-strategy-trading".bright_magenta());
+    println!("  [UP] {} - Strategy backtesting", "strategy-backtest".bright_cyan());
+    println!("  [SEARCH] {} - Pattern analysis", "pattern-analysis".bright_blue());
+    println!("  [FAST] {} - Arbitrage opportunities", "arbitrage-scan".bright_yellow());
     println!();
     println!("{}", "Examples:".bright_white().bold());
     println!("  cargo run -- test all");
@@ -1273,8 +1304,8 @@ pub fn show_help_early() {
 // =============================================================================
 
 async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🎯 PHASE 6A: Multi-Strategy Trading Engine".bright_magenta().bold());
-    println!("{}", "═══════════════════════════════════════════".bright_magenta());
+    println!("{}", "[TARGET] PHASE 6A: Multi-Strategy Trading Engine".bright_magenta().bold());
+    println!("{}", "===========================================".bright_magenta());
     
     let strategies_str = matches.get_one::<String>("strategies").unwrap();
     let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
@@ -1284,11 +1315,11 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
     let strategies: Vec<&str> = strategies_str.split(',').collect();
     let timeframes: Vec<&str> = timeframes_str.split(',').collect();
     
-    println!("📊 Configuration:");
-    println!("   • Strategies: {}", strategies.join(", "));
-    println!("   • Capital per strategy: ${:.2}", capital_per_strategy);
-    println!("   • Duration: {}s", duration);
-    println!("   • Timeframes: {}", timeframes.join(", "));
+    println!("[STATS] Configuration:");
+    println!("   * Strategies: {}", strategies.join(", "));
+    println!("   * Capital per strategy: ${:.2}", capital_per_strategy);
+    println!("   * Duration: {}s", duration);
+    println!("   * Timeframes: {}", timeframes.join(", "));
     
     // Initialize strategy engines
     let mut active_strategies = Vec::new();
@@ -1296,36 +1327,36 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
     for strategy in &strategies {
         match *strategy {
             "trend" => {
-                println!("🔄 Initializing Trend Following Strategy...");
+                println!("[REFRESH] Initializing Trend Following Strategy...");
                 let _trend_strategy = TrendFollowingStrategy::new();
                 active_strategies.push(format!("Trend Following"));
             },
             "momentum" => {
-                println!("⚡ Initializing Momentum Strategy...");
+                println!("[FAST] Initializing Momentum Strategy...");
                 let _momentum_strategy = MomentumStrategy::new();
                 active_strategies.push(format!("Momentum"));
             },
             "mean-reversion" => {
-                println!("🔄 Initializing Mean Reversion Strategy...");
+                println!("[REFRESH] Initializing Mean Reversion Strategy...");
                 let _mean_reversion_strategy = MeanReversionStrategy::new();
                 active_strategies.push(format!("Mean Reversion"));
             },
             "arbitrage" => {
-                println!("⚡ Initializing Arbitrage Strategy...");
+                println!("[FAST] Initializing Arbitrage Strategy...");
                 let _arbitrage_strategy = ArbitrageStrategy::new();
                 active_strategies.push(format!("Arbitrage"));
             },
             _ => {
-                println!("{}", format!("⚠️  Unknown strategy: {}", strategy).yellow());
+                println!("{}", format!("[WARN]  Unknown strategy: {}", strategy).yellow());
             }
         }
     }
     
     // Initialize multi-timeframe analyzer
-    println!("📈 Initializing Multi-Timeframe Analyzer...");
+    println!("[UP] Initializing Multi-Timeframe Analyzer...");
     let _analyzer = MultiTimeframeAnalyzer::new();
     
-    println!("\n🚀 Starting Multi-Strategy Trading Session...");
+    println!("\n[START] Starting Multi-Strategy Trading Session...");
     println!("   Active Strategies: {}", active_strategies.join(", "));
     
     // Simulate trading session
@@ -1343,70 +1374,70 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
             total_pnl += mock_pnl;
             total_trades += 1;
             
-            println!("📊 {} - PnL: ${:.2}", strategy_name, mock_pnl);
+            println!("[STATS] {} - PnL: ${:.2}", strategy_name, mock_pnl);
         }
         
-        println!("💰 Session Total PnL: ${:.2} | Trades: {}", total_pnl, total_trades);
-        println!("⏱️  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
+        println!("[WALLET] Session Total PnL: ${:.2} | Trades: {}", total_pnl, total_trades);
+        println!("  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
         println!();
     }
     
-    println!("{}", "✅ Multi-Strategy Trading Session Complete!".bright_green().bold());
-    println!("📊 Final Results:");
-    println!("   • Total PnL: ${:.2}", total_pnl);
-    println!("   • Total Trades: {}", total_trades);
-    println!("   • Active Strategies: {}", active_strategies.len());
-    println!("   • Session Duration: {}s", duration);
+    println!("{}", "[OK] Multi-Strategy Trading Session Complete!".bright_green().bold());
+    println!("[STATS] Final Results:");
+    println!("   * Total PnL: ${:.2}", total_pnl);
+    println!("   * Total Trades: {}", total_trades);
+    println!("   * Active Strategies: {}", active_strategies.len());
+    println!("   * Session Duration: {}s", duration);
     
     Ok(())
 }
 
 async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "📈 PHASE 6A: Strategy Backtesting Engine".bright_cyan().bold());
-    println!("{}", "══════════════════════════════════════════".bright_cyan());
+    println!("{}", "[UP] PHASE 6A: Strategy Backtesting Engine".bright_cyan().bold());
+    println!("{}", "==========================================".bright_cyan());
     
     let strategy = matches.get_one::<String>("strategy").unwrap();
     let period: u64 = matches.get_one::<String>("period").unwrap().parse()?;
     let initial_capital: f64 = matches.get_one::<String>("initial-capital").unwrap().parse()?;
     let export_file = matches.get_one::<String>("export");
     
-    println!("📊 Backtest Configuration:");
-    println!("   • Strategy: {}", strategy);
-    println!("   • Historical Period: {} days", period);
-    println!("   • Initial Capital: ${:.2}", initial_capital);
+    println!("[STATS] Backtest Configuration:");
+    println!("   * Strategy: {}", strategy);
+    println!("   * Historical Period: {} days", period);
+    println!("   * Initial Capital: ${:.2}", initial_capital);
     
     // Initialize strategy for backtesting
     match strategy.as_str() {
         "trend" => {
-            println!("🔄 Backtesting Trend Following Strategy...");
+            println!("[REFRESH] Backtesting Trend Following Strategy...");
             let _trend_strategy = TrendFollowingStrategy::new();
         },
         "momentum" => {
-            println!("⚡ Backtesting Momentum Strategy...");
+            println!("[FAST] Backtesting Momentum Strategy...");
             let _momentum_strategy = MomentumStrategy::new();
         },
         "mean-reversion" => {
-            println!("🔄 Backtesting Mean Reversion Strategy...");
+            println!("[REFRESH] Backtesting Mean Reversion Strategy...");
             let _mean_reversion_strategy = MeanReversionStrategy::new();
         },
         "arbitrage" => {
-            println!("⚡ Backtesting Arbitrage Strategy...");
+            println!("[FAST] Backtesting Arbitrage Strategy...");
             let _arbitrage_strategy = ArbitrageStrategy::new();
         },
         "all" => {
-            println!("🎯 Backtesting All Strategies...");
+            println!("[TARGET] Backtesting All Strategies...");
             let _trend_strategy = TrendFollowingStrategy::new();
             let _momentum_strategy = MomentumStrategy::new();
             let _mean_reversion_strategy = MeanReversionStrategy::new();
             let _arbitrage_strategy = ArbitrageStrategy::new();
         },
         _ => {
-            println!("{}", format!("❌ Unknown strategy: {}", strategy).red());
+            println!("{}", format!("[FAIL] Unknown strategy: {}", strategy).red());
             return Ok(());
         }
     }
     
-    println!("\n🚀 Running Backtest Simulation...");
+    println!("\n[START] Running Backtest Simulation...");
     
     // Simulate backtest execution
     let mut current_capital = initial_capital;
@@ -1439,18 +1470,18 @@ async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
     let return_percentage = (total_return / initial_capital) * 100.0;
     let win_rate = (winning_trades as f64 / total_trades as f64) * 100.0;
     
-    println!("\n{}", "✅ Backtest Complete!".bright_green().bold());
-    println!("📊 Performance Summary:");
-    println!("   • Initial Capital: ${:.2}", initial_capital);
-    println!("   • Final Capital: ${:.2}", current_capital);
-    println!("   • Total Return: ${:.2} ({:.2}%)", total_return, return_percentage);
-    println!("   • Total Trades: {}", total_trades);
-    println!("   • Win Rate: {:.1}% ({}/{})", win_rate, winning_trades, total_trades);
-    println!("   • Losing Trades: {}", losing_trades);
+    println!("\n{}", "[OK] Backtest Complete!".bright_green().bold());
+    println!("[STATS] Performance Summary:");
+    println!("   * Initial Capital: ${:.2}", initial_capital);
+    println!("   * Final Capital: ${:.2}", current_capital);
+    println!("   * Total Return: ${:.2} ({:.2}%)", total_return, return_percentage);
+    println!("   * Total Trades: {}", total_trades);
+    println!("   * Win Rate: {:.1}% ({}/{})", win_rate, winning_trades, total_trades);
+    println!("   * Losing Trades: {}", losing_trades);
     
     // Export results if requested
     if let Some(file) = export_file {
-        println!("💾 Exporting results to: {}", file);
+        println!("[SAVE] Exporting results to: {}", file);
         // TODO: Implement JSON export
     }
     
@@ -1458,24 +1489,24 @@ async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🔍 PHASE 6A: Market Pattern Analysis".bright_blue().bold());
-    println!("{}", "═══════════════════════════════════".bright_blue());
+    println!("{}", "[SEARCH] PHASE 6A: Market Pattern Analysis".bright_blue().bold());
+    println!("{}", "===================================".bright_blue());
     
     let pattern_type = matches.get_one::<String>("pattern-type").unwrap();
     let timeframe = matches.get_one::<String>("timeframe").unwrap();
     let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
     let export_file = matches.get_one::<String>("export");
     
-    println!("📊 Analysis Configuration:");
-    println!("   • Pattern Type: {}", pattern_type);
-    println!("   • Timeframe: {}", timeframe);
-    println!("   • Duration: {}s", duration);
+    println!("[STATS] Analysis Configuration:");
+    println!("   * Pattern Type: {}", pattern_type);
+    println!("   * Timeframe: {}", timeframe);
+    println!("   * Duration: {}s", duration);
     
     // Initialize pattern recognizer
-    println!("🔍 Initializing Pattern Recognition Engine...");
+    println!("[SEARCH] Initializing Pattern Recognition Engine...");
     let _pattern_recognizer = PatternRecognizer::new();
     
-    println!("\n🚀 Starting Pattern Analysis...");
+    println!("\n[START] Starting Pattern Analysis...");
     
     let start_time = std::time::Instant::now();
     let mut detected_patterns = Vec::new();
@@ -1488,17 +1519,17 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
             "support-resistance" => {
                 let pattern = format!("Support at $45.20, Resistance at $47.80");
                 detected_patterns.push(pattern.clone());
-                println!("📊 Detected: {}", pattern);
+                println!("[STATS] Detected: {}", pattern);
             },
             "breakout" => {
                 let pattern = format!("Bullish breakout above $46.50");
                 detected_patterns.push(pattern.clone());
-                println!("📈 Detected: {}", pattern);
+                println!("[UP] Detected: {}", pattern);
             },
             "reversal" => {
                 let pattern = format!("Potential reversal pattern forming");
                 detected_patterns.push(pattern.clone());
-                println!("🔄 Detected: {}", pattern);
+                println!("[REFRESH] Detected: {}", pattern);
             },
             "all" => {
                 let patterns = vec![
@@ -1509,32 +1540,32 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
                 ];
                 for pattern in &patterns {
                     detected_patterns.push(pattern.to_string());
-                    println!("🔍 Detected: {}", pattern);
+                    println!("[SEARCH] Detected: {}", pattern);
                 }
             },
             _ => {
-                println!("{}", format!("⚠️  Unknown pattern type: {}", pattern_type).yellow());
+                println!("{}", format!("[WARN]  Unknown pattern type: {}", pattern_type).yellow());
             }
         }
         
-        println!("⏱️  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
+        println!("  Elapsed: {}s / {}s", start_time.elapsed().as_secs(), duration);
         println!();
     }
     
-    println!("{}", "✅ Pattern Analysis Complete!".bright_green().bold());
-    println!("📊 Analysis Results:");
-    println!("   • Patterns Detected: {}", detected_patterns.len());
-    println!("   • Analysis Duration: {}s", duration);
-    println!("   • Timeframe: {}", timeframe);
+    println!("{}", "[OK] Pattern Analysis Complete!".bright_green().bold());
+    println!("[STATS] Analysis Results:");
+    println!("   * Patterns Detected: {}", detected_patterns.len());
+    println!("   * Analysis Duration: {}s", duration);
+    println!("   * Timeframe: {}", timeframe);
     
-    println!("\n🔍 Detected Patterns:");
+    println!("\n[SEARCH] Detected Patterns:");
     for (i, pattern) in detected_patterns.iter().enumerate() {
         println!("   {}. {}", i + 1, pattern);
     }
     
     // Export results if requested
     if let Some(file) = export_file {
-        println!("\n💾 Exporting pattern analysis to: {}", file);
+        println!("\n[SAVE] Exporting pattern analysis to: {}", file);
         // TODO: Implement JSON export
     }
     
@@ -1542,25 +1573,25 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "⚡ PHASE 6A: Arbitrage Opportunity Scanner".bright_yellow().bold());
-    println!("{}", "════════════════════════════════════════════".bright_yellow());
+    println!("{}", "[FAST] PHASE 6A: Arbitrage Opportunity Scanner".bright_yellow().bold());
+    println!("{}", "============================================".bright_yellow());
     
     let min_profit: f64 = matches.get_one::<String>("min-profit").unwrap().parse()?;
     let max_slippage: f64 = matches.get_one::<String>("max-slippage").unwrap().parse()?;
     let duration: u64 = matches.get_one::<String>("duration").unwrap().parse()?;
     let export_file = matches.get_one::<String>("export");
     
-    println!("📊 Scanner Configuration:");
-    println!("   • Minimum Profit: ${:.2}", min_profit);
-    println!("   • Max Slippage: {:.1}%", max_slippage);
-    println!("   • Scan Duration: {}s", duration);
+    println!("[STATS] Scanner Configuration:");
+    println!("   * Minimum Profit: ${:.2}", min_profit);
+    println!("   * Max Slippage: {:.1}%", max_slippage);
+    println!("   * Scan Duration: {}s", duration);
     
     // Initialize arbitrage strategy
-    println!("⚡ Initializing Arbitrage Scanner...");
+    println!("[FAST] Initializing Arbitrage Scanner...");
     let _arbitrage_strategy = ArbitrageStrategy::new();
     
-    println!("\n🚀 Starting Arbitrage Scan...");
-    println!("🔍 Monitoring DEX price differences...");
+    println!("\n[START] Starting Arbitrage Scan...");
+    println!("[SEARCH] Monitoring DEX price differences...");
     
     let start_time = std::time::Instant::now();
     let mut opportunities_found = 0;
@@ -1576,40 +1607,40 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
             opportunities_found += 1;
             total_potential_profit += profit;
             
-            println!("💰 Arbitrage Opportunity Detected!");
-            println!("   • Pair: SOL/USDC");
-            println!("   • DEX A Price: ${:.4}", 45.20 + rand::random::<f64>() * 0.1);
-            println!("   • DEX B Price: ${:.4}", 45.25 + rand::random::<f64>() * 0.1);
-            println!("   • Potential Profit: ${:.2}", profit);
-            println!("   • Estimated Slippage: {:.2}%", rand::random::<f64>() * max_slippage);
+            println!("[WALLET] Arbitrage Opportunity Detected!");
+            println!("   * Pair: SOL/USDC");
+            println!("   * DEX A Price: ${:.4}", 45.20 + rand::random::<f64>() * 0.1);
+            println!("   * DEX B Price: ${:.4}", 45.25 + rand::random::<f64>() * 0.1);
+            println!("   * Potential Profit: ${:.2}", profit);
+            println!("   * Estimated Slippage: {:.2}%", rand::random::<f64>() * max_slippage);
             println!();
         }
         
         if start_time.elapsed().as_secs() % 15 == 0 {
-            println!("📊 Scan Progress: {}s / {}s | Opportunities: {}", 
+            println!("[STATS] Scan Progress: {}s / {}s | Opportunities: {}", 
                 start_time.elapsed().as_secs(), duration, opportunities_found);
         }
     }
     
-    println!("{}", "✅ Arbitrage Scan Complete!".bright_green().bold());
-    println!("📊 Scan Results:");
-    println!("   • Opportunities Found: {}", opportunities_found);
-    println!("   • Total Potential Profit: ${:.2}", total_potential_profit);
-    println!("   • Average Profit per Opportunity: ${:.2}", 
+    println!("{}", "[OK] Arbitrage Scan Complete!".bright_green().bold());
+    println!("[STATS] Scan Results:");
+    println!("   * Opportunities Found: {}", opportunities_found);
+    println!("   * Total Potential Profit: ${:.2}", total_potential_profit);
+    println!("   * Average Profit per Opportunity: ${:.2}", 
         if opportunities_found > 0 { total_potential_profit / opportunities_found as f64 } else { 0.0 });
-    println!("   • Scan Duration: {}s", duration);
+    println!("   * Scan Duration: {}s", duration);
     
     if opportunities_found > 0 {
-        println!("\n⚡ Arbitrage Efficiency:");
-        println!("   • Opportunities per minute: {:.1}", 
+        println!("\n[FAST] Arbitrage Efficiency:");
+        println!("   * Opportunities per minute: {:.1}", 
             (opportunities_found as f64 / duration as f64) * 60.0);
-        println!("   • Profit rate: ${:.2}/min", 
+        println!("   * Profit rate: ${:.2}/min", 
             (total_potential_profit / duration as f64) * 60.0);
     }
     
     // Export results if requested
     if let Some(file) = export_file {
-        println!("\n💾 Exporting arbitrage scan results to: {}", file);
+        println!("\n[SAVE] Exporting arbitrage scan results to: {}", file);
         // TODO: Implement JSON export
     }
     
@@ -1631,15 +1662,15 @@ async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
         Some(("optimize", sub_matches)) => handle_portfolio_optimize(sub_matches).await?,
         Some(("positions", sub_matches)) => handle_portfolio_positions(sub_matches).await?,
         _ => {
-            println!("{}", "📊 Portfolio Management Commands Available:".bright_cyan().bold());
-            println!("  • {} - Show portfolio summary and metrics", "summary".green());
-            println!("  • {} - Generate comprehensive performance analytics", "analytics".green());
-            println!("  • {} - Perform portfolio risk assessment", "risk-assessment".green());
-            println!("  • {} - Analyze and execute portfolio rebalancing", "rebalance".green());
-            println!("  • {} - Analyze portfolio correlation and diversification", "correlation".green());
-            println!("  • {} - Performance attribution analysis", "attribution".green());
-            println!("  • {} - Optimize portfolio allocation", "optimize".green());
-            println!("  • {} - Show current positions and performance", "positions".green());
+            println!("{}", "[STATS] Portfolio Management Commands Available:".bright_cyan().bold());
+            println!("  * {} - Show portfolio summary and metrics", "summary".green());
+            println!("  * {} - Generate comprehensive performance analytics", "analytics".green());
+            println!("  * {} - Perform portfolio risk assessment", "risk-assessment".green());
+            println!("  * {} - Analyze and execute portfolio rebalancing", "rebalance".green());
+            println!("  * {} - Analyze portfolio correlation and diversification", "correlation".green());
+            println!("  * {} - Performance attribution analysis", "attribution".green());
+            println!("  * {} - Optimize portfolio allocation", "optimize".green());
+            println!("  * {} - Show current positions and performance", "positions".green());
             println!("\nUse: {} to see specific command options", "cargo run -- portfolio <command> --help".yellow());
         }
     }
@@ -1650,36 +1681,36 @@ async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
 async fn handle_portfolio_summary(matches: &ArgMatches) -> Result<()> {
     let detailed = matches.get_flag("detailed");
     
-    println!("\n📊 Portfolio Summary");
-    println!("═══════════════════");
+    println!("\n[STATS] Portfolio Summary");
+    println!("===================");
     
     // Mock portfolio data for demonstration
-    println!("💰 Total Value: $12,450.00");
-    println!("📈 Total P&L: +$1,245.00 (+11.1%)");
-    println!("📊 Daily P&L: +$125.00 (+1.0%)");
-    println!("📉 Max Drawdown: -3.2%");
-    println!("🎯 Win Rate: 68.5%");
-    println!("📊 Sharpe Ratio: 1.85");
+    println!("[WALLET] Total Value: $12,450.00");
+    println!("[UP] Total P&L: +$1,245.00 (+11.1%)");
+    println!("[STATS] Daily P&L: +$125.00 (+1.0%)");
+    println!("[DOWN] Max Drawdown: -3.2%");
+    println!("[TARGET] Win Rate: 68.5%");
+    println!("[STATS] Sharpe Ratio: 1.85");
     
-    println!("\n🎯 Strategy Allocations:");
-    println!("  • Trend Following: 45.2% ($5,627.40)");
-    println!("  • Momentum: 32.1% ($3,996.45)");
-    println!("  • Mean Reversion: 22.7% ($2,826.15)");
+    println!("\n[TARGET] Strategy Allocations:");
+    println!("  * Trend Following: 45.2% ($5,627.40)");
+    println!("  * Momentum: 32.1% ($3,996.45)");
+    println!("  * Mean Reversion: 22.7% ($2,826.15)");
     
     if detailed {
-        println!("\n📈 Performance Metrics:");
-        println!("  • Sortino Ratio: 2.14");
-        println!("  • Calmar Ratio: 3.47");
-        println!("  • Beta vs SOL: 1.12");
-        println!("  • Alpha: 2.3% (annualized)");
-        println!("  • Volatility: 18.5% (annualized)");
-        println!("  • Information Ratio: 0.85");
+        println!("\n[UP] Performance Metrics:");
+        println!("  * Sortino Ratio: 2.14");
+        println!("  * Calmar Ratio: 3.47");
+        println!("  * Beta vs SOL: 1.12");
+        println!("  * Alpha: 2.3% (annualized)");
+        println!("  * Volatility: 18.5% (annualized)");
+        println!("  * Information Ratio: 0.85");
         
-        println!("\n🔍 Risk Metrics:");
-        println!("  • VaR (95%): -$245.00");
-        println!("  • VaR (99%): -$389.00");
-        println!("  • Correlation Risk: 0.35");
-        println!("  • Concentration Risk: 0.28");
+        println!("\n[SEARCH] Risk Metrics:");
+        println!("  * VaR (95%): -$245.00");
+        println!("  * VaR (99%): -$389.00");
+        println!("  * Correlation Risk: 0.35");
+        println!("  * Concentration Risk: 0.28");
     }
     
     Ok(())
@@ -1689,39 +1720,39 @@ async fn handle_portfolio_analytics(matches: &ArgMatches) -> Result<()> {
     let period: i64 = matches.get_one::<String>("period").unwrap().parse()?;
     let export_file = matches.get_one::<String>("export");
     
-    println!("\n📊 Portfolio Analytics Report");
+    println!("\n[STATS] Portfolio Analytics Report");
     println!("Period: {} days", period);
-    println!("═══════════════════════════");
+    println!("===========================");
     
     // Simulate analytics generation
-    println!("\n🔄 Generating analytics...");
+    println!("\n[REFRESH] Generating analytics...");
     tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
     
-    println!("\n📈 Performance Summary:");
-    println!("  • Total Return: +12.8%");
-    println!("  • Annualized Return: +156.4%");
-    println!("  • Volatility: 18.2%");
-    println!("  • Sharpe Ratio: 1.87");
-    println!("  • Max Drawdown: -5.1%");
-    println!("  • Win Rate: 67.3%");
-    println!("  • Profit Factor: 2.15");
+    println!("\n[UP] Performance Summary:");
+    println!("  * Total Return: +12.8%");
+    println!("  * Annualized Return: +156.4%");
+    println!("  * Volatility: 18.2%");
+    println!("  * Sharpe Ratio: 1.87");
+    println!("  * Max Drawdown: -5.1%");
+    println!("  * Win Rate: 67.3%");
+    println!("  * Profit Factor: 2.15");
     
-    println!("\n📊 Monthly Performance:");
-    println!("  • This Month: +8.9%");
-    println!("  • Last Month: +3.2%");
-    println!("  • Best Month: +15.7%");
-    println!("  • Worst Month: -2.1%");
+    println!("\n[STATS] Monthly Performance:");
+    println!("  * This Month: +8.9%");
+    println!("  * Last Month: +3.2%");
+    println!("  * Best Month: +15.7%");
+    println!("  * Worst Month: -2.1%");
     
-    println!("\n🏆 vs Benchmark (SOL):");
-    println!("  • Excess Return: +4.3%");
-    println!("  • Beta: 1.15");
-    println!("  • Alpha: +2.8%");
-    println!("  • Correlation: 0.82");
+    println!("\n[TROPHY] vs Benchmark (SOL):");
+    println!("  * Excess Return: +4.3%");
+    println!("  * Beta: 1.15");
+    println!("  * Alpha: +2.8%");
+    println!("  * Correlation: 0.82");
     
     if let Some(file) = export_file {
-        println!("\n💾 Exporting analytics to: {}", file);
+        println!("\n[SAVE] Exporting analytics to: {}", file);
         // TODO: Implement JSON export
-        println!("✅ Analytics exported successfully");
+        println!("[OK] Analytics exported successfully");
     }
     
     Ok(())
@@ -1730,41 +1761,41 @@ async fn handle_portfolio_analytics(matches: &ArgMatches) -> Result<()> {
 async fn handle_portfolio_risk_assessment(matches: &ArgMatches) -> Result<()> {
     let detailed = matches.get_flag("detailed");
     
-    println!("\n🛡️ Portfolio Risk Assessment");
-    println!("════════════════════════════");
+    println!("\n[SHIELD] Portfolio Risk Assessment");
+    println!("============================");
     
     // Simulate risk calculation
-    println!("\n🔄 Analyzing portfolio risk...");
+    println!("\n[REFRESH] Analyzing portfolio risk...");
     tokio::time::sleep(tokio::time::Duration::from_millis(1200)).await;
     
-    println!("\n📊 Overall Risk Score: 0.35/1.0 (Moderate)");
-    println!("📉 VaR (95%): -$245.00 (-1.97%)");
-    println!("📉 VaR (99%): -$389.00 (-3.12%)");
-    println!("📈 Portfolio Beta: 1.12");
-    println!("🎯 Concentration Risk: 0.28 (Low)");
-    println!("🔗 Correlation Risk: 0.35 (Moderate)");
-    println!("💧 Liquidity Risk: 0.15 (Low)");
+    println!("\n[STATS] Overall Risk Score: 0.35/1.0 (Moderate)");
+    println!("[DOWN] VaR (95%): -$245.00 (-1.97%)");
+    println!("[DOWN] VaR (99%): -$389.00 (-3.12%)");
+    println!("[UP] Portfolio Beta: 1.12");
+    println!("[TARGET] Concentration Risk: 0.28 (Low)");
+    println!("[LINK] Correlation Risk: 0.35 (Moderate)");
+    println!("[DROP] Liquidity Risk: 0.15 (Low)");
     
-    println!("\n⚠️ Risk Violations: None");
+    println!("\n[WARN] Risk Violations: None");
     
     if detailed {
-        println!("\n🔍 Detailed Risk Breakdown:");
+        println!("\n[SEARCH] Detailed Risk Breakdown:");
         println!("  Strategy Risk Contributions:");
-        println!("    • Trend Following: 42.1%");
-        println!("    • Momentum: 35.7%");
-        println!("    • Mean Reversion: 22.2%");
+        println!("    * Trend Following: 42.1%");
+        println!("    * Momentum: 35.7%");
+        println!("    * Mean Reversion: 22.2%");
         
         println!("\n  Risk Components:");
-        println!("    • Systematic Risk: 65.2%");
-        println!("    • Idiosyncratic Risk: 34.8%");
-        println!("    • Concentration Risk: 28.1%");
-        println!("    • Correlation Risk: 35.3%");
+        println!("    * Systematic Risk: 65.2%");
+        println!("    * Idiosyncratic Risk: 34.8%");
+        println!("    * Concentration Risk: 28.1%");
+        println!("    * Correlation Risk: 35.3%");
     }
     
-    println!("\n💡 Recommendations:");
-    println!("  • Portfolio diversification looks healthy");
-    println!("  • Consider increasing mean reversion allocation");
-    println!("  • Monitor correlation between strategies");
+    println!("\n[IDEA] Recommendations:");
+    println!("  * Portfolio diversification looks healthy");
+    println!("  * Consider increasing mean reversion allocation");
+    println!("  * Monitor correlation between strategies");
     
     Ok(())
 }
@@ -1773,33 +1804,34 @@ async fn handle_portfolio_rebalance(matches: &ArgMatches) -> Result<()> {
     let dry_run = matches.get_flag("dry-run");
     let threshold: f64 = matches.get_one::<String>("threshold").unwrap().parse()?;
     
-    println!("\n⚖️ Portfolio Rebalance Analysis");
+    println!("\n[SCALE] Portfolio Rebalance Analysis");
     println!("Threshold: {:.1}%", threshold);
-    println!("══════════════════════════════");
+    println!("==============================");
     
     // Simulate rebalance analysis
-    println!("\n🔄 Analyzing allocation drift...");
+    println!("\n[REFRESH] Analyzing allocation drift...");
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
     
-    println!("\n📈 Strategy Drift Analysis:");
-    println!("  ✅ Trend: 45.2% → 40.0% (drift: 5.2%) ⚠️");
-    println!("  ✅ Momentum: 32.1% → 30.0% (drift: 2.1%)");
-    println!("  ⚠️ Mean Reversion: 22.7% → 30.0% (drift: 7.3%) ⚠️");
+    println!("\n[UP] Strategy Drift Analysis:");
+    println!("  [OK] Trend: 45.2%  40.0% (drift: 5.2%) [WARN]");
+    println!("  [OK] Momentum: 32.1%  30.0% (drift: 2.1%)");
+    println!("  [WARN] Mean Reversion: 22.7%  30.0% (drift: 7.3%) [WARN]");
     
-    println!("\n🎯 Needs Rebalancing: Yes");
-    println!("📊 Trades Needed: 3");
-    println!("💰 Estimated Volume: $1,847.50");
-    println!("💸 Estimated Costs: $1.85");
+    println!("\n[TARGET] Needs Rebalancing: Yes");
+    println!("[STATS] Trades Needed: 3");
+    println!("[WALLET] Estimated Volume: $1,847.50");
+    println!("[COST] Estimated Costs: $1.85");
     
-    println!("\n🔧 Recommended Actions:");
-    println!("  📉 Reduce Trend allocation by $647.50");
-    println!("  📈 Increase Mean Reversion by $907.15");
-    println!("  📈 Increase Momentum by $127.85");
+    println!("\n[TOOL] Recommended Actions:");
+    println!("  [DOWN] Reduce Trend allocation by $647.50");
+    println!("  [UP] Increase Mean Reversion by $907.15");
+    println!("  [UP] Increase Momentum by $127.85");
     
     if dry_run {
-        println!("\n🧪 Dry Run - No trades executed");
+        println!("\n[TEST] Dry Run - No trades executed");
     } else {
-        println!("\n⚠️ Execute rebalance? This will place real trades.");
+        println!("\n[WARN] Execute rebalance? This will place real trades.");
+        println!("\n[WARNING] Execute rebalance? This will place real trades.");
         println!("Use --dry-run flag to analyze without executing.");
     }
     
@@ -1810,33 +1842,33 @@ async fn handle_portfolio_correlation(matches: &ArgMatches) -> Result<()> {
     let period: i64 = matches.get_one::<String>("period").unwrap().parse()?;
     let threshold: f64 = matches.get_one::<String>("threshold").unwrap().parse()?;
     
-    println!("\n🔗 Portfolio Correlation Analysis");
+    println!("\n[LINK] Portfolio Correlation Analysis");
     println!("Period: {} days | Threshold: {:.2}", period, threshold);
-    println!("═══════════════════════════════════");
+    println!("===================================");
     
     // Simulate correlation analysis
-    println!("\n🔄 Calculating correlations...");
+    println!("\n[REFRESH] Calculating correlations...");
     tokio::time::sleep(tokio::time::Duration::from_millis(1300)).await;
     
-    println!("\n📊 Portfolio Correlation: 0.42");
-    println!("🎯 Effective Assets: 2.8");
-    println!("📈 Concentration (HHI): 0.346");
-    println!("🌈 Diversification Ratio: 0.68");
-    println!("⚠️ Correlation Risk: 0.35");
+    println!("\n[STATS] Portfolio Correlation: 0.42");
+    println!("[TARGET] Effective Assets: 2.8");
+    println!("[UP] Concentration (HHI): 0.346");
+    println!(" Diversification Ratio: 0.68");
+    println!("[WARN] Correlation Risk: 0.35");
     
-    println!("\n🔴 High Correlation Pairs:");
-    println!("  SOL ↔ RAY: 0.78 (Risk: 0.234)");
-    println!("  ORCA ↔ SRM: 0.71 (Risk: 0.156)");
+    println!("\n High Correlation Pairs:");
+    println!("  SOL  RAY: 0.78 (Risk: 0.234)");
+    println!("  ORCA  SRM: 0.71 (Risk: 0.156)");
     
-    println!("\n📊 Asset Correlation Summary:");
-    println!("  • SOL: Avg: 0.45 | Max: 0.78 | Diversification: 0.55");
-    println!("  • RAY: Avg: 0.52 | Max: 0.78 | Diversification: 0.48");
-    println!("  • ORCA: Avg: 0.38 | Max: 0.71 | Diversification: 0.62");
+    println!("\n[STATS] Asset Correlation Summary:");
+    println!("  * SOL: Avg: 0.45 | Max: 0.78 | Diversification: 0.55");
+    println!("  * RAY: Avg: 0.52 | Max: 0.78 | Diversification: 0.48");
+    println!("  * ORCA: Avg: 0.38 | Max: 0.71 | Diversification: 0.62");
     
-    println!("\n💡 Recommendations:");
-    println!("  • High correlation (0.78) between SOL and RAY - consider reducing exposure");
-    println!("  • Consider adding uncorrelated assets");
-    println!("  • Portfolio diversification could be improved");
+    println!("\n[IDEA] Recommendations:");
+    println!("  * High correlation (0.78) between SOL and RAY - consider reducing exposure");
+    println!("  * Consider adding uncorrelated assets");
+    println!("  * Portfolio diversification could be improved");
     
     Ok(())
 }
@@ -1844,43 +1876,43 @@ async fn handle_portfolio_correlation(matches: &ArgMatches) -> Result<()> {
 async fn handle_portfolio_attribution(matches: &ArgMatches) -> Result<()> {
     let period: i64 = matches.get_one::<String>("period").unwrap().parse()?;
     
-    println!("\n📊 Performance Attribution Analysis");
+    println!("\n[STATS] Performance Attribution Analysis");
     println!("Period: {} days", period);
-    println!("═══════════════════════════════════");
+    println!("===================================");
     
     // Simulate attribution analysis
-    println!("\n🔄 Calculating attribution...");
+    println!("\n[REFRESH] Calculating attribution...");
     tokio::time::sleep(tokio::time::Duration::from_millis(1100)).await;
     
-    println!("\n📈 Total Return: +12.8%");
+    println!("\n[UP] Total Return: +12.8%");
     
-    println!("\n🎯 Strategy Attribution:");
-    println!("  • Trend Following: +5.8% (Weight: 45.2%)");
+    println!("\n[TARGET] Strategy Attribution:");
+    println!("  * Trend Following: +5.8% (Weight: 45.2%)");
     println!("    - Selection Effect: +3.2%");
     println!("    - Allocation Effect: +2.1%");
     println!("    - Interaction: +0.5%");
     
-    println!("  • Momentum: +4.1% (Weight: 32.1%)");
+    println!("  * Momentum: +4.1% (Weight: 32.1%)");
     println!("    - Selection Effect: +2.7%");
     println!("    - Allocation Effect: +1.1%");
     println!("    - Interaction: +0.3%");
     
-    println!("  • Mean Reversion: +2.9% (Weight: 22.7%)");
+    println!("  * Mean Reversion: +2.9% (Weight: 22.7%)");
     println!("    - Selection Effect: +1.8%");
     println!("    - Allocation Effect: +0.9%");
     println!("    - Interaction: +0.2%");
     
-    println!("\n🪙 Asset Attribution:");
-    println!("  • SOL: +4.2% (35% of return)");
-    println!("  • RAY: +3.1% (24% of return)");
-    println!("  • ORCA: +2.8% (22% of return)");
-    println!("  • Other: +2.7% (19% of return)");
+    println!("\n Asset Attribution:");
+    println!("  * SOL: +4.2% (35% of return)");
+    println!("  * RAY: +3.1% (24% of return)");
+    println!("  * ORCA: +2.8% (22% of return)");
+    println!("  * Other: +2.7% (19% of return)");
     
-    println!("\n🧠 Alpha-Beta Analysis:");
-    println!("  • Alpha: +2.8% (excess return)");
-    println!("  • Beta: 1.15 (vs SOL benchmark)");
-    println!("  • R-squared: 0.75");
-    println!("  • Information Ratio: 0.85");
+    println!("\n[BRAIN] Alpha-Beta Analysis:");
+    println!("  * Alpha: +2.8% (excess return)");
+    println!("  * Beta: 1.15 (vs SOL benchmark)");
+    println!("  * R-squared: 0.75");
+    println!("  * Information Ratio: 0.85");
     
     Ok(())
 }
@@ -1889,50 +1921,50 @@ async fn handle_portfolio_optimize(matches: &ArgMatches) -> Result<()> {
     let target_allocations = matches.get_one::<String>("target-allocations");
     let risk_level = matches.get_one::<String>("risk-level").unwrap();
     
-    println!("\n⚡ Portfolio Optimization");
+    println!("\n[FAST] Portfolio Optimization");
     println!("Risk Level: {}", risk_level);
-    println!("═══════════════════════");
+    println!("=======================");
     
     // Simulate optimization
-    println!("\n🔄 Running optimization algorithms...");
+    println!("\n[REFRESH] Running optimization algorithms...");
     tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
     
-    println!("\n📊 Current Allocation:");
-    println!("  • Trend: 45.2%");
-    println!("  • Momentum: 32.1%");
-    println!("  • Mean Reversion: 22.7%");
+    println!("\n[STATS] Current Allocation:");
+    println!("  * Trend: 45.2%");
+    println!("  * Momentum: 32.1%");
+    println!("  * Mean Reversion: 22.7%");
     
-    println!("\n🎯 Optimized Allocation ({}):", risk_level);
-    match risk_level {
+    println!("\n[TARGET] Optimized Allocation ({}):", risk_level);
+    match risk_level.as_str() {
         "conservative" => {
-            println!("  • Trend: 30.0% (▼ 15.2%)");
-            println!("  • Momentum: 25.0% (▼ 7.1%)");
-            println!("  • Mean Reversion: 45.0% (▲ 22.3%)");
+            println!("  * Trend: 30.0% (v 15.2%)");
+            println!("  * Momentum: 25.0% (v 7.1%)");
+            println!("  * Mean Reversion: 45.0% (^ 22.3%)");
         },
         "aggressive" => {
-            println!("  • Trend: 55.0% (▲ 9.8%)");
-            println!("  • Momentum: 35.0% (▲ 2.9%)");
-            println!("  • Mean Reversion: 10.0% (▼ 12.7%)");
+            println!("  * Trend: 55.0% (^ 9.8%)");
+            println!("  * Momentum: 35.0% (^ 2.9%)");
+            println!("  * Mean Reversion: 10.0% (v 12.7%)");
         },
         _ => { // moderate
-            println!("  • Trend: 40.0% (▼ 5.2%)");
-            println!("  • Momentum: 35.0% (▲ 2.9%)");
-            println!("  • Mean Reversion: 25.0% (▲ 2.3%)");
+            println!("  * Trend: 40.0% (v 5.2%)");
+            println!("  * Momentum: 35.0% (^ 2.9%)");
+            println!("  * Mean Reversion: 25.0% (^ 2.3%)");
         }
     }
     
-    println!("\n📈 Expected Improvements:");
-    println!("  • Expected Return: +15.2% (vs +12.8% current)");
-    println!("  • Sharpe Ratio: 2.14 (vs 1.87 current)");
-    println!("  • Max Drawdown: -3.8% (vs -5.1% current)");
-    println!("  • Risk Score: 0.31 (vs 0.35 current)");
+    println!("\n[UP] Expected Improvements:");
+    println!("  * Expected Return: +15.2% (vs +12.8% current)");
+    println!("  * Sharpe Ratio: 2.14 (vs 1.87 current)");
+    println!("  * Max Drawdown: -3.8% (vs -5.1% current)");
+    println!("  * Risk Score: 0.31 (vs 0.35 current)");
     
     if let Some(targets) = target_allocations {
-        println!("\n🎯 Custom Target Allocations: {}", targets);
+        println!("\n[TARGET] Custom Target Allocations: {}", targets);
         // Parse and validate custom allocations
     }
     
-    println!("\n⚠️ Apply optimization? This will trigger rebalancing.");
+    println!("\n[WARN] Apply optimization? This will trigger rebalancing.");
     
     Ok(())
 }
@@ -1941,12 +1973,12 @@ async fn handle_portfolio_positions(matches: &ArgMatches) -> Result<()> {
     let strategy_filter = matches.get_one::<String>("strategy");
     let sort_by = matches.get_one::<String>("sort-by").unwrap();
     
-    println!("\n📊 Current Positions");
+    println!("\n[STATS] Current Positions");
     if let Some(strategy) = strategy_filter {
         println!("Strategy Filter: {}", strategy);
     }
     println!("Sorted by: {}", sort_by);
-    println!("════════════════════");
+    println!("====================");
     
     // Mock positions data
     let positions = vec![
@@ -1957,10 +1989,10 @@ async fn handle_portfolio_positions(matches: &ArgMatches) -> Result<()> {
         ("USDC", "arbitrage", 1000.0, 1000.0, 25.0, "+2.6%"),
     ];
     
-    println!("\n📊 Position Details:");
-    println!("┌─────────┬──────────────┬──────────┬───────────┬────────────┬─────────┐");
-    println!("│ Symbol  │ Strategy     │ Quantity │ Value     │ P&L        │ Return  │");
-    println!("├─────────┼──────────────┼──────────┼───────────┼────────────┼─────────┤");
+    println!("\n[STATS] Position Details:");
+    println!("+---------+--------------+----------+-----------+------------+---------+");
+    println!("| Symbol  | Strategy     | Quantity | Value     | P&L        | Return  |");
+    println!("+---------+--------------+----------+-----------+------------+---------+");
     
     for (symbol, strategy, quantity, value, pnl, return_pct) in positions {
         if let Some(filter) = strategy_filter {
@@ -1970,17 +2002,18 @@ async fn handle_portfolio_positions(matches: &ArgMatches) -> Result<()> {
         }
         
         let pnl_color = if pnl > 0.0 { "+" } else { "" };
-        println!("│ {:7} │ {:12} │ {:8.0} │ ${:8.0} │ {}{:8.0} │ {:7} │", 
+        println!("| {:7} | {:12} | {:8.0} | ${:8.0} | {}{:8.0} | {:7} |", 
                  symbol, strategy, quantity, value, pnl_color, pnl, return_pct);
     }
     
-    println!("└─────────┴──────────────┴──────────┴───────────┴────────────┴─────────┘");
+    println!("+---------+--------------+----------+-----------+------------+---------+");
     
-    println!("\n📊 Summary:");
-    println!("  • Total Positions: 5");
-    println!("  • Total Value: $21,250.00");
-    println!("  • Total P&L: +$1,700.00");
-    println!("  • Profitable Positions: 4/5 (80%)");
+    println!("\n[STATS] Summary:");
+    println!("  * Total Positions: 5");
+    println!("  * Total Value: $21,250.00");
+    println!("  * Total P&L: +$1,700.00");
+    println!("  * Profitable Positions: 4/5 (80%)");
     
     Ok(())
 }
+

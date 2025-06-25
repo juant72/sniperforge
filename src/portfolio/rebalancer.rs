@@ -119,7 +119,7 @@ impl PortfolioRebalancer {
     pub async fn analyze_rebalance_needs(
         &self,
         positions: &HashMap<Uuid, Position>,
-        total_capital: f64,
+        _total_capital: f64,
     ) -> Result<RebalanceAnalysis> {
         if !self.config.enabled {
             return Ok(RebalanceAnalysis {
@@ -222,8 +222,9 @@ impl PortfolioRebalancer {
                 // Need to increase allocation - either increase existing positions or open new ones
                 if !strategy_positions.is_empty() {
                     // Increase existing positions proportionally
-                    for position in strategy_positions {
-                        let proportional_increase = adjustment_needed / strategy_positions.len() as f64;
+                    let strategy_len = strategy_positions.len() as f64;
+                    for position in &strategy_positions {
+                        let proportional_increase = adjustment_needed / strategy_len;
                         
                         actions.push(RebalanceAction {
                             action_type: ActionType::Increase,
@@ -382,7 +383,7 @@ impl PortfolioRebalancer {
         let event = RebalanceEvent {
             timestamp,
             trigger_reason: reason,
-            actions_executed: actions,
+            actions_executed: actions.clone(),
             pre_rebalance_allocations: pre_allocations.clone(),
             post_rebalance_allocations: pre_allocations, // Would be updated after execution
             total_trades: actions.len(),

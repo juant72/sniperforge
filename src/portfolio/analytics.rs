@@ -352,8 +352,8 @@ impl PortfolioAnalytics {
             0.0
         };
 
-        let largest_win = positive_returns.iter().fold(0.0, |a, &b| a.max(b));
-        let largest_loss = negative_returns.iter().fold(0.0, |a, &b| a.min(b)).abs();
+        let largest_win: f64 = positive_returns.iter().fold(0.0, |a, &b| a.max(b));
+        let largest_loss: f64 = negative_returns.iter().fold(0.0f64, |a, &b| a.min(b)).abs();
 
         let profit_factor = if average_loss > 0.0 {
             average_win / average_loss
@@ -550,7 +550,7 @@ impl PortfolioAnalytics {
             return 0.0;
         }
 
-        let mut max_drawdown = 0.0;
+        let mut max_drawdown: f64 = 0.0;
         let mut peak = snapshots[0].total_value;
 
         for snapshot in snapshots.iter().skip(1) {

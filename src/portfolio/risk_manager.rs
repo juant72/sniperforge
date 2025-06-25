@@ -98,7 +98,7 @@ impl PortfolioRiskManager {
 
         // Calculate total portfolio value
         let total_value: f64 = positions.values().map(|p| p.value_usd).sum();
-        let total_pnl: f64 = positions.values().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
+        let _total_pnl: f64 = positions.values().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
 
         // 1. Check position concentration
         let concentration_risk = self.check_position_concentration(positions, total_value, &mut violations);
@@ -186,7 +186,7 @@ impl PortfolioRiskManager {
             return 0.0;
         }
 
-        let mut max_concentration = 0.0;
+        let mut max_concentration: f64 = 0.0;
         
         for position in positions.values() {
             let concentration = position.value_usd / total_value;

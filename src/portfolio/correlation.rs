@@ -155,7 +155,9 @@ impl CorrelationAnalyzer {
         let mut assets = Vec::new();
         let mut filtered_data = HashMap::new();
 
-        for (symbol, history) in &self.price_history {
+        // Collect filtered data without borrowing self
+        let price_history = self.price_history.clone();
+        for (symbol, history) in &price_history {
             let recent_data: Vec<_> = history.iter()
                 .filter(|p| p.timestamp >= cutoff_date)
                 .collect();
@@ -180,7 +182,7 @@ impl CorrelationAnalyzer {
                 if i == j {
                     matrix[i][j] = 1.0;
                 } else {
-                    let correlation = self.calculate_correlation(
+                    let correlation = self.calculate_correlation_from_data(
                         &assets[i], 
                         &assets[j], 
                         &filtered_data
@@ -205,8 +207,8 @@ impl CorrelationAnalyzer {
         })
     }
 
-    /// Calculate correlation between two assets
-    fn calculate_correlation(
+    /// Calculate correlation between two assets from prepared data
+    fn calculate_correlation_from_data(
         &mut self,
         asset1: &str,
         asset2: &str,
@@ -427,7 +429,7 @@ impl CorrelationAnalyzer {
         &self,
         matrix: &CorrelationMatrix,
         weights: &HashMap<String, f64>,
-        positions: &HashMap<Uuid, Position>,
+        _positions: &HashMap<Uuid, Position>,
     ) -> HashMap<String, AssetCorrelationMetrics> {
         let mut asset_correlations = HashMap::new();
 
@@ -447,7 +449,7 @@ impl CorrelationAnalyzer {
                 0.0
             };
 
-            let max_correlation = correlations.iter().fold(0.0, |a, &b| a.max(b.abs()));
+            let max_correlation: f64 = correlations.iter().fold(0.0, |a, &b| a.max(b.abs()));
 
             // Correlation with portfolio (simplified)
             let correlation_with_portfolio = avg_correlation * weights.get(asset).unwrap_or(&0.0);
