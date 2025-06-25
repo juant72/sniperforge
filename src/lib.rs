@@ -14,6 +14,7 @@ pub mod ultimate_rpc_test;
 pub mod strategies;
 pub mod analysis;
 pub mod ml;  // Phase 6B ML module
+pub mod portfolio;  // Phase 6C Portfolio Management
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;
