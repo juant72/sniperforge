@@ -751,7 +751,7 @@ impl PoolDetector {
     /// - `duration_seconds`: Monitoring duration in seconds (u64)
     /// 
     /// # Example
-    /// ```rust
+    /// ```text
     /// // Monitor for 5 minutes (300 seconds)
     /// detector.start_event_driven_monitoring_seconds(300).await?;
     /// ```

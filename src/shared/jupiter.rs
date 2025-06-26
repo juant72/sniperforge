@@ -360,10 +360,18 @@ impl JupiterClient {
             .map_err(|e| anyhow!("Failed to parse Jupiter quote response: {}", e))?;
 
         // Populate convenience fields
-        quote.in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000_000.0; // Convert lamports to SOL
-        quote.out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to USDC
+        let raw_in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0);
+        let raw_out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0);
+        
+        debug!("Raw Jupiter response - inAmount: {}, outAmount: {}", quote.inAmount, quote.outAmount);
+        debug!("Parsed - raw_in_amount: {}, raw_out_amount: {}", raw_in_amount, raw_out_amount);
+        
+        quote.in_amount = raw_in_amount / 1_000_000_000.0; // Convert lamports to SOL
+        quote.out_amount = raw_out_amount / 1_000_000.0; // Convert to USDC (6 decimals)
         quote.price_impact_pct = quote.priceImpactPct.parse::<f64>().unwrap_or(0.0);
         quote.route_plan = quote.routePlan.clone();
+
+        debug!("Converted - in_amount: {} SOL, out_amount: {} USDC", quote.in_amount, quote.out_amount);
 
         info!("✅ Jupiter quote received: {} {} -> {} {}", 
               quote.in_amount, request.inputMint, quote.out_amount, request.outputMint);
@@ -462,9 +470,9 @@ impl Jupiter {
 
         let mut quote = self.client.get_quote(quote_request).await?;
         
-        // Convert string fields to numeric for compatibility
-        quote.in_amount = quote.inAmount.parse().unwrap_or(0.0);
-        quote.out_amount = quote.outAmount.parse().unwrap_or(0.0);
+        // Convert string fields to numeric with proper unit conversion
+        quote.in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000_000.0; // Convert lamports to SOL
+        quote.out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to USDC (6 decimals)
         quote.price_impact_pct = quote.priceImpactPct.parse().unwrap_or(0.0);
 
         Ok(quote)

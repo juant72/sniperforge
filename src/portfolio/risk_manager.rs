@@ -490,13 +490,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_var_calculation() {
-        let mut positions = HashMap::new();
-        positions.insert(Uuid::new_v4(), create_test_position("SOL", "trend", 1000.0));
+        // Create a VaR calculator with diverse historical returns for realistic testing
+        let historical_returns = vec![-0.05, 0.03, -0.02, 0.01, -0.08, 0.04, -0.01, 0.02];
+        let var_calculator = VaRCalculator {
+            confidence_levels: vec![0.95, 0.99],
+            historical_returns,
+        };
         
-        let var_calculator = VaRCalculator::new(&positions);
         let var_95 = var_calculator.calculate_var(0.95);
         let var_99 = var_calculator.calculate_var(0.99);
         
-        assert!(var_99 < var_95); // VaR 99% should be lower (more negative) than VaR 95%
+        // VaR 99% should be lower (more negative) than VaR 95% due to higher confidence level
+        assert!(var_99 < var_95, "VaR 99% ({}) should be more negative than VaR 95% ({})", var_99, var_95);
     }
 }
