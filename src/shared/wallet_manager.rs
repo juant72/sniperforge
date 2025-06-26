@@ -555,6 +555,30 @@ impl WalletManager {
             }
         });
     }
+
+    /// Get wallet address as string (for Jupiter integration)
+    pub async fn get_wallet_address(&self, wallet_name: &str) -> Result<String> {
+        let wallets = self.wallets.read().await;
+        if let Some(wallet) = wallets.get(wallet_name) {
+            Ok(wallet.pubkey.to_string())
+        } else {
+            Err(PlatformError::WalletManagement(
+                format!("Wallet '{}' not found", wallet_name)
+            ).into())
+        }
+    }
+
+    /// Get wallet keypair for signing (internal use)
+    pub async fn get_wallet_keypair(&self, wallet_name: &str) -> Result<Arc<Keypair>> {
+        let wallets = self.wallets.read().await;
+        if let Some(wallet) = wallets.get(wallet_name) {
+            Ok(wallet.keypair.clone())
+        } else {
+            Err(PlatformError::WalletManagement(
+                format!("Wallet '{}' not found", wallet_name)
+            ).into())
+        }
+    }
 }
 
 /// Wallet information for external use
