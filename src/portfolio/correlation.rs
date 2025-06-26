@@ -752,7 +752,7 @@ mod tests {
         positions.insert(Uuid::new_v4(), create_test_position("ETH", "momentum", 5000.0, 2100.0));
 
         // This might fail due to insufficient data, but tests the structure
-        let result = analyzer.analyze_diversification(&positions, 7);
+        let _result = analyzer.analyze_diversification(&positions, 7);
         // Just ensure it doesn't panic - actual analysis requires more data
     }
 }
