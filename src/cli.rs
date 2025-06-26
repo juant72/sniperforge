@@ -1005,8 +1005,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         // Some(("jupiter", _)) => handle_test_jupiter_command().await?,
         // Some(("wallet", _)) => handle_test_wallet_command().await?,
         Some(("websocket", _)) => handle_test_websocket_command().await?,
-        // Some(("trade", _)) => handle_test_trade_command().await?,
-        // Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
+        Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
         // Some(("performance", _)) => handle_test_performance_command().await?,
         _ => {
@@ -1415,6 +1414,206 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
                      "solana airdrop 2".bright_green(), 
                      keypair.pubkey().to_string().bright_cyan());
         }
+    }
+    
+    Ok(())
+}
+
+async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
+    println!("{}", "🚀 SPRINT 1: REAL SWAP EXECUTION TEST".bright_red().bold());
+    println!("{}", "==================================================".bright_red());
+    
+    // Get parameters
+    let amount_str = matches.get_one::<String>("amount").unwrap();
+    let amount: f64 = amount_str.parse().unwrap_or(0.001);
+    let wallet_file = matches.get_one::<String>("wallet");
+    let confirmed = matches.get_flag("confirm");
+    
+    println!("💰 Swap Amount: {} SOL", amount.to_string().bright_cyan());
+    println!("🔄 Direction: SOL → USDC");
+    
+    if let Some(wallet_path) = wallet_file {
+        println!("🔐 Wallet: {}", wallet_path.bright_green());
+    } else {
+        println!("⚠️  No wallet specified - will use simulation mode");
+    }
+    
+    // Safety check
+    if !confirmed {
+        println!();
+        println!("{}", "⚠️  WARNING: This will execute a REAL transaction on DevNet blockchain!".bright_yellow().bold());
+        println!("   - This uses real DevNet SOL");
+        println!("   - Transaction will be visible on blockchain explorer");
+        println!("   - DevNet tokens have no monetary value");
+        println!();
+        println!("To proceed, add {} flag:", "--confirm".bright_red());
+        println!("   {} --wallet {} --confirm", 
+                 "cargo run -- test swap-real".bright_green(), 
+                 wallet_file.unwrap_or(&"test-wallet-new.json".to_string()).bright_cyan());
+        return Ok(());
+    }
+    
+    // Load wallet if provided
+    let keypair = if let Some(wallet_path) = wallet_file {
+        println!("🔓 Loading wallet from: {}", wallet_path.bright_cyan());
+        
+        match std::fs::read_to_string(wallet_path) {
+            Ok(wallet_data) => {
+                match serde_json::from_str::<Vec<u8>>(&wallet_data) {
+                    Ok(key_bytes) => {
+                        match Keypair::from_bytes(&key_bytes) {
+                            Ok(kp) => {
+                                println!("✅ Wallet loaded successfully");
+                                println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
+                                Some(kp)
+                            }
+                            Err(e) => {
+                                println!("❌ Failed to parse keypair: {}", e);
+                                return Err(anyhow::anyhow!("Invalid wallet format"));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to parse wallet JSON: {}", e);
+                        return Err(anyhow::anyhow!("Invalid wallet JSON"));
+                    }
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to read wallet file: {}", e);
+                return Err(anyhow::anyhow!("Cannot read wallet file"));
+            }
+        }
+    } else {
+        println!("⚠️  No wallet provided - simulation mode");
+        None
+    };
+    
+    // Check balance if wallet provided
+    if let Some(ref kp) = keypair {
+        println!();
+        println!("💰 Checking wallet balance...");
+        
+        let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+        match rpc_client.get_balance(&kp.pubkey()) {
+            Ok(balance_lamports) => {
+                let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
+                println!("   Balance: {} SOL", balance_sol.to_string().bright_green());
+                
+                if balance_sol < amount {
+                    println!("❌ Insufficient balance for swap!");
+                    println!("   Required: {} SOL", amount);
+                    println!("   Available: {} SOL", balance_sol);
+                    return Err(anyhow::anyhow!("Insufficient balance"));
+                }
+                
+                if balance_sol < 0.005 {
+                    println!("⚠️  Very low balance - may not cover transaction fees");
+                }
+            }
+            Err(e) => {
+                println!("⚠️  Could not check balance: {}", e);
+            }
+        }
+    }
+    
+    println!();
+    println!("{}", "🌐 Initializing Jupiter API...".bright_blue());
+    
+    // Initialize Jupiter client
+    let config = JupiterConfig::devnet();
+    let jupiter_client = match JupiterClient::new(&config).await {
+        Ok(client) => {
+            println!("✅ Jupiter API connected");
+            client
+        }
+        Err(e) => {
+            println!("❌ Failed to connect to Jupiter: {}", e);
+            return Err(e);
+        }
+    };
+    
+    println!();
+    println!("{}", "📊 Getting quote from Jupiter...".bright_blue());
+    
+    // Get quote
+    let quote_request = QuoteRequest {
+        inputMint: tokens::SOL.to_string(),
+        outputMint: tokens::USDC.to_string(),
+        amount: (amount * 1_000_000_000.0) as u64, // Convert to lamports
+        slippageBps: 50, // 0.5% slippage
+    };
+    
+    let quote = match jupiter_client.get_quote(quote_request).await {
+        Ok(q) => {
+            println!("✅ Quote received from Jupiter");
+            println!("   Input: {} SOL", q.in_amount.to_string().bright_cyan());
+            println!("   Output: {} USDC", q.out_amount.to_string().bright_green());
+            println!("   Price Impact: {}%", q.price_impact_pct.to_string().bright_yellow());
+            println!("   Route: {} steps", q.routePlan.len().to_string().bright_blue());
+            q
+        }
+        Err(e) => {
+            println!("❌ Failed to get quote: {}", e);
+            return Err(e);
+        }
+    };
+    
+    if let Some(kp) = keypair {
+        println!();
+        println!("{}", "🚀 EXECUTING REAL SWAP ON DEVNET...".bright_red().bold());
+        
+        // Use Jupiter wrapper for easier integration
+        use sniperforge::shared::jupiter::Jupiter;
+        let jupiter = Jupiter::new(&config).await?;
+        
+        // Execute real swap with wallet
+        let result = jupiter.execute_swap_with_wallet(
+            &quote,
+            &kp.pubkey().to_string(),
+            Some(&kp)
+        ).await;
+        
+        match result {
+            Ok(swap_result) => {
+                println!();
+                if swap_result.success {
+                    println!("{}", "🎉 REAL SWAP EXECUTED SUCCESSFULLY!".bright_green().bold());
+                    println!("   Transaction: {}", swap_result.transaction_signature.bright_green());
+                    println!("   Output: {} USDC", swap_result.output_amount.to_string().bright_green());
+                    println!("   Slippage: {}%", swap_result.actual_slippage.to_string().bright_yellow());
+                    println!("   Fee: {} SOL", swap_result.fee_amount.to_string().bright_yellow());
+                    println!();
+                    println!("🔗 View on DevNet Explorer:");
+                    println!("   https://explorer.solana.com/tx/{}?cluster=devnet", swap_result.transaction_signature);
+                    println!();
+                    println!("{}", "📋 Execution Logs:".bright_blue());
+                    for log in &swap_result.logs {
+                        println!("   {}", log.bright_white());
+                    }
+                } else {
+                    println!("{}", "❌ SWAP EXECUTION FAILED".bright_red().bold());
+                    println!("   Reason: Transaction failed on blockchain");
+                    if !swap_result.logs.is_empty() {
+                        println!("   Logs:");
+                        for log in &swap_result.logs {
+                            println!("     {}", log.bright_red());
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                println!("{}", "❌ SWAP EXECUTION ERROR".bright_red().bold());
+                println!("   Error: {}", e.to_string().bright_red());
+            }
+        }
+    } else {
+        println!();
+        println!("{}", "💡 Simulation completed successfully!".bright_blue());
+        println!("   Quote retrieved and transaction built");
+        println!("   To execute real swap, provide wallet:");
+        println!("   {} --wallet test-wallet-new.json --confirm", 
+                 "cargo run -- test swap-real".bright_green());
     }
     
     Ok(())
