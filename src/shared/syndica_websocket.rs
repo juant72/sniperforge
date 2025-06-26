@@ -395,11 +395,11 @@ impl SyndicaWebSocketClient {
                         if let Some(parsed) = account_data.get("parsed") {
                             if let Some(info) = parsed.get("info") {
                                 // Try to extract token mint and amount
-                                if let (Some(mint), Some(token_amount)) = (
+                                if let (Some(_mint), Some(_token_amount)) = (
                                     info.get("mint").and_then(|v| v.as_str()),
                                     info.get("tokenAmount").and_then(|v| v.get("amount")).and_then(|v| v.as_str())
                                 ) {
-                                    // TODO: Parse real token amount and calculate actual price
+                                    // REQUIRED: Parse real token amount and calculate actual price
                                     warn!("📊 Token transfer detected but real price calculation not implemented");
                                     return None; // Skip until real implementation is available
                                 }

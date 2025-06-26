@@ -22,11 +22,17 @@ pub async fn test_websocket_basic() {
         Ok(manager) => {
             println!("✅ WebSocket manager created successfully");
             
-            // Test connection status
-            if manager.is_connected().await {
-                println!("✅ WebSocket is connected");
-            } else {
-                println!("⚠️  WebSocket manager created but not actively connected");
+            // Give WebSocket time to connect (short timeout)
+            println!("🔄 Waiting for WebSocket connection...");
+            for i in 1..=3 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                if manager.is_connected().await {
+                    println!("✅ WebSocket connected successfully");
+                    break;
+                } else if i == 3 {
+                    println!("⚠️  WebSocket manager created but connection still in progress");
+                    println!("   (This is normal for quick tests - connection happens in background)");
+                }
             }
         }
         Err(e) => {

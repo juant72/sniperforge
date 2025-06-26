@@ -337,7 +337,7 @@ impl TradeExecutor {
     }
 
     /// Execute REAL trade on MainNet (Phase 5B)
-    async fn execute_mainnet_real_trade(&self, quote: &QuoteResponse, request: &TradeRequest) -> Result<TradeExecutionResult> {
+    async fn execute_mainnet_real_trade(&self, quote: &QuoteResponse, _request: &TradeRequest) -> Result<TradeExecutionResult> {
         println!("🚨 Executing REAL TRADE on MainNet - USING REAL MONEY!");
         
         // Extra safety checks for real money trading

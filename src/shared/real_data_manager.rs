@@ -373,8 +373,11 @@ pub fn ensure_production_real_data() -> Result<()> {
         return Err(anyhow!("Test environment detected - real data trading disabled"));
     }
     
-    #[cfg(debug_assertions)]
-    warn!("⚠️ Debug build detected - ensure this is not production trading");
-    
-    Ok(())
+    #[cfg(not(test))]
+    {
+        #[cfg(debug_assertions)]
+        warn!("⚠️ Debug build detected - ensure this is not production trading");
+        
+        Ok(())
+    }
 }

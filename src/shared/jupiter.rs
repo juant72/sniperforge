@@ -9,9 +9,9 @@
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::Duration;
 use reqwest::Client;
-use tokio::time::Duration;
-use tracing::{info, warn, error};
+use tracing::{info, warn, error, debug};
 
 /// Jupiter API client for real price and swap data
 #[derive(Debug, Clone)]
@@ -27,12 +27,27 @@ pub struct Jupiter {
     client: JupiterClient,
 }
 
-/// Jupiter price response structure
+/// Jupiter price response structure for V3 API
 #[derive(Debug, Deserialize)]
 pub struct JupiterPriceResponse {
-    pub data: HashMap<String, PriceData>,
+    #[serde(flatten)]
+    pub data: HashMap<String, PriceDataV3>,
 }
 
+/// Price data structure for V3 API
+#[derive(Debug, Deserialize)]
+#[allow(non_snake_case)] // Jupiter API uses camelCase field names
+pub struct PriceDataV3 {
+    #[serde(rename = "usdPrice")]
+    pub usd_price: f64,
+    #[serde(rename = "blockId")]
+    pub block_id: u64,
+    pub decimals: u8,
+    #[serde(rename = "priceChange24h")]
+    pub price_change_24h: Option<f64>,
+}
+
+/// Legacy price data structure for backwards compatibility
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case)] // Jupiter API uses camelCase field names
 pub struct PriceData {
@@ -114,7 +129,7 @@ impl JupiterConfig {
     /// Create mainnet configuration
     pub fn mainnet() -> Self {
         Self {
-            base_url: "https://price.jup.ag".to_string(),
+            base_url: "https://lite-api.jup.ag".to_string(), // Updated to V3 API
             api_key: None,
             timeout_seconds: 10,
             max_retries: 3,
@@ -124,7 +139,7 @@ impl JupiterConfig {
     /// Create devnet configuration
     pub fn devnet() -> Self {
         Self {
-            base_url: "https://price.jup.ag".to_string(), // Jupiter uses same endpoint for both
+            base_url: "https://lite-api.jup.ag".to_string(), // Same endpoint for both
             api_key: None,
             timeout_seconds: 15, // Slightly longer timeout for devnet
             max_retries: 5,
@@ -135,9 +150,9 @@ impl JupiterConfig {
 impl Default for JupiterConfig {
     fn default() -> Self {
         Self {
-            base_url: "https://price.jup.ag".to_string(),
+            base_url: "https://lite-api.jup.ag".to_string(), // Updated to V3 API
             api_key: None,
-            timeout_seconds: 10,
+            timeout_seconds: 30, // Increased timeout
             max_retries: 3,
         }
     }
@@ -166,7 +181,7 @@ impl JupiterClient {
     async fn test_connectivity(&self) -> Result<()> {
         info!("Testing Jupiter API connectivity...");
         
-        // Test with SOL price
+        // Test with SOL price directly - this is the real test
         let sol_mint = "So11111111111111111111111111111111111111112";
         match self.get_price(sol_mint).await {
             Ok(Some(price)) => {
@@ -174,8 +189,8 @@ impl JupiterClient {
                 Ok(())
             },
             Ok(None) => {
-                warn!("⚠️ Jupiter API connected but no price data");
-                Ok(())
+                warn!("⚠️ Jupiter API connected but no price data for SOL");
+                Ok(()) // Still consider this a successful connection
             },
             Err(e) => {
                 error!("❌ Jupiter API connection failed: {}", e);
@@ -184,11 +199,16 @@ impl JupiterClient {
         }
     }
 
-    /// Get real-time price for a token
+    /// Get real-time price for a token using V3 API
     pub async fn get_price(&self, mint: &str) -> Result<Option<f64>> {
-        let url = format!("{}/v4/price?ids={}", self.base_url, mint);
+        // Use Jupiter's V3 price API endpoint
+        let url = format!("{}/price/v3?ids={}", self.base_url, mint);
         
-        let mut request = self.client.get(&url);
+        debug!("🌐 Fetching price from Jupiter V3: {}", url);
+        
+        let mut request = self.client.get(&url)
+            .header("User-Agent", "SniperForge/1.0")
+            .header("Accept", "application/json");
         
         if let Some(api_key) = &self.api_key {
             request = request.header("Authorization", format!("Bearer {}", api_key));
@@ -197,32 +217,48 @@ impl JupiterClient {
         let response = request
             .send()
             .await
-            .map_err(|e| anyhow!("Failed to fetch price from Jupiter: {}", e))?;
+            .map_err(|e| {
+                error!("Network error connecting to Jupiter API: {}", e);
+                anyhow!("Failed to fetch price from Jupiter: {}", e)
+            })?;
+
+        debug!("Jupiter API response status: {}", response.status());
 
         if !response.status().is_success() {
-            return Err(anyhow!("Jupiter API returned error: {}", response.status()));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            error!("Jupiter API error response: {}", error_text);
+            return Err(anyhow!("Jupiter API returned error: {} - {}", status, error_text));
         }
 
-        let price_response: JupiterPriceResponse = response
-            .json()
-            .await
-            .map_err(|e| anyhow!("Failed to parse Jupiter price response: {}", e))?;
+        let response_text = response.text().await
+            .map_err(|e| anyhow!("Failed to read response body: {}", e))?;
+        
+        debug!("Jupiter API response body: {}", response_text);
 
-        // Extract price from response
+        let price_response: JupiterPriceResponse = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow!("Failed to parse Jupiter price response: {} - Response: {}", e, response_text))?;
+
+        // Extract price from V3 response format
         if let Some(price_data) = price_response.data.get(mint) {
-            Ok(Some(price_data.price))
+            info!("✅ Jupiter V3 price for {}: ${:.6}", mint, price_data.usd_price);
+            Ok(Some(price_data.usd_price))
         } else {
             warn!("No price data found for mint: {}", mint);
             Ok(None)
         }
     }
 
-    /// Get multiple token prices in one request
+    /// Get multiple token prices in one request using V3 API
     pub async fn get_prices(&self, mints: &[String]) -> Result<HashMap<String, f64>> {
         let ids = mints.join(",");
-        let url = format!("{}/v4/price?ids={}", self.base_url, ids);
+        let url = format!("{}/price/v3?ids={}", self.base_url, ids);
         
-        let mut request = self.client.get(&url);
+        debug!("🌐 Fetching multiple prices from Jupiter V3: {}", url);
+        
+        let mut request = self.client.get(&url)
+            .header("User-Agent", "SniperForge/1.0")
+            .header("Accept", "application/json");
         
         if let Some(api_key) = &self.api_key {
             request = request.header("Authorization", format!("Bearer {}", api_key));
@@ -234,25 +270,31 @@ impl JupiterClient {
             .map_err(|e| anyhow!("Failed to fetch prices from Jupiter: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Jupiter API returned error: {}", response.status()));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(anyhow!("Jupiter API returned error: {} - {}", status, error_text));
         }
 
-        let price_response: JupiterPriceResponse = response
-            .json()
-            .await
+        let response_text = response.text().await
+            .map_err(|e| anyhow!("Failed to read response body: {}", e))?;
+
+        let price_response: JupiterPriceResponse = serde_json::from_str(&response_text)
             .map_err(|e| anyhow!("Failed to parse Jupiter price response: {}", e))?;
 
         let mut prices = HashMap::new();
         for (mint, price_data) in price_response.data {
-            prices.insert(mint, price_data.price);
+            prices.insert(mint, price_data.usd_price);
         }
 
+        info!("✅ Fetched {} prices from Jupiter V3", prices.len());
         Ok(prices)
     }
 
     /// Get quote for a potential swap
     pub async fn get_quote(&self, request: QuoteRequest) -> Result<QuoteResponse> {
-        let url = format!("{}/v6/quote", self.base_url.replace("price.jup.ag", "quote-api.jup.ag"));
+        let url = format!("{}/v6/quote", self.base_url.replace("lite-api.jup.ag", "quote-api.jup.ag"));
+        
+        debug!("🌐 Fetching quote from Jupiter: {}", url);
         
         let query_params = [
             ("inputMint", request.inputMint.as_str()),
@@ -261,7 +303,10 @@ impl JupiterClient {
             ("slippageBps", &request.slippageBps.to_string()),
         ];
 
-        let mut req = self.client.get(&url).query(&query_params);
+        let mut req = self.client.get(&url)
+            .query(&query_params)
+            .header("User-Agent", "SniperForge/1.0")
+            .header("Accept", "application/json");
         
         if let Some(api_key) = &self.api_key {
             req = req.header("Authorization", format!("Bearer {}", api_key));
@@ -282,6 +327,9 @@ impl JupiterClient {
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse Jupiter quote response: {}", e))?;
+
+        info!("✅ Jupiter quote received: {} {} -> {} {}", 
+              request.amount, request.inputMint, quote.outAmount, request.outputMint);
 
         Ok(quote)
     }
@@ -350,6 +398,81 @@ impl JupiterClient {
         // For now, delegate to regular get_price method
         // Could be optimized with caching, connection pooling, etc.
         self.get_price(mint).await
+    }
+
+    /// Get price with fallback sources
+    pub async fn get_price_with_fallback(&self, mint: &str) -> Result<Option<f64>> {
+        // Try Jupiter first
+        match self.get_price(mint).await {
+            Ok(Some(price)) => {
+                info!("✅ Jupiter price obtained: ${:.6}", price);
+                return Ok(Some(price));
+            }
+            Ok(None) => {
+                warn!("⚠️ Jupiter returned no price data for {}", mint);
+            }
+            Err(e) => {
+                warn!("⚠️ Jupiter price fetch failed: {}", e);
+            }
+        }
+
+        // Fallback to CoinGecko for major tokens
+        info!("🔄 Trying fallback price source for {}", mint);
+        match self.get_price_from_coingecko(mint).await {
+            Ok(Some(price)) => {
+                info!("✅ Fallback price obtained: ${:.6}", price);
+                Ok(Some(price))
+            }
+            Ok(None) => {
+                warn!("⚠️ No fallback price available for {}", mint);
+                Ok(None)
+            }
+            Err(e) => {
+                error!("❌ All price sources failed: {}", e);
+                Err(e)
+            }
+        }
+    }
+
+    /// Fallback price from CoinGecko (for major tokens)
+    async fn get_price_from_coingecko(&self, mint: &str) -> Result<Option<f64>> {
+        // Map Solana token mints to CoinGecko IDs
+        let coingecko_id = match mint {
+            "So11111111111111111111111111111111111111112" => "solana", // SOL
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "usd-coin", // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "tether", // USDT
+            _ => {
+                debug!("No CoinGecko mapping for mint: {}", mint);
+                return Ok(None);
+            }
+        };
+
+        let url = format!("https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=usd", coingecko_id);
+        
+        let response = self.client
+            .get(&url)
+            .header("User-Agent", "SniperForge/1.0")
+            .send()
+            .await
+            .map_err(|e| anyhow!("CoinGecko API error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("CoinGecko API error: {}", response.status()));
+        }
+
+        let response_text = response.text().await?;
+        let price_data: serde_json::Value = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow!("Failed to parse CoinGecko response: {}", e))?;
+
+        if let Some(token_data) = price_data.get(coingecko_id) {
+            if let Some(usd_price) = token_data.get("usd") {
+                if let Some(price) = usd_price.as_f64() {
+                    return Ok(Some(price));
+                }
+            }
+        }
+
+        Ok(None)
     }
 }
 

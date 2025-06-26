@@ -472,7 +472,7 @@ impl WalletManager {
     }
     
     /// Create MainNet wallet with real keypair (real trading)
-    async fn create_mainnet_wallet(&self, env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
+    async fn create_mainnet_wallet(&self, _env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
         error!("� MainNet real trading not yet implemented - requires security review");
         return Err(anyhow::anyhow!("MainNet real trading disabled for safety"));
     }

@@ -287,7 +287,17 @@ impl WebSocketManager {
         info!("🔗 Connecting to WebSocket: {}", config.rpc_ws_url);
         
         let url = Url::parse(&config.rpc_ws_url)?;
-        let (ws_stream, _) = connect_async(url.as_str()).await?;
+        
+        // Add connection timeout to avoid hanging
+        let connect_timeout = tokio::time::Duration::from_millis(config.connection_timeout_ms);
+        let connection_result = tokio::time::timeout(connect_timeout, connect_async(url.as_str())).await;
+        
+        let (ws_stream, _) = match connection_result {
+            Ok(Ok(stream)) => stream,
+            Ok(Err(e)) => return Err(anyhow!("WebSocket connection failed: {}", e)),
+            Err(_) => return Err(anyhow!("WebSocket connection timeout after {}ms", config.connection_timeout_ms)),
+        };
+        
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
         
         {
