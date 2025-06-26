@@ -347,11 +347,11 @@ impl CacheFreeTradeEngine {
             return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
         }
 
-        // Step 6: Simulate trade execution (in real implementation, this would call Solana)
-        println!("   ✅ All safety checks passed, executing trade...");
+        // Step 6: REMOVED - Trade execution simulation disabled
+        println!("   ⚠️ SIMULATED EXECUTION DISABLED - Use real trading implementation");
         
-        // Simulate execution time
-        tokio::time::sleep(Duration::from_millis(200 + rand::random::<u64>() % 300)).await;
+        // Fixed execution time for consistent testing (no randomness)
+        tokio::time::sleep(Duration::from_millis(250)).await;
         
         let execution_time_ms = start_time.elapsed().as_millis() as u64;
 

@@ -131,7 +131,6 @@ impl BotManager {
                     target_pools: vec![], // No specific pools by default
                     max_market_cap: 1000000.0, // $1M max market cap
                     slippage_tolerance: 5.0, // 5% slippage tolerance
-                    paper_trading: false, // Real trading by default in devnet
                     settings: HashMap::new(), // Empty for now
                 })).await?;
                 self.start_bot_instance(bot_id).await?;

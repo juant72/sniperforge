@@ -6,7 +6,7 @@ use tracing::{info, warn, error, debug};
 use serde::{Serialize, Deserialize};
 use solana_sdk::pubkey::Pubkey;
 use reqwest::Client;
-use rand::Rng;
+// REMOVED: use rand::Rng; - no more random data generation
 
 use crate::config::Config;
 use crate::shared::rpc_pool::RpcConnectionPool;
@@ -207,85 +207,22 @@ impl MarketDataFeeds {
     pub async fn fetch_token_prices(&self, tokens: &[Pubkey]) -> Result<HashMap<Pubkey, PriceData>> {
         debug!("📊 Fetching prices for {} tokens", tokens.len());
         
-        // For now, we'll simulate price data
-        // In a real implementation, this would call Jupiter, CoinGecko, or other price APIs
-        let mut prices = HashMap::new();
+        error!("🚫 SIMULATED PRICE DATA DISABLED - Use real price APIs");
+        warn!("fetch_token_prices() requires real Jupiter/CoinGecko/Birdeye API implementation");
         
-        for token in tokens {
-            let price_data = PriceData {
-                token: *token,
-                token_address: token.to_string(),
-                price_usd: self.simulate_price(token).await,
-                price_sol: Some(self.simulate_price(token).await / 100.0), // Simulated SOL price
-                volume_24h: 100000.0, // Simulated
-                price_change_24h: -2.5 + (rand::thread_rng().gen::<f64>() * 5.0), // -2.5% to +2.5%
-                market_cap: Some(1000000.0), // $1M market cap
-                liquidity_usd: 500000.0, // Added for real data compatibility
-                timestamp: chrono::Utc::now(),
-                source: "Simulated".to_string(), // Added for real data compatibility
-                confidence: 0.5, // Added for real data compatibility - low confidence for simulated data
-            };
-            
-            prices.insert(*token, price_data);
-        }
-        
-        // Update cache
-        {
-            let mut cached_prices = self.cached_prices.write().await;
-            for (token, price_data) in &prices {
-                cached_prices.insert(*token, price_data.clone());
-            }
-        }
-        
-        Ok(prices)
+        // Return empty HashMap until real implementation is added
+        Ok(HashMap::new())
     }
 
     /// Fetch pool information from Raydium
     pub async fn fetch_pool_info(&self, pool_addresses: &[Pubkey]) -> Result<HashMap<Pubkey, PoolInfo>> {
         debug!("🏊 Fetching pool info for {} pools", pool_addresses.len());
         
-        // For now, we'll simulate pool data
-        // In a real implementation, this would call Raydium API or parse on-chain data
-        let mut pools = HashMap::new();
-          for pool_address in pool_addresses {
-            let pool_info = PoolInfo {
-                pool_id: *pool_address,
-                dex: crate::types::DexType::Raydium,
-                token_a: crate::types::TokenInfo {
-                    mint: Pubkey::new_unique(),
-                    symbol: "SOL".to_string(),
-                    name: "Solana".to_string(),
-                    decimals: 9,
-                    supply: Some(1000000),
-                    is_verified: true,
-                },
-                token_b: crate::types::TokenInfo {
-                    mint: Pubkey::new_unique(),
-                    symbol: "TOKEN".to_string(),
-                    name: "New Token".to_string(),
-                    decimals: 6,
-                    supply: Some(100000),
-                    is_verified: false,
-                },
-                liquidity_usd: 50000.0 + (rand::thread_rng().gen::<f64>() * 100000.0), // $50k-$150k
-                volume_24h_usd: Some(10000.0 + (rand::thread_rng().gen::<f64>() * 50000.0)), // $10k-$60k
-                created_at: chrono::Utc::now(),
-                detected_at: chrono::Utc::now(),
-                is_new: true,
-            };
-            
-            pools.insert(*pool_address, pool_info);
-        }
+        error!("🚫 SIMULATED POOL DATA DISABLED - Use real Raydium/Orca APIs");
+        warn!("fetch_pool_info() requires real DEX API implementation");
         
-        // Update cache
-        {
-            let mut cached_pools = self.cached_pools.write().await;
-            for (pool_address, pool_info) in &pools {
-                cached_pools.insert(*pool_address, pool_info.clone());
-            }
-        }
-        
-        Ok(pools)
+        // Return empty HashMap until real implementation is added
+        Ok(HashMap::new())
     }
 
     /// Get market data statistics
@@ -450,16 +387,12 @@ impl MarketDataFeeds {
         });
     }
 
-    /// Simulate price data (for testing)
+    /// REMOVED: Price simulation disabled - use real data sources only
     async fn simulate_price(&self, token: &Pubkey) -> f64 {
-        // Generate deterministic but varying prices based on token address
-        let token_str = token.to_string();
-        let hash: u64 = token_str.bytes().fold(0, |acc, b| acc.wrapping_mul(31).wrapping_add(b as u64));
-        
-        let base_price = (hash % 10000) as f64 / 100.0; // $0.01 to $100.00
-        let time_variation = (chrono::Utc::now().timestamp() % 3600) as f64 / 3600.0; // 0-1 hourly cycle
-        
-        base_price * (0.9 + 0.2 * time_variation) // ±10% variation
+        #[allow(unused_variables)]
+        let (self_ref, token_ref) = (self, token);
+        error!("🚫 SIMULATED PRICE GENERATION DISABLED - Use real price APIs");
+        0.0 // Return 0 to indicate error
     }
 }
 

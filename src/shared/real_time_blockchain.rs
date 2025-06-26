@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::str::FromStr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tokio::sync::{RwLock, Mutex};
-use tracing::warn;
+use tracing::{warn, error};
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig};
 use solana_transaction_status::UiTransactionEncoding;
@@ -601,11 +601,9 @@ impl LiveTradingIntegration {
         
         println!("✅ Price validation passed (age: {}ms)", price_age_ms);
         
-        // Here we would execute the actual trade
-        // For now, we'll simulate the execution
-        println!("🎯 Trade execution simulation completed successfully");
-        
-        Ok(())
+        // TODO: Execute the actual trade using real Jupiter integration
+        error!("🚫 REAL TRADE EXECUTION NOT YET IMPLEMENTED");
+        Err(anyhow::anyhow!("Trade execution not implemented"))
     }
 }
 
@@ -627,7 +625,7 @@ mod tests {
         let config = RealTimeBlockchainConfig::default();
         let engine = RealTimeBlockchainEngine::new(config);
         
-        // This test would need a mock RPC client for proper testing
+        // This test would need a real test environment for proper testing
         // For now, we're just testing the structure
         assert!(engine.price_cache.read().await.is_empty());
     }

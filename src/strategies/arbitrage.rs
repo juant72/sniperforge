@@ -2,6 +2,7 @@ use super::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig
 use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
 use anyhow::Result;
 use std::collections::HashMap;
+use tracing::warn;
 
 pub struct ArbitrageStrategy {
     config: StrategyConfig,
@@ -112,14 +113,10 @@ impl ArbitrageStrategy {
     fn detect_arbitrage_opportunities(&self, market_data: &MarketData) -> Vec<ArbitrageOpportunity> {
         let mut opportunities = Vec::new();
 
-        // Create synthetic price feeds based on current market data
+        // Use only real price feeds - no synthetic data generation
         let mut exchanges = HashMap::new();
-        exchanges.insert("Raydium".to_string(), market_data.current_price * (1.0 + (rand::random::<f64>() - 0.5) * 0.002));
-        exchanges.insert("Orca".to_string(), market_data.current_price * (1.0 + (rand::random::<f64>() - 0.5) * 0.002));
-        exchanges.insert("Jupiter".to_string(), market_data.current_price * (1.0 + (rand::random::<f64>() - 0.5) * 0.002));
-        exchanges.insert("Serum".to_string(), market_data.current_price * (1.0 + (rand::random::<f64>() - 0.5) * 0.002));
-
-        // Also use stored price feeds if available
+        
+        // Use stored price feeds from real sources only
         for (exchange, price) in &self.price_feeds {
             exchanges.insert(exchange.clone(), *price);
         }
@@ -210,41 +207,11 @@ impl ArbitrageStrategy {
         opportunities
     }
 
-    fn detect_triangular_arbitrage(&self, market_data: &MarketData) -> Vec<ArbitrageOpportunity> {
-        // Simplified triangular arbitrage detection
-        // In a real implementation, this would analyze paths like SOL -> USDC -> Token -> SOL
-        let mut opportunities = Vec::new();
-
-        // For demonstration, we'll create a simplified triangular opportunity
-        let base_price = market_data.current_price;
-        
-        // Simulate a triangular path with small price inefficiencies
-        let path_efficiency = 0.997; // 0.3% inefficiency across the path
-        
-        if path_efficiency < 0.998 { // If path has inefficiency
-            let profit_percentage = 1.0 - path_efficiency;
-            let amount = self.config.max_position_size * 0.5; // Smaller amounts for triangular
-            
-            let estimated_costs = amount * 0.005; // Estimate total transaction costs
-            let gross_profit = amount * profit_percentage;
-            let net_profit = gross_profit - estimated_costs;
-
-            if net_profit > 0.0 {
-                opportunities.push(ArbitrageOpportunity {
-                    buy_exchange: "Path_Start".to_string(),
-                    sell_exchange: "Path_End".to_string(),
-                    buy_price: base_price,
-                    sell_price: base_price * (1.0 + profit_percentage),
-                    profit_percentage,
-                    estimated_profit: net_profit,
-                    liquidity_buy: market_data.liquidity * 0.3,
-                    liquidity_sell: market_data.liquidity * 0.3,
-                    confidence: 0.6, // Lower confidence for triangular
-                });
-            }
-        }
-
-        opportunities
+    fn detect_triangular_arbitrage(&self, _market_data: &MarketData) -> Vec<ArbitrageOpportunity> {
+        // TODO: Implement real triangular arbitrage detection using actual AMM prices
+        warn!("🚫 TRIANGULAR ARBITRAGE SIMULATION DISABLED - Use real data only");
+        // Skip triangular arbitrage until real implementation is available
+        Vec::new()
     }
 
     fn select_best_arbitrage<'a>(&self, opportunities: &'a [ArbitrageOpportunity]) -> Option<&'a ArbitrageOpportunity> {
@@ -295,14 +262,16 @@ impl TradingStrategy for ArbitrageStrategy {
         &self.config.name
     }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
         // Arbitrage requires real-time price data from multiple sources
-        // For this analysis, we'll simulate having multiple exchange prices
-
-        // Detect direct arbitrage opportunities
-        let mut all_opportunities = self.detect_arbitrage_opportunities(market_data);
+        // TODO: Implement real multi-exchange price feeds
         
-        // Detect triangular arbitrage opportunities
-        let triangular_opportunities = self.detect_triangular_arbitrage(market_data);
-        all_opportunities.extend(triangular_opportunities);
+        // Only use real price feeds - no simulation
+        if self.price_feeds.len() < 2 {
+            warn!("🚫 Insufficient real exchange price feeds for arbitrage (need 2+, have {})", self.price_feeds.len());
+            return Ok(None);
+        }
+
+        // Detect direct arbitrage opportunities from real data only
+        let all_opportunities = self.detect_arbitrage_opportunities(market_data);
 
         // Select the best opportunity
         let best_opportunity = match self.select_best_arbitrage(&all_opportunities) {

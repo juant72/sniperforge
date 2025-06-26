@@ -412,22 +412,14 @@ impl RpcConnectionPool {
     pub async fn get_pool_market_data(&self, pool_pubkey: &Pubkey) -> Result<PoolMarketData> {
         match self.get_account_info(pool_pubkey).await? {
             Some(_account) => {
-                // In a real implementation, parse the account data to extract:
-                // - Current token reserves
+                // TODO: Parse the account data to extract:
+                // - Current token reserves  
                 // - Price information
                 // - Trading volume
                 // - Fees collected
                 
-                // For now, return simulated data
-                Ok(PoolMarketData {
-                    pool_address: *pool_pubkey,
-                    token_a_reserve: 100_000_000, // Simulated
-                    token_b_reserve: 50_000_000,  // Simulated  
-                    total_liquidity_usd: 10_000.0,
-                    price_token_a_in_b: 0.5,
-                    volume_24h_usd: 50_000.0,
-                    last_updated: chrono::Utc::now(),
-                })
+                error!("🚫 POOL DATA PARSING NOT YET IMPLEMENTED - Use real data sources");
+                Err(anyhow::anyhow!("Pool data parsing not implemented"))
             }
             None => Err(anyhow::anyhow!("Pool not found: {}", pool_pubkey))
         }

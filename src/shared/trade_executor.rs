@@ -352,29 +352,15 @@ impl TradeExecutor {
             });
         }
 
-        // In a real implementation, this would:
+        // TODO: Implement real trade execution:
         // 1. Validate wallet has sufficient balance
         // 2. Get wallet keypair from wallet manager (with additional confirmations)
         // 3. Create and submit actual Jupiter swap transaction
         // 4. Monitor transaction confirmation
         // 5. Handle any failures with proper rollback
 
-        println!("⚠️  REAL MAINNET TRADING NOT YET IMPLEMENTED - Using simulation for safety");
-        println!("   Quote: {} -> {} tokens", quote.in_amount, quote.out_amount);
-        println!("   Price Impact: {}%", quote.price_impact_pct);
-        
-        // For now, simulate to prevent accidental real trading
-        // TODO: Remove this safety check once fully tested
-        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-        
-        Ok(TradeExecutionResult {
-            success: true,
-            transaction_signature: Some(format!("MAINNET_REAL_{}", uuid::Uuid::new_v4())),
-            output_amount: quote.out_amount as u64,
-            slippage: request.slippage_bps as f64 / 10000.0 * 1.5, // Slightly higher slippage for real trading
-            gas_fee: 0.01, // Higher gas fee for mainnet
-            error_message: None,
-        })
+        error!("🚫 REAL MAINNET TRADING NOT YET IMPLEMENTED");
+        Err(anyhow::anyhow!("Real trading not implemented - safety check"))
     }
 
     /// Get real wallet balance from blockchain

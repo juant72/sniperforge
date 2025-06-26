@@ -27,7 +27,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tracing::{info, warn, error, debug};
-use rand;
+// REMOVED: use rand; - no more simulation/random data generation
 use tokio::sync::mpsc;
 
 use crate::shared::jupiter::JupiterClient;
@@ -486,95 +486,40 @@ impl PoolDetector {
             tracked_pools: self.tracked_pools.len(),
             active_opportunities: self.opportunities.len(),
             last_scan_ago: self.last_scan.elapsed(),
-            total_scans: 0, // TODO: implementar contador
+            total_scans: 0, // Real implementation needs to track actual scan count
         }
     }    /// Obtener datos reales de pools de Raydium API (optimizada para sniping)
     async fn fetch_real_raydium_pools(&self) -> Result<Vec<DetectedPool>> {
         info!("� Optimized pool detection - focusing on NEW pools only...");
         
-        // ESTRATEGIA OPTIMIZADA: En lugar de descargar 86k pools, simulamos detección en tiempo real
-        // En una implementación real, esto usaría WebSocket streams o monitoreando transacciones
+        warn!("🚫 SIMULATION-BASED POOL SCANNING DISABLED - Use real data sources only");
+        error!("scan_for_new_pools() requires real WebSocket or API implementation");
         
-        let mut detected_pools = Vec::new();
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        
-        // Simular detección de 1-3 pools nuevos ocasionalmente
-        if rand::random::<f64>() < 0.3 { // 30% chance de encontrar pools nuevos
-            let num_new_pools = rand::random::<usize>() % 3 + 1; // 1-3 pools
-            
-            for i in 0..num_new_pools {
-                let pool = self.generate_realistic_new_pool(current_time, i).await?;
-                info!("🆕 DETECTED NEW POOL: {} ({}/{})", 
-                      pool.pool_address, pool.token_a.symbol, pool.token_b.symbol);
-                detected_pools.push(pool);
-            }
-        } else {
-            debug!("� No new pools detected in this scan");
-        }
-        
-        // TODO: Implementar detección real usando:
+        // Real implementation should use:
         // 1. WebSocket de Solana para monitorear transacciones de creación de pools
         // 2. DexScreener WebSocket para pools nuevos
         // 3. Birdeye API con filtros de tiempo
         // 4. Syndica WebSocket para transacciones en tiempo real
         
-        Ok(detected_pools)
+        // Return empty Vec until real implementation is added
+        Ok(Vec::new())
     }
     
-    /// Generar un pool nuevo realista para simular detección en tiempo real
-    async fn generate_realistic_new_pool(&self, current_time: u64, index: usize) -> Result<DetectedPool> {
-        let pool_id = format!("Pool_NEW_{}_{}_{}", current_time, index, rand::random::<u32>());
-        
-        // Generar tokens comunes como pares con SOL/USDC
-        let (base_token, quote_token) = self.generate_realistic_token_pair().await;
-        
-        // Liquidez inicial típica de pools nuevos: $5k - $50k
-        let liquidity_usd = rand::random::<f64>() * 45000.0 + 5000.0;
-        
-        // Price impact alto en pools nuevos (poco líquidos)
-        let price_impact_1k = rand::random::<f64>() * 15.0 + 2.0; // 2-17%
-        
-        // Volumen bajo en pools recién creados
-        let volume_24h = rand::random::<f64>() * liquidity_usd * 0.1; // Max 10% de liquidez
-        
-        let pool = DetectedPool {
-            pool_address: pool_id,
-            token_a: base_token,
-            token_b: quote_token,
-            liquidity_usd,
-            price_impact_1k,
-            volume_24h,            created_at: current_time - rand::random::<u64>() % 300, // Creado en últimos 5 minutos
-            detected_at: current_time,
-            dex: if rand::random::<bool>() { "Raydium".to_string() } else { "Orca".to_string() },
-            risk_score: self.calculate_risk_score_for_new_pool(liquidity_usd, volume_24h).await,
-            transaction_signature: None,
-            creator: None,
-            detection_method: Some("GENERATED".to_string()),
-        };
-        
-        Ok(pool)
+    /// REMOVED: Pool generation disabled - use real data sources only
+    async fn generate_realistic_new_pool(&self, _current_time: u64, _index: usize) -> Result<DetectedPool> {
+        #[allow(unused_variables)]
+        let (current_time, _index) = (_current_time, _index);
+        error!("🚫 FAKE POOL GENERATION DISABLED - Use real data sources only");
+        Err(anyhow::anyhow!("Fake pool generation not allowed - implement real Orca API integration"))
     }
-      /// Obtener datos de pools reales de Orca API (optimizada)
+      /// Fetch real pool data from Orca API
     async fn fetch_real_orca_pools(&self) -> Result<Vec<DetectedPool>> {
-        info!("🐳 Quick Orca pool check - focusing on NEW pools only...");
+        info!("🐳 Checking Orca for new pools...");
         
-        // ESTRATEGIA OPTIMIZADA: En lugar de descargar miles de pools, 
-        // simulamos detección rápida de pools nuevos
+        // REQUIRED: Implement real Orca API integration for new pools
+        warn!("� ORCA POOL DETECTION NOT YET IMPLEMENTED - Use real APIs");
         
-        let mut detected_pools = Vec::new();
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        
-        // Simular detección ocasional de pools nuevos en Orca
-        if rand::random::<f64>() < 0.2 { // 20% chance
-            let pool = self.generate_realistic_new_pool(current_time, 0).await?;
-            info!("🐳 DETECTED NEW ORCA POOL: {} ({}/{})", 
-                  pool.pool_address, pool.token_a.symbol, pool.token_b.symbol);
-            detected_pools.push(pool);
-        } else {
-            debug!("📭 No new Orca pools detected");
-        }
-        
-        Ok(detected_pools)
+        Ok(Vec::new())
     }
     
     /// Parsear pools de Orca
@@ -667,7 +612,7 @@ impl PoolDetector {
                 .or_else(|| pool_data.get("volume_24h"))
                 .and_then(|v| v.as_f64())
                 .unwrap_or(0.0),
-            created_at: current_time - rand::random::<u64>() % 3600, // Random recent time
+            created_at: current_time, // Use actual current time - not randomized
             detected_at: current_time,
             dex: "Raydium".to_string(),
             risk_score: self.calculate_risk_score_simple(liquidity, 0.0).await,
@@ -832,73 +777,40 @@ impl PoolDetector {
         
         // Task 1: WebSocket pool creation events (Helius/Syndica)
         if let Some(syndica_client) = &self.syndica_client {            let _syndica_clone = syndica_client.clone();
-            let sender_clone = event_sender.clone();
+            let _sender_clone = event_sender.clone();
             let _config_clone = self.config.clone();
             
             tokio::spawn(async move {
                 info!("📡 Starting Syndica WebSocket pool creation listener...");
                 
-                // TODO: Implement real WebSocket listener
+                // REQUIRED: Implement real WebSocket listener
                 // This should listen to Solana program logs for:
                 // - Raydium pool creation (program: 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8)
                 // - Orca whirlpool creation (program: whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uesLkHp)
                 
-                // For now, simulate occasional events
-                let mut interval = tokio::time::interval(Duration::from_secs(10));
-                
-                loop {
-                    interval.tick().await;
-                    
-                    // Simulate 30% chance of new pool event every 10 seconds
-                    if rand::random::<f64>() < 0.3 {
-                        match Self::generate_event_driven_pool().await {
-                            Ok(pool) => {
-                                info!("📡 WEBSOCKET EVENT: New pool detected via Syndica: {}", pool.pool_address);
-                                if let Err(e) = sender_clone.send(pool).await {
-                                    warn!("Failed to send pool event: {}", e);
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                warn!("Failed to generate event pool: {}", e);
-                            }
-                        }
-                    }
-                }
+                warn!("🚫 REAL WEBSOCKET LISTENER NOT YET IMPLEMENTED");
+                warn!("Replace this with real Syndica WebSocket implementation");
+                // Until real implementation, wait and don't generate fake data
+                tokio::time::sleep(Duration::from_secs(30)).await;
             });
         }
         
         // Task 2: DexScreener WebSocket new pool events
         {
-            let sender_clone = event_sender.clone();
+            let _sender_clone = event_sender.clone();
             tokio::spawn(async move {
                 info!("📡 Starting DexScreener new pool listener...");
                 
-                // TODO: Implement DexScreener WebSocket
+                // REQUIRED: Implement DexScreener WebSocket
                 // wss://io.dexscreener.com/dex/screener/new-pairs/solana
                 
-                // For now, simulate occasional events
-                let mut interval = tokio::time::interval(Duration::from_secs(15));
+                warn!("🚫 DEXSCREENER WEBSOCKET SIMULATION DISABLED");
+                warn!("Implement real DexScreener WebSocket connection");
                 
+                // Wait indefinitely until real implementation is added
                 loop {
-                    interval.tick().await;
-                    
-                    // Simulate 20% chance of new pool event every 15 seconds
-                    if rand::random::<f64>() < 0.2 {
-                        match Self::generate_event_driven_pool().await {
-                            Ok(mut pool) => {
-                                pool.detection_method = Some("DEXSCREENER_WS".to_string());
-                                info!("📡 DEXSCREENER EVENT: New pool detected: {}", pool.pool_address);
-                                if let Err(e) = sender_clone.send(pool).await {
-                                    warn!("Failed to send DexScreener pool event: {}", e);
-                                    break;
-                                }
-                            }
-                            Err(e) => {
-                                warn!("Failed to generate DexScreener event pool: {}", e);
-                            }
-                        }
-                    }
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    debug!("DexScreener WebSocket placeholder - implement real connection");
                 }
             });
         }
@@ -977,90 +889,10 @@ impl PoolDetector {
         Ok(())
     }
     
-    /// Generate a pool from event-driven detection
+    /// REMOVED: Event-driven pool generation disabled - use real data sources only  
     async fn generate_event_driven_pool() -> Result<DetectedPool> {
-        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-        let pool_id = format!("EVENT_POOL_{}_{}_{}", 
-                             current_time, 
-                             rand::random::<u32>(), 
-                             rand::random::<u16>());
-        
-        // Generate more realistic new pool data
-        let is_sol_pair = rand::random::<bool>();
-        let (token_a, token_b) = if is_sol_pair {
-            (
-                TokenInfo {
-                    mint: "So11111111111111111111111111111111111111112".to_string(),
-                    symbol: "SOL".to_string(),
-                    decimals: 9,
-                    supply: 1_000_000_000,
-                    price_usd: 180.0 + (rand::random::<f64>() - 0.5) * 20.0, // SOL price variation
-                    market_cap: 180_000_000_000.0,
-                },
-                TokenInfo {
-                    mint: format!("NEW{}", rand::random::<u32>()),
-                    symbol: format!("TOKEN{}", rand::random::<u16>()),
-                    decimals: 6,
-                    supply: 1_000_000_000,
-                    price_usd: rand::random::<f64>() * 10.0, // New token price
-                    market_cap: rand::random::<f64>() * 10_000_000.0,
-                }
-            )
-        } else {
-            // USDC pair
-            (
-                TokenInfo {
-                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-                    symbol: "USDC".to_string(),
-                    decimals: 6,
-                    supply: 50_000_000_000,
-                    price_usd: 1.0,
-                    market_cap: 50_000_000_000.0,
-                },
-                TokenInfo {
-                    mint: format!("NEW{}", rand::random::<u32>()),
-                    symbol: format!("TOKEN{}", rand::random::<u16>()),
-                    decimals: 6,
-                    supply: 1_000_000_000,
-                    price_usd: rand::random::<f64>() * 2.0,
-                    market_cap: rand::random::<f64>() * 5_000_000.0,
-                }
-            )
-        };
-        
-        // New pools typically start with smaller liquidity
-        let liquidity_usd = 2000.0 + rand::random::<f64>() * 20000.0; // $2k-$22k
-        let price_impact_1k = 5.0 + rand::random::<f64>() * 20.0; // 5-25% (high for new pools)
-        let volume_24h = liquidity_usd * rand::random::<f64>() * 0.3; // Low volume initially
-        
-        let pool = DetectedPool {
-            pool_address: pool_id,
-            token_a,
-            token_b,
-            liquidity_usd,
-            price_impact_1k,
-            volume_24h,
-            created_at: current_time - rand::random::<u64>() % 60, // Created in last minute
-            detected_at: current_time,
-            dex: if rand::random::<bool>() { "Raydium".to_string() } else { "Orca".to_string() },
-            risk_score: RiskScore {
-                overall: 0.3 + rand::random::<f64>() * 0.4, // 30-70% for new pools
-                liquidity_score: if liquidity_usd > 10000.0 { 0.7 } else { 0.4 },
-                volume_score: 0.3, // Low initially
-                token_age_score: 0.1, // Very new
-                holder_distribution_score: 0.4,
-                rug_indicators: if liquidity_usd < 5000.0 { 
-                    vec!["Low initial liquidity".to_string()] 
-                } else { 
-                    vec![] 
-                },
-            },
-            transaction_signature: Some(format!("tx_{}", rand::random::<u64>())),
-            creator: Some(format!("creator_{}", rand::random::<u32>())),
-            detection_method: Some("EVENT_DRIVEN".to_string()),
-        };
-        
-        Ok(pool)
+        error!("🚫 FAKE EVENT POOL GENERATION DISABLED - Use real data sources only");
+        Err(anyhow::anyhow!("Fake pool generation not allowed - implement real WebSocket listeners"))
     }
     
     /// Print status report for event-driven monitoring
@@ -1257,7 +1089,7 @@ impl PoolDetector {
         let birdeye_url = format!("https://public-api.birdeye.so/defi/price?address={}", mint);
         
         if let Ok(response) = client.get(&birdeye_url)
-            .header("X-API-KEY", "YOUR_BIRDEYE_API_KEY") // TODO: Add real API key
+            .header("X-API-KEY", "BIRDEYE_API_KEY_REQUIRED") // REQUIRED: Add real Birdeye API key
             .send().await {
             if response.status().is_success() {
                 if let Ok(price_data) = response.json::<serde_json::Value>().await {
@@ -1558,7 +1390,7 @@ impl PoolDetector {
                 .or_else(|| pool_data.get("volume_24h"))
                 .and_then(|v| v.as_f64())
                 .unwrap_or(0.0),
-            created_at: current_time - rand::random::<u64>() % 3600, // Random recent time
+            created_at: current_time, // Use actual current time - not randomized  
             detected_at: current_time,
             dex: "Raydium".to_string(),
             risk_score: self.calculate_risk_score_simple(liquidity, 0.0).await,
@@ -1610,39 +1442,21 @@ impl PoolDetector {
         println!("==========================\n");
     }
 
-    /// Generar par de tokens realista para simulación
-    async fn generate_realistic_token_pair(&self) -> (TokenInfo, TokenInfo) {        let common_tokens = [("SOL", "So11111111111111111111111111111111111111112", 9, 180.0),
-            ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 6, 1.0),
-            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 6, 1.0)];
-        
-        let base_token_data = &common_tokens[rand::random::<usize>() % common_tokens.len()];
-        
-        // Token nuevo (aleatorio)
-        let new_token_symbol = format!("{}COIN", 
-            ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][rand::random::<usize>() % 8]);
-        let new_token_mint = format!("New{}{}", 
-            rand::random::<u32>(), rand::random::<u32>());
-        let new_token_price = rand::random::<f64>() * 10.0 + 0.001; // $0.001 - $10
-        
-        let base_token = TokenInfo {
-            mint: base_token_data.1.to_string(),
-            symbol: base_token_data.0.to_string(),
-            decimals: base_token_data.2,
-            supply: if base_token_data.0 == "SOL" { 500_000_000 } else { 1_000_000_000 },
-            price_usd: base_token_data.3,
-            market_cap: base_token_data.3 * 1_000_000_000.0,
+    /// REMOVED: Token generation disabled - use real data sources only
+    async fn generate_realistic_token_pair(&self) -> (TokenInfo, TokenInfo) {
+        #[allow(unused_variables)]
+        let self_ref = self;
+        error!("🚫 FAKE TOKEN GENERATION DISABLED - Use real data sources only");
+        // Return empty tokens to indicate error
+        let empty_token = TokenInfo {
+            mint: "ERROR_FAKE_GENERATION_DISABLED".to_string(),
+            symbol: "ERROR".to_string(),
+            decimals: 0,
+            supply: 0,
+            price_usd: 0.0,
+            market_cap: 0.0,
         };
-        
-        let quote_token = TokenInfo {
-            mint: new_token_mint,
-            symbol: new_token_symbol,
-            decimals: 6,
-            supply: rand::random::<u64>() % 1_000_000_000 + 100_000_000, // 100M - 1B
-            price_usd: new_token_price,
-            market_cap: new_token_price * 10_000_000.0, // 10M tokens circulando
-        };
-        
-        (base_token, quote_token)
+        (empty_token.clone(), empty_token)
     }
     
     /// Calcular risk score específico para pools nuevos
@@ -1949,15 +1763,10 @@ impl PoolDetector {
             .timeout(Duration::from_secs(3)) // Timeout más corto
             .build()?;
             
-        // TODO: Implementar endpoint filtrado de Raydium para pools nuevos solamente
-        // Por ahora, generar datos simulados más rápido
-        let mut pools = Vec::new();
-        if rand::random::<f64>() < 0.4 { // 40% chance
-            let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-            pools.push(self.generate_realistic_new_pool(current_time, 0).await?);
-        }
+        // TODO: Implement filtered Raydium endpoint for new pools only  
+        warn!("🚫 RAYDIUM NEW POOL DETECTION NOT YET IMPLEMENTED");
         
-        Ok(pools)
+        Ok(Vec::new())
     }    /// 🚀 NUEVO: Fetch pools from Helius real-time WebSocket
     async fn fetch_pools_from_helius_realtime(&self) -> Result<Vec<DetectedPool>> {
         debug!("⚡ Fetching pools from Helius real-time WebSocket...");
@@ -1971,56 +1780,18 @@ impl PoolDetector {
             }
         };
         
-        let mut detected_pools = Vec::new();
+        let _detected_pools: Vec<DetectedPool> = Vec::new();
         
-        // TODO: Implementar real-time pool detection con Helius WebSocket
-        // Por ahora, simular detección con datos de prueba
-        if rand::random::<f64>() < 0.3 { // 30% chance of finding a new pool
-            let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-            let simulated_pool = self.generate_helius_detected_pool(current_time, 0).await?;
-            info!("🚀 SIMULATED HELIUS POOL: {} ({}/{})", 
-                  simulated_pool.pool_address, 
-                  simulated_pool.token_a.symbol, 
-                  simulated_pool.token_b.symbol);
-            detected_pools.push(simulated_pool);
-        }
+        // REQUIRED: Implement real-time pool detection with Helius WebSocket
+        warn!("� HELIUS POOL DETECTION NOT YET IMPLEMENTED - Use real APIs");
         
-        debug!("📊 Helius real-time detection found {} new pools", detected_pools.len());
-        Ok(detected_pools)
+        Ok(Vec::new())
     }
     
-    /// Generar pool detectado por Helius con características de detección real-time
-    async fn generate_helius_detected_pool(&self, current_time: u64, index: usize) -> Result<DetectedPool> {
-        let pool_id = format!("HELIUS_RT_{}_{}_{}", current_time, index, rand::random::<u32>());
-        
-        // Pools detectados por Helius son MUY nuevos (segundos de creación)
-        let (base_token, quote_token) = self.generate_realistic_token_pair().await;
-        
-        // Liquidez inicial muy baja (pools recién creados)
-        let liquidity_usd = rand::random::<f64>() * 20000.0 + 1000.0; // $1k-$21k
-        
-        // Price impact muy alto (pools muy nuevos)
-        let price_impact_1k = rand::random::<f64>() * 25.0 + 5.0; // 5-30%
-        
-        // Volumen casi cero (recién creado)
-        let volume_24h = rand::random::<f64>() * 100.0; // $0-$100
-        
-        let pool = DetectedPool {
-            pool_address: pool_id,
-            token_a: base_token,
-            token_b: quote_token,
-            liquidity_usd,
-            price_impact_1k,
-            volume_24h,
-            created_at: current_time - rand::random::<u64>() % 60, // Creado en últimos 60 segundos!
-            detected_at: current_time,
-            dex: "Helius-Detected".to_string(),            risk_score: self.calculate_risk_score_for_new_pool(liquidity_usd, volume_24h).await,
-            transaction_signature: None,
-            creator: None,
-            detection_method: Some("HELIUS_REALTIME".to_string()),
-        };
-        
-        Ok(pool)
+    /// REMOVED: Helius pool generation disabled - use real data sources only
+    async fn generate_helius_detected_pool(&self, _current_time: u64, _index: usize) -> Result<DetectedPool> {
+        error!("🚫 FAKE HELIUS POOL GENERATION DISABLED - Use real data sources only");
+        Err(anyhow::anyhow!("Fake pool generation not allowed"))
     }    /// Run a single detection cycle and return opportunities
     pub async fn detect_opportunities_once(&mut self) -> Result<Vec<TradingOpportunity>> {
         let _start_time = Instant::now();

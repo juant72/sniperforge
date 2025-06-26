@@ -21,10 +21,9 @@ pub async fn test_cache_safety_levels() -> Result<()> {
             println!("✅ Connected");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
-        Err(_) => {
-            println!("❌ Failed, using simulation for demo");
-            client.start_price_simulation().await?;
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        Err(e) => {
+            println!("❌ Connection failed: {}", e);
+            return Err(e);
         }
     }
     

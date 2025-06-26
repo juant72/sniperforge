@@ -597,11 +597,8 @@ impl LpSniperBot {
     ) -> Result<TradeExecutionResult> {
         let _start_time = std::time::Instant::now();
         
-        if self.config.paper_trading {
-            self.execute_paper_buy(opportunity).await
-        } else {
-            self.execute_real_buy(opportunity).await
-        }
+        // Only real trading is supported
+        self.execute_real_buy(opportunity).await
     }
 
     /// Execute a real buy trade using wallet manager

@@ -74,7 +74,6 @@ pub struct SyndicaPriceUpdate {
 #[derive(Debug, Clone, PartialEq)]
 pub enum PriceSource {
     SyndicaRealtime,  // Real WebSocket data from Syndica
-    SyndicaSynthetic, // Generated from slot data (TESTING ONLY)
     HttpFallback,     // Fallback to HTTP API
 }
 
@@ -84,7 +83,6 @@ pub enum PriceConfidence {
     High,       // Real market data < 50ms old
     Medium,     // Real market data 50-200ms old
     Low,        // Real market data > 200ms old  
-    Synthetic,  // Generated/synthetic data (NEVER use for real trading)
 }
 
 /// Enhanced price cache entry with metadata
@@ -119,48 +117,10 @@ impl SyndicaWebSocketClient {
         })
     }
     
-    /// Start price simulation for testing (when real data isn't available)
+    /// REMOVED: Price simulation disabled - use real data sources only
     pub async fn start_price_simulation(&self) -> Result<()> {
-        info!("🎭 Starting price simulation for testing");
-        
-        let price_cache = self.price_cache.clone();
-        let test_tokens = vec![
-            ("So11111111111111111111111111111111111111112", 180.0), // SOL
-            ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 1.0),  // USDC
-            ("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 1.0),  // USDT
-        ];
-
-        tokio::spawn(async move {
-            loop {
-                for (mint, base_price) in &test_tokens {
-                    // Generate realistic price variations (+/- 2%) with thread-safe RNG
-                    let variation = {
-                        use rand::Rng;
-                        let mut rng = rand::thread_rng();
-                        rng.gen_range(-0.02..0.02)
-                    };
-                    let current_price = base_price * (1.0 + variation);
-
-                    {
-                        let mut cache = price_cache.write().await;
-                        let entry = PriceEntry {
-                            price: current_price,
-                            timestamp: Instant::now(),
-                            source: PriceSource::SyndicaSynthetic,
-                            confidence: PriceConfidence::Synthetic,
-                        };
-                        cache.insert(mint.to_string(), entry);
-                    }
-                    
-                    debug!("📡 Real price update: {} = ${:.4}", &mint[..8], current_price);
-                }
-                
-                // Update every 100ms for realistic high-frequency data
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-        });
-        
-        Ok(())
+        error!("🚫 Price simulation disabled - use real data sources only");
+        Err(anyhow::anyhow!("Price simulation not allowed - real data only"))
     }
 
     /// Connect to Syndica WebSocket with ultra-low latency optimizations
@@ -310,13 +270,6 @@ impl SyndicaWebSocketClient {
             debug!("🕐 Found price ${:.4}, age: {}ms, source: {:?}, confidence: {:?}", 
                    entry.price, age.as_millis(), entry.source, entry.confidence);
             
-            // CRITICAL: Reject synthetic data completely
-            if entry.confidence == PriceConfidence::Synthetic {
-                warn!("❌ SYNTHETIC DATA REJECTED - Not safe for trading");
-                debug!("🌐 Cache miss, falling back to HTTP");
-                return Ok(None);
-            }
-            
             // Only accept REAL data from Syndica or HTTP fallback
             match entry.source {
                 PriceSource::SyndicaRealtime => {
@@ -344,10 +297,6 @@ impl SyndicaWebSocketClient {
                     } else {
                         debug!("❌ HTTP data too stale: {}ms", age.as_millis());
                     }
-                }
-                PriceSource::SyndicaSynthetic => {
-                    // NEVER use synthetic data for real operations
-                    warn!("❌ SYNTHETIC DATA BLOCKED - Source: {:?}", entry.source);
                 }
             }
         } else {
@@ -450,19 +399,9 @@ impl SyndicaWebSocketClient {
                                     info.get("mint").and_then(|v| v.as_str()),
                                     info.get("tokenAmount").and_then(|v| v.get("amount")).and_then(|v| v.as_str())
                                 ) {
-                                    // Convert token amount to price
-                                    if let Ok(amount) = token_amount.parse::<u64>() {
-                                        let synthetic_price = Self::calculate_synthetic_price(mint, amount).await;
-                                        return Some(SyndicaPriceUpdate {
-                                            token_mint: mint.to_string(),
-                                            price_usd: synthetic_price,
-                                            timestamp: chrono::Utc::now().timestamp() as u64,
-                                            volume_24h: None,
-                                            price_change_24h: None,
-                                            source: PriceSource::SyndicaSynthetic,
-                                            confidence: PriceConfidence::Synthetic,
-                                        });
-                                    }
+                                    // TODO: Parse real token amount and calculate actual price
+                                    warn!("📊 Token transfer detected but real price calculation not implemented");
+                                    return None; // Skip until real implementation is available
                                 }
                             }
                         }
@@ -480,20 +419,13 @@ impl SyndicaWebSocketClient {
             if let Some(parsed) = account_data.get("parsed") {
                 if let Some(info) = parsed.get("info") {
                     // Extract mint and balance information
-                    if let (Some(mint), Some(token_amount)) = (
+                    if let (Some(_mint), Some(_token_amount)) = (
                         info.get("mint").and_then(|v| v.as_str()),
                         info.get("tokenAmount").and_then(|v| v.get("uiAmount")).and_then(|v| v.as_f64())
                     ) {
-                        let price = Self::calculate_synthetic_price(mint, token_amount as u64).await;
-                        return Some(SyndicaPriceUpdate {
-                            token_mint: mint.to_string(),
-                            price_usd: price,
-                            timestamp: chrono::Utc::now().timestamp() as u64,
-                            volume_24h: None,
-                            price_change_24h: None,
-                            source: PriceSource::SyndicaSynthetic,
-                            confidence: PriceConfidence::Synthetic,
-                        });
+                        // TODO: Implement real price calculation from account data
+                        warn!("📊 Account data received but real price calculation not implemented");
+                        return None; // Skip until real implementation is available
                     }
                 }
             }
@@ -505,31 +437,13 @@ impl SyndicaWebSocketClient {
     async fn parse_program_update(value: &Value) -> Option<SyndicaPriceUpdate> {
         if let Some(account) = value.get("account") {
             if let Some(_data) = account.get("data") {
-                // Program update received (no JSON logging to reduce noise)
-                
-                // For Raydium AMM updates, we could extract pool information
-                // For now, return a synthetic update
-                use rand::Rng;
-                let mut rng = rand::thread_rng();
-                return Some(SyndicaPriceUpdate {
-                    token_mint: "So11111111111111111111111111111111111111112".to_string(),
-                    price_usd: 180.0 * (1.0 + rng.gen_range(-0.01..0.01)),
-                    timestamp: chrono::Utc::now().timestamp() as u64,
-                    volume_24h: Some(rng.gen_range(500000.0..5000000.0)),
-                    price_change_24h: Some(rng.gen_range(-5.0..5.0)),
-                    source: PriceSource::SyndicaSynthetic,
-                    confidence: PriceConfidence::Synthetic,
-                });
+                // Program update received - parse real data only
+                // TODO: Implement real Raydium AMM data parsing
+                warn!("📊 Program update received but real parsing not yet implemented");
+                return None;
             }
         }
         None
-    }
-
-    /// REMOVED: Synthetic price generation (violates data integrity)
-    /// This function has been disabled to prevent generation of fake price data
-    async fn calculate_synthetic_price(_mint: &str, _amount: u64) -> f64 {
-        warn!("❌ SYNTHETIC PRICE GENERATION DISABLED - Use real data sources only");
-        0.0 // Return 0 to indicate no valid price available
     }
 
     /// Get comprehensive cache statistics for monitoring
@@ -541,17 +455,15 @@ impl SyndicaWebSocketClient {
         let mut stale_entries = 0;
         let mut aged_entries = 0;
         let mut real_data_entries = 0;
-        let mut _synthetic_data_entries = 0; // Tracked but not used in final report
         let mut oldest_age = Duration::from_millis(0);
         let mut newest_age = Duration::from_secs(999);
         
         for (_token, entry) in cache.iter() {
             let age = now.duration_since(entry.timestamp);
             
-            // Track data source types
+            // Track data source types (only real data)
             match entry.source {
                 PriceSource::SyndicaRealtime | PriceSource::HttpFallback => real_data_entries += 1,
-                PriceSource::SyndicaSynthetic => _synthetic_data_entries += 1,
             }
             
             // Age classification
@@ -760,10 +672,9 @@ pub async fn test_syndica_performance() -> Result<()> {
             println!("✅ {}ms", start.elapsed().as_millis());
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
-        Err(_) => {
-            println!("❌ Failed, using simulation");
-            client.start_price_simulation().await?;
-            tokio::time::sleep(Duration::from_millis(500)).await;
+        Err(e) => {
+            println!("❌ Connection failed: {}", e);
+            return Err(e);
         }
     }
     

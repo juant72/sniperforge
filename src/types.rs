@@ -161,7 +161,6 @@ pub struct LpSniperConfig {
     pub target_pools: Vec<String>, // Pool addresses to monitor
     pub max_market_cap: f64, // Maximum market cap to consider
     pub slippage_tolerance: f64, // Maximum acceptable slippage
-    pub paper_trading: bool, // Enable paper trading mode
     pub settings: HashMap<String, serde_json::Value>,
 }
 
@@ -182,7 +181,6 @@ impl Default for LpSniperConfig {
             target_pools: vec![],
             max_market_cap: 1000000.0, // $1M max market cap
             slippage_tolerance: 5.0,
-            paper_trading: false,
             settings: HashMap::new(),
         }
     }

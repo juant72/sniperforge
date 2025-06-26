@@ -207,30 +207,22 @@ impl RealDataManager {
 
         let mut total_transactions = 0;
         let mut total_fees_paid = 0.0;
-        let mut wins = 0;
-        let mut losses = 0; // Used in PnL calculation below
-        let mut largest_gain: f64 = 0.0;
-        let mut largest_loss: f64 = 0.0;
+        let wins = 0;
+        let losses = 0; // Used in PnL calculation below
+        let largest_gain: f64 = 0.0;
+        let largest_loss: f64 = 0.0;
 
         if let Ok(transactions) = transaction_result {
             total_transactions = transactions.len() as u32;
 
-            // Analyze each real transaction (placeholder - method not available)
+            // TODO: Analyze each real transaction (requires full transaction parsing)
             for _transaction in transactions.iter().take(50) { // Limit for performance
-                // For now, use placeholder values since exact RPC methods aren't available
-                // In a real implementation, we would get transaction details here
-                let _estimated_pnl = 0.0; // Placeholder for future PnL calculation
+                // TODO: Parse real transaction details for actual PnL calculation
                 total_fees_paid += 0.005; // Estimated transaction fee
 
-                // Simplified PnL calculation - in real implementation, would parse full transaction details
-                let estimated_pnl = (rand::random::<f64>() - 0.5) * 100.0; // Placeholder for real calculation
-                if estimated_pnl > 0.0 {
-                    wins += 1;
-                    largest_gain = largest_gain.max(estimated_pnl);
-                } else {
-                    losses += 1;
-                    largest_loss = largest_loss.min(estimated_pnl);
-                }
+                // TODO: Real PnL calculation requires parsing swap transaction details
+                warn!("📊 Transaction analysis using simplified estimates - implement real parsing");
+                // For now, skip detailed analysis until real parsing is implemented
             }
         }
 

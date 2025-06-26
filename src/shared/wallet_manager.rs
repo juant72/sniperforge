@@ -414,11 +414,11 @@ impl WalletManager {
                     }
                 }
                 
-                // MainNet wallet (virtual/paper trading)
+                // MainNet wallet (real trading only)
                 if wallet_config.mainnet.enabled {
-                    let mainnet_wallet = self.create_mainnet_wallet(&wallet_config.mainnet).await?;
-                    self.add_wallet(mainnet_wallet).await?;
-                    info!("✅ MainNet virtual wallet created for paper trading");
+                    // For real MainNet trading, require explicit keypair configuration
+                    warn!("⚠️ MainNet real trading requires explicit wallet configuration");
+                    warn!("⚠️ Add your MainNet keypair to config to enable real trading");
                 }
             }
         } else {
@@ -471,30 +471,10 @@ impl WalletManager {
         })
     }
     
-    /// Create MainNet virtual wallet (no real keypair needed)
+    /// Create MainNet wallet with real keypair (real trading)
     async fn create_mainnet_wallet(&self, env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
-        info!("📊 Creating MainNet virtual wallet for paper trading");
-        
-        // For paper trading, we don't need a real keypair
-        // We'll use a dummy keypair just for the structure
-        let dummy_keypair = Keypair::new();
-        
-        info!("📈 Virtual MainNet wallet: {} (PAPER TRADING ONLY)", dummy_keypair.pubkey());
-        
-        Ok(WalletConfig {
-            name: "mainnet-paper".to_string(),
-            wallet_type: WalletType::Testing, // Mark as testing since it's virtual
-            keypair_path: None,
-            keypair_data: None, // No real keypair for paper trading
-            max_sol_balance: env_config.virtual_balance_sol.unwrap_or(100.0),
-            min_sol_balance: 1.0,
-            risk_management: RiskManagement {
-                max_transaction_amount: env_config.max_trade_amount_sol,
-                daily_limit: env_config.max_trade_amount_sol * 20.0,
-                require_confirmation: false,
-                emergency_stop_threshold: 10.0, // Higher threshold for virtual
-            },
-        })
+        error!("� MainNet real trading not yet implemented - requires security review");
+        return Err(anyhow::anyhow!("MainNet real trading disabled for safety"));
     }
     
     /// Airdrop SOL on devnet for testing
@@ -557,7 +537,7 @@ impl WalletManager {
                 interval.tick().await;
                 
                 // In a real implementation, this would check balances via RPC
-                debug!("Balance monitoring tick (placeholder)");
+                debug!("Balance monitoring tick");
             }
         });
     }    /// Start daily volume reset task

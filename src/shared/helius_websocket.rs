@@ -14,7 +14,7 @@ use tokio::sync::{RwLock, mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{info, warn, debug, error};
 use base64;
-use rand;
+// REMOVED: use rand; - no more random data generation
 
 /// Helius WebSocket configuration
 #[derive(Debug, Clone)]
@@ -222,7 +222,7 @@ impl HeliusWebSocketClient {
     fn create_program_subscription(program_id: &str) -> String {
         serde_json::json!({
             "jsonrpc": "2.0",
-            "id": format!("pool_detection_{}", rand::random::<u32>()),
+            "id": format!("pool_detection_{}", std::process::id()),
             "method": "programSubscribe",
             "params": [
                 program_id,
@@ -398,7 +398,7 @@ impl HeliusWebSocketClient {
         // Fallback to placeholder values for now
         Ok((
             "So11111111111111111111111111111111111111112".to_string(), // SOL
-            format!("Token_{}", rand::random::<u32>())
+            format!("UNKNOWN_TOKEN_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
         ))
     }
 
@@ -426,16 +426,15 @@ impl HeliusWebSocketClient {
         // Fallback
         Ok((
             "So11111111111111111111111111111111111111112".to_string(),
-            format!("Token_{}", rand::random::<u32>())
+            format!("UNKNOWN_ORCA_TOKEN_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
         ))
     }
     
-    /// Generate a realistic pool address (in production, extract from account key)
+    /// REMOVED: Pool address generation disabled - extract from real account data
     fn generate_pool_address() -> String {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-        let bytes: [u8; 32] = rng.gen();
-        bs58::encode(&bytes).into_string()
+        error!("🚫 FAKE POOL ADDRESS GENERATION DISABLED - Use real account data");
+        // Return timestamp-based placeholder until real implementation
+        format!("PLACEHOLDER_POOL_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
     }
     
     /// Receive next pool creation notification
