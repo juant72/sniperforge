@@ -39,14 +39,16 @@
 - [x] ✅ **Wallet parameter integration**
 - [x] ✅ **Fix transaction deserialization** (unidades/formato corregidas)
 - [x] ✅ **Real swap infrastructure ready** (necesita wallet válido DevNet)
-- [ ] 🔄 **Generate valid DevNet wallet** con funds
-- [ ] 🔄 **End-to-end real transaction test**
+- [x] ✅ **Generate valid DevNet wallet** con funds (test-wallet-new.json generado)
+- [x] ✅ **CLI wallet generate command** con airdrop automático
+- [ ] 🔄 **End-to-end real transaction test** (próximo paso)
 
 #### Task 1.2: Sistema de Confirmación Blockchain
-- [ ] Implementar `wait_for_confirmation`
-- [ ] Agregar validación de signature status
-- [ ] Tracking de block height y finalización
-- [ ] Manejo de timeouts y fallos
+- [x] ✅ **Implementar `wait_for_confirmation`** (funciones ya implementadas en jupiter.rs)
+- [x] ✅ **Validación de signature status** (incluido en TransactionConfirmation)
+- [x] ✅ **Tracking de block height y finalización** (implementado)
+- [x] ✅ **Manejo de timeouts y fallos** (configuraciones completas)
+- [ ] 🔄 **Integrar confirmation utilities** en swap pipeline (próximo paso)
 
 **Resultado Día 1**: Transacciones se envían y confirman en DevNet
 
