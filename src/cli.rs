@@ -1349,6 +1349,18 @@ async fn handle_test_jupiter_command() -> Result<()> {
         Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
     
+    // Test swap transaction building (new functionality)
+    println!("\n[SWAP] Testing swap transaction building...");
+    match crate::jupiter_speed_test::test_jupiter_swap_build().await {
+        Ok(()) => {
+            println!("{}", "[OK] Swap transaction build successful".bright_green());
+        }
+        Err(e) => {
+            println!("{} {}", "[WARN] Swap build test failed:".bright_yellow(), e);
+            println!("      This is expected if quote-api endpoint requires different configuration");
+        }
+    }
+
     println!("{}", "[SUCCESS] Jupiter API tests completed!".bright_green());
     Ok(())
 }

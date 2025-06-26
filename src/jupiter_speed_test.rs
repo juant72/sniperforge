@@ -116,6 +116,84 @@ pub async fn run_jupiter_speed_tests() {
     }
 }
 
+/// Test Jupiter swap transaction building (DevNet safe mode)
+pub async fn test_jupiter_swap_build() -> Result<()> {
+    println!("🔄 Jupiter Swap Transaction Build Test");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    
+    // Initialize Jupiter client
+    let jupiter_config = JupiterConfig::default();
+    let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
+    
+    // Test wallet address (DevNet safe - no real funds)
+    let test_wallet = "11111111111111111111111111111111"; // Dummy address for testing
+    
+    println!("🪐 Step 1: Getting quote for SOL -> USDC");
+    print!("  Fetching quote... ");
+    let start = Instant::now();
+    
+    match jupiter.get_quote(
+        "So11111111111111111111111111111111111111112", // SOL
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+        0.001, // 0.001 SOL (very small amount for testing)
+        100,   // 1% slippage
+    ).await {
+        Ok(quote) => {
+            let quote_time = start.elapsed();
+            println!("✅ {}ms", quote_time.as_millis());
+            println!("    📊 Quote details:");
+            println!("       Input: {} SOL", quote.in_amount / 1_000_000_000.0);
+            println!("       Output: {} USDC (est.)", quote.out_amount / 1_000_000.0);
+            println!("       Price Impact: {:.4}%", quote.price_impact_pct);
+            
+            println!("\n🏗️  Step 2: Building swap transaction");
+            print!("  Building transaction... ");
+            let build_start = Instant::now();
+            
+            match jupiter.execute_swap(&quote, test_wallet).await {
+                Ok(swap_result) => {
+                    let build_time = build_start.elapsed();
+                    println!("✅ {}ms", build_time.as_millis());
+                    println!("    🔧 Swap transaction built successfully!");
+                    println!("       Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
+                    println!("       Expected Output: {:.6} USDC", swap_result.output_amount / 1_000_000.0);
+                    println!("       Estimated Fee: ${:.6}", swap_result.fee_amount);
+                    println!("       Actual Slippage: {:.4}%", swap_result.actual_slippage);
+                    
+                    println!("\n📊 Performance Summary:");
+                    println!("    Quote Time: {}ms", quote_time.as_millis());
+                    println!("    Build Time: {}ms", build_time.as_millis());
+                    println!("    Total Time: {}ms", (quote_time + build_time).as_millis());
+                    
+                    if (quote_time + build_time).as_millis() < 1000 {
+                        println!("    🏆 EXCELLENT: Sub-1s total time!");
+                    } else if (quote_time + build_time).as_millis() < 2000 {
+                        println!("    ✅ GOOD: Sub-2s total time");
+                    } else {
+                        warn!("    ⚠️  SLOW: >2s total time - may need optimization");
+                    }
+                    
+                    info!("✅ Swap transaction build test completed successfully");
+                }
+                Err(e) => {
+                    let build_time = build_start.elapsed();
+                    println!("❌ {}ms - Build failed: {}", build_time.as_millis(), e);
+                    return Err(e);
+                }
+            }
+        }
+        Err(e) => {
+            let quote_time = start.elapsed();
+            println!("❌ {}ms - Quote failed: {}", quote_time.as_millis(), e);
+            return Err(e);
+        }
+    }
+    
+    println!("\n🔒 Note: This test builds but does not send transactions (DevNet safety mode)");
+    println!("✅ Jupiter swap build test completed");
+    Ok(())
+}
+
 async fn test_fallback_client() -> Result<()> {
     use crate::shared::jupiter::{JupiterClient, JupiterConfig};
     

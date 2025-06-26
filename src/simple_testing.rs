@@ -75,10 +75,42 @@ pub async fn test_basic_integration() {
     print!("🪐 Testing Jupiter client... ");
     let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
     match crate::shared::jupiter::JupiterClient::new(&jupiter_config).await {
-        Ok(jupiter_client) => {            match jupiter_client.get_price("So11111111111111111111111111111111111111112").await {
+        Ok(jupiter_client) => {
+            // Test SOL price
+            match jupiter_client.get_price("So11111111111111111111111111111111111111112").await {
                 Ok(Some(price)) => {
                     println!("✅ OK");
                     println!("   SOL price: ${:.2}", price);
+                    
+                    // Test multiple tokens
+                    print!("   🧪 Testing multiple tokens... ");
+                    let test_tokens = vec![
+                        ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+                        ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
+                        ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+                    ];
+                    
+                    let mut success_count = 0;
+                    for (symbol, mint) in test_tokens {
+                        match jupiter_client.get_price(mint).await {
+                            Ok(Some(token_price)) => {
+                                println!("   📊 {} price: ${:.6}", symbol, token_price);
+                                success_count += 1;
+                            }
+                            Ok(None) => {
+                                println!("   ⚠️  {} price: No data", symbol);
+                            }
+                            Err(e) => {
+                                println!("   ❌ {} price failed: {}", symbol, e);
+                            }
+                        }
+                    }
+                    
+                    if success_count >= 2 {
+                        println!("   ✅ Multi-token test passed ({}/3 tokens)", success_count);
+                    } else {
+                        println!("   ⚠️  Multi-token test partial ({}/3 tokens)", success_count);
+                    }
                 }
                 Ok(None) => {
                     println!("⚠️  OK but no price data available");
