@@ -186,6 +186,251 @@ pub struct SwapExecutionResult {
     pub logs: Vec<String>,
 }
 
+/// Transaction confirmation configuration
+#[derive(Debug, Clone)]
+pub struct ConfirmationConfig {
+    pub timeout_seconds: u64,
+    pub poll_interval_ms: u64,
+    pub commitment_level: CommitmentConfig,
+    pub max_retries: u32,
+}
+
+impl Default for ConfirmationConfig {
+    fn default() -> Self {
+        Self {
+            timeout_seconds: 60,
+            poll_interval_ms: 1000,
+            commitment_level: CommitmentConfig::confirmed(),
+            max_retries: 3,
+        }
+    }
+}
+
+/// Transaction confirmation status
+#[derive(Debug, Clone)]
+pub struct ConfirmationStatus {
+    pub confirmed: bool,
+    pub finalized: bool,
+    pub block_height: Option<u64>,
+    pub slot: Option<u64>,
+    pub confirmations: Option<usize>,
+    pub error: Option<String>,
+}
+
+/// Transaction confirmation utilities
+pub struct TransactionConfirmation {
+    rpc_client: RpcClient,
+    config: ConfirmationConfig,
+}
+
+impl TransactionConfirmation {
+    /// Create new transaction confirmation helper
+    pub fn new(rpc_endpoint: &str, config: ConfirmationConfig) -> Self {
+        let rpc_client = RpcClient::new_with_commitment(
+            rpc_endpoint.to_string(),
+            config.commitment_level.clone()
+        );
+        
+        Self {
+            rpc_client,
+            config,
+        }
+    }
+
+    /// Wait for transaction confirmation with timeout and polling
+    pub async fn wait_for_confirmation(
+        &self,
+        signature: &Signature,
+    ) -> Result<ConfirmationStatus> {
+        info!("⏳ Waiting for transaction confirmation: {}", signature);
+        
+        let start_time = std::time::Instant::now();
+        let timeout_duration = std::time::Duration::from_secs(self.config.timeout_seconds);
+        let poll_interval = std::time::Duration::from_millis(self.config.poll_interval_ms);
+        
+        let mut retries = 0;
+        
+        loop {
+            // Check timeout
+            if start_time.elapsed() > timeout_duration {
+                warn!("⏰ Transaction confirmation timeout after {} seconds", self.config.timeout_seconds);
+                return Ok(ConfirmationStatus {
+                    confirmed: false,
+                    finalized: false,
+                    block_height: None,
+                    slot: None,
+                    confirmations: None,
+                    error: Some("Confirmation timeout".to_string()),
+                });
+            }
+            
+            // Get signature status with retry logic
+            match self.get_signature_status_with_retry(signature, &mut retries).await {
+                Ok(status) => {
+                    if status.confirmed {
+                        info!("✅ Transaction confirmed: {}", signature);
+                        if status.finalized {
+                            info!("🔒 Transaction finalized: {}", signature);
+                        }
+                        return Ok(status);
+                    }
+                    
+                    // Log progress
+                    if let Some(slot) = status.slot {
+                        debug!("📡 Transaction status check - Slot: {}, Confirmed: {}", 
+                               slot, status.confirmed);
+                    }
+                }
+                Err(e) => {
+                    if retries >= self.config.max_retries {
+                        error!("❌ Failed to get transaction status after {} retries: {}", 
+                               self.config.max_retries, e);
+                        return Ok(ConfirmationStatus {
+                            confirmed: false,
+                            finalized: false,
+                            block_height: None,
+                            slot: None,
+                            confirmations: None,
+                            error: Some(format!("Status check failed: {}", e)),
+                        });
+                    }
+                    
+                    warn!("⚠️ Transaction status check failed (retry {}/{}): {}", 
+                          retries + 1, self.config.max_retries, e);
+                    retries += 1;
+                }
+            }
+            
+            // Wait before next poll
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+
+    /// Get signature status with enhanced error handling
+    async fn get_signature_status_with_retry(
+        &self,
+        signature: &Signature,
+        retries: &mut u32,
+    ) -> Result<ConfirmationStatus> {
+        match self.rpc_client.get_signature_status(signature) {
+            Ok(status_option) => {
+                match status_option {
+                    Some(status) => {
+                        let confirmed = status.is_ok();
+                        let error = if let Err(ref err) = status {
+                            Some(format!("{:?}", err))
+                        } else {
+                            None
+                        };
+                        
+                        // Get additional confirmation details
+                        let (block_height, slot, confirmations) = self.get_confirmation_details(signature).await;
+                        
+                        Ok(ConfirmationStatus {
+                            confirmed,
+                            finalized: false, // Will be updated in separate check
+                            block_height,
+                            slot,
+                            confirmations,
+                            error,
+                        })
+                    }
+                    None => {
+                        debug!("📡 Transaction not yet processed: {}", signature);
+                        Ok(ConfirmationStatus {
+                            confirmed: false,
+                            finalized: false,
+                            block_height: None,
+                            slot: None,
+                            confirmations: None,
+                            error: None,
+                        })
+                    }
+                }
+            }
+            Err(e) => {
+                *retries += 1;
+                Err(anyhow!("RPC error getting signature status: {}", e))
+            }
+        }
+    }
+
+    /// Get additional confirmation details (block height, slot, confirmations)
+    async fn get_confirmation_details(&self, signature: &Signature) -> (Option<u64>, Option<u64>, Option<usize>) {
+        // Try to get signature statuses for more detailed info
+        match self.rpc_client.get_signature_statuses(&[*signature]) {
+            Ok(statuses) => {
+                if let Some(Some(status)) = statuses.value.first() {
+                    (None, Some(status.slot), status.confirmations)
+                } else {
+                    (None, None, None)
+                }
+            }
+            Err(_) => (None, None, None)
+        }
+    }
+
+    /// Check if transaction is finalized
+    pub async fn check_finalization(&self, signature: &Signature) -> Result<bool> {
+        match self.rpc_client.get_signature_status_with_commitment(
+            signature, 
+            CommitmentConfig::finalized()
+        ) {
+            Ok(status_option) => {
+                Ok(status_option.map(|status| status.is_ok()).unwrap_or(false))
+            }
+            Err(e) => {
+                warn!("Failed to check finalization status: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    /// Get current block height for tracking
+    pub async fn get_current_block_height(&self) -> Result<u64> {
+        self.rpc_client
+            .get_block_height()
+            .map_err(|e| anyhow!("Failed to get current block height: {}", e))
+    }
+
+    /// Advanced confirmation with finalization check
+    pub async fn wait_for_finalization(
+        &self,
+        signature: &Signature,
+    ) -> Result<ConfirmationStatus> {
+        // First wait for confirmation
+        let mut status = self.wait_for_confirmation(signature).await?;
+        
+        if !status.confirmed {
+            return Ok(status);
+        }
+        
+        info!("🔄 Transaction confirmed, waiting for finalization...");
+        
+        // Then wait for finalization
+        let start_time = std::time::Instant::now();
+        let finalization_timeout = std::time::Duration::from_secs(120); // 2 minutes for finalization
+        let poll_interval = std::time::Duration::from_millis(2000); // 2 seconds
+        
+        loop {
+            if start_time.elapsed() > finalization_timeout {
+                warn!("⏰ Finalization timeout - transaction confirmed but not finalized");
+                break;
+            }
+            
+            if self.check_finalization(signature).await? {
+                info!("🔒 Transaction finalized: {}", signature);
+                status.finalized = true;
+                break;
+            }
+            
+            tokio::time::sleep(poll_interval).await;
+        }
+        
+        Ok(status)
+    }
+}
+
 /// Jupiter configuration
 #[derive(Debug, Clone)]
 pub struct JupiterConfig {
