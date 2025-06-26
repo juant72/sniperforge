@@ -44,7 +44,7 @@ impl Default for AutomatedTradingConfig {
             confidence_threshold: 65.0, // 65% minimum confidence
             stop_loss_percentage: 5.0, // 5% stop loss
             max_slippage_bps: 150, // 1.5% max slippage
-            trading_mode: TradingMode::MainNetPaper,
+            trading_mode: TradingMode::DevNet,
             monitor_duration_seconds: 3600, // 1 hour default
         }
     }
@@ -104,7 +104,7 @@ impl AutomatedTrader {
         info!("   Max trades/hour: {}", trading_config.max_trades_per_hour);
         info!("   Min profit: ${}", trading_config.min_profit_target);        // Initialize components
         let jupiter_config = super::jupiter::JupiterConfig::default();
-        let jupiter_client = super::jupiter::client::JupiterClient::new(&jupiter_config).await?;
+        let jupiter_client = crate::shared::jupiter::JupiterClient::new(&jupiter_config).await?;
         let detector = Arc::new(Mutex::new(
             PoolDetector::new(
                 super::pool_detector::PoolDetectorConfig::default(),

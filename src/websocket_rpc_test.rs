@@ -10,7 +10,7 @@ use tokio::time::timeout;
 
 use crate::config::Config;
 use crate::shared::websocket_price_feed::WebSocketPriceFeed;
-use crate::shared::jupiter::client::JupiterClient;
+use crate::shared::jupiter::JupiterClient;
 use crate::shared::jupiter::JupiterConfig;
 
 pub struct WebSocketRpcTest {

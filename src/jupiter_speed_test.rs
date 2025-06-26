@@ -7,8 +7,7 @@ use std::time::Instant;
 use tracing::{info, warn};
 
 use crate::shared::jupiter::{JupiterClient, JupiterConfig};
-// use crate::shared::jupiter::UltraFastJupiterClient; // Comentado hasta que esté listo
-use crate::shared::jupiter::ultra_fast_client::UltraFastJupiterClient;
+// Jupiter Speed Test using real Jupiter client
 
 pub async fn test_jupiter_speed() -> Result<()> {
     println!("⚡ Jupiter Speed Performance Test");
@@ -118,12 +117,12 @@ pub async fn run_jupiter_speed_tests() {
 }
 
 async fn test_fallback_client() -> Result<()> {
-    use crate::shared::jupiter::FallbackJupiterClient;
+    use crate::shared::jupiter::{JupiterClient, JupiterConfig};
     
     println!("🔄 Testing Fallback Jupiter Client");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     
-    let fallback_client = FallbackJupiterClient::new().await?;
+    let fallback_client = JupiterClient::new(&JupiterConfig::default()).await?;
     
     println!("🚀 Fallback speed test (3 calls):");
     let mut total_time = 0u128;
@@ -156,12 +155,12 @@ async fn test_fallback_client() -> Result<()> {
 }
 
 async fn test_ultra_fast_client_local() -> Result<()> {
-    use crate::shared::jupiter::UltraFastJupiterClient;
+    use crate::shared::jupiter::{JupiterClient, JupiterConfig};
     
     println!("⚡ Testing Ultra-Fast Jupiter Client");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     
-    let ultra_fast_client = UltraFastJupiterClient::new().await?;
+    let ultra_fast_client = JupiterClient::new(&JupiterConfig::default()).await?;
 
     // 1. Test single call first (diagnostic)
     println!("🔍 Diagnostic: Testing single API call...");

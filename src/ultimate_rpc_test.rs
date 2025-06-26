@@ -12,7 +12,7 @@ use tracing::{info, warn, debug};
 use tokio::time::timeout;
 
 use crate::config::Config;
-use crate::shared::jupiter::client::JupiterClient;
+use crate::shared::jupiter::JupiterClient;
 use crate::shared::jupiter::JupiterConfig;
 use crate::shared::syndica_websocket::{SyndicaWebSocketClient, SyndicaConfig};
 

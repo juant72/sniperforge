@@ -211,14 +211,19 @@ impl MarketDataFeeds {
         // In a real implementation, this would call Jupiter, CoinGecko, or other price APIs
         let mut prices = HashMap::new();
         
-        for token in tokens {            let price_data = PriceData {
+        for token in tokens {
+            let price_data = PriceData {
                 token: *token,
+                token_address: token.to_string(),
                 price_usd: self.simulate_price(token).await,
                 price_sol: Some(self.simulate_price(token).await / 100.0), // Simulated SOL price
                 volume_24h: 100000.0, // Simulated
                 price_change_24h: -2.5 + (rand::thread_rng().gen::<f64>() * 5.0), // -2.5% to +2.5%
                 market_cap: Some(1000000.0), // $1M market cap
+                liquidity_usd: 500000.0, // Added for real data compatibility
                 timestamp: chrono::Utc::now(),
+                source: "Simulated".to_string(), // Added for real data compatibility
+                confidence: 0.5, // Added for real data compatibility - low confidence for simulated data
             };
             
             prices.insert(*token, price_data);

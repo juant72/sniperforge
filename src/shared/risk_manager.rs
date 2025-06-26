@@ -133,9 +133,9 @@ impl RiskManager {
             risk_score += 15.0;
         }
 
-        // 7. Paper trading mode gets lower risk score
-        if matches!(self.config.trading_mode, TradingMode::MainNetPaper | TradingMode::Simulation) {
-            risk_score *= 0.5; // Reduce risk score for paper trading
+        // Only DevNet mode gets lower risk score for testing
+        if matches!(self.config.trading_mode, TradingMode::DevNet) {
+            risk_score *= 0.8; // Slightly reduce risk score for DevNet testing
         }
 
         // Calculate recommended position size based on risk

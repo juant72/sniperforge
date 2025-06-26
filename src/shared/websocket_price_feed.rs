@@ -362,7 +362,7 @@ impl WebSocketPriceFeed {
         debug!("📡 Fetching REAL price for {}", token_mint);
         
         // Use REAL Jupiter API client
-        use crate::shared::jupiter::client::JupiterClient;
+        use crate::shared::jupiter::JupiterClient;
         use crate::shared::jupiter::JupiterConfig;
         
         let jupiter_config = JupiterConfig::mainnet();

@@ -30,7 +30,7 @@ use tracing::{info, warn, error, debug};
 use rand;
 use tokio::sync::mpsc;
 
-use crate::shared::jupiter::client::JupiterClient;
+use crate::shared::jupiter::JupiterClient;
 use crate::shared::syndica_websocket::SyndicaWebSocketClient;
 use crate::shared::helius_websocket::{HeliusWebSocketClient, HeliusPoolCreation};
 
@@ -237,58 +237,51 @@ impl PoolDetector {
         Ok(concurrent_pools)
     }
     
-    /// Generar pools de prueba con datos realistas (DEPRECATED - kept for compilation)
-    #[allow(dead_code)]
-    async fn generate_mock_pools(&self) -> Result<Vec<DetectedPool>> {
-        let mut pools = Vec::new();
+    /// Calculate real risk score from blockchain and market data
+    async fn calculate_real_risk_score(&self, pool: &DetectedPool) -> Result<RiskScore> {
+        debug!("📊 Calculating REAL risk score for pool: {}", &pool.pool_address[..8]);
         
-        // Solo generar pools ocasionalmente para no spam
-        if rand::random::<f64>() < 0.1 { // 10% chance
-            let pool = DetectedPool {
-                pool_address: format!("Pool{}", rand::random::<u32>()),
-                token_a: TokenInfo {
-                    mint: "So11111111111111111111111111111111111111112".to_string(),
-                    symbol: "SOL".to_string(),
-                    decimals: 9,
-                    supply: 1000000000,
-                    price_usd: 180.0, // Usar precio real de SOL
-                    market_cap: 180000000.0,
-                },
-                token_b: TokenInfo {
-                    mint: format!("Token{}", rand::random::<u32>()),
-                    symbol: "NEWTOKEN".to_string(),
-                    decimals: 6,                    supply: 1000000,
-                    price_usd: 0.5,
-                    market_cap: 500000.0,
-                },
-                liquidity_usd: rand::random::<f64>() * 100000.0 + 10000.0, // $10k-$110k
-            price_impact_1k: rand::random::<f64>() * 10.0, // 0-10%
-            volume_24h: rand::random::<f64>() * 50000.0, // $0-$50k
-            created_at: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            detected_at: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
-            dex: "Raydium".to_string(),
-            risk_score: self.calculate_risk_score_mock(),
-            transaction_signature: None,
-            creator: None,
-            detection_method: Some("API_SCAN".to_string()),
-            };
-            
-            pools.push(pool);
+        // Get real liquidity data
+        let liquidity_score = if pool.liquidity_usd > 100_000.0 { 0.9 } 
+                             else if pool.liquidity_usd > 50_000.0 { 0.7 }
+                             else if pool.liquidity_usd > 10_000.0 { 0.5 }
+                             else { 0.2 };
+
+        // Get real volume data
+        let volume_score = if pool.volume_24h > 50_000.0 { 0.9 }
+                          else if pool.volume_24h > 10_000.0 { 0.7 }
+                          else if pool.volume_24h > 1_000.0 { 0.5 }
+                          else { 0.2 };
+
+        // Calculate token age from creation time
+        let token_age_hours = (SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() - pool.created_at) / 3600;
+        let token_age_score = if token_age_hours > 24 { 0.9 }
+                             else if token_age_hours > 6 { 0.7 }
+                             else if token_age_hours > 1 { 0.5 }
+                             else { 0.2 };
+
+        // Real holder distribution would require additional API calls
+        let holder_distribution_score = 0.6; // Conservative default
+
+        // Check for rug pull indicators
+        let mut rug_indicators = Vec::new();
+        if pool.liquidity_usd < 5_000.0 {
+            rug_indicators.push("Low liquidity".to_string());
         }
-        
-        Ok(pools)
-    }
-    
-    /// Calcular risk score (mock para demo)
-    fn calculate_risk_score_mock(&self) -> RiskScore {
-        RiskScore {
-            overall: rand::random::<f64>(),
-            liquidity_score: rand::random::<f64>(),
-            volume_score: rand::random::<f64>(),
-            token_age_score: rand::random::<f64>(),
-            holder_distribution_score: rand::random::<f64>(),
-            rug_indicators: vec![],
+        if pool.price_impact_1k > 5.0 {
+            rug_indicators.push("High price impact".to_string());
         }
+
+        let overall = (liquidity_score + volume_score + token_age_score + holder_distribution_score) / 4.0;
+
+        Ok(RiskScore {
+            overall,
+            liquidity_score,
+            volume_score,
+            token_age_score,
+            holder_distribution_score,
+            rug_indicators,
+        })
     }
     
     /// Analizar oportunidad de trading en un pool

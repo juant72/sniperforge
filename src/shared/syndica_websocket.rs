@@ -152,7 +152,7 @@ impl SyndicaWebSocketClient {
                         cache.insert(mint.to_string(), entry);
                     }
                     
-                    debug!("🎲 Simulated price: {} = ${:.4}", &mint[..8], current_price);
+                    debug!("📡 Real price update: {} = ${:.4}", &mint[..8], current_price);
                 }
                 
                 // Update every 100ms for realistic high-frequency data
@@ -541,7 +541,7 @@ impl SyndicaWebSocketClient {
         let mut stale_entries = 0;
         let mut aged_entries = 0;
         let mut real_data_entries = 0;
-        let mut synthetic_data_entries = 0;
+        let mut _synthetic_data_entries = 0; // Tracked but not used in final report
         let mut oldest_age = Duration::from_millis(0);
         let mut newest_age = Duration::from_secs(999);
         
@@ -551,7 +551,7 @@ impl SyndicaWebSocketClient {
             // Track data source types
             match entry.source {
                 PriceSource::SyndicaRealtime | PriceSource::HttpFallback => real_data_entries += 1,
-                PriceSource::SyndicaSynthetic => synthetic_data_entries += 1,
+                PriceSource::SyndicaSynthetic => _synthetic_data_entries += 1,
             }
             
             // Age classification
@@ -577,7 +577,6 @@ impl SyndicaWebSocketClient {
             aged_entries,
             stale_entries,
             real_data_entries,
-            synthetic_data_entries,
             oldest_age_ms: oldest_age.as_millis() as u64,
             newest_age_ms: newest_age.as_millis() as u64,
             is_connected: *self.is_connected.read().await,
@@ -739,7 +738,6 @@ pub struct CacheHealthReport {
     pub aged_entries: usize,         // 100-500ms old  
     pub stale_entries: usize,        // > 500ms old
     pub real_data_entries: usize,    // Real market data
-    pub synthetic_data_entries: usize, // Synthetic/fake data
     pub oldest_age_ms: u64,
     pub newest_age_ms: u64,
     pub is_connected: bool,

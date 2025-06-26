@@ -433,6 +433,47 @@ impl RpcConnectionPool {
         }
     }
 
+    /// Get transaction details
+    pub async fn get_transaction(&self, signature: &Signature) -> Result<Option<TransactionDetails>> {
+        let signature = *signature;
+        match self.execute_with_failover(|client| async move {
+            let client_clone = client.clone();
+            match tokio::task::spawn_blocking(move || {
+                client_clone.get_transaction_with_config(
+                    &signature,
+                    solana_client::rpc_config::RpcTransactionConfig {
+                        encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
+                        commitment: Some(CommitmentConfig::confirmed()),
+                        max_supported_transaction_version: Some(0),
+                    }
+                )
+            }).await {
+                Ok(Ok(transaction)) => {
+                    // Convert to our TransactionDetails format
+                    Ok(TransactionDetails {
+                        signature: signature.to_string(),
+                        slot: transaction.slot,
+                        block_time: transaction.block_time,
+                        meta: transaction.transaction.meta,
+                    })
+                },
+                Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
+                Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
+            }
+        }).await {
+            Ok(transaction) => Ok(Some(transaction)),
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// Health check for RPC pool
+    pub async fn is_healthy(&self) -> Result<bool> {
+        match self.test_connection(self.primary_client.clone()).await {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+
     /// Execute RPC call with automatic failover to backup clients
     async fn execute_with_failover<F, Fut, T>(&self, operation: F) -> Result<T>
     where
@@ -557,4 +598,24 @@ pub struct PoolMarketData {
     pub price_token_a_in_b: f64,
     pub volume_24h_usd: f64,
     pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionDetails {
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: Option<i64>,
+    pub meta: Option<solana_transaction_status::UiTransactionStatusMeta>,
+}
+
+impl std::fmt::Debug for RpcConnectionPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RpcConnectionPool")
+            .field("primary_client", &"<RpcClient>")
+            .field("backup_clients", &self.backup_clients.len())
+            .field("config", &self.config)
+            .field("is_running", &self.is_running)
+            .field("stats", &self.stats)
+            .finish()
+    }
 }

@@ -214,12 +214,16 @@ pub enum BotCommand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceData {
     pub token: Pubkey,
+    pub token_address: String,          // String version for compatibility
     pub price_usd: f64,
     pub price_sol: Option<f64>,
     pub volume_24h: f64,
     pub price_change_24h: f64,
     pub market_cap: Option<f64>,
+    pub liquidity_usd: f64,             // Added for real data
     pub timestamp: DateTime<Utc>,
+    pub source: String,                 // Added for real data source tracking
+    pub confidence: f64,                // Added for real data confidence scoring
 }
 
 // ============================================================================
@@ -550,4 +554,13 @@ pub struct PlatformMetrics {
     pub memory_usage_mb: u64,
     pub uptime_seconds: u64,
     pub last_updated: DateTime<Utc>,
+}
+
+/// Transaction details from RPC
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionDetails {
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: Option<i64>,
+    pub meta: Option<solana_transaction_status::UiTransactionStatusMeta>,
 }

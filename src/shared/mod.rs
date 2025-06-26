@@ -3,6 +3,8 @@ pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
 pub mod jupiter;
+pub mod real_data_manager;  // NEW: Centralized real data management
+pub mod real_trade_executor; // NEW: Real-only trade execution
 pub mod trade_executor;
 pub mod risk_manager;
 pub mod automated_trader;
@@ -13,7 +15,6 @@ pub mod syndica_websocket;
 pub mod helius_websocket;  // NUEVO: Cliente Helius WebSocket
 pub mod pool_detector;
 pub mod analytics;         // Pool analytics and pattern detection
-pub mod paper_trading_automation;  // Phase 3: Paper trading automation
 pub mod cache_free_trading;        // Phase 4: Cache-free trading engine
 pub mod real_time_blockchain;      // Phase 5: Real-time blockchain integration
 pub mod real_time_trading;         // Phase 5A: Real-time trading with live blockchain integration
@@ -60,7 +61,7 @@ impl SharedServices {
         let monitoring = Arc::new(MonitoringSystem::new(config)?);
           // Initialize Jupiter integration
         let jupiter_config = jupiter::JupiterConfig::default();
-        let jupiter = Arc::new(Jupiter::new(jupiter_config).await?);
+        let jupiter = Arc::new(Jupiter::new(&jupiter_config).await?);
         
         // Initialize WebSocket manager for real-time updates
         let websocket_manager = Arc::new(WebSocketManager::new(config).await?);

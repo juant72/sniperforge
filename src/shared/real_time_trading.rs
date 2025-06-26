@@ -128,8 +128,8 @@ impl RealTimeTradingSession {
         info!("   DevNet Mode: {}", config.devnet_mode);
         info!("   WebSocket Feeds: {}", config.use_websocket_feeds);
         info!("   Primary Source: {:?}", config.primary_price_source);        // Initialize core components
-        let cache_free_engine = CacheFreeTradeEngine::new(CacheFreeConfig::default());
-        let jupiter_client = crate::shared::jupiter::client::JupiterClient::new(&crate::shared::jupiter::JupiterConfig::default()).await?;
+        let cache_free_engine = CacheFreeTradeEngine::new(CacheFreeConfig::default()).await?;
+        let jupiter_client = crate::shared::jupiter::JupiterClient::new(&crate::shared::jupiter::JupiterConfig::default()).await?;
         let pool_detector = PoolDetector::new(
             crate::shared::pool_detector::PoolDetectorConfig::default(),
             jupiter_client,

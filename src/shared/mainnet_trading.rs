@@ -21,7 +21,7 @@ use crate::shared::trade_executor::{TradeExecutor, TradingMode};
 // use crate::shared::risk_manager::RiskManager;  // Temporarily commented for compilation
 use crate::shared::real_time_blockchain::RealTimeBlockchainEngine;
 use crate::shared::pool_detector::{PoolDetector, PoolDetectorConfig, TradingOpportunity};
-use crate::shared::jupiter::{JupiterConfig, client::JupiterClient};
+use crate::shared::jupiter::{JupiterConfig, JupiterClient};
 
 /// MainNet trading configuration with strict risk controls
 #[derive(Debug, Clone)]
@@ -158,7 +158,7 @@ impl MainNetTradingEngine {
         println!("💰 Max Capital: ${}, Max Trade: ${}, Daily Limit: ${}", 
                  config.max_capital_usd, config.max_single_trade_usd, config.daily_limit_usd);        // Initialize trade executor for real MainNet trading
         let trade_executor = Arc::new(
-            TradeExecutor::new(platform_config.clone(), TradingMode::MainNetReal).await?
+            TradeExecutor::new(platform_config.clone(), TradingMode::MainNet).await?
         );        // Initialize pool detector for opportunity detection
         let jupiter_config = JupiterConfig::mainnet();
         let jupiter_client = JupiterClient::new(&jupiter_config).await?;        let detector_config = PoolDetectorConfig {
@@ -700,7 +700,7 @@ impl MainNetTradingEngine {
             amount_in: (opportunity.recommended_size_usd.min(config.max_single_trade_usd) / 150.0 * 1_000_000_000.0) as u64, // Convert USD to lamports
             wallet_name: "trading".to_string(),
             slippage_bps: 50, // 0.5% slippage
-            trading_mode: TradingMode::MainNetReal,
+            trading_mode: TradingMode::MainNet,
             max_price_impact: 2.0, // 2% max price impact for safety
         };
         

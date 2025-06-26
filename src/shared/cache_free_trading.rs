@@ -1,14 +1,17 @@
 // Cache-Free Trading Engine
 // Phase 4 Implementation - Ultra-fast trading with real-time price validation
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::time::{Duration, Instant};
+use tokio::time::{Duration, Instant, timeout};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use tracing::{info, warn, error, debug};
 
 use crate::shared::pool_detector::{DetectedPool, TradingOpportunity, OpportunityType};
+use crate::types::PriceData;
+use crate::shared::jupiter::{Jupiter, JupiterConfig};
 
 /// Cache-free trading configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,21 +129,26 @@ impl Default for CacheFreeTradeResult {
     }
 }
 
-/// Real-time market data aggregator
+/// Real-time market data aggregator with Jupiter integration
 #[derive(Debug)]
 pub struct RealTimeMarketData {
     price_feeds: HashMap<String, Vec<ValidatedPrice>>,
     last_update: Instant,
     config: CacheFreeConfig,
+    jupiter: Jupiter,
 }
 
 impl RealTimeMarketData {
-    pub fn new(config: CacheFreeConfig) -> Self {
-        Self {
+    pub async fn new(config: CacheFreeConfig) -> Result<Self> {
+        let jupiter_config = JupiterConfig::default();
+        let jupiter = Jupiter::new(&jupiter_config).await?;
+        
+        Ok(Self {
             price_feeds: HashMap::new(),
             last_update: Instant::now(),
             config,
-        }
+            jupiter,
+        })
     }
 
     /// Update price data from multiple sources
@@ -153,47 +161,20 @@ impl RealTimeMarketData {
         Ok(())
     }
 
-    /// Fetch real-time prices from multiple sources
+    /// Fetch real-time prices from Jupiter API only
     async fn fetch_real_time_prices(&self, token_address: &str) -> Result<Vec<ValidatedPrice>> {
         let mut prices = Vec::new();
-        let now = Utc::now();
 
-        // Jupiter API price (most reliable)
-        if let Ok(jupiter_price) = self.fetch_jupiter_price(token_address).await {
+        // Use the real Jupiter price method
+        if let Ok(price_data) = self.get_fresh_price(token_address).await {
             prices.push(ValidatedPrice {
                 token_address: token_address.to_string(),
-                price_usd: jupiter_price.price,
-                timestamp: now,
-                source: "Jupiter".to_string(),
-                confidence: 0.95,
-                volume_24h: jupiter_price.volume_24h,
-                liquidity_usd: jupiter_price.liquidity,
-            });
-        }
-
-        // DexScreener price (secondary source)
-        if let Ok(dex_price) = self.fetch_dexscreener_price(token_address).await {
-            prices.push(ValidatedPrice {
-                token_address: token_address.to_string(),
-                price_usd: dex_price.price,
-                timestamp: now,
-                source: "DexScreener".to_string(),
-                confidence: 0.85,
-                volume_24h: dex_price.volume_24h,
-                liquidity_usd: dex_price.liquidity,
-            });
-        }
-
-        // Raydium direct price (ultra-fast)
-        if let Ok(raydium_price) = self.fetch_raydium_price(token_address).await {
-            prices.push(ValidatedPrice {
-                token_address: token_address.to_string(),
-                price_usd: raydium_price.price,
-                timestamp: now,
-                source: "Raydium".to_string(),
-                confidence: 0.90,
-                volume_24h: raydium_price.volume_24h,
-                liquidity_usd: raydium_price.liquidity,
+                price_usd: price_data.price_usd,
+                timestamp: price_data.timestamp,
+                source: price_data.source,
+                confidence: price_data.confidence,
+                volume_24h: price_data.volume_24h,
+                liquidity_usd: price_data.liquidity_usd,
             });
         }
 
@@ -246,40 +227,44 @@ impl RealTimeMarketData {
         })
     }
 
-    // Mock API calls for now - to be replaced with real implementations
-    async fn fetch_jupiter_price(&self, _token_address: &str) -> Result<MockPriceData> {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        Ok(MockPriceData {
-            price: 0.00001234 + (rand::random::<f64>() - 0.5) * 0.000001,
-            volume_24h: 50000.0,
-            liquidity: 25000.0,
-        })
-    }
+    /// Get fresh real-time price data from Jupiter API only
+    async fn get_fresh_price(&self, token_address: &str) -> Result<PriceData> {
+        debug!("📡 Fetching REAL price from Jupiter API: {}", &token_address[..8]);
+        
+        // Get real price from Jupiter API with timeout
+        let price_result = timeout(Duration::from_secs(10),
+            self.jupiter.get_token_price(token_address)
+        ).await;
 
-    async fn fetch_dexscreener_price(&self, _token_address: &str) -> Result<MockPriceData> {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        Ok(MockPriceData {
-            price: 0.00001234 + (rand::random::<f64>() - 0.5) * 0.000001,
-            volume_24h: 45000.0,
-            liquidity: 23000.0,
-        })
-    }
+        match price_result {
+            Ok(Ok(jupiter_price)) => {
+                let price_data = PriceData {
+                    token: token_address.parse().unwrap_or_default(),
+                    token_address: token_address.to_string(),
+                    price_usd: jupiter_price.price,
+                    price_sol: None,
+                    volume_24h: jupiter_price.volume_24h.unwrap_or(0.0),
+                    price_change_24h: 0.0,
+                    market_cap: jupiter_price.market_cap,
+                    liquidity_usd: jupiter_price.market_cap.unwrap_or(0.0),
+                    timestamp: Utc::now(),
+                    source: "Jupiter API".to_string(),
+                    confidence: 1.0, // Real data = 100% confidence
+                };
 
-    async fn fetch_raydium_price(&self, _token_address: &str) -> Result<MockPriceData> {
-        tokio::time::sleep(Duration::from_millis(30)).await;
-        Ok(MockPriceData {
-            price: 0.00001234 + (rand::random::<f64>() - 0.5) * 0.000001,
-            volume_24h: 48000.0,
-            liquidity: 24000.0,
-        })
+                info!("✅ Real price fetched: {} = ${:.6}", &token_address[..8], price_data.price_usd);
+                Ok(price_data)
+            },
+            Ok(Err(e)) => {
+                error!("❌ Jupiter API error for {}: {}", &token_address[..8], e);
+                Err(anyhow!("Failed to fetch real price from Jupiter: {}", e))
+            },
+            Err(_) => {
+                error!("❌ Jupiter API timeout for {}", &token_address[..8]);
+                Err(anyhow!("Jupiter API timeout"))
+            }
+        }
     }
-}
-
-#[derive(Debug)]
-struct MockPriceData {
-    price: f64,
-    volume_24h: f64,
-    liquidity: f64,
 }
 
 /// Cache-free trading engine with real-time validation
@@ -292,15 +277,15 @@ pub struct CacheFreeTradeEngine {
 }
 
 impl CacheFreeTradeEngine {
-    pub fn new(config: CacheFreeConfig) -> Self {
-        let market_data = RealTimeMarketData::new(config.clone());
+    pub async fn new(config: CacheFreeConfig) -> Result<Self> {
+        let market_data = RealTimeMarketData::new(config.clone()).await?;
         
-        Self {
+        Ok(Self {
             config,
             market_data,
             active_trades: HashMap::new(),
             performance_metrics: CacheFreePerformanceMetrics::new(),
-        }
+        })
     }
 
     /// Execute trade with real-time validation

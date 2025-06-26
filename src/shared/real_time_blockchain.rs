@@ -273,7 +273,7 @@ impl RealTimeBlockchainEngine {
     }    /// Private method to fetch fresh price data
     async fn fetch_fresh_price(&self, token_mint: &str) -> Result<RealTimePriceData> {
         // REAL price fetching from Jupiter API
-        use crate::shared::jupiter::client::JupiterClient;
+        use crate::shared::jupiter::JupiterClient;
         use crate::shared::jupiter::JupiterConfig;
         
         let current_time = SystemTime::now()
@@ -553,14 +553,14 @@ pub struct LiveTradingIntegration {
 
 impl LiveTradingIntegration {
     /// Create new live trading integration
-    pub fn new(
+    pub async fn new(
         blockchain_config: RealTimeBlockchainConfig,
         trading_config: CacheFreeConfig,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        Ok(Self {
             blockchain_engine: Arc::new(RealTimeBlockchainEngine::new(blockchain_config)),
-            trading_engine: CacheFreeTradeEngine::new(trading_config),
-        }
+            trading_engine: CacheFreeTradeEngine::new(trading_config).await?,
+        })
     }
 
     /// Start live trading with real blockchain integration
