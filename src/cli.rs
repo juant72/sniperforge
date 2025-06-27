@@ -237,16 +237,22 @@ pub async fn run_cli() -> Result<()> {
                         .long("amount")
                         .value_name("SOL")
                         .help("Amount of SOL to swap (default: 0.001)")
-                        .default_value("0.001"))
+                        .default_value("0.00001"))  // Even smaller amount to reduce transaction complexity
                     .arg(Arg::new("wallet")
                         .short('w')
                         .long("wallet")
                         .value_name("FILE")
                         .help("Path to wallet keypair JSON file for real execution"))
+                    .arg(Arg::new("network")
+                        .long("network")
+                        .value_name("NET")
+                        .help("Network to use: devnet or mainnet")
+                        .default_value("devnet")
+                        .value_parser(["devnet", "mainnet"]))
                     .arg(Arg::new("confirm")
                         .long("confirm")
                         .action(ArgAction::SetTrue)
-                        .help("Confirm you want to send a REAL transaction to DevNet")))
+                        .help("Confirm you want to send a REAL transaction to blockchain")))
                 .subcommand(Command::new("integration").about("Test complete integration flow"))
                 .subcommand(Command::new("performance").about("Test performance and latency"))        )
         .subcommand(Command::new("interactive").about("Interactive monitoring mode"))
@@ -1428,9 +1434,17 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     let amount: f64 = amount_str.parse().unwrap_or(0.001);
     let wallet_file = matches.get_one::<String>("wallet");
     let confirmed = matches.get_flag("confirm");
+    let network = matches.get_one::<String>("network").map(|s| s.as_str()).unwrap_or("devnet");
+    
+    // Configure endpoints and tokens based on network
+    let (rpc_endpoint, network_name, output_token) = match network {
+        "mainnet" => ("https://api.mainnet-beta.solana.com", "Mainnet", tokens::mainnet::USDC),
+        _ => ("https://api.devnet.solana.com", "DevNet", tokens::devnet::USDC_ALT),
+    };
     
     println!("💰 Swap Amount: {} SOL", amount.to_string().bright_cyan());
-    println!("🔄 Direction: SOL → USDC");
+    println!("🔄 Direction: SOL → USDC ({})", network_name);
+    println!("🌐 Network: {}", network_name.bright_green());
     
     if let Some(wallet_path) = wallet_file {
         println!("🔐 Wallet: {}", wallet_path.bright_green());
@@ -1438,18 +1452,27 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         println!("⚠️  No wallet specified - will use simulation mode");
     }
     
-    // Safety check
+    // Safety check with network-specific warnings
     if !confirmed {
         println!();
-        println!("{}", "⚠️  WARNING: This will execute a REAL transaction on DevNet blockchain!".bright_yellow().bold());
-        println!("   - This uses real DevNet SOL");
-        println!("   - Transaction will be visible on blockchain explorer");
-        println!("   - DevNet tokens have no monetary value");
+        if network == "mainnet" {
+            println!("{}", "⚠️  WARNING: This will execute a REAL transaction on MAINNET blockchain!".bright_red().bold());
+            println!("   - This uses REAL SOL with REAL monetary value");
+            println!("   - Transaction will be permanently recorded on Mainnet");
+            println!("   - You will be trading REAL money");
+            println!("{}", "   - ONLY proceed if you understand the risks!".bright_red().bold());
+        } else {
+            println!("{}", "⚠️  WARNING: This will execute a REAL transaction on DevNet blockchain!".bright_yellow().bold());
+            println!("   - This uses real DevNet SOL");
+            println!("   - Transaction will be visible on blockchain explorer");
+            println!("   - DevNet tokens have no monetary value");
+        }
         println!();
         println!("To proceed, add {} flag:", "--confirm".bright_red());
-        println!("   {} --wallet {} --confirm", 
+        println!("   {} --wallet {} --network {} --confirm", 
                  "cargo run -- test swap-real".bright_green(), 
-                 wallet_file.unwrap_or(&"test-wallet-new.json".to_string()).bright_cyan());
+                 wallet_file.unwrap_or(&"test-wallet-new.json".to_string()).bright_cyan(),
+                 network.bright_yellow());
         return Ok(());
     }
     
@@ -1494,7 +1517,7 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         println!();
         println!("💰 Checking wallet balance...");
         
-        let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+        let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
         match rpc_client.get_balance(&kp.pubkey()) {
             Ok(balance_lamports) => {
                 let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
@@ -1536,10 +1559,10 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     println!();
     println!("{}", "📊 Getting quote from Jupiter...".bright_blue());
     
-    // Get quote
+    // Get quote - Use network-appropriate token
     let quote_request = QuoteRequest {
         inputMint: tokens::SOL.to_string(),
-        outputMint: tokens::USDC.to_string(),
+        outputMint: output_token.to_string(), // Network-specific token
         amount: (amount * 1_000_000_000.0) as u64, // Convert to lamports
         slippageBps: 50, // 0.5% slippage
     };

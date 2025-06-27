@@ -7,6 +7,10 @@ edition = "2021"
 name = "sniperforge"
 path = "src/main.rs"
 
+[[bin]]
+name = "verify_tokens"
+path = "src/verify_tokens.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

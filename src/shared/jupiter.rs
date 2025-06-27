@@ -134,6 +134,7 @@ pub struct SwapRequest {
     pub dynamicComputeUnitLimit: Option<bool>,
     pub dynamicSlippage: Option<bool>,
     pub prioritizationFeeLamports: Option<PrioritizationFee>,
+    pub asLegacyTransaction: Option<bool>, // Force legacy transaction format for DevNet
 }
 
 /// Priority fee configuration
@@ -580,7 +581,9 @@ impl JupiterClient {
             ("amount", &request.amount.to_string()),
             ("slippageBps", &request.slippageBps.to_string()),
             ("asLegacyTransaction", "true"), // Force legacy transactions for DevNet compatibility
-            ("maxAccounts", "64"), // Limit accounts to avoid transaction size issues
+            ("maxAccounts", "32"), // Further reduce accounts limit for DevNet
+            ("restrictIntermediateTokens", "true"), // Limit intermediate tokens to reduce complexity
+            ("onlyDirectRoutes", "true"), // Prefer direct routes to minimize transaction size
         ];
 
         let mut req = self.client.get(&url)
@@ -616,11 +619,11 @@ impl JupiterClient {
         debug!("Parsed - raw_in_amount: {}, raw_out_amount: {}", raw_in_amount, raw_out_amount);
         
         quote.in_amount = raw_in_amount / 1_000_000_000.0; // Convert lamports to SOL
-        quote.out_amount = raw_out_amount / 1_000_000.0; // Convert to USDC (6 decimals)
+        quote.out_amount = raw_out_amount / 1_000_000.0; // Convert to USDT/USDC (6 decimals)
         quote.price_impact_pct = quote.priceImpactPct.parse::<f64>().unwrap_or(0.0);
         quote.route_plan = quote.routePlan.clone();
 
-        debug!("Converted - in_amount: {} SOL, out_amount: {} USDC", quote.in_amount, quote.out_amount);
+        debug!("Converted - in_amount: {} SOL, out_amount: {} output token", quote.in_amount, quote.out_amount);
 
         info!("✅ Jupiter quote received: {} {} -> {} {}", 
               quote.in_amount, request.inputMint, quote.out_amount, request.outputMint);
@@ -721,7 +724,7 @@ impl Jupiter {
         
         // Convert string fields to numeric with proper unit conversion
         quote.in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000_000.0; // Convert lamports to SOL
-        quote.out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to USDC (6 decimals)
+        quote.out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to output token (typically 6 decimals)
         quote.price_impact_pct = quote.priceImpactPct.parse().unwrap_or(0.0);
 
         Ok(quote)
@@ -743,6 +746,7 @@ impl Jupiter {
                     priorityLevel: "medium".to_string(), // Conservative for testing
                 }
             }),
+            asLegacyTransaction: Some(true), // Force legacy transaction format for DevNet
         };
 
         // Get swap endpoint URL  
@@ -814,6 +818,7 @@ impl Jupiter {
                     priorityLevel: "medium".to_string(),
                 }
             }),
+            asLegacyTransaction: Some(true), // Force legacy transaction format for DevNet
         };
 
         let swap_url = format!("{}/v6/swap", self.client.base_url.replace("lite-api.jup.ag", "quote-api.jup.ag"));
@@ -850,15 +855,48 @@ impl Jupiter {
             .map_err(|e| anyhow!("Failed to decode transaction: {}", e))?;
         
         debug!("Transaction data length: {} bytes", transaction_data.len());
+        debug!("Transaction data (first 20 bytes): {:?}", &transaction_data[..std::cmp::min(20, transaction_data.len())]);
         
-        // Deserialize as versioned transaction (Jupiter V6 uses versioned transactions with ALTs)
-        let mut transaction: Transaction = bincode::deserialize(&transaction_data)
-            .map_err(|e| anyhow!("Failed to deserialize legacy transaction: {}", e))?;
-        
-        info!("✅ Successfully deserialized legacy transaction");
+        // Try to deserialize as legacy transaction first
+        let mut transaction: Transaction = match bincode::deserialize(&transaction_data) {
+            Ok(tx) => {
+                info!("✅ Successfully deserialized as legacy transaction");
+                tx
+            },
+            Err(e) => {
+                debug!("Failed to deserialize as legacy transaction: {}", e);
+                
+                // Fallback: try to deserialize as versioned transaction and convert
+                match bincode::deserialize::<VersionedTransaction>(&transaction_data) {
+                    Ok(_versioned_tx) => {
+                        info!("⚠️ Received versioned transaction, attempting to convert to legacy");
+                        
+                        // For DevNet, we should not be getting versioned transactions if we set asLegacyTransaction=true
+                        // This is unexpected, so let's return an error
+                        return Err(anyhow!("Received versioned transaction despite requesting legacy format. This suggests Jupiter API configuration issue."));
+                    },
+                    Err(v_err) => {
+                        return Err(anyhow!("Failed to deserialize as both legacy and versioned transaction. Legacy error: {}, Versioned error: {}", e, v_err));
+                    }
+                }
+            }
+        };
         debug!("Transaction accounts: {}, instructions: {}", 
                transaction.message.account_keys.len(), 
                transaction.message.instructions.len());
+        
+        // Debug: Print all program IDs in the transaction
+        debug!("Transaction account keys:");
+        for (i, account) in transaction.message.account_keys.iter().enumerate() {
+            debug!("  [{}] {}", i, account);
+        }
+        
+        debug!("Transaction instructions:");
+        for (i, instruction) in transaction.message.instructions.iter().enumerate() {
+            let program_id = &transaction.message.account_keys[instruction.program_id_index as usize];
+            debug!("  Instruction [{}]: program_id={}, accounts={:?}, data_len={}", 
+                   i, program_id, instruction.accounts, instruction.data.len());
+        }
         
         // If wallet keypair is provided, sign the legacy transaction
         if let Some(keypair) = wallet_keypair {
@@ -914,7 +952,15 @@ impl Jupiter {
         // Simulate legacy transaction first for safety
         let simulation_result = rpc_client
             .simulate_transaction(&transaction)
-            .map_err(|e| anyhow!("Legacy transaction simulation failed: {}", e))?;
+            .map_err(|e| {
+                let error_str = e.to_string();
+                if error_str.contains("too large") || error_str.contains("1644") || error_str.contains("1232") {
+                    anyhow!("Transaction too large for DevNet ({}). Try: 1) Smaller amount, 2) Different token pair, 3) Use Mainnet instead. Error: {}", 
+                            transaction_data.len(), e)
+                } else {
+                    anyhow!("Legacy transaction simulation failed: {}", e)
+                }
+            })?;
 
         if let Some(err) = simulation_result.value.err {
             error!("❌ Transaction simulation failed: {:?}", err);
@@ -1001,8 +1047,23 @@ pub mod tokens {
     pub const USDT: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
     pub const RAY: &str = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
     pub const SRM: &str = "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt";
-    pub const ORCA: &str = "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE";
-    pub const MNGO: &str = "MangoCzJ36AjZyKwVj3VnYU4GTonjfVEnJmvvWaxLac";
+
+    /// DevNet-specific token mints (verified to work)
+    pub mod devnet {
+        pub const SOL: &str = "So11111111111111111111111111111111111111112";
+        pub const USDC: &str = "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"; // DevNet USDC
+        pub const USDC_ALT: &str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // Alternative DevNet USDC
+        pub const USDT: &str = "BQcdHdAQW1hczDbBi9hiegXAR7A98Q9jx3X3iBBBDiq4"; // DevNet USDT if available
+    }
+    
+    /// Mainnet token mints (original Jupiter tokens)
+    pub mod mainnet {
+        pub const SOL: &str = "So11111111111111111111111111111111111111112";
+        pub const USDC: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+        pub const USDT: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+        pub const RAY: &str = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
+        pub const SRM: &str = "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt";
+    }
 }
 
 #[cfg(test)]
