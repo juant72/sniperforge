@@ -1,8 +1,44 @@
-# SniperForge - Sprint 0 Implementation
+# SniperForge - Sprint 1 Implementation
 
-## 🎯 Sprint 0 Objectives - COMPLETED ✅
+## 🛡️ CAMBIOS CRÍTICOS DE SEGURIDAD - VERSIÓN ACTUAL
 
-This document serves as the implementation status for Sprint 0 of SniperForge, a multi-bot trading platform for Solana.
+**⚠️ ATENCIÓN: SELECCIÓN EXPLÍCITA DE RED AHORA OBLIGATORIA**
+
+A partir de esta versión, **TODOS** los comandos principales requieren especificar `--network devnet` o `--network mainnet` explícitamente. **No hay valores por defecto** para prevenir ejecuciones accidentales en la red incorrecta.
+
+**Ejemplo de comando actualizado**:
+```bash
+# ✅ CORRECTO - especificación explícita
+cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet.json --confirm
+
+# ❌ YA NO FUNCIONA - fallará con error
+cargo run --bin sniperforge test swap-real --wallet test-wallet.json --confirm
+```
+
+Ver `GUIA_COMPLETA_COMANDOS.md` para todos los comandos actualizados.
+
+## 🎯 Sprint 1 Objectives - COMPLETADO ✅
+
+**Estado**: Plataforma completamente operativa con datos reales y medidas de seguridad robustas
+
+### ✅ Real Data Integration (100% Completado)
+- **Eliminación Completa de Mock Data**: 0% simulaciones, 100% datos reales
+- **Jupiter API Integration**: Integración completa con quotes y swaps reales
+- **Solana RPC Integration**: Conexiones reales a DevNet y Mainnet
+- **Real Transaction Execution**: Ejecución de swaps reales en blockchain
+
+### ✅ Safety Measures Implemented
+- **Explicit Network Selection**: Obligatorio especificar --network para prevenir errores
+- **Transaction Limits**: Límites máximos de swap (DevNet: 1.0 SOL, Mainnet: 0.1 SOL)
+- **Balance Safety Margin**: 0.01 SOL siempre reservado para fees
+- **Amount Verification**: Validación de cantidades para prevenir drenado de wallets
+- **Pre/Post Transaction Validation**: Verificación de balances antes y después
+
+### ✅ Network Support
+- **DevNet Configuration**: Configuración completa para testing seguro
+- **Mainnet Configuration**: Configuración para operaciones reales con medidas de seguridad
+- **Network-Specific Token Support**: Tokens apropiados para cada red
+- **RPC Endpoint Management**: Endpoints específicos por red con failover
 
 ### ✅ Core Platform Infrastructure
 - **Platform Architecture**: Implemented modular multi-bot platform with shared services
