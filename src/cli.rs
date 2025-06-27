@@ -1436,7 +1436,7 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
     
     // Load DevNet configuration for airdrop
     let config = Config::load("config/devnet.toml")?;
-    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.devnet_primary_rpc.clone());
+    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
     let airdrop_amount = 2_000_000_000; // 2 SOL in lamports
     
     println!("[COST] Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
@@ -1515,7 +1515,7 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
     
     // Load DevNet configuration for airdrop
     let config = Config::load("config/devnet.toml")?;
-    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.devnet_primary_rpc.clone());
+    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
     
     match rpc_client.request_airdrop(&keypair.pubkey(), 2_000_000_000) {
         Ok(signature) => {

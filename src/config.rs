@@ -32,15 +32,21 @@ pub struct PlatformConfig {
 pub struct NetworkConfig {
     pub environment: String,  // "devnet" or "mainnet"
     
-    // Devnet configuration
-    pub devnet_primary_rpc: String,
-    pub devnet_backup_rpc: Vec<String>,
-    pub devnet_websocket_url: String,
+    // Devnet configuration (optional - only needed in devnet configs)
+    #[serde(default)]
+    pub devnet_primary_rpc: Option<String>,
+    #[serde(default)]
+    pub devnet_backup_rpc: Option<Vec<String>>,
+    #[serde(default)]
+    pub devnet_websocket_url: Option<String>,
     
-    // Mainnet configuration  
-    pub mainnet_primary_rpc: String,
-    pub mainnet_backup_rpc: Vec<String>,
-    pub mainnet_websocket_url: String,
+    // Mainnet configuration (optional - only needed in mainnet configs)
+    #[serde(default)]
+    pub mainnet_primary_rpc: Option<String>,
+    #[serde(default)]
+    pub mainnet_backup_rpc: Option<Vec<String>>,
+    #[serde(default)]
+    pub mainnet_websocket_url: Option<String>,
     
     // Connection settings
     pub connection_timeout_ms: u64,
@@ -51,27 +57,60 @@ impl NetworkConfig {
     /// Get the primary RPC URL for the current environment
     pub fn primary_rpc(&self) -> &str {
         match self.environment.as_str() {
-            "devnet" => &self.devnet_primary_rpc,
-            "mainnet" => &self.mainnet_primary_rpc,
-            _ => &self.devnet_primary_rpc, // Default to devnet for safety
+            "devnet" => {
+                self.devnet_primary_rpc.as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("https://api.devnet.solana.com")
+            },
+            "mainnet" => {
+                self.mainnet_primary_rpc.as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("https://api.mainnet-beta.solana.com")
+            },
+            _ => "https://api.devnet.solana.com", // Default to devnet for safety
         }
     }
     
     /// Get backup RPC URLs for the current environment
-    pub fn backup_rpc(&self) -> &Vec<String> {
+    pub fn backup_rpc(&self) -> Vec<String> {
         match self.environment.as_str() {
-            "devnet" => &self.devnet_backup_rpc,
-            "mainnet" => &self.mainnet_backup_rpc,
-            _ => &self.devnet_backup_rpc, // Default to devnet for safety
+            "devnet" => {
+                self.devnet_backup_rpc.as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| vec![
+                        "https://devnet.helius-rpc.com".to_string(),
+                        "https://rpc-devnet.hellomoon.io".to_string()
+                    ])
+            },
+            "mainnet" => {
+                self.mainnet_backup_rpc.as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| vec![
+                        "https://solana-api.projectserum.com".to_string(),
+                        "https://rpc.ankr.com/solana".to_string()
+                    ])
+            },
+            _ => vec![
+                "https://devnet.helius-rpc.com".to_string(),
+                "https://rpc-devnet.hellomoon.io".to_string()
+            ], // Default to devnet for safety
         }
     }
     
     /// Get WebSocket URL for the current environment
     pub fn websocket_url(&self) -> &str {
         match self.environment.as_str() {
-            "devnet" => &self.devnet_websocket_url,
-            "mainnet" => &self.mainnet_websocket_url,
-            _ => &self.devnet_websocket_url, // Default to devnet for safety
+            "devnet" => {
+                self.devnet_websocket_url.as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("wss://api.devnet.solana.com")
+            },
+            "mainnet" => {
+                self.mainnet_websocket_url.as_ref()
+                    .map(|s| s.as_str())
+                    .unwrap_or("wss://api.mainnet-beta.solana.com")
+            },
+            _ => "wss://api.devnet.solana.com", // Default to devnet for safety
         }
     }
     
@@ -319,18 +358,18 @@ impl Default for Config {
                 event_bus_buffer_size: 10000,
             },            network: NetworkConfig {
                 environment: "devnet".to_string(),
-                devnet_primary_rpc: "https://api.devnet.solana.com".to_string(),
-                devnet_backup_rpc: vec![
+                devnet_primary_rpc: Some("https://api.devnet.solana.com".to_string()),
+                devnet_backup_rpc: Some(vec![
                     "https://devnet.helius-rpc.com".to_string(),
                     "https://rpc-devnet.hellomoon.io".to_string(),
-                ],
-                devnet_websocket_url: "wss://api.devnet.solana.com".to_string(),
-                mainnet_primary_rpc: "https://api.mainnet-beta.solana.com".to_string(),
-                mainnet_backup_rpc: vec![
+                ]),
+                devnet_websocket_url: Some("wss://api.devnet.solana.com".to_string()),
+                mainnet_primary_rpc: Some("https://api.mainnet-beta.solana.com".to_string()),
+                mainnet_backup_rpc: Some(vec![
                     "https://solana-api.projectserum.com".to_string(),
                     "https://rpc.ankr.com/solana".to_string(),
-                ],
-                mainnet_websocket_url: "wss://api.mainnet-beta.solana.com".to_string(),
+                ]),
+                mainnet_websocket_url: Some("wss://api.mainnet-beta.solana.com".to_string()),
                 connection_timeout_ms: 5000,
                 request_timeout_ms: 10000,
             },

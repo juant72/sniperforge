@@ -449,11 +449,13 @@ pub struct JupiterConfig {
 impl JupiterConfig {
     /// Create configuration from platform config
     pub fn from_network_config(network_config: &crate::config::NetworkConfig) -> Self {
-        let (network_name, rpc_endpoint) = if network_config.is_mainnet() {
-            ("Mainnet".to_string(), network_config.mainnet_primary_rpc.clone())
+        let network_name = if network_config.is_mainnet() {
+            "Mainnet".to_string()
         } else {
-            ("DevNet".to_string(), network_config.devnet_primary_rpc.clone())
+            "DevNet".to_string()
         };
+        
+        let rpc_endpoint = network_config.primary_rpc().to_string();
 
         Self {
             base_url: "https://lite-api.jup.ag".to_string(),

@@ -23,14 +23,6 @@ devnet_backup_rpc = [
 ]
 devnet_websocket_url = "wss://api.devnet.solana.com"
 
-# Mainnet endpoints (for production - NOT USED IN DEVNET MODE)
-mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
-mainnet_backup_rpc = [
-    "https://solana-api.projectserum.com",
-    "https://rpc.ankr.com/solana"
-]
-mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
-
 # Connection settings
 connection_timeout_ms = 10000
 request_timeout_ms = 15000

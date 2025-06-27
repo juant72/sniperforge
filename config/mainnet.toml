@@ -8,12 +8,65 @@
 # - _hours suffix: HOURS (long-term limits, 24 hours = 1 day)
 # Always check the suffix and comments for the exact unit used.
 
+[platform]
+name = "SniperForge"
+version = "0.1.0"
+max_concurrent_bots = 3
+resource_allocation_strategy = "priority_based"
+event_bus_buffer_size = 5000
+
 [network]
-name = "mainnet"
-rpc_url = "https://api.mainnet-beta.solana.com"
-ws_url = "wss://api.mainnet-beta.solana.com"
-commitment = "confirmed"
-is_devnet = false
+# MAINNET CONFIGURATION - REAL MONEY AT RISK
+environment = "mainnet"
+
+# Mainnet endpoints (for production - REAL MONEY OPERATIONS)
+mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
+mainnet_backup_rpc = [
+    "https://solana-api.projectserum.com",
+    "https://rpc.ankr.com/solana"
+]
+mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
+
+# Connection settings
+connection_timeout_ms = 3000  # Faster timeout for mainnet
+request_timeout_ms = 8000
+
+[shared_services]
+rpc_pool_size = 20
+wallet_isolation = true
+data_feed_aggregation = true
+monitoring_enabled = true
+
+[security]
+# Wallet configuration (NEVER commit real private keys)
+wallet_encryption_enabled = true
+key_derivation_iterations = 100000
+session_timeout_minutes = 30
+
+[logging]
+level = "info"
+file_path = "logs/sniperforge.log"
+max_file_size_mb = 100
+max_files = 10
+console_output = true
+
+[bots]
+lp_sniper = { enabled = false }      # DISABLED for safety
+copy_trading = { enabled = false }   # DISABLED for safety
+arbitrage = { enabled = false }      # DISABLED for safety
+mev = { enabled = false }           # DISABLED for safety
+
+[development]
+enable_hot_reload = false           # Production mode
+mock_mode = false                  # Real trading mode
+debug_logging = false              # Reduced logging for performance
+
+[performance]
+# Enhanced performance settings for mainnet
+max_memory_usage_mb = 1024
+gc_interval_seconds = 300
+thread_pool_size = 8
+batch_processing_enabled = true
 
 [jupiter]
 # Official Jupiter API for mainnet
