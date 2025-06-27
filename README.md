@@ -1,4 +1,8 @@
-# SniperForge - Sprint 1 Implementation
+# 🚀 SniperForge - Automated Solana Trading Bot
+
+**Estado**: ✅ Sprint 1 Completado - Sistema con datos reales operativo  
+**Fecha**: Junio 27, 2025  
+**Versión**: 0.1.0
 
 ## 🛡️ CAMBIOS CRÍTICOS DE SEGURIDAD - VERSIÓN ACTUAL
 
@@ -15,7 +19,55 @@ cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet
 cargo run --bin sniperforge test swap-real --wallet test-wallet.json --confirm
 ```
 
-Ver `GUIA_COMPLETA_COMANDOS.md` para todos los comandos actualizados.
+## 📚 Documentación
+
+**📋 ÍNDICE PRINCIPAL**: [`docs/DOCUMENTATION_MASTER_INDEX.md`](docs/DOCUMENTATION_MASTER_INDEX.md)
+
+### 🔥 Documentos Críticos:
+- **[Guía Completa de Comandos](docs/user-guides/command-guide.md)** - Todos los comandos CLI actualizados
+- **[Sprint 1 - Completion Report](docs/sprints/sprint-1/completion-report.md)** - Estado final del Sprint 1
+- **[Mainnet Guide](docs/user-guides/mainnet-guide.md)** - Uso seguro en Mainnet
+
+### 📊 Por Audiencia:
+- **Usuarios**: [`docs/user-guides/`](docs/user-guides/) - Guías de uso
+- **Desarrolladores**: [`docs/technical/`](docs/technical/) - Documentación técnica  
+- **Project Managers**: [`docs/project-status/`](docs/project-status/) - Estado del proyecto
+
+## 🚀 Quick Start
+
+```bash
+# 1. Verificar sistema
+cargo run --bin sniperforge test all --network devnet
+
+# 2. Generar wallet DevNet
+cargo run --bin sniperforge wallet generate --network devnet
+
+# 3. Solicitar airdrop
+cargo run --bin sniperforge wallet airdrop --network devnet test-wallet-new.json
+
+# 4. Ejecutar swap real en DevNet
+cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet-new.json --confirm
+```
+
+## ⚡ Comandos Principales
+
+```bash
+# Trading básico
+cargo run --bin sniperforge start --network devnet
+cargo run --bin sniperforge status --network devnet
+
+# Gestión de wallets  
+cargo run --bin sniperforge wallet balance --network devnet test-wallet.json
+cargo run --bin sniperforge wallet generate --network devnet
+
+# Machine Learning
+cargo run --bin sniperforge ml analyze-patterns --symbol SOL/USDC
+cargo run --bin sniperforge ml predict-trend --horizon 30
+
+# Portfolio
+cargo run --bin sniperforge portfolio summary --detailed
+cargo run --bin sniperforge portfolio analytics --period 30
+```
 
 ## 🎯 Sprint 1 Objectives - COMPLETADO ✅
 
