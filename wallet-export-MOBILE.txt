@@ -1,0 +1,61 @@
+# 📱 WALLET EXPORT FOR MOBILE - MAINNET VALIDATION
+
+## ⚠️ SECURITY WARNING
+This file contains your PRIVATE KEY. Keep it SECURE and DELETE after import.
+Never share this information with anyone.
+
+## 📋 WALLET INFORMATION
+Public Key: 9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
+Network: Solana Mainnet
+Purpose: SniperForge Sprint 1 Validation
+
+## 🔑 IMPORT FORMATS
+
+### FORMAT 1: JSON ARRAY (Solflare, Phantom)
+[4,8,206,10,5,75,123,233,86,136,230,184,160,218,117,97,226,33,220,159,121,102,192,160,8,191,42,197,172,32,91,107,130,254,152,251,95,91,255,122,203,9,141,124,210,49,191,171,32,244,104,27,56,215,56,218,58,0,181,126,145,86,38,178]
+
+### FORMAT 2: BASE58 PRIVATE KEY (most wallets)
+3KSZpKy5VNHF1TJRBWiJNevU5Cx5qYzKPB3AAPYmVe6Y5xQzU7DqQf8G5bKdHiP2nvg1AkSyG3vPgBM8G2G3NRNv
+
+### FORMAT 3: MNEMONIC SEED PHRASE (if supported)
+This format requires conversion. Most mobile wallets prefer Base58 format above.
+
+## 📱 IMPORT INSTRUCTIONS
+
+### PHANTOM WALLET (iOS/Android)
+1. Open Phantom app
+2. Tap "+" → "Import Wallet"  
+3. Select "Private Key"
+4. Paste the Base58 key from FORMAT 2
+5. Set wallet name: "SniperForge Mainnet"
+
+### SOLFLARE WALLET (iOS/Android)
+1. Open Solflare app
+2. Tap "Create/Import" → "Import Wallet"
+3. Select "Private Key"
+4. Paste the JSON array from FORMAT 1
+5. Set wallet name: "SniperForge Mainnet"
+
+### BACKPACK WALLET (iOS/Android)
+1. Open Backpack app
+2. Tap "Import Wallet"
+3. Select "Private Key"
+4. Paste the Base58 key from FORMAT 2
+5. Confirm import
+
+## 🔒 SECURITY CHECKLIST
+- [ ] Delete this file after successful import
+- [ ] Test small transaction first (0.001 SOL)
+- [ ] Keep backup copy in secure location
+- [ ] Never screenshot private keys
+- [ ] Use secure messaging to transfer to phone
+
+## 📊 VERIFICATION
+After import, verify the public key matches:
+9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
+
+If public key doesn't match, DO NOT USE THIS WALLET.
+
+---
+Generated: June 27, 2025
+Project: SniperForge Sprint 1 Validation
