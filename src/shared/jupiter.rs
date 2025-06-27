@@ -36,6 +36,7 @@ pub struct JupiterClient {
 #[derive(Debug)]
 pub struct Jupiter {
     client: JupiterClient,
+    config: JupiterConfig,
 }
 
 /// Jupiter price response structure for V3 API
@@ -441,26 +442,50 @@ pub struct JupiterConfig {
     pub api_key: Option<String>,
     pub timeout_seconds: u64,
     pub max_retries: u32,
+    pub rpc_endpoint: String,
+    pub network_name: String,
 }
 
 impl JupiterConfig {
-    /// Create mainnet configuration
+    /// Create configuration from platform config
+    pub fn from_network_config(network_config: &crate::config::NetworkConfig) -> Self {
+        let (network_name, rpc_endpoint) = if network_config.is_mainnet() {
+            ("Mainnet".to_string(), network_config.mainnet_primary_rpc.clone())
+        } else {
+            ("DevNet".to_string(), network_config.devnet_primary_rpc.clone())
+        };
+
+        Self {
+            base_url: "https://lite-api.jup.ag".to_string(),
+            api_key: None,
+            timeout_seconds: if network_config.is_mainnet() { 10 } else { 15 },
+            max_retries: if network_config.is_mainnet() { 3 } else { 5 },
+            rpc_endpoint,
+            network_name,
+        }
+    }
+
+    /// Create mainnet configuration (legacy method)
     pub fn mainnet() -> Self {
         Self {
             base_url: "https://lite-api.jup.ag".to_string(),
             api_key: None,
             timeout_seconds: 10,
             max_retries: 3,
+            rpc_endpoint: "https://api.mainnet-beta.solana.com".to_string(),
+            network_name: "Mainnet".to_string(),
         }
     }
 
-    /// Create devnet configuration
+    /// Create devnet configuration (legacy method)
     pub fn devnet() -> Self {
         Self {
             base_url: "https://lite-api.jup.ag".to_string(),
             api_key: None,
             timeout_seconds: 15,
             max_retries: 5,
+            rpc_endpoint: "https://api.devnet.solana.com".to_string(),
+            network_name: "DevNet".to_string(),
         }
     }
 }
@@ -472,6 +497,8 @@ impl Default for JupiterConfig {
             api_key: None,
             timeout_seconds: 30,
             max_retries: 3,
+            rpc_endpoint: "https://api.devnet.solana.com".to_string(),
+            network_name: "DevNet".to_string(),
         }
     }
 }
@@ -690,7 +717,10 @@ impl Jupiter {
     /// Create new Jupiter instance
     pub async fn new(config: &JupiterConfig) -> Result<Self> {
         let client = JupiterClient::new(config).await?;
-        Ok(Self { client })
+        Ok(Self { 
+            client,
+            config: config.clone(),
+        })
     }
 
     /// Get token price using the client
@@ -908,7 +938,7 @@ impl Jupiter {
             
             // Get recent blockhash first
             let rpc_client = RpcClient::new_with_commitment(
-                "https://api.devnet.solana.com".to_string(),
+                self.config.rpc_endpoint.clone(),
                 CommitmentConfig::confirmed()
             );
             
@@ -926,7 +956,7 @@ impl Jupiter {
             info!("✅ Legacy transaction signed successfully");
                 
         } else {
-            warn!("⚠️ No wallet keypair provided - transaction not signed (DevNet safety mode)");
+            warn!("⚠️ No wallet keypair provided - transaction not signed ({} safety mode)", self.config.network_name);
             return Ok(SwapExecutionResult {
                 success: false,
                 transaction_signature: format!("UNSIGNED_{}", chrono::Utc::now().timestamp()),
@@ -938,12 +968,12 @@ impl Jupiter {
             });
         }
 
-        // SPRINT 1: Enable real transaction sending to DevNet
-        info!("🚀 SPRINT 1: Sending legacy transaction to DevNet blockchain...");
+        // SPRINT 1: Enable real transaction sending to proper network
+        info!("🚀 SPRINT 1: Sending legacy transaction to {} blockchain...", self.config.network_name);
         
-        // Setup DevNet RPC client with proper configuration
+        // Setup RPC client with proper network configuration
         let rpc_client = RpcClient::new_with_commitment(
-            "https://api.devnet.solana.com".to_string(),
+            self.config.rpc_endpoint.clone(),
             CommitmentConfig::confirmed()
         );
 
@@ -955,8 +985,8 @@ impl Jupiter {
             .map_err(|e| {
                 let error_str = e.to_string();
                 if error_str.contains("too large") || error_str.contains("1644") || error_str.contains("1232") {
-                    anyhow!("Transaction too large for DevNet ({}). Try: 1) Smaller amount, 2) Different token pair, 3) Use Mainnet instead. Error: {}", 
-                            transaction_data.len(), e)
+                    anyhow!("Transaction too large for {} ({}). Try: 1) Smaller amount, 2) Different token pair, 3) Use different route. Error: {}", 
+                            self.config.network_name, transaction_data.len(), e)
                 } else {
                     anyhow!("Legacy transaction simulation failed: {}", e)
                 }
@@ -983,7 +1013,7 @@ impl Jupiter {
         debug!("Simulation logs: {:?}", sim_logs);
 
         // Send the legacy transaction to blockchain
-        info!("📡 Sending legacy transaction to DevNet blockchain...");
+        info!("📡 Sending legacy transaction to {} blockchain...", self.config.network_name);
         let signature = rpc_client
             .send_and_confirm_transaction_with_spinner(&transaction)
             .map_err(|e| anyhow!("Failed to send and confirm legacy transaction: {}", e))?;
@@ -1000,7 +1030,7 @@ impl Jupiter {
             .unwrap_or(false);
 
         if success {
-            info!("✅ SPRINT 1: Real swap executed successfully on DevNet!");
+            info!("✅ SPRINT 1: Real swap executed successfully on {}!", self.config.network_name);
             Ok(SwapExecutionResult {
                 success: true,
                 transaction_signature: signature.to_string(),
@@ -1012,9 +1042,9 @@ impl Jupiter {
                     "Legacy transaction built successfully".to_string(),
                     "Legacy transaction signed with wallet".to_string(),
                     "Legacy transaction simulated successfully".to_string(),
-                    "Legacy transaction sent to DevNet".to_string(),
+                    format!("Legacy transaction sent to {}", self.config.network_name),
                     format!("Transaction confirmed: {}", signature),
-                    "✅ REAL SWAP COMPLETED ON DEVNET (Legacy)".to_string(),
+                    format!("✅ REAL SWAP COMPLETED ON {} (Legacy)", self.config.network_name.to_uppercase()),
                 ],
             })
         } else {

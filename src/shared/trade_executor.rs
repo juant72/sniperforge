@@ -71,29 +71,14 @@ impl TradeExecutor {
     pub async fn new(config: Config, trading_mode: TradingMode) -> Result<Self> {
         info!("🎯 Initializing Trade Executor in mode: {:?}", trading_mode);
         
-        // Setup Jupiter configuration based on trading mode
-        let jupiter_config = match trading_mode {
-            TradingMode::DevNet => JupiterConfig {
-                base_url: "https://price.jup.ag".to_string(),
-                api_key: None,
-                timeout_seconds: 10,
-                max_retries: 3,
-            },
-            TradingMode::MainNet => JupiterConfig {
-                base_url: "https://price.jup.ag".to_string(),
-                api_key: None,
-                timeout_seconds: 5,  // Faster timeout for real trading
-                max_retries: 2,      // Fewer retries for real trading
-            },
-        };
+        // Setup Jupiter configuration from platform config
+        let jupiter_config = JupiterConfig::from_network_config(&config.network);
 
         let jupiter_client = JupiterClient::new(&jupiter_config).await?;
         let jupiter = Jupiter::new(&jupiter_config).await?;
         
-        let rpc_url = match trading_mode {
-            TradingMode::DevNet => config.network.primary_rpc().to_string(),
-            TradingMode::MainNet => "https://api.mainnet-beta.solana.com".to_string(),
-        };
+        // Use RPC endpoint from network configuration
+        let rpc_url = config.network.primary_rpc().to_string();
         
         let rpc_pool = RpcConnectionPool::new(&config).await?;
         let wallet_manager = WalletManager::new(&config).await?;

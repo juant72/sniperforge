@@ -1362,12 +1362,22 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         
         let pubkey = keypair.pubkey();
         
-        // Use mainnet RPC for mainnet wallet, devnet for others
-        let (rpc_url, network_name) = if wallet_file.contains("mainnet") {
-            ("https://api.mainnet-beta.solana.com", "Mainnet Beta")
+        // Determine network and load appropriate configuration
+        let is_mainnet = wallet_file.contains("mainnet");
+        let config_file = if is_mainnet {
+            "config/mainnet.toml"
         } else {
-            ("https://api.devnet.solana.com", "DevNet")
+            "config/devnet.toml"
         };
+        
+        let mut config = Config::load(config_file)?;
+        
+        // Override network environment to ensure consistency
+        config.network.environment = if is_mainnet { "mainnet" } else { "devnet" }.to_string();
+        
+        // Use RPC endpoint from configuration
+        let rpc_url = config.network.primary_rpc();
+        let network_name = if config.network.is_mainnet() { "Mainnet Beta" } else { "DevNet" };
         
         println!("[NETWORK] {}", network_name.bright_green());
         
@@ -1424,7 +1434,9 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
     
     println!("[KEY] Generated new wallet: {}", pubkey.to_string().bright_cyan());
     
-    let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+    // Load DevNet configuration for airdrop
+    let config = Config::load("config/devnet.toml")?;
+    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.devnet_primary_rpc.clone());
     let airdrop_amount = 2_000_000_000; // 2 SOL in lamports
     
     println!("[COST] Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
@@ -1501,7 +1513,9 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
     println!();
     println!("{}", "🚀 Attempting automatic airdrop...".bright_yellow());
     
-    let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+    // Load DevNet configuration for airdrop
+    let config = Config::load("config/devnet.toml")?;
+    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.devnet_primary_rpc.clone());
     
     match rpc_client.request_airdrop(&keypair.pubkey(), 2_000_000_000) {
         Ok(signature) => {
@@ -1686,10 +1700,23 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     let confirmed = matches.get_flag("confirm");
     let network = matches.get_one::<String>("network").map(|s| s.as_str()).unwrap_or("devnet");
     
-    // Configure endpoints and tokens based on network
-    let (rpc_endpoint, network_name, output_token) = match network {
-        "mainnet" => ("https://api.mainnet-beta.solana.com", "Mainnet", tokens::mainnet::USDC),
-        _ => ("https://api.devnet.solana.com", "DevNet", tokens::devnet::USDC_ALT),
+    // Load configuration based on network
+    let config_file = match network {
+        "mainnet" => "config/mainnet.toml",
+        _ => "config/devnet.toml",
+    };
+    
+    let mut config = Config::load(config_file)?;
+    
+    // Override network environment to ensure consistency
+    config.network.environment = network.to_string();
+    
+    // Get network-specific settings from configuration
+    let rpc_endpoint = config.network.primary_rpc();
+    let network_name = if config.network.is_mainnet() { "Mainnet" } else { "DevNet" };
+    let output_token = match network {
+        "mainnet" => tokens::mainnet::USDC,
+        _ => tokens::devnet::USDC_ALT,
     };
     
     println!("💰 Swap Amount: {} SOL", amount.to_string().bright_cyan());
@@ -1793,9 +1820,9 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     println!();
     println!("{}", "🌐 Initializing Jupiter API...".bright_blue());
     
-    // Initialize Jupiter client
-    let config = JupiterConfig::devnet();
-    let jupiter_client = match JupiterClient::new(&config).await {
+    // Initialize Jupiter client with network-specific configuration from loaded config
+    let jupiter_config = JupiterConfig::from_network_config(&config.network);
+    let jupiter_client = match JupiterClient::new(&jupiter_config).await {
         Ok(client) => {
             println!("✅ Jupiter API connected");
             client
@@ -1834,11 +1861,11 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     
     if let Some(kp) = keypair {
         println!();
-        println!("{}", "🚀 EXECUTING REAL SWAP ON DEVNET...".bright_red().bold());
+        println!("{}", format!("🚀 EXECUTING REAL SWAP ON {}...", network_name.to_uppercase()).bright_red().bold());
         
         // Use Jupiter wrapper for easier integration
         use sniperforge::shared::jupiter::Jupiter;
-        let jupiter = Jupiter::new(&config).await?;
+        let jupiter = Jupiter::new(&jupiter_config).await?;
         
         // Execute real swap with wallet
         let result = jupiter.execute_swap_with_wallet(
