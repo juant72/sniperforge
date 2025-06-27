@@ -579,6 +579,8 @@ impl JupiterClient {
             ("outputMint", request.outputMint.as_str()),
             ("amount", &request.amount.to_string()),
             ("slippageBps", &request.slippageBps.to_string()),
+            ("asLegacyTransaction", "true"), // Force legacy transactions for DevNet compatibility
+            ("maxAccounts", "64"), // Limit accounts to avoid transaction size issues
         ];
 
         let mut req = self.client.get(&url)
@@ -850,65 +852,21 @@ impl Jupiter {
         debug!("Transaction data length: {} bytes", transaction_data.len());
         
         // Deserialize as versioned transaction (Jupiter V6 uses versioned transactions with ALTs)
-        let mut versioned_transaction: VersionedTransaction = bincode::deserialize(&transaction_data)
-            .map_err(|e| anyhow!("Failed to deserialize versioned transaction: {}", e))?;
+        let mut transaction: Transaction = bincode::deserialize(&transaction_data)
+            .map_err(|e| anyhow!("Failed to deserialize legacy transaction: {}", e))?;
         
-        info!("✅ Successfully deserialized versioned transaction");
-        debug!("Transaction version: {:?}", versioned_transaction.version());
+        info!("✅ Successfully deserialized legacy transaction");
+        debug!("Transaction accounts: {}, instructions: {}", 
+               transaction.message.account_keys.len(), 
+               transaction.message.instructions.len());
         
-        // Handle different transaction versions
-        match &versioned_transaction.message {
-            VersionedMessage::Legacy(_legacy_message) => {
-                info!("🔄 Processing legacy versioned transaction");
-            }
-            VersionedMessage::V0(_v0_message) => {
-                info!("🔄 Processing V0 transaction with Address Lookup Tables");
-            }
-        }
-
-        // Add detailed debugging information
-        info!("🔍 Analyzing transaction structure...");
-        debug!("Transaction signatures count: {}", versioned_transaction.signatures.len());
-        
-        match &versioned_transaction.message {
-            VersionedMessage::Legacy(legacy_message) => {
-                debug!("Legacy message - accounts: {}, instructions: {}", 
-                       legacy_message.account_keys.len(), 
-                       legacy_message.instructions.len());
-            }
-            VersionedMessage::V0(v0_message) => {
-                debug!("V0 message - accounts: {}, instructions: {}, ALTs: {}", 
-                       v0_message.account_keys.len(), 
-                       v0_message.instructions.len(),
-                       v0_message.address_table_lookups.len());
-               
-                // Log first few instructions for debugging
-                for (i, instruction) in v0_message.instructions.iter().enumerate() {
-                    if i < 3 { // Only log first 3 instructions
-                        debug!("Instruction {}: program_id_index={}, accounts={:?}, data_len={}", 
-                               i, instruction.program_id_index, instruction.accounts, instruction.data.len());
-                    }
-                }
-            }
-        }
-        
-        // Check if wallet is a required signer
-        let wallet_pubkey = keypair.pubkey();
-        debug!("Wallet pubkey: {}", wallet_pubkey);
-        let is_signer_required = match &versioned_transaction.message {
-            VersionedMessage::Legacy(legacy_message) => {
-                legacy_message.is_signer(&wallet_pubkey)
-            }
-            VersionedMessage::V0(v0_message) => {
-                v0_message.is_signer(&wallet_pubkey)
-            }
-        };
-        
-        debug!("Is wallet a required signer? {}", is_signer_required);
-        
-        // If wallet keypair is provided, sign the versioned transaction
+        // If wallet keypair is provided, sign the legacy transaction
         if let Some(keypair) = wallet_keypair {
-            info!("✍️ Signing versioned transaction with provided wallet");
+            info!("✍️ Signing legacy transaction with provided wallet");
+            
+            // Check if wallet is a required signer
+            let wallet_pubkey = keypair.pubkey();
+            debug!("Wallet pubkey: {}", wallet_pubkey);
             
             // Get recent blockhash first
             let rpc_client = RpcClient::new_with_commitment(
@@ -921,29 +879,13 @@ impl Jupiter {
                 .map_err(|e| anyhow!("Failed to get recent blockhash: {}", e))?;
             
             // Update the transaction's recent blockhash
-            match &mut versioned_transaction.message {
-                VersionedMessage::Legacy(ref mut message) => {
-                    message.recent_blockhash = recent_blockhash;
-                }
-                VersionedMessage::V0(ref mut message) => {
-                    message.recent_blockhash = recent_blockhash;
-                }
-            }
+            transaction.message.recent_blockhash = recent_blockhash;
             
-            // Sign the versioned transaction manually
-            // For V0 transactions, we need to sign with the message hash rather than the serialized message
-            let message_data = versioned_transaction.message.serialize();
-            let signature = keypair.sign_message(&message_data);
-            
-            // Update signatures (Jupiter transaction should have the right number of signature slots)
-            if versioned_transaction.signatures.is_empty() {
-                versioned_transaction.signatures = vec![signature];
-            } else {
-                // For Jupiter transactions, the user's signature is typically the first one
-                versioned_transaction.signatures[0] = signature;
-            }
-            
-            info!("✅ Versioned transaction signed successfully with signature: {}", signature);
+            // Sign the legacy transaction
+            transaction.try_sign(&[keypair], recent_blockhash)
+                .map_err(|e| anyhow!("Failed to sign legacy transaction: {}", e))?;
+                
+            info!("✅ Legacy transaction signed successfully");
                 
         } else {
             warn!("⚠️ No wallet keypair provided - transaction not signed (DevNet safety mode)");
@@ -954,12 +896,12 @@ impl Jupiter {
                 actual_slippage: quote.price_impact_pct,
                 fee_amount: 0.001,
                 block_height: 0,
-                logs: vec!["Transaction built but not signed - wallet keypair required".to_string()],
+                logs: vec!["Legacy transaction built but not signed - wallet keypair required".to_string()],
             });
         }
 
         // SPRINT 1: Enable real transaction sending to DevNet
-        info!("🚀 SPRINT 1: Sending versioned transaction to DevNet blockchain...");
+        info!("🚀 SPRINT 1: Sending legacy transaction to DevNet blockchain...");
         
         // Setup DevNet RPC client with proper configuration
         let rpc_client = RpcClient::new_with_commitment(
@@ -967,12 +909,12 @@ impl Jupiter {
             CommitmentConfig::confirmed()
         );
 
-        info!("🧪 Simulating versioned transaction before sending...");
+        info!("🧪 Simulating legacy transaction before sending...");
         
-        // Simulate versioned transaction first for safety
+        // Simulate legacy transaction first for safety
         let simulation_result = rpc_client
-            .simulate_transaction(&versioned_transaction)
-            .map_err(|e| anyhow!("Versioned transaction simulation failed: {}", e))?;
+            .simulate_transaction(&transaction)
+            .map_err(|e| anyhow!("Legacy transaction simulation failed: {}", e))?;
 
         if let Some(err) = simulation_result.value.err {
             error!("❌ Transaction simulation failed: {:?}", err);
@@ -984,8 +926,8 @@ impl Jupiter {
                 fee_amount: 0.001,
                 block_height: 0,
                 logs: vec![
-                    format!("Versioned transaction simulation failed: {:?}", err),
-                    "Versioned transaction not sent due to simulation failure".to_string(),
+                    format!("Legacy transaction simulation failed: {:?}", err),
+                    "Legacy transaction not sent due to simulation failure".to_string(),
                 ],
             });
         }
@@ -994,11 +936,11 @@ impl Jupiter {
         let sim_logs = simulation_result.value.logs.unwrap_or_default();
         debug!("Simulation logs: {:?}", sim_logs);
 
-        // Send the versioned transaction to blockchain
-        info!("📡 Sending versioned transaction to DevNet blockchain...");
+        // Send the legacy transaction to blockchain
+        info!("📡 Sending legacy transaction to DevNet blockchain...");
         let signature = rpc_client
-            .send_and_confirm_transaction_with_spinner(&versioned_transaction)
-            .map_err(|e| anyhow!("Failed to send and confirm versioned transaction: {}", e))?;
+            .send_and_confirm_transaction_with_spinner(&transaction)
+            .map_err(|e| anyhow!("Failed to send and confirm legacy transaction: {}", e))?;
 
         info!("🎉 Transaction confirmed! Signature: {}", signature);
 
@@ -1021,12 +963,12 @@ impl Jupiter {
                 fee_amount: 0.005, // Actual fee from simulation
                 block_height: swap_response.lastValidBlockHeight,
                 logs: vec![
-                    "Versioned transaction built successfully".to_string(),
-                    "Versioned transaction signed with wallet".to_string(),
-                    "Versioned transaction simulated successfully".to_string(),
-                    "Versioned transaction sent to DevNet".to_string(),
+                    "Legacy transaction built successfully".to_string(),
+                    "Legacy transaction signed with wallet".to_string(),
+                    "Legacy transaction simulated successfully".to_string(),
+                    "Legacy transaction sent to DevNet".to_string(),
                     format!("Transaction confirmed: {}", signature),
-                    "✅ REAL SWAP COMPLETED ON DEVNET (V0 + ALTs)".to_string(),
+                    "✅ REAL SWAP COMPLETED ON DEVNET (Legacy)".to_string(),
                 ],
             })
         } else {
@@ -1039,7 +981,7 @@ impl Jupiter {
                 fee_amount: 0.005,
                 block_height: 0,
                 logs: vec![
-                    "Versioned transaction sent but failed on blockchain".to_string(),
+                    "Legacy transaction sent but failed on blockchain".to_string(),
                     format!("Failed signature: {}", signature),
                 ],
             })
