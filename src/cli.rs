@@ -1576,10 +1576,10 @@ async fn handle_wallet_export_command(matches: &ArgMatches) -> Result<()> {
     
     // Create a mnemonic from entropy (first 16 bytes of private key for 12-word phrase)
     let entropy = &private_key_bytes[0..16];
-    let mnemonic = Mnemonic::from_entropy(entropy, Language::English)
+    let mnemonic = Mnemonic::from_entropy(entropy)
         .map_err(|e| anyhow::anyhow!("Failed to generate mnemonic: {}", e))?;
     
-    let seed_phrase = mnemonic.phrase();
+    let seed_phrase = mnemonic.to_string();
     
     // Create the export content
     let export_content = format!(
@@ -1646,7 +1646,7 @@ WALLET ADDRESS (for funding/verification):
         public_key,
         seed_phrase,
         private_key_base58,
-        hex::encode(&private_key_bytes),
+        private_key_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>(),
         public_key
     );
     
