@@ -1,61 +1,57 @@
-# 📱 WALLET EXPORT FOR MOBILE - MAINNET VALIDATION
+SOLANA WALLET EXPORT FOR MOBILE IMPORT
+=====================================
+Generated: 2025-06-27 08:16:17 UTC
+Source File: mainnet-validation-wallet.json
 
-## ⚠️ SECURITY WARNING
-This file contains your PRIVATE KEY. Keep it SECURE and DELETE after import.
-Never share this information with anyone.
+⚠️  KEEP THIS INFORMATION SECURE AND PRIVATE ⚠️
 
-## 📋 WALLET INFORMATION
-Public Key: 9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
-Network: Solana Mainnet
-Purpose: SniperForge Sprint 1 Validation
+WALLET INFORMATION:
+------------------
+Public Key (Address): 9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
+Network: All Networks (DevNet/Mainnet compatible)
 
-## 🔑 IMPORT FORMATS
+IMPORT OPTIONS FOR MOBILE APPS:
+-------------------------------
 
-### FORMAT 1: JSON ARRAY (Solflare, Phantom)
-[4,8,206,10,5,75,123,233,86,136,230,184,160,218,117,97,226,33,220,159,121,102,192,160,8,191,42,197,172,32,91,107,130,254,152,251,95,91,255,122,203,9,141,124,210,49,191,171,32,244,104,27,56,215,56,218,58,0,181,126,145,86,38,178]
+OPTION 1: Seed Phrase (12 words) - RECOMMENDED
+advice edit little appear response visa focus broom reward almost outer seed
 
-### FORMAT 2: BASE58 PRIVATE KEY (most wallets)
-3KSZpKy5VNHF1TJRBWiJNevU5Cx5qYzKPB3AAPYmVe6Y5xQzU7DqQf8G5bKdHiP2nvg1AkSyG3vPgBM8G2G3NRNv
+OPTION 2: Private Key (Base58)
+5gLpjLsgDjeNgW89gbYh8R1WjKxfuRF7AxxJoSmHSuZGsLhETbfLNy71HVrKAPg9Fj2UCRi97g3aU9uYrbRVAt1
 
-### FORMAT 3: MNEMONIC SEED PHRASE (if supported)
-This format requires conversion. Most mobile wallets prefer Base58 format above.
+OPTION 3: Raw Private Key (Hex)
+0408ce0a054b7be95688e6b8a0da7561e221dc9f7966c0a008bf2ac5ac205b6b82fe98fb5f5bff7acb098d7cd231bfab20f4681b38d738da3a00b57e915626b2
 
-## 📱 IMPORT INSTRUCTIONS
+HOW TO IMPORT:
+=============
 
-### PHANTOM WALLET (iOS/Android)
+📱 PHANTOM WALLET:
 1. Open Phantom app
-2. Tap "+" → "Import Wallet"  
-3. Select "Private Key"
-4. Paste the Base58 key from FORMAT 2
-5. Set wallet name: "SniperForge Mainnet"
+2. Tap "Add/Connect Wallet"
+3. Select "Import Private Key"
+4. Choose "Seed Phrase" 
+5. Enter the 12-word seed phrase above
+6. Set password and confirm
 
-### SOLFLARE WALLET (iOS/Android)
+📱 SOLFLARE WALLET:
 1. Open Solflare app
-2. Tap "Create/Import" → "Import Wallet"
-3. Select "Private Key"
-4. Paste the JSON array from FORMAT 1
-5. Set wallet name: "SniperForge Mainnet"
-
-### BACKPACK WALLET (iOS/Android)
-1. Open Backpack app
 2. Tap "Import Wallet"
-3. Select "Private Key"
-4. Paste the Base58 key from FORMAT 2
-5. Confirm import
+3. Select "Seed Phrase"
+4. Enter the 12-word seed phrase above
+5. Complete setup
 
-## 🔒 SECURITY CHECKLIST
-- [ ] Delete this file after successful import
-- [ ] Test small transaction first (0.001 SOL)
-- [ ] Keep backup copy in secure location
-- [ ] Never screenshot private keys
-- [ ] Use secure messaging to transfer to phone
+📱 OTHER WALLETS:
+- Use the seed phrase (most compatible)
+- Or use the Base58 private key if seed phrase not supported
 
-## 📊 VERIFICATION
-After import, verify the public key matches:
+SECURITY NOTES:
+==============
+- Never share your private key or seed phrase
+- Store this file securely and delete after import
+- Anyone with these keys controls your wallet
+- Double-check the public key matches after import
+
+WALLET ADDRESS (for funding/verification):
 9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
 
-If public key doesn't match, DO NOT USE THIS WALLET.
-
----
-Generated: June 27, 2025
-Project: SniperForge Sprint 1 Validation
+⚠️  DELETE THIS FILE AFTER SUCCESSFUL IMPORT ⚠️
