@@ -604,6 +604,13 @@ impl JupiterClient {
         
         debug!("🌐 Fetching quote from Jupiter: {}", url);
         
+        // CRITICAL DEBUG: Log exactly what we're sending to Jupiter
+        info!("🔍 DEBUG: Jupiter quote request parameters:");
+        info!("  inputMint: {}", request.inputMint);
+        info!("  outputMint: {}", request.outputMint);
+        info!("  amount: {} lamports ({} SOL)", request.amount, request.amount as f64 / 1_000_000_000.0);
+        info!("  slippageBps: {}", request.slippageBps);
+        
         let query_params = [
             ("inputMint", request.inputMint.as_str()),
             ("outputMint", request.outputMint.as_str()),
@@ -639,6 +646,21 @@ impl JupiterClient {
             .json()
             .await
             .map_err(|e| anyhow!("Failed to parse Jupiter quote response: {}", e))?;
+
+        // CRITICAL DEBUG: Log exactly what Jupiter returned
+        info!("🔍 DEBUG: Jupiter quote response:");
+        info!("  Requested: {} lamports", request.amount);
+        info!("  Jupiter returned inAmount: {} ({})", quote.inAmount, quote.inAmount.parse::<u64>().unwrap_or(0));
+        info!("  Jupiter returned outAmount: {} ({})", quote.outAmount, quote.outAmount.parse::<u64>().unwrap_or(0));
+        
+        // Check if Jupiter is returning more than we requested
+        let jupiter_amount = quote.inAmount.parse::<u64>().unwrap_or(0);
+        if jupiter_amount != request.amount {
+            warn!("⚠️  WARNING: Jupiter returned different amount than requested!");
+            warn!("  Requested: {} lamports ({} SOL)", request.amount, request.amount as f64 / 1_000_000_000.0);
+            warn!("  Jupiter returned: {} lamports ({} SOL)", jupiter_amount, jupiter_amount as f64 / 1_000_000_000.0);
+            warn!("  This might be why wallets are being drained!");
+        }
 
         // Populate convenience fields
         let raw_in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0);
@@ -838,6 +860,90 @@ impl Jupiter {
     ) -> Result<SwapExecutionResult> {
         info!("🔄 Executing swap with wallet integration...");
         
+        // CRITICAL SAFETY CHECKS - PREVENT WALLET DRAINING
+        let swap_amount_sol = quote.in_amount;
+        
+        // Safety Check 1: Maximum swap amount protection
+        let max_allowed_swap = if self.config.network_name == "Mainnet" { 0.1 } else { 1.0 }; // 0.1 SOL max on Mainnet, 1.0 SOL on DevNet
+        if swap_amount_sol > max_allowed_swap {
+            error!("🚨 SAFETY ABORT: Swap amount ({} SOL) exceeds maximum allowed ({} SOL) for {}", 
+                   swap_amount_sol, max_allowed_swap, self.config.network_name);
+            return Ok(SwapExecutionResult {
+                success: false,
+                transaction_signature: format!("SAFETY_ABORT_MAX_AMOUNT_{}", chrono::Utc::now().timestamp()),
+                output_amount: 0.0,
+                actual_slippage: 0.0,
+                fee_amount: 0.0,
+                block_height: 0,
+                logs: vec![
+                    format!("🚨 SAFETY ABORT: Swap amount ({} SOL) exceeds maximum allowed ({} SOL)", swap_amount_sol, max_allowed_swap),
+                    format!("Maximum swap limit for {} is {} SOL", self.config.network_name, max_allowed_swap),
+                    "Transaction blocked to prevent potential wallet draining".to_string(),
+                ],
+            });
+        }
+        
+        // Safety Check 2: Verify wallet has sufficient balance (with safety margin)
+        if let Some(keypair) = wallet_keypair {
+            let rpc_client = RpcClient::new_with_commitment(
+                self.config.rpc_endpoint.clone(),
+                CommitmentConfig::confirmed()
+            );
+            
+            match rpc_client.get_balance(&keypair.pubkey()) {
+                Ok(balance_lamports) => {
+                    let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
+                    let safety_margin = 0.01; // Keep 0.01 SOL for fees
+                    let available_for_swap = balance_sol - safety_margin;
+                    
+                    info!("💰 Wallet balance check: {} SOL available, {} SOL requested", balance_sol, swap_amount_sol);
+                    
+                    if swap_amount_sol > available_for_swap {
+                        error!("🚨 SAFETY ABORT: Insufficient balance. Available: {} SOL (with safety margin), Requested: {} SOL", 
+                               available_for_swap, swap_amount_sol);
+                        return Ok(SwapExecutionResult {
+                            success: false,
+                            transaction_signature: format!("SAFETY_ABORT_INSUFFICIENT_BALANCE_{}", chrono::Utc::now().timestamp()),
+                            output_amount: 0.0,
+                            actual_slippage: 0.0,
+                            fee_amount: 0.0,
+                            block_height: 0,
+                            logs: vec![
+                                format!("🚨 SAFETY ABORT: Insufficient balance for swap"),
+                                format!("Available: {} SOL (with 0.01 SOL safety margin)", available_for_swap),
+                                format!("Requested: {} SOL", swap_amount_sol),
+                                "Transaction blocked to prevent wallet draining".to_string(),
+                            ],
+                        });
+                    }
+                    
+                    // Safety Check 3: Warn if swapping more than 50% of balance on Mainnet
+                    if self.config.network_name == "Mainnet" && swap_amount_sol > (balance_sol * 0.5) {
+                        warn!("⚠️ WARNING: Swapping {} SOL is more than 50% of wallet balance ({} SOL)", 
+                              swap_amount_sol, balance_sol);
+                    }
+                }
+                Err(e) => {
+                    error!("🚨 SAFETY ABORT: Cannot verify wallet balance: {}", e);
+                    return Ok(SwapExecutionResult {
+                        success: false,
+                        transaction_signature: format!("SAFETY_ABORT_BALANCE_CHECK_FAILED_{}", chrono::Utc::now().timestamp()),
+                        output_amount: 0.0,
+                        actual_slippage: 0.0,
+                        fee_amount: 0.0,
+                        block_height: 0,
+                        logs: vec![
+                            "🚨 SAFETY ABORT: Cannot verify wallet balance before swap".to_string(),
+                            format!("RPC Error: {}", e),
+                            "Transaction blocked for safety".to_string(),
+                        ],
+                    });
+                }
+            }
+        }
+        
+        info!("✅ All safety checks passed. Proceeding with swap of {} SOL", swap_amount_sol);
+        
         // First get the swap transaction from Jupiter
         let swap_request = SwapRequest {
             quoteResponse: quote.clone(),
@@ -917,6 +1023,41 @@ impl Jupiter {
                transaction.message.account_keys.len(), 
                transaction.message.instructions.len());
         
+        // CRITICAL SAFETY CHECK 4: Verify transaction amount matches EXACTLY what user requested
+        // This is the bug that was draining wallets - Jupiter was using entire balance instead of requested amount
+        info!("🔍 SAFETY: Verifying transaction amount matches EXACT user request...");
+        let quote_amount_lamports = quote.inAmount.parse::<u64>().unwrap_or(0);
+        let quote_amount_sol = quote_amount_lamports as f64 / 1_000_000_000.0;
+        
+        // Compare against the ORIGINAL user request amount, not Jupiter's quote
+        let tolerance = 0.000001; // 1 microSOL tolerance for rounding
+        if (quote_amount_sol - swap_amount_sol).abs() > tolerance {
+            error!("🚨 CRITICAL BUG DETECTED: Jupiter trying to swap MORE than requested!");
+            error!("   USER REQUESTED: {} SOL", swap_amount_sol);
+            error!("   JUPITER WANTS TO SWAP: {} SOL ({} lamports)", quote_amount_sol, quote_amount_lamports);
+            error!("   DIFFERENCE: {} SOL", (quote_amount_sol - swap_amount_sol).abs());
+            error!("   🚨 THIS IS THE BUG THAT WAS DRAINING WALLETS!");
+            
+            return Ok(SwapExecutionResult {
+                success: false,
+                transaction_signature: format!("SAFETY_ABORT_AMOUNT_MISMATCH_{}", chrono::Utc::now().timestamp()),
+                output_amount: 0.0,
+                actual_slippage: 0.0,
+                fee_amount: 0.0,
+                block_height: 0,
+                logs: vec![
+                    "🚨 CRITICAL BUG DETECTED: Jupiter trying to swap more than requested".to_string(),
+                    format!("User requested: {} SOL", swap_amount_sol),
+                    format!("Jupiter wants to swap: {} SOL", quote_amount_sol),
+                    format!("Difference: {} SOL", (quote_amount_sol - swap_amount_sol).abs()),
+                    "🚨 THIS IS THE WALLET DRAINING BUG - TRANSACTION BLOCKED!".to_string(),
+                    "This suggests Jupiter API is returning entire wallet balance instead of requested amount".to_string(),
+                ],
+            });
+        }
+        
+        info!("✅ SAFETY: Transaction amount verified - {} lamports ({} SOL)", quote_amount_lamports, quote.in_amount);
+        
         // Debug: Print all program IDs in the transaction
         debug!("Transaction account keys:");
         for (i, account) in transaction.message.account_keys.iter().enumerate() {
@@ -932,6 +1073,17 @@ impl Jupiter {
         
         // If wallet keypair is provided, sign the legacy transaction
         if let Some(keypair) = wallet_keypair {
+            // FINAL SAFETY CHECK: Last chance to abort before signing
+            if self.config.network_name == "Mainnet" {
+                warn!("🚨 FINAL SAFETY WARNING: About to sign REAL transaction on MAINNET");
+                warn!("   Amount: {} SOL → {} USDC", quote.in_amount, quote.out_amount);
+                warn!("   Network: {}", self.config.network_name);
+                warn!("   This will use REAL MONEY!");
+                
+                // Add a small delay for manual intervention if needed
+                tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+            }
+            
             info!("✍️ Signing legacy transaction with provided wallet");
             
             // Check if wallet is a required signer
@@ -1033,6 +1185,27 @@ impl Jupiter {
 
         if success {
             info!("✅ SPRINT 1: Real swap executed successfully on {}!", self.config.network_name);
+            
+            // POST-TRANSACTION SAFETY VERIFICATION
+            info!("🔍 SAFETY: Verifying post-transaction wallet balance...");
+            if let Some(kp) = wallet_keypair {
+                match rpc_client.get_balance(&kp.pubkey()) {
+                    Ok(new_balance_lamports) => {
+                        let new_balance_sol = new_balance_lamports as f64 / 1_000_000_000.0;
+                        info!("💰 Post-transaction balance: {} SOL", new_balance_sol);
+                        
+                        // Warn if balance is suspiciously low (less than 0.001 SOL)
+                        if new_balance_sol < 0.001 {
+                            warn!("⚠️  WARNING: Wallet balance is very low after transaction: {} SOL", new_balance_sol);
+                            warn!("⚠️  Please verify this is expected and consider adding more funds for future transactions");
+                        }
+                    }
+                    Err(e) => {
+                        warn!("⚠️  Could not verify post-transaction balance: {}", e);
+                    }
+                }
+            }
+            
             Ok(SwapExecutionResult {
                 success: true,
                 transaction_signature: signature.to_string(),

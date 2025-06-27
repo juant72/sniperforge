@@ -45,51 +45,44 @@ session_timeout_minutes = 30
 
 [logging]
 level = "info"
-file_path = "logs/sniperforge.log"
+file_enabled = true
+console_enabled = true
 max_file_size_mb = 100
 max_files = 10
-console_output = true
 
 [bots]
-lp_sniper = { enabled = false }      # DISABLED for safety
-copy_trading = { enabled = false }   # DISABLED for safety
-arbitrage = { enabled = false }      # DISABLED for safety
-mev = { enabled = false }           # DISABLED for safety
+[bots.lp_sniper]
+enabled = false
+priority = "low"
+resource_allocation = { cpu = "10%", memory = "50MB" }
+
+[bots.copy_trading]
+enabled = false
+priority = "low"
+resource_allocation = { cpu = "10%", memory = "50MB" }
+
+[bots.arbitrage]
+enabled = false
+priority = "low"
+resource_allocation = { cpu = "10%", memory = "50MB" }
+
+[bots.mev]
+enabled = false
+priority = "low"
+resource_allocation = { cpu = "10%", memory = "50MB" }
 
 [development]
-enable_hot_reload = false           # Production mode
-mock_mode = false                  # Real trading mode
-debug_logging = false              # Reduced logging for performance
+simulate_trades = false            # Real trading mode
+use_devnet = false                 # Use mainnet
+verbose_logging = false            # Reduced logging for performance
+enable_debug_mode = false          # Production mode
 
 [performance]
 # Enhanced performance settings for mainnet
+target_latency_ms = 50             # Target latency for mainnet
 max_memory_usage_mb = 1024
 gc_interval_seconds = 300
-thread_pool_size = 8
-batch_processing_enabled = true
-
-[jupiter]
-# Official Jupiter API for mainnet
-base_url = "https://quote-api.jup.ag"
-timeout_ms = 5000
-max_retries = 3
-cache_ttl_ms = 100  # Very short cache for real-time data
-
-[syndica]
-# Syndica mainnet WebSocket
-endpoint = "wss://solana-mainnet.api.syndica.io"
-# You need a real Syndica token for mainnet
-access_token = "${SYNDICA_MAINNET_TOKEN}"
-reconnect_attempts = 5
-ping_interval_sec = 30
-
-[paper_trading]
-# Paper trading configuration
-initial_sol_balance = 10.0
-initial_usdc_balance = 2000.0
-simulated_fee_bps = 30        # 0.3% realistic fees
-simulated_slippage_percent = 0.1  # 0.1% slippage
-execution_latency_ms = 150    # Realistic execution latency
+metrics_collection_interval_ms = 1000
 
 [safety]
 # Ultra-safe settings for mainnet
