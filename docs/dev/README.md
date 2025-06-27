@@ -10,6 +10,7 @@
 This `/docs/dev/` directory contains:
 
 ### **📊 Development Reports & Analysis**
+- **[massive-documentation-reorganization-report.md](massive-documentation-reorganization-report.md)** - 📁 Complete directory reorganization report
 - **[documentation-consolidation-report.md](documentation-consolidation-report.md)** - Report on documentation reorganization and master checklist creation
 - **[documentation-organization-summary.md](documentation-organization-summary.md)** - Complete organization structure and placement rules
 - Various sprint completion reports and status documents

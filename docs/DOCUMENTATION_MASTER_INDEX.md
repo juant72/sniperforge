@@ -126,13 +126,16 @@ docs/
 |------|-------------------|-----------|
 | **Trabajo Pendiente** | Master Pending Work Checklist | `project-status/PENDING_WORK_MASTER_CHECKLIST.md` |
 | **Comandos CLI** | Command Guide | `user-guides/command-guide.md` |
+| **Estado del Proyecto** | Complete Status Overview | `project-status/complete-status-overview.md` |
+| **Datos Reales** | Real Data Mission Accomplished | `project-status/real-data-mission-accomplished.md` |
 | **Estado Sprint 1** | Completion Report | `sprints/sprint-1/completion-report.md` |
 | **Uso en Mainnet** | Mainnet Guide | `user-guides/mainnet-guide.md` |
 | **Seguridad** | Wallet Safety | `user-guides/wallet-safety.md` |
-| **Configuración** | Configuration | `configuration.md` |
+| **Configuración** | Configuration | `technical/configuration.md` |
+| **Referencias Técnicas** | Time Units Reference | `technical/time-units-quick-reference.md` |
 | **Errores** | Error Resolution | `troubleshooting/error-resolution.md` |
 | **Arquitectura** | Architecture | `architecture/` |
-| **Roadmap** | Development Roadmap | `development-roadmap.md` |
+| **Roadmap** | Development Roadmap | `dev/development-roadmap.md` |
 
 ---
 
