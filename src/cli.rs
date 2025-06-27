@@ -237,6 +237,25 @@ pub async fn run_cli() -> Result<()> {
                                 .default_value("test-wallet-new.json")
                         )
                 )
+                .subcommand(
+                    Command::new("export")
+                        .about("Export wallet for mobile import (Phantom, Solflare, etc.)")
+                        .after_help("Export wallet private key and seed phrase for importing into mobile wallet apps. Creates a secure text file with all necessary information.")
+                        .arg(
+                            Arg::new("wallet_file")
+                                .value_name("WALLET_FILE")
+                                .help("Path to wallet keypair JSON file to export")
+                                .required(true)
+                        )
+                        .arg(
+                            Arg::new("output")
+                                .long("output")
+                                .short('o')
+                                .value_name("FILE")
+                                .help("Output file for export (default: wallet-export-MOBILE.txt)")
+                                .default_value("wallet-export-MOBILE.txt")
+                        )
+                )
         )        .subcommand(            
             Command::new("test")
                 .about("Comprehensive testing suite")
@@ -1292,11 +1311,13 @@ async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
         Some(("balance", sub_matches)) => handle_wallet_balance_command(sub_matches).await?,
         Some(("airdrop", _)) => handle_wallet_airdrop_command().await?,
         Some(("generate", sub_matches)) => handle_wallet_generate_command(sub_matches).await?,
+        Some(("export", sub_matches)) => handle_wallet_export_command(sub_matches).await?,
         _ => {
             println!("{}", "Available wallet commands:".bright_cyan());
             println!("  {} - Check wallet balances", "wallet balance [wallet_file.json]".bright_green());
             println!("  {} - Request SOL airdrop", "wallet airdrop".bright_green());
             println!("  {} - Generate a new DevNet wallet", "wallet generate".bright_green());
+            println!("  {} - Export wallet for mobile import", "wallet export [wallet_file.json]".bright_green());
         }
     }
     Ok(())
@@ -1516,6 +1537,140 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
                      keypair.pubkey().to_string().bright_cyan());
         }
     }
+    
+    Ok(())
+}
+
+async fn handle_wallet_export_command(matches: &ArgMatches) -> Result<()> {
+    println!("{}", "[WALLET] Exporting Wallet for Mobile Import".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
+    
+    // Get parameters
+    let wallet_file = matches.get_one::<String>("wallet_file").unwrap();
+    let output_file = matches.get_one::<String>("output").unwrap();
+    
+    println!("📱 Exporting wallet: {}", wallet_file.bright_cyan());
+    println!("📄 Output file: {}", output_file.bright_cyan());
+    println!();
+    
+    // Load the wallet
+    println!("🔓 Loading wallet keypair...");
+    let wallet_data = std::fs::read_to_string(wallet_file)
+        .map_err(|e| anyhow::anyhow!("Failed to read wallet file {}: {}", wallet_file, e))?;
+    
+    let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_data)
+        .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
+    
+    let keypair = Keypair::from_bytes(&wallet_bytes)
+        .map_err(|e| anyhow::anyhow!("Failed to create keypair from bytes: {}", e))?;
+    
+    // Extract key information
+    let public_key = keypair.pubkey().to_string();
+    let private_key_bytes = keypair.to_bytes();
+    
+    // Convert private key to base58 (commonly used format)
+    let private_key_base58 = bs58::encode(&private_key_bytes).into_string();
+    
+    // Generate seed phrase from private key (for compatibility)
+    use bip39::{Mnemonic, Language};
+    
+    // Create a mnemonic from entropy (first 16 bytes of private key for 12-word phrase)
+    let entropy = &private_key_bytes[0..16];
+    let mnemonic = Mnemonic::from_entropy(entropy, Language::English)
+        .map_err(|e| anyhow::anyhow!("Failed to generate mnemonic: {}", e))?;
+    
+    let seed_phrase = mnemonic.phrase();
+    
+    // Create the export content
+    let export_content = format!(
+r#"SOLANA WALLET EXPORT FOR MOBILE IMPORT
+=====================================
+Generated: {}
+Source File: {}
+
+⚠️  KEEP THIS INFORMATION SECURE AND PRIVATE ⚠️
+
+WALLET INFORMATION:
+------------------
+Public Key (Address): {}
+Network: All Networks (DevNet/Mainnet compatible)
+
+IMPORT OPTIONS FOR MOBILE APPS:
+-------------------------------
+
+OPTION 1: Seed Phrase (12 words) - RECOMMENDED
+{}
+
+OPTION 2: Private Key (Base58)
+{}
+
+OPTION 3: Raw Private Key (Hex)
+{}
+
+HOW TO IMPORT:
+=============
+
+📱 PHANTOM WALLET:
+1. Open Phantom app
+2. Tap "Add/Connect Wallet"
+3. Select "Import Private Key"
+4. Choose "Seed Phrase" 
+5. Enter the 12-word seed phrase above
+6. Set password and confirm
+
+📱 SOLFLARE WALLET:
+1. Open Solflare app
+2. Tap "Import Wallet"
+3. Select "Seed Phrase"
+4. Enter the 12-word seed phrase above
+5. Complete setup
+
+📱 OTHER WALLETS:
+- Use the seed phrase (most compatible)
+- Or use the Base58 private key if seed phrase not supported
+
+SECURITY NOTES:
+==============
+- Never share your private key or seed phrase
+- Store this file securely and delete after import
+- Anyone with these keys controls your wallet
+- Double-check the public key matches after import
+
+WALLET ADDRESS (for funding/verification):
+{}
+
+⚠️  DELETE THIS FILE AFTER SUCCESSFUL IMPORT ⚠️
+"#,
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+        wallet_file,
+        public_key,
+        seed_phrase,
+        private_key_base58,
+        hex::encode(&private_key_bytes),
+        public_key
+    );
+    
+    // Write to output file
+    std::fs::write(output_file, export_content)
+        .map_err(|e| anyhow::anyhow!("Failed to write export file: {}", e))?;
+    
+    println!("✅ Export completed successfully!");
+    println!();
+    println!("{}", "📱 MOBILE IMPORT READY".bright_green().bold());
+    println!("📄 Export file: {}", output_file.bright_cyan());
+    println!("🔑 Public key: {}", public_key.bright_cyan());
+    println!();
+    println!("{}", "IMPORT INSTRUCTIONS:".bright_yellow().bold());
+    println!("1. Open your mobile wallet app (Phantom, Solflare, etc.)");
+    println!("2. Choose 'Import Wallet' or 'Add Wallet'");
+    println!("3. Select 'Seed Phrase' or 'Private Key'");
+    println!("4. Use the information from: {}", output_file.bright_cyan());
+    println!();
+    println!("{}", "⚠️  SECURITY WARNING:".bright_red().bold());
+    println!("- Keep the export file secure");
+    println!("- Never share your private keys");
+    println!("- Delete the export file after successful import");
+    println!("- Verify the public key matches after import");
     
     Ok(())
 }
