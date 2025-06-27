@@ -207,7 +207,12 @@ pub async fn run_cli() -> Result<()> {
         .subcommand(
             Command::new("wallet")
                 .about("Wallet management commands")
-                .subcommand(Command::new("balance").about("Check wallet balances"))
+                .subcommand(Command::new("balance")
+                    .about("Check wallet balances")
+                    .arg(Arg::new("wallet_file")
+                        .value_name("WALLET_FILE")
+                        .help("Path to wallet keypair JSON file")
+                        .required(false)))
                 .subcommand(Command::new("airdrop").about("Request SOL airdrop"))
                 .subcommand(
                     Command::new("generate")
@@ -709,7 +714,10 @@ pub async fn run_cli() -> Result<()> {
                             .default_value("pnl"))
                 )
         )
-        .get_matches();match matches.subcommand() {        Some(("start", sub_matches)) => handle_start_command(sub_matches).await?,
+        .get_matches();
+
+    match matches.subcommand() {
+        Some(("start", sub_matches)) => handle_start_command(sub_matches).await?,
         Some(("status", _)) => handle_status_command().await?,
         Some(("config", _)) => handle_config_command().await?,
         Some(("wallet", sub_matches)) => handle_wallet_command(sub_matches).await?,
@@ -1243,12 +1251,12 @@ async fn test_rpc_connection(rpc_url: &str) -> Result<()> {
 
 async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
-        Some(("balance", _)) => handle_wallet_balance_command().await?,
+        Some(("balance", sub_matches)) => handle_wallet_balance_command(sub_matches).await?,
         Some(("airdrop", _)) => handle_wallet_airdrop_command().await?,
         Some(("generate", sub_matches)) => handle_wallet_generate_command(sub_matches).await?,
         _ => {
             println!("{}", "Available wallet commands:".bright_cyan());
-            println!("  {} - Check wallet balances", "wallet balance".bright_green());
+            println!("  {} - Check wallet balances", "wallet balance [wallet_file.json]".bright_green());
             println!("  {} - Request SOL airdrop", "wallet airdrop".bright_green());
             println!("  {} - Generate a new DevNet wallet", "wallet generate".bright_green());
         }
@@ -1256,41 +1264,90 @@ async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_wallet_balance_command() -> Result<()> {
+async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "[WALLET] Checking Wallet Balances".bright_blue().bold());
     println!("{}", "==================================================".bright_blue());
     
-    let _config = Config::load("config/platform.toml")?;
-    let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
-    
-    // Known wallet from last test - we'll hardcode it for now
-    let known_pubkey = "GHAwmESbFzgACvA5XtuuQFZ4NvPgBQRD27DqU8YNF9QZ";
-    
-    println!("[SEARCH] Checking balance for wallet: {}", known_pubkey.bright_cyan());
-    
-    match solana_sdk::pubkey::Pubkey::from_str(known_pubkey) {
-        Ok(pubkey) => {
-            match rpc_client.get_balance(&pubkey) {
-                Ok(balance_lamports) => {
-                    let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
-                    println!("[WALLET] Balance: {} SOL ({} lamports)", 
-                             balance_sol.to_string().bright_green().bold(), 
-                             balance_lamports.to_string().bright_yellow());
-                    
-                    if balance_lamports > 0 {
-                        println!("[OK] {}", "Airdrop was successful!".bright_green().bold());
-                    } else {
-                        println!("[WAIT] {}", "Airdrop might still be confirming...".bright_yellow());
+    // Check if a wallet file was provided
+    if let Some(wallet_file) = matches.get_one::<String>("wallet_file") {
+        // Load the specified wallet directly
+        println!("[WALLET] Loading wallet from: {}", wallet_file.bright_cyan());
+        
+        let keypair = match std::fs::read_to_string(wallet_file) {
+            Ok(wallet_data) => {
+                match serde_json::from_str::<Vec<u8>>(&wallet_data) {
+                    Ok(key_bytes) => {
+                        match Keypair::from_bytes(&key_bytes) {
+                            Ok(kp) => {
+                                println!("✅ Wallet loaded successfully");
+                                println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
+                                kp
+                            }
+                            Err(e) => {
+                                println!("❌ Failed to parse keypair: {}", e);
+                                return Err(anyhow::anyhow!("Invalid wallet format"));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("❌ Failed to parse wallet JSON: {}", e);
+                        return Err(anyhow::anyhow!("Invalid wallet JSON"));
                     }
                 }
-                Err(e) => {
-                    println!("[FAIL] Failed to get balance: {}", e.to_string().bright_red());
+            }
+            Err(e) => {
+                println!("❌ Failed to read wallet file: {}", e);
+                return Err(anyhow::anyhow!("Cannot read wallet file"));
+            }
+        };
+        
+        let pubkey = keypair.pubkey();
+        
+        // Use mainnet RPC for mainnet wallet, devnet for others
+        let (rpc_url, network_name) = if wallet_file.contains("mainnet") {
+            ("https://api.mainnet-beta.solana.com", "Mainnet Beta")
+        } else {
+            ("https://api.devnet.solana.com", "DevNet")
+        };
+        
+        println!("[NETWORK] {}", network_name.bright_green());
+        
+        let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_url.to_string());
+        
+        match rpc_client.get_balance(&pubkey) {
+            Ok(balance_lamports) => {
+                let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
+                println!("[WALLET] Balance: {} SOL ({} lamports)", 
+                         balance_sol.to_string().bright_green().bold(), 
+                         balance_lamports.to_string().bright_yellow());
+                
+                if wallet_file.contains("mainnet") {
+                    if balance_sol >= 0.01 {
+                        println!("[READY] {} ✅", "Sufficient funds for validation".bright_green().bold());
+                        println!("💡 You can now proceed with the Mainnet validation:");
+                        println!("   {}", "cargo run --bin sniperforge test swap-real --wallet mainnet-validation-wallet.json --network mainnet --amount 0.001 --confirm".bright_green());
+                    } else {
+                        println!("[NEEDS FUNDING] {} ⚠️", "Requires 0.01-0.02 SOL for validation".bright_yellow().bold());
+                        println!("💰 Fund this wallet with 0.01-0.02 SOL to proceed with validation:");
+                        println!("   Address: {}", pubkey.to_string().bright_cyan());
+                    }
+                } else {
+                    if balance_lamports > 0 {
+                        println!("[OK] {}", "DevNet wallet has funds".bright_green().bold());
+                    } else {
+                        println!("[EMPTY] {}", "DevNet wallet needs airdrop".bright_yellow());
+                    }
                 }
             }
+            Err(e) => {
+                println!("[FAIL] Failed to get balance: {}", e.to_string().bright_red());
+            }
         }
-        Err(e) => {
-            println!("[FAIL] Invalid pubkey: {}", e.to_string().bright_red());
-        }
+    } else {
+        // No wallet file specified - show help
+        println!("{}", "Please specify a wallet file:".bright_cyan());
+        println!("  {} - Check DevNet wallet", "cargo run --bin sniperforge wallet balance test-wallet.json".bright_green());
+        println!("  {} - Check Mainnet wallet", "cargo run --bin sniperforge wallet balance mainnet-validation-wallet.json".bright_green());
     }
     
     Ok(())
