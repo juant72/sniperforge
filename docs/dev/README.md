@@ -1,11 +1,42 @@
-# 📋 Development Planning - SniperForge Multi-Bot Ecosystem
+# 📋 Development Documentation - SniperForge
 
 ## 🎯 Current Status (June 20, 2025)
 
 **MILESTONE ACHIEVED**: ✅ **Pool Detection System Fully Validated**  
 **NEXT PHASE**: 🎯 **Trading Automation Implementation**
 
-### ✅ **COMPLETED - Pool Detection Validation**
+## 📁 Contents of this Directory
+
+This `/docs/dev/` directory contains:
+
+### **📊 Development Reports & Analysis**
+- **[documentation-consolidation-report.md](documentation-consolidation-report.md)** - Report on documentation reorganization and master checklist creation
+- **[documentation-organization-summary.md](documentation-organization-summary.md)** - Complete organization structure and placement rules
+- Various sprint completion reports and status documents
+- Implementation guides and development processes
+
+### **🏗️ Architecture & Implementation Guides**
+- **[architecture-guidelines.md](architecture-guidelines.md)** - System architecture guidelines
+- **[implementation-guide.md](implementation-guide.md)** - Development implementation guide
+- **[multi-bot-architecture.md](multi-bot-architecture.md)** - Multi-bot system architecture
+
+### **📅 Sprint Documentation**
+- Sprint planning, status, and completion reports
+- Phase implementation summaries
+- Development roadmap updates
+
+## 🎯 **Document Types for /docs/dev/**
+
+Place the following types of documents in this directory:
+- 📊 **Development process reports** (consolidation, reorganization, methodology)
+- 🔄 **Sprint retrospectives and analysis**
+- 🏗️ **Architecture decision records**
+- 📋 **Implementation methodology documents**
+- 🔧 **Development workflow and process improvements**
+
+---
+
+## ✅ **COMPLETED - Pool Detection Validation**
 - Pool detection system tested and validated with real market data
 - System detecting 25+ trading opportunities per 6-minute period  
 - Ultra-fast performance confirmed (30-300x faster than REST)
