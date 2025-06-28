@@ -29,9 +29,9 @@ mainnet_backup_rpc = [
 
 mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
 
-# Connection settings - Simplified
-connection_timeout_ms = 10000
-request_timeout_ms = 15000
+# Connection settings - Optimized for mainnet stability
+connection_timeout_ms = 15000  # Increased for mainnet stability
+request_timeout_ms = 20000     # Increased for complex queries (Raydium, etc.)
 retry_attempts = 3
 retry_delay_ms = 1000
 circuit_breaker_threshold = 3      # Simple threshold

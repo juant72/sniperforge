@@ -14,6 +14,7 @@ use tokio::sync::{RwLock, Semaphore};
 use tracing::{info, warn, error, debug};
 use serde_json::Value;
 use std::collections::HashMap;
+use url::Url;
 
 use crate::config::Config;
 use crate::types::{HealthStatus, Priority};
@@ -178,7 +179,7 @@ impl RpcConnectionPool {
         
         if premium_manager.has_premium_endpoints() {
             info!("🌟 {}", premium_manager.get_status_summary());
-            info!("🔧 Premium URLs: {:?}", premium_urls);
+            info!("🔧 Premium URLs: {:?}", Self::sanitize_urls_for_logging(&premium_urls));
         } else {
             info!("💡 No premium API keys found - using public endpoints only");
             info!("   Set HELIUS_API_KEY, ANKR_API_KEY, QUICKNODE_ENDPOINT, or ALCHEMY_API_KEY for premium access");
@@ -268,7 +269,8 @@ impl RpcConnectionPool {
         // Add premium endpoints to health tracking
         for premium_url in &premium_urls {
             endpoint_health.insert(premium_url.clone(), RpcEndpointHealth::new(premium_url.clone()));
-            info!("📡 Added premium endpoint to health tracking: {}", premium_url);
+            let sanitized_url = Self::sanitize_url_for_logging(premium_url);
+            info!("📡 Added premium endpoint to health tracking: {}", sanitized_url);
         }
         
         // Create connection semaphore
@@ -360,11 +362,11 @@ impl RpcConnectionPool {
                 // Update persistence
                 let mut persistence = self.health_persistence.lock().await;
                 if let Err(e) = persistence.record_endpoint_success(url, response_time.as_millis() as u64).await {
-                    warn!("Failed to persist RPC success for {}: {}", url, e);
+                    warn!("Failed to persist RPC success for {}: {}", Self::sanitize_url_for_logging(url), e);
                 }
                 drop(persistence);
                 
-                info!("✅ RPC endpoint {} is healthy ({}ms)", url, response_time.as_millis());
+                info!("✅ RPC endpoint {} is healthy ({}ms)", Self::sanitize_url_for_logging(url), response_time.as_millis());
                 Ok(())
             }
             Err(e) => {
@@ -394,11 +396,11 @@ impl RpcConnectionPool {
                 // Update persistence
                 let mut persistence = self.health_persistence.lock().await;
                 if let Err(persist_err) = persistence.record_endpoint_failure(url, error_type).await {
-                    warn!("Failed to persist RPC failure for {}: {}", url, persist_err);
+                    warn!("Failed to persist RPC failure for {}: {}", Self::sanitize_url_for_logging(url), persist_err);
                 }
                 drop(persistence);
                 
-                warn!("❌ RPC endpoint {} failed: {}", url, e);
+                warn!("❌ RPC endpoint {} failed: {}", Self::sanitize_url_for_logging(url), e);
                 Err(e)
             }
         }
@@ -1177,6 +1179,43 @@ impl RpcConnectionPool {
             }
         } else {
             None
+        }
+    }
+
+    /// Sanitize URLs for logging by hiding API keys
+    fn sanitize_urls_for_logging(urls: &[String]) -> Vec<String> {
+        urls.iter().map(|url| Self::sanitize_url_for_logging(url)).collect()
+    }
+
+    /// Sanitize a single URL for logging by hiding API keys
+    fn sanitize_url_for_logging(url: &str) -> String {
+        // Hide API keys in URLs for logging
+        if url.contains("api-key=") {
+            if let Some(api_key_start) = url.find("api-key=") {
+                let before = &url[..api_key_start + 8]; // Include "api-key="
+                let after_start = api_key_start + 8;
+                if let Some(next_param) = url[after_start..].find('&') {
+                    let after = &url[after_start + next_param..];
+                    format!("{}***HIDDEN***{}", before, after)
+                } else {
+                    format!("{}***HIDDEN***", before)
+                }
+            } else {
+                url.to_string()
+            }
+        } else if url.contains("helius") || url.contains("ankr") || url.contains("alchemy") || url.contains("quicknode") {
+            // For other premium providers, just show the domain
+            if let Ok(parsed_url) = url::Url::parse(url) {
+                if let Some(host) = parsed_url.host_str() {
+                    format!("{}://{}/***/", parsed_url.scheme(), host)
+                } else {
+                    "***PREMIUM_URL_HIDDEN***".to_string()
+                }
+            } else {
+                "***PREMIUM_URL_HIDDEN***".to_string()
+            }
+        } else {
+            url.to_string()
         }
     }
 }
