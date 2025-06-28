@@ -65,6 +65,29 @@ pub struct NetworkConfig {
     pub circuit_breaker_threshold: Option<u64>,
     #[serde(default)]
     pub circuit_breaker_reset_seconds: Option<u64>,
+    
+    // Premium RPC configuration
+    #[serde(default)]
+    pub premium_rpc: Option<PremiumRpcConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct PremiumRpcConfig {
+    pub enabled: bool,
+    pub helius_rpc_template: Option<String>,
+    pub ankr_rpc_template: Option<String>,
+    pub quicknode_rpc_template: Option<String>,
+    pub alchemy_rpc_template: Option<String>,
+    pub helius_ws_template: Option<String>,
+    pub alchemy_ws_template: Option<String>,
+    pub endpoint_priorities: Option<Vec<EndpointPriority>>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct EndpointPriority {
+    pub provider: String,
+    pub priority: u8,
+    pub max_requests_per_second: u32,
 }
 
 impl NetworkConfig {
@@ -393,6 +416,16 @@ impl Default for Config {
                 health_check_interval_seconds: Some(30),
                 circuit_breaker_threshold: Some(5),
                 circuit_breaker_reset_seconds: Some(120),
+                premium_rpc: Some(PremiumRpcConfig {
+                    enabled: false,
+                    helius_rpc_template: None,
+                    ankr_rpc_template: None,
+                    quicknode_rpc_template: None,
+                    alchemy_rpc_template: None,
+                    helius_ws_template: None,
+                    alchemy_ws_template: None,
+                    endpoint_priorities: None,
+                }),
             },
             shared_services: SharedServicesConfig {
                 rpc_pool_size: 20,

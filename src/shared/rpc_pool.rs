@@ -19,6 +19,7 @@ use crate::config::Config;
 use crate::types::{HealthStatus, Priority};
 use crate::shared::alternative_apis::AlternativeApiManager;
 use crate::shared::rpc_health_persistence::RpcHealthPersistence;
+use crate::shared::premium_rpc_manager::PremiumRpcManager;
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -124,6 +125,8 @@ impl RpcEndpointHealth {
 pub struct RpcConnectionPool {
     primary_client: Arc<RpcClient>,
     backup_clients: Vec<Arc<RpcClient>>,
+    premium_clients: Vec<Arc<RpcClient>>,  // NEW: Premium RPC clients
+    premium_manager: Arc<tokio::sync::Mutex<PremiumRpcManager>>,  // NEW: Premium RPC manager
     connection_semaphore: Arc<Semaphore>,
     config: RpcPoolConfig,
     is_running: Arc<RwLock<bool>>,
@@ -134,6 +137,7 @@ pub struct RpcConnectionPool {
     // Store URLs for health checking
     primary_url: String,
     backup_urls: Vec<String>,
+    premium_urls: Vec<String>,  // NEW: Premium URLs
 }
 
 #[derive(Debug, Clone)]
@@ -159,7 +163,7 @@ pub struct RpcStats {
 
 impl RpcConnectionPool {
     pub async fn new(config: &Config) -> Result<Self> {
-        info!("🌐 Initializing RPC connection pool with enhanced resilience");
+        info!("🌐 Initializing RPC connection pool with premium and enhanced resilience");
         
         // Initialize crypto provider for rustls to fix "no process-level CryptoProvider available"
         Self::init_crypto_provider();
@@ -167,6 +171,18 @@ impl RpcConnectionPool {
         info!("🔧 RPC Pool Config - Environment: {}", config.network.environment);
         info!("🔧 RPC Pool Config - Primary: {}", config.network.primary_rpc());
         info!("🔧 RPC Pool Config - Backup URLs: {:?}", config.network.backup_rpc());
+        
+        // Initialize premium RPC manager
+        let premium_manager = crate::shared::premium_rpc_manager::PremiumRpcManager::new(&config.network)?;
+        let premium_urls = premium_manager.get_all_urls();
+        
+        if premium_manager.has_premium_endpoints() {
+            info!("🌟 {}", premium_manager.get_status_summary());
+            info!("🔧 Premium URLs: {:?}", premium_urls);
+        } else {
+            info!("💡 No premium API keys found - using public endpoints only");
+            info!("   Set HELIUS_API_KEY, ANKR_API_KEY, QUICKNODE_ENDPOINT, or ALCHEMY_API_KEY for premium access");
+        }
         
         let pool_config = RpcPoolConfig {
             pool_size: config.shared_services.rpc_pool_size,
@@ -197,6 +213,16 @@ impl RpcConnectionPool {
             backup_clients.push(client);
         }
         
+        // Create premium RPC clients
+        let mut premium_clients = Vec::new();
+        for premium_url in &premium_urls {
+            let client = Arc::new(RpcClient::new_with_commitment(
+                premium_url.clone(),
+                CommitmentConfig::confirmed(),
+            ));
+            premium_clients.push(client);
+        }
+        
         // Initialize health persistence
         let mut health_persistence = RpcHealthPersistence::new("data/rpc_health.json");
         
@@ -224,6 +250,7 @@ impl RpcConnectionPool {
         
         endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
         
+        // Add backup endpoints to health tracking
         for backup_url in &backup_urls {
             // Check backup endpoint history
             {
@@ -238,6 +265,12 @@ impl RpcConnectionPool {
             endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
         }
         
+        // Add premium endpoints to health tracking
+        for premium_url in &premium_urls {
+            endpoint_health.insert(premium_url.clone(), RpcEndpointHealth::new(premium_url.clone()));
+            info!("📡 Added premium endpoint to health tracking: {}", premium_url);
+        }
+        
         // Create connection semaphore
         let connection_semaphore = Arc::new(Semaphore::new(pool_config.pool_size));
         
@@ -248,6 +281,8 @@ impl RpcConnectionPool {
         Ok(Self {
             primary_client,
             backup_clients,
+            premium_clients,
+            premium_manager: Arc::new(tokio::sync::Mutex::new(premium_manager)),
             connection_semaphore,
             config: pool_config,
             is_running: Arc::new(RwLock::new(false)),
@@ -257,6 +292,7 @@ impl RpcConnectionPool {
             health_persistence,  // NEW: Add health persistence
             primary_url,
             backup_urls,
+            premium_urls,
         })
     }
     
@@ -265,7 +301,7 @@ impl RpcConnectionPool {
         
         *self.is_running.write().await = true;
         
-        // Test all endpoints and update health status
+        // Test primary endpoint
         if let Err(e) = self.test_and_update_health(self.primary_client.clone(), &self.primary_url).await {
             warn!("⚠️ Primary RPC connection test failed: {}", e);
         }
@@ -279,19 +315,35 @@ impl RpcConnectionPool {
             }
         }
         
+        // Test premium connections
+        for (i, client) in self.premium_clients.iter().enumerate() {
+            if let Some(premium_url) = self.premium_urls.get(i) {
+                if self.test_and_update_health(client.clone(), premium_url).await.is_ok() {
+                    info!("✅ Premium RPC {} is working", i);
+                } else {
+                    warn!("⚠️ Premium RPC {} failed connection test", premium_url);
+                }
+            }
+        }
+        
         // Check if we have any working endpoints
         let health_map = self.endpoint_health.read().await;
         let healthy_endpoints: Vec<_> = health_map.values().filter(|h| h.is_healthy).collect();
+        let premium_healthy: Vec<_> = health_map.iter()
+            .filter(|(url, health)| self.premium_urls.contains(url) && health.is_healthy)
+            .collect();
         
         if healthy_endpoints.is_empty() {
             warn!("⚠️ No RPC endpoints are working, but alternative APIs are available");
             info!("🔄 Will use alternative APIs for pool detection");
         } else {
-            info!("✅ Found {} healthy RPC endpoints", healthy_endpoints.len());
+            info!("✅ Found {} healthy RPC endpoints ({} premium)", 
+                  healthy_endpoints.len(), premium_healthy.len());
         }
         
         info!("✅ RPC connection pool started with enhanced resilience");
         Ok(())
+    }
     }
 
     async fn test_and_update_health(&self, client: Arc<RpcClient>, url: &str) -> Result<()> {
