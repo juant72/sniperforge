@@ -20,28 +20,51 @@ event_bus_buffer_size = 5000
 environment = "mainnet"
 
 # Mainnet endpoints (for production - REAL MONEY OPERATIONS)
-# Updated June 28, 2025 - Improved RPC endpoints for better reliability
+# Updated June 28, 2025 - CRITICAL RPC RESILIENCE IMPROVEMENTS
+# Multiple tiers of endpoints for maximum reliability
 mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
+
+# Tier 1: High-reliability public endpoints
 mainnet_backup_rpc = [
-    # Free reliable endpoints (no API key required)
-    "https://solana-api.projectserum.com",
+    # Official Solana Labs endpoints
     "https://api.mainnet-beta.solana.com",
+    "https://solana-api.projectserum.com",
+    
+    # Major infrastructure providers (usually stable)
     "https://rpc.ankr.com/solana",
-    "https://solana-mainnet.phantom.tech",
+    "https://solana.publicnode.com",
     "https://mainnet.helius-rpc.com",
+    "https://solana-mainnet.phantom.tech",
+    
+    # Additional reliable providers
     "https://solana.blockdaemon.com",
-    # Additional fallbacks
-    "https://solana-mainnet.rpc.extrnode.com",
+    "https://rpc.solana.com",
     "https://mainnet.solana.blastapi.io",
-    "https://rpc.solana.com"
+    "https://solana-mainnet.rpc.extrnode.com",
+    
+    # Emergency fallbacks
+    "https://mainnet-beta.solana.com",
+    "https://api.solana.com",
+    "https://rpc-mainnet.solana.com"
 ]
+
+# Tier 2: Alternative data sources for pool detection
+raydium_api_base = "https://api.raydium.io"
+jupiter_api_base = "https://quote-api.jup.ag"
+birdeye_api_base = "https://public-api.birdeye.so"
+dexscreener_api_base = "https://api.dexscreener.com/latest/dex"
 mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
 
 # Connection settings - Optimized for mainnet resilience
-connection_timeout_ms = 8000   # Increased for mainnet stability
-request_timeout_ms = 15000     # Higher timeout for heavy operations
-retry_attempts = 5             # More retry attempts
-retry_delay_ms = 1000          # Delay between retries
+connection_timeout_ms = 12000      # Increased for unreliable networks
+request_timeout_ms = 20000         # Higher timeout for heavy operations
+retry_attempts = 8                 # More retry attempts for resilience
+retry_delay_ms = 2000              # Longer delay between retries
+max_concurrent_requests = 15       # Limit concurrent requests to avoid rate limiting
+rpc_rotation_strategy = "smart"    # smart, round_robin, health_based
+health_check_interval_seconds = 30 # How often to check RPC health
+circuit_breaker_threshold = 5      # Failures before marking RPC as down
+circuit_breaker_reset_seconds = 120 # How long to wait before retrying failed RPC
 
 [shared_services]
 rpc_pool_size = 20
