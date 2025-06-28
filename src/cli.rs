@@ -1387,10 +1387,10 @@ async fn handle_test_basic_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
     
-    // Use the simple testing module
-    use sniperforge::simple_testing::test_basic_integration;
+    // Use the simple testing module with network parameter
+    use sniperforge::simple_testing::test_basic_integration_with_network;
     
-    test_basic_integration().await;
+    test_basic_integration_with_network(network).await;
     
     Ok(())
 }

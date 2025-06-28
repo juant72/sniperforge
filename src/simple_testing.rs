@@ -51,31 +51,34 @@ pub async fn test_websocket_with_network(network: &str) {
     }
 }
 
-pub async fn test_basic_integration() {
+pub async fn test_basic_integration_with_network(network: &str) {
     println!("🧪 Basic Integration Test");
     println!("=========================");
     
-    // Test config loading
+    // Test config loading with specified network
     print!("📋 Testing config loading... ");
-    match crate::Config::load("config/devnet.toml").or_else(|_| crate::Config::load("config/platform.toml")) {
-        Ok(_) => println!("✅ OK"),
+    let config_file = match network {
+        "mainnet" => "config/mainnet.toml",
+        "devnet" => "config/devnet.toml",
+        _ => {
+            println!("❌ FAILED: Invalid network specified");
+            return;
+        }
+    };
+    
+    let config = match crate::Config::load(config_file) {
+        Ok(c) => {
+            println!("✅ OK");
+            c
+        },
         Err(e) => {
             println!("❌ FAILED: {}", e);
             return;
         }
-    }
-      // Test Solana connectivity
-    print!("🌐 Testing Solana connectivity... ");
-    let config = match crate::Config::load("config/devnet.toml") {
-        Ok(c) => c,
-        Err(_) => match crate::Config::load("config/platform.toml") {
-            Ok(c) => c,
-            Err(_) => {
-                println!("❌ FAILED: Could not load config");
-                return;
-            }
-        }
     };
+    
+    // Test Solana connectivity
+    print!("🌐 Testing Solana connectivity... ");
     
     match crate::solana_testing::test_solana_connectivity(&config).await {
         Ok(_) => println!("✅ OK"),
@@ -133,9 +136,14 @@ pub async fn test_basic_integration() {
     
     // Test WebSocket
     print!("🔌 Testing WebSocket... ");
-    test_websocket_basic().await;
+    test_websocket_with_network(network).await;
     
     println!("🎉 Basic integration test completed!");
+}
+
+// Backward compatibility function
+pub async fn test_basic_integration() {
+    test_basic_integration_with_network("devnet").await;
 }
 
 pub async fn run_simple_tests() {
