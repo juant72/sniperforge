@@ -20,18 +20,29 @@ pub async fn test_websocket_with_network(network: &str) {
         Ok(c) => {
             println!("✅ Loaded config from: {}", config_file);
             println!("   Environment: {}", c.network.environment);
+            
+            // Verify the config environment matches what we expect
+            let expected_env = match network {
+                "mainnet" => "mainnet",
+                "devnet" => "devnet", 
+                _ => network,
+            };
+            
+            if c.network.environment != expected_env {
+                println!("❌ ERROR: Config environment mismatch!");
+                println!("   Expected: {}", expected_env);
+                println!("   Got: {}", c.network.environment);
+                println!("   This indicates a configuration problem.");
+                return;
+            }
+            
             c
         },
         Err(e) => {
-            println!("⚠️ Failed to load {}: {}", config_file, e);
-            println!("   Falling back to platform.toml");
-            match crate::Config::load("config/platform.toml") {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("❌ Could not load config: {}", e);
-                    return;
-                }
-            }
+            println!("❌ FAILED to load {}: {}", config_file, e);
+            println!("   This is a critical error - no fallback to prevent silent network changes.");
+            println!("   Please fix the configuration file or check file permissions.");
+            return;
         }
     };
     
@@ -77,10 +88,27 @@ pub async fn test_basic_integration_with_network(network: &str) {
     let config = match crate::Config::load(config_file) {
         Ok(c) => {
             println!("✅ OK");
+            
+            // Verify the config environment matches what we expect
+            let expected_env = match network {
+                "mainnet" => "mainnet",
+                "devnet" => "devnet", 
+                _ => network,
+            };
+            
+            if c.network.environment != expected_env {
+                println!("❌ FAILED: Config environment mismatch!");
+                println!("   Expected: {}", expected_env);
+                println!("   Got: {}", c.network.environment);
+                println!("   File: {}", config_file);
+                return;
+            }
+            
             c
         },
         Err(e) => {
             println!("❌ FAILED: {}", e);
+            println!("   Cannot load {} - no fallback to prevent silent network changes.", config_file);
             return;
         }
     };

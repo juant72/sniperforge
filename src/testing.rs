@@ -61,9 +61,18 @@ mod tests {
     async fn test_websocket_connection() {
         println!("🔌 Testing WebSocket connection...");
         
-        let config = crate::Config::load("config/devnet.toml").unwrap_or_else(|_| {
-            crate::Config::load("config/platform.toml").expect("Could not load config")
-        });
+        let config = match crate::Config::load("config/devnet.toml") {
+            Ok(c) => {
+                // Verify we're using devnet
+                if c.network.environment != "devnet" {
+                    panic!("Config environment mismatch: expected devnet, got {}", c.network.environment);
+                }
+                c
+            },
+            Err(e) => {
+                panic!("Failed to load devnet config: {}", e);
+            }
+        };
         let ws_manager = WebSocketManager::new(&config).await;
         match ws_manager {
             Ok(manager) => {
@@ -151,9 +160,20 @@ mod tests {
             }
         };
         
-        let config = crate::Config::load("config/devnet.toml").unwrap_or_else(|_| {
-            crate::Config::load("config/platform.toml").expect("Could not load config")
-        });
+        let config = match crate::Config::load("config/devnet.toml") {
+            Ok(c) => {
+                // Verify we're using devnet
+                if c.network.environment != "devnet" {
+                    println!("❌ Config environment mismatch: expected devnet, got {}", c.network.environment);
+                    return;
+                }
+                c
+            },
+            Err(e) => {
+                println!("❌ Failed to load devnet config: {}", e);
+                return;
+            }
+        };
         let ws_manager = match WebSocketManager::new(&config).await {
             Ok(w) => {
                 println!("   ✅ WebSocket manager initialized");

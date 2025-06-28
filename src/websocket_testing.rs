@@ -18,10 +18,14 @@ impl WebSocketTester {
     }    pub async fn test_connection(&mut self) -> anyhow::Result<()> {
         println!("🔌 Testing WebSocket connection...");
         
-        // Load config
-        let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-            Config::load("config/platform.toml").expect("Could not load config")
-        });
+        // Load config - NO FALLBACK TO PREVENT SILENT NETWORK CHANGES
+        let config = Config::load("config/devnet.toml")
+            .map_err(|e| anyhow::anyhow!("Failed to load devnet config: {}", e))?;
+        
+        // Verify we're actually using devnet
+        if config.network.environment != "devnet" {
+            return Err(anyhow::anyhow!("Config environment mismatch: expected devnet, got {}", config.network.environment));
+        }
         
         // Test creation
         let manager = WebSocketManager::new(&config).await?;
@@ -130,9 +134,14 @@ impl WebSocketTester {
             println!("   Testing reconnection logic...");
               // Note: In a real test, we would disconnect and reconnect
             // For now, just verify the manager can handle multiple connections
-            let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-                Config::load("config/platform.toml").expect("Could not load config")
-            });
+            let config = Config::load("config/devnet.toml")
+                .map_err(|e| anyhow::anyhow!("Failed to load devnet config: {}", e))?;
+            
+            // Verify we're using devnet
+            if config.network.environment != "devnet" {
+                return Err(anyhow::anyhow!("Config environment mismatch: expected devnet, got {}", config.network.environment));
+            }
+            
             let new_manager = WebSocketManager::new(&config).await?;
             new_manager.connect().await?;
             println!("   ✅ Reconnection capability verified");
@@ -208,9 +217,21 @@ pub async fn test_websocket_performance() {
     
     let start = std::time::Instant::now();
       // Test connection speed
-    let config = Config::load("config/devnet.toml").unwrap_or_else(|_| {
-        Config::load("config/platform.toml").expect("Could not load config")
-    });
+    let config = match Config::load("config/devnet.toml") {
+        Ok(c) => {
+            // Verify we're using devnet
+            if c.network.environment != "devnet" {
+                println!("❌ Config environment mismatch: expected devnet, got {}", c.network.environment);
+                return;
+            }
+            c
+        },
+        Err(e) => {
+            println!("❌ Failed to load devnet config: {}", e);
+            return;
+        }
+    };
+    
     let manager = match WebSocketManager::new(&config).await {
         Ok(m) => m,
         Err(e) => {
