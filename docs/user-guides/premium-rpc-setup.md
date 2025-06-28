@@ -27,12 +27,18 @@ Premium RPC providers offer:
 
 **Setup:**
 ```bash
-# Windows PowerShell
-$env:HELIUS_API_KEY="your_helius_api_key_here"
+# Windows PowerShell (example with real API key)
+$env:HELIUS_API_KEY="062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
 
 # Linux/Mac
-export HELIUS_API_KEY="your_helius_api_key_here"
+export HELIUS_API_KEY="062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
 ```
+
+**Endpoints this will enable:**
+- **Mainnet RPC**: `https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
+- **Mainnet WS**: `wss://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
+- **Devnet RPC**: `https://devnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
+- **Devnet WS**: `wss://devnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
 
 ### 2. QuickNode (Enterprise Grade)
 - **Free Tier**: Limited requests

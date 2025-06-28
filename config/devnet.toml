@@ -38,6 +38,34 @@ request_timeout_ms = 15000
 retry_attempts = 3
 retry_delay_ms = 1000
 
+# Premium RPC endpoints for devnet (require API keys - set via environment variables)
+# Set these environment variables for premium access:
+# - HELIUS_API_KEY=your_helius_api_key_here
+# - ANKR_API_KEY=your_ankr_api_key_here
+# - QUICKNODE_ENDPOINT=your_quicknode_devnet_endpoint_here
+# - ALCHEMY_API_KEY=your_alchemy_api_key_here
+
+[network.premium_rpc]
+enabled = false  # Set to true when API keys are configured
+
+# Premium devnet endpoints (will be used if API keys are available)
+helius_rpc_template = "https://devnet.helius-rpc.com/?api-key={API_KEY}"
+ankr_rpc_template = "https://rpc.ankr.com/solana_devnet/{API_KEY}"
+quicknode_rpc_template = "{ENDPOINT}"  # Full endpoint provided by QuickNode
+alchemy_rpc_template = "https://solana-devnet.g.alchemy.com/v2/{API_KEY}"
+
+# Premium WebSocket endpoints
+helius_ws_template = "wss://devnet.helius-rpc.com/?api-key={API_KEY}"
+alchemy_ws_template = "wss://solana-devnet.g.alchemy.com/v2/{API_KEY}"
+
+# Premium endpoint priorities (1 = highest priority)
+endpoint_priorities = [
+    { provider = "helius", priority = 1, max_requests_per_second = 100 },
+    { provider = "alchemy", priority = 2, max_requests_per_second = 100 },
+    { provider = "quicknode", priority = 3, max_requests_per_second = 50 },
+    { provider = "ankr", priority = 4, max_requests_per_second = 25 }
+]
+
 [shared_services]
 rpc_pool_size = 10
 wallet_isolation = true

@@ -8,6 +8,8 @@ Write-Host ""
 Write-Host "This script will help you configure premium RPC endpoints for better" -ForegroundColor Yellow
 Write-Host "reliability and performance on Solana mainnet." -ForegroundColor Yellow
 Write-Host ""
+Write-Host "📝 Available API Key: 062bf3dd-23d4-4ffd-99fd-6e397ee59d6c (Helius)" -ForegroundColor Magenta
+Write-Host ""
 
 # Function to set environment variable persistently
 function Set-PermanentEnvVar {
@@ -31,13 +33,18 @@ function Prompt-ForApiKey {
         [string]$Provider,
         [string]$EnvVarName,
         [string]$Description,
-        [string]$SignupUrl
+        [string]$SignupUrl,
+        [string]$DefaultValue = ""
     )
     
     Write-Host ""
     Write-Host "🔑 $Provider Setup" -ForegroundColor Cyan
     Write-Host "Description: $Description" -ForegroundColor Gray
     Write-Host "Sign up at: $SignupUrl" -ForegroundColor Gray
+    
+    if ($DefaultValue) {
+        Write-Host "Available API Key: $DefaultValue" -ForegroundColor Magenta
+    }
     Write-Host ""
     
     $existingValue = [Environment]::GetEnvironmentVariable($EnvVarName, "User")
@@ -46,6 +53,14 @@ function Prompt-ForApiKey {
         $response = Read-Host "Keep existing value? (y/n)"
         if ($response -eq "y" -or $response -eq "Y" -or $response -eq "") {
             Write-Host "✅ Keeping existing $Provider configuration" -ForegroundColor Green
+            return
+        }
+    }
+    
+    if ($DefaultValue) {
+        $useDefault = Read-Host "Use the provided API key? (y/n)"
+        if ($useDefault -eq "y" -or $useDefault -eq "Y") {
+            Set-PermanentEnvVar -Name $EnvVarName -Value $DefaultValue
             return
         }
     }
@@ -62,7 +77,7 @@ Write-Host "Let's configure your premium RPC providers..." -ForegroundColor Gree
 Write-Host ""
 
 # Helius
-Prompt-ForApiKey -Provider "Helius" -EnvVarName "HELIUS_API_KEY" -Description "Solana-specialized RPC with enhanced APIs" -SignupUrl "https://helius.xyz"
+Prompt-ForApiKey -Provider "Helius" -EnvVarName "HELIUS_API_KEY" -Description "Solana-specialized RPC with enhanced APIs" -SignupUrl "https://helius.xyz" -DefaultValue "062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
 
 # QuickNode  
 Prompt-ForApiKey -Provider "QuickNode" -EnvVarName "QUICKNODE_ENDPOINT" -Description "Enterprise-grade global infrastructure" -SignupUrl "https://quicknode.com"

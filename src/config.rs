@@ -418,13 +418,34 @@ impl Default for Config {
                 circuit_breaker_reset_seconds: Some(120),
                 premium_rpc: Some(PremiumRpcConfig {
                     enabled: false,
-                    helius_rpc_template: None,
-                    ankr_rpc_template: None,
-                    quicknode_rpc_template: None,
-                    alchemy_rpc_template: None,
-                    helius_ws_template: None,
-                    alchemy_ws_template: None,
-                    endpoint_priorities: None,
+                    helius_rpc_template: Some("https://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string()),
+                    ankr_rpc_template: Some("https://rpc.ankr.com/solana/{API_KEY}".to_string()),
+                    quicknode_rpc_template: Some("{ENDPOINT}".to_string()),
+                    alchemy_rpc_template: Some("https://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
+                    helius_ws_template: Some("wss://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string()),
+                    alchemy_ws_template: Some("wss://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
+                    endpoint_priorities: Some(vec![
+                        EndpointPriority {
+                            provider: "helius".to_string(),
+                            priority: 1,
+                            max_requests_per_second: 100,
+                        },
+                        EndpointPriority {
+                            provider: "alchemy".to_string(),
+                            priority: 2,
+                            max_requests_per_second: 100,
+                        },
+                        EndpointPriority {
+                            provider: "quicknode".to_string(),
+                            priority: 3,
+                            max_requests_per_second: 50,
+                        },
+                        EndpointPriority {
+                            provider: "ankr".to_string(),
+                            priority: 4,
+                            max_requests_per_second: 25,
+                        },
+                    ]),
                 }),
             },
             shared_services: SharedServicesConfig {
