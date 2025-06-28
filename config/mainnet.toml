@@ -20,16 +20,28 @@ event_bus_buffer_size = 5000
 environment = "mainnet"
 
 # Mainnet endpoints (for production - REAL MONEY OPERATIONS)
+# Updated June 28, 2025 - Improved RPC endpoints for better reliability
 mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
 mainnet_backup_rpc = [
+    # Free reliable endpoints (no API key required)
     "https://solana-api.projectserum.com",
-    "https://rpc.ankr.com/solana"
+    "https://api.mainnet-beta.solana.com",
+    "https://rpc.ankr.com/solana",
+    "https://solana-mainnet.phantom.tech",
+    "https://mainnet.helius-rpc.com",
+    "https://solana.blockdaemon.com",
+    # Additional fallbacks
+    "https://solana-mainnet.rpc.extrnode.com",
+    "https://mainnet.solana.blastapi.io",
+    "https://rpc.solana.com"
 ]
 mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
 
-# Connection settings
-connection_timeout_ms = 3000  # Faster timeout for mainnet
-request_timeout_ms = 8000
+# Connection settings - Optimized for mainnet resilience
+connection_timeout_ms = 8000   # Increased for mainnet stability
+request_timeout_ms = 15000     # Higher timeout for heavy operations
+retry_attempts = 5             # More retry attempts
+retry_delay_ms = 1000          # Delay between retries
 
 [shared_services]
 rpc_pool_size = 20
