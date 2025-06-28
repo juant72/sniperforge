@@ -51,6 +51,20 @@ pub struct NetworkConfig {
     // Connection settings
     pub connection_timeout_ms: u64,
     pub request_timeout_ms: u64,
+    pub retry_attempts: u64,
+    pub retry_delay_ms: u64,
+    
+    // Additional resilience settings (optional)
+    #[serde(default)]
+    pub max_concurrent_requests: Option<u64>,
+    #[serde(default)]
+    pub rpc_rotation_strategy: Option<String>,
+    #[serde(default)]
+    pub health_check_interval_seconds: Option<u64>,
+    #[serde(default)]
+    pub circuit_breaker_threshold: Option<u64>,
+    #[serde(default)]
+    pub circuit_breaker_reset_seconds: Option<u64>,
 }
 
 impl NetworkConfig {
@@ -372,6 +386,13 @@ impl Default for Config {
                 mainnet_websocket_url: Some("wss://api.mainnet-beta.solana.com".to_string()),
                 connection_timeout_ms: 5000,
                 request_timeout_ms: 10000,
+                retry_attempts: 3,
+                retry_delay_ms: 1000,
+                max_concurrent_requests: Some(10),
+                rpc_rotation_strategy: Some("smart".to_string()),
+                health_check_interval_seconds: Some(30),
+                circuit_breaker_threshold: Some(5),
+                circuit_breaker_reset_seconds: Some(120),
             },
             shared_services: SharedServicesConfig {
                 rpc_pool_size: 20,

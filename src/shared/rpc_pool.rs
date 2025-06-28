@@ -186,8 +186,9 @@ impl RpcConnectionPool {
         // Create connection semaphore
         let connection_semaphore = Arc::new(Semaphore::new(pool_config.pool_size));
         
-        // Initialize alternative APIs
-        let alternative_apis = AlternativeApiManager::new(config);
+        // Initialize alternative APIs with basic config
+        let basic_config = crate::shared::alternative_apis::BasicConfig::default();
+        let alternative_apis = AlternativeApiManager::new(&basic_config);
         
         Ok(Self {
             primary_client,
@@ -213,12 +214,10 @@ impl RpcConnectionPool {
         }
         
         // Test backup connections
-        let mut any_working = false;
         for (i, client) in self.backup_clients.iter().enumerate() {
             let backup_url = self.get_backup_url(i).await;
             if self.test_and_update_health(client.clone(), &backup_url).await.is_ok() {
                 info!("✅ Backup RPC {} is working", i);
-                any_working = true;
             }
         }
         

@@ -239,7 +239,7 @@ impl PoolDetector {
         // Escanear nuevos pools
         let new_pools = self.scan_for_new_pools().await?;
         
-        let mut opportunities = Vec::new();
+        let opportunities = Vec::new();
         
         // Analizar cada pool para oportunidades
         for pool in new_pools {
@@ -588,7 +588,7 @@ impl PoolDetector {
                 let mut detected_pools = Vec::new();
                 
                 // Convert API pools to DetectedPool format
-                for (i, pool) in api_pools.iter().take(10).enumerate() {
+                for (_i, pool) in api_pools.iter().take(10).enumerate() {
                     let detected_pool = DetectedPool {
                         pool_address: pool.id.clone(),
                         token_a: TokenInfo {
