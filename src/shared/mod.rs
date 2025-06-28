@@ -67,8 +67,8 @@ impl SharedServices {
         let jupiter_config = jupiter::JupiterConfig::default();
         let jupiter = Arc::new(Jupiter::new(&jupiter_config).await?);
         
-        // Initialize WebSocket manager for real-time updates
-        let websocket_manager = Arc::new(WebSocketManager::new(config).await?);
+        // Initialize WebSocket manager for real-time updates (with premium RPC pool)
+        let websocket_manager = Arc::new(WebSocketManager::new_with_rpc_pool(config, Some(rpc_pool.clone())).await?);
         
         Ok(Self {
             rpc_pool,

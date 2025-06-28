@@ -435,30 +435,53 @@ impl RpcConnectionPool {
             stats.active_connections += 1;
         }
         
-        // Smart endpoint selection based on health
+        // Smart endpoint selection with premium priority
         let health_map = self.endpoint_health.read().await;
         
-        // Find the best healthy endpoint
-        let mut best_endpoint: Option<(Arc<RpcClient>, String)> = None;
+        // Find the best healthy endpoint (premium endpoints get priority)
+        let mut best_endpoint: Option<(Arc<RpcClient>, String, bool)> = None; // client, url, is_premium
         let mut best_response_time = Duration::from_secs(u64::MAX);
         
-        // Check primary first if healthy
-        if let Some(health) = health_map.get(&self.primary_url) {
-            if health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds) {
-                best_endpoint = Some((self.primary_client.clone(), self.primary_url.clone()));
-                best_response_time = health.average_response_time;
+        // Check premium endpoints first (highest priority)
+        for (i, client) in self.premium_clients.iter().enumerate() {
+            if let Some(premium_url) = self.premium_urls.get(i) {
+                if let Some(health) = health_map.get(premium_url) {
+                    if health.is_healthy && 
+                       health.should_retry(self.config.circuit_breaker_reset_seconds) {
+                        // Premium endpoints always take priority unless they have very poor performance
+                        if best_endpoint.is_none() || 
+                           (!best_endpoint.as_ref().unwrap().2 && health.average_response_time < Duration::from_millis(5000)) ||
+                           (best_endpoint.as_ref().unwrap().2 && health.average_response_time < best_response_time) {
+                            best_endpoint = Some((client.clone(), premium_url.clone(), true));
+                            best_response_time = health.average_response_time;
+                        }
+                    }
+                }
             }
         }
         
-        // Check backups for better options
-        for (i, client) in self.backup_clients.iter().enumerate() {
-            if let Some(backup_url) = self.backup_urls.get(i) {
-                if let Some(health) = health_map.get(backup_url) {
-                    if health.is_healthy && 
-                       health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                       health.average_response_time < best_response_time {
-                        best_endpoint = Some((client.clone(), backup_url.clone()));
-                        best_response_time = health.average_response_time;
+        // If no premium endpoints are available, check public endpoints
+        if best_endpoint.is_none() || best_endpoint.as_ref().unwrap().2 == false {
+            // Check primary if healthy
+            if let Some(health) = health_map.get(&self.primary_url) {
+                if health.is_healthy && 
+                   health.should_retry(self.config.circuit_breaker_reset_seconds) &&
+                   (best_endpoint.is_none() || health.average_response_time < best_response_time) {
+                    best_endpoint = Some((self.primary_client.clone(), self.primary_url.clone(), false));
+                    best_response_time = health.average_response_time;
+                }
+            }
+            
+            // Check backups for better options
+            for (i, client) in self.backup_clients.iter().enumerate() {
+                if let Some(backup_url) = self.backup_urls.get(i) {
+                    if let Some(health) = health_map.get(backup_url) {
+                        if health.is_healthy && 
+                           health.should_retry(self.config.circuit_breaker_reset_seconds) &&
+                           (best_endpoint.is_none() || health.average_response_time < best_response_time) {
+                            best_endpoint = Some((client.clone(), backup_url.clone(), false));
+                            best_response_time = health.average_response_time;
+                        }
                     }
                 }
             }
@@ -466,8 +489,9 @@ impl RpcConnectionPool {
         
         drop(health_map); // Release the read lock
         
-        if let Some((client, url)) = best_endpoint {
-            debug!("📡 Using RPC endpoint: {} (avg: {}ms)", url, best_response_time.as_millis());
+        if let Some((client, url, is_premium)) = best_endpoint {
+            let endpoint_type = if is_premium { "PREMIUM" } else { "PUBLIC" };
+            debug!("📡 Using {} RPC endpoint: {} (avg: {}ms)", endpoint_type, url, best_response_time.as_millis());
             return Ok(RpcClientHandle {
                 client,
                 _permit,
@@ -488,7 +512,19 @@ impl RpcConnectionPool {
         }
         drop(health_map);
         
-        // Try primary again after reset
+        // Try premium endpoints first after reset
+        for client in &self.premium_clients {
+            if self.test_connection(client.clone()).await.is_ok() {
+                info!("✅ Premium endpoint recovered after circuit breaker reset");
+                return Ok(RpcClientHandle {
+                    client: client.clone(),
+                    _permit,
+                    stats: self.stats.clone(),
+                });
+            }
+        }
+        
+        // Try primary after reset
         if self.test_connection(self.primary_client.clone()).await.is_ok() {
             return Ok(RpcClientHandle {
                 client: self.primary_client.clone(),
@@ -523,27 +559,42 @@ impl RpcConnectionPool {
                 metrics: std::collections::HashMap::new(),
             });
         }
-          // Test primary connection
+        
+        // Test premium connections first
+        let premium_healthy = if !self.premium_clients.is_empty() {
+            self.premium_clients.iter()
+                .any(|client| futures::executor::block_on(self.test_connection(client.clone())).is_ok())
+        } else {
+            false
+        };
+        
+        // Test primary connection
         let primary_healthy = self.test_connection(self.primary_client.clone()).await.is_ok();
         
         // Test at least one backup
-        let backup_healthy = if !primary_healthy {
+        let backup_healthy = if !primary_healthy && !premium_healthy {
             self.backup_clients.iter()
                 .any(|client| futures::executor::block_on(self.test_connection(client.clone())).is_ok())
         } else {
             true
         };
         
-        let is_healthy = primary_healthy || backup_healthy;
+        let is_healthy = premium_healthy || primary_healthy || backup_healthy;
+        
+        let message = if is_healthy {
+            if premium_healthy {
+                Some("Premium endpoints available".to_string())
+            } else {
+                None
+            }
+        } else {
+            Some("No working RPC connections".to_string())
+        };
         
         Ok(HealthStatus {
             is_healthy,
             component: "RpcConnectionPool".to_string(),
-            message: if is_healthy {
-                None
-            } else {
-                Some("No working RPC connections".to_string())
-            },
+            message,
             checked_at: chrono::Utc::now(),
             metrics: std::collections::HashMap::new(),
         })
@@ -1105,3 +1156,68 @@ impl std::fmt::Debug for RpcConnectionPool {
             .finish()
     }
 }
+/// Get the best available WebSocket URL (prioritizing premium endpoints)
+    pub async fn get_best_websocket_url(&self) -> Option<String> {
+        // First, try to get WebSocket URL from premium manager
+        let premium_manager = self.premium_manager.lock().await;
+        if let Some(premium_ws_url) = premium_manager.get_websocket_url() {
+            info!("🌟 Using premium WebSocket endpoint");
+            return Some(premium_ws_url);
+        }
+        drop(premium_manager);
+        
+        // Fall back to converting the best healthy RPC endpoint to WebSocket
+        let health_map = self.endpoint_health.read().await;
+        
+        // Find the best healthy endpoint
+        let mut best_url: Option<String> = None;
+        let mut best_response_time = Duration::from_secs(u64::MAX);
+        
+        // Check premium endpoints first
+        for premium_url in &self.premium_urls {
+            if let Some(health) = health_map.get(premium_url) {
+                if health.is_healthy && 
+                   health.should_retry(self.config.circuit_breaker_reset_seconds) &&
+                   health.average_response_time < best_response_time {
+                    best_url = Some(premium_url.clone());
+                    best_response_time = health.average_response_time;
+                }
+            }
+        }
+        
+        // If no premium endpoints, check public ones
+        if best_url.is_none() {
+            // Check primary
+            if let Some(health) = health_map.get(&self.primary_url) {
+                if health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds) {
+                    best_url = Some(self.primary_url.clone());
+                    best_response_time = health.average_response_time;
+                }
+            }
+            
+            // Check backups
+            for backup_url in &self.backup_urls {
+                if let Some(health) = health_map.get(backup_url) {
+                    if health.is_healthy && 
+                       health.should_retry(self.config.circuit_breaker_reset_seconds) &&
+                       health.average_response_time < best_response_time {
+                        best_url = Some(backup_url.clone());
+                        best_response_time = health.average_response_time;
+                    }
+                }
+            }
+        }
+        
+        // Convert HTTP(S) URL to WebSocket URL
+        if let Some(url) = best_url {
+            if url.starts_with("https://") {
+                Some(url.replace("https://", "wss://"))
+            } else if url.starts_with("http://") {
+                Some(url.replace("http://", "ws://"))
+            } else {
+                Some(url)
+            }
+        } else {
+            None
+        }
+    }

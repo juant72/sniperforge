@@ -71,6 +71,7 @@ pub struct WebSocketManager {
     command_sender: mpsc::UnboundedSender<WebSocketCommand>,
     is_connected: Arc<RwLock<bool>>,
     subscription_counter: Arc<RwLock<u64>>,
+    rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>,  // NEW: Optional RPC pool for premium WebSocket URLs
 }
 
 /// Internal command for WebSocket operations
@@ -85,14 +86,36 @@ enum WebSocketCommand {
 impl WebSocketManager {
     /// Create new WebSocket manager
     pub async fn new(config: &Config) -> Result<Self> {
+        Self::new_with_rpc_pool(config, None).await
+    }
+    
+    /// Create new WebSocket manager with optional RPC pool for premium WebSocket URLs
+    pub async fn new_with_rpc_pool(
+        config: &Config, 
+        rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>
+    ) -> Result<Self> {
         info!("🌐 Initializing WebSocket manager");
         
         info!("🔧 Loading config for network: {}", config.network.environment);
         info!("🔧 Primary RPC: {}", config.network.primary_rpc());
-        info!("🔧 WebSocket URL: {}", config.network.websocket_url());
+        
+        // Try to get the best WebSocket URL (premium if available)
+        let websocket_url = if let Some(ref pool) = rpc_pool {
+            if let Some(premium_ws_url) = pool.get_best_websocket_url().await {
+                info!("🌟 Using premium WebSocket endpoint");
+                premium_ws_url
+            } else {
+                info!("💡 No premium WebSocket available, using configured endpoint");
+                config.network.websocket_url().to_string()
+            }
+        } else {
+            config.network.websocket_url().to_string()
+        };
+        
+        info!("🔧 WebSocket URL: {}", websocket_url);
         
         let ws_config = WebSocketConfig {
-            rpc_ws_url: config.network.websocket_url().to_string(),
+            rpc_ws_url: websocket_url,
             ..WebSocketConfig::default()
         };
 
@@ -106,6 +129,7 @@ impl WebSocketManager {
             command_sender,
             is_connected: Arc::new(RwLock::new(false)),
             subscription_counter: Arc::new(RwLock::new(0)),
+            rpc_pool,
         };
 
         // Start the WebSocket task
@@ -225,6 +249,27 @@ impl WebSocketManager {
     /// Force reconnection
     pub async fn reconnect(&self) -> Result<()> {
         self.command_sender.send(WebSocketCommand::Reconnect)?;
+        Ok(())
+    }
+
+    /// Upgrade to premium WebSocket if available
+    pub async fn upgrade_to_premium_websocket(&mut self) -> Result<()> {
+        if let Some(ref pool) = self.rpc_pool {
+            if let Some(premium_ws_url) = pool.get_best_websocket_url().await {
+                info!("🚀 Upgrading to premium WebSocket: {}", premium_ws_url);
+                
+                // Update configuration
+                self.config.rpc_ws_url = premium_ws_url;
+                
+                // Force reconnection with new URL
+                self.command_sender.send(WebSocketCommand::Reconnect)?;
+                
+                info!("✅ WebSocket upgraded to premium endpoint");
+                return Ok(());
+            }
+        }
+        
+        info!("💡 No premium WebSocket upgrade available");
         Ok(())
     }
 
