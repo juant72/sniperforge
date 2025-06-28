@@ -24,28 +24,26 @@ environment = "mainnet"
 # Multiple tiers of endpoints for maximum reliability
 mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
 
-# Tier 1: High-reliability public endpoints
+# Tier 1: High-reliability public endpoints (working as of June 28, 2025)
 mainnet_backup_rpc = [
-    # Official Solana Labs endpoints
+    # Official Solana Labs endpoints - Most reliable
     "https://api.mainnet-beta.solana.com",
-    "https://solana-api.projectserum.com",
     
-    # Major infrastructure providers (usually stable)
-    "https://rpc.ankr.com/solana",
+    # Major infrastructure providers that work without API keys
     "https://solana.publicnode.com",
-    "https://mainnet.helius-rpc.com",
-    "https://solana-mainnet.phantom.tech",
     
-    # Additional reliable providers
-    "https://solana.blockdaemon.com",
-    "https://rpc.solana.com",
-    "https://mainnet.solana.blastapi.io",
-    "https://solana-mainnet.rpc.extrnode.com",
+    # Additional reliable providers (API key NOT required)
+    # Note: Many RPC providers now require API keys for mainnet access
+    # The following endpoints require registration/API keys:
+    # - "https://rpc.ankr.com/solana" (403 Forbidden - API key required)
+    # - "https://mainnet.helius-rpc.com" (401 Unauthorized - API key required) 
+    # - "https://solana-mainnet.rpc.extrnode.com" (401 Unauthorized - API key required)
+    # - DNS resolution failures: phantom.tech, blockdaemon.com, blastapi.io, etc.
     
-    # Emergency fallbacks
-    "https://mainnet-beta.solana.com",
-    "https://api.solana.com",
-    "https://rpc-mainnet.solana.com"
+    # For production use, consider:
+    # 1. Getting API keys from major providers (Helius, Ankr, QuickNode)
+    # 2. Running your own RPC node
+    # 3. Using paid RPC services for better reliability
 ]
 
 # Tier 2: Alternative data sources for pool detection

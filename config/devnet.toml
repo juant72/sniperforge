@@ -15,11 +15,20 @@ mainnet_paper_trading = true
 # DEVNET CONFIGURATION - SAFE FOR TESTING
 environment = "devnet"
 
-# Devnet endpoints (for testing)
+# Devnet endpoints (for testing) - Updated June 28, 2025
 devnet_primary_rpc = "https://api.devnet.solana.com"
 devnet_backup_rpc = [
-    "https://devnet.helius-rpc.com",
-    "https://rpc-devnet.hellomoon.io"
+    # Official Solana Labs devnet endpoint - Most reliable for testing
+    "https://api.devnet.solana.com",
+    
+    # Note: The following endpoints require API keys:
+    # - "https://devnet.helius-rpc.com" (401 Unauthorized - API key required)
+    # - "https://rpc-devnet.hellomoon.io" (400 Bad Request - API key required)
+    
+    # For testing purposes, the official endpoint is sufficient
+    # For production devnet testing, consider getting free API keys from:
+    # - Helius (devnet access often free)
+    # - Alchemy, QuickNode, etc.
 ]
 devnet_websocket_url = "wss://api.devnet.solana.com"
 

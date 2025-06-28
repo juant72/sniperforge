@@ -1405,8 +1405,8 @@ async fn handle_test_solana_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
     
-    use sniperforge::simple_testing::test_basic_integration;
-    test_basic_integration().await;
+    use sniperforge::simple_testing::test_basic_integration_with_network;
+    test_basic_integration_with_network(network).await;
     
     Ok(())
 }
