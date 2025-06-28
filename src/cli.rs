@@ -7,7 +7,7 @@ use solana_sdk::signer::{Signer, keypair::Keypair};
 use solana_sdk::pubkey::Pubkey;
 use chrono::{DateTime, Utc, Duration};
 
-use sniperforge::{Config, SniperForgePlatform, solana_testing};
+use sniperforge::{Config, SniperForgePlatform, solana_testing, dexscreener_testing};
 use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
 use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
 use sniperforge::shared::wallet_manager::WalletManager;
@@ -434,6 +434,9 @@ pub async fn run_cli() -> Result<()> {
                             .required(true)
                             .value_parser(["devnet", "mainnet"])
                     ))
+                .subcommand(Command::new("dexscreener")
+                    .about("Test DexScreener API integration")
+                    .after_help("Test integration with DexScreener API for token pool detection and market data"))
         )
         .subcommand(Command::new("interactive")
             .about("Interactive monitoring mode")
@@ -1279,6 +1282,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         // Some(("jupiter", _)) => handle_test_jupiter_command().await?,
         // Some(("wallet", _)) => handle_test_wallet_command().await?,
         Some(("websocket", sub_matches)) => handle_test_websocket_command(sub_matches).await?,
+        Some(("dexscreener", _)) => handle_test_dexscreener_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
@@ -1292,6 +1296,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  * {} - Jupiter API", "jupiter".bright_yellow());
             println!("  * {} - Wallet functions", "wallet".bright_yellow());
             println!("  * {} - WebSocket connectivity", "websocket".bright_yellow());
+            println!("  * {} - DexScreener API integration", "dexscreener".bright_yellow());
             println!("  * {} - Trade execution", "trade".bright_yellow());
             println!("  * {} - 🚀 REAL swap execution on DevNet", "swap-real".bright_red().bold());
             println!("  * {} - Integration flow", "integration".bright_yellow());
@@ -1452,6 +1457,16 @@ async fn handle_test_wallets_command() -> Result<()> {
     }
     
     println!("\n{}", "[SUCCESS] All wallet tests passed!".bright_green().bold());
+    Ok(())
+}
+
+async fn handle_test_dexscreener_command() -> Result<()> {
+    println!("{}", "[TEST] Testing DexScreener API Integration".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
+    
+    dexscreener_testing::test_dexscreener_integration().await?;
+    
+    println!("\n{}", "[SUCCESS] DexScreener API test completed!".bright_green().bold());
     Ok(())
 }
 
