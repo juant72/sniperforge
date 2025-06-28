@@ -26,6 +26,8 @@ devnet_websocket_url = "wss://api.devnet.solana.com"
 # Connection settings
 connection_timeout_ms = 10000
 request_timeout_ms = 15000
+retry_attempts = 3
+retry_delay_ms = 1000
 
 [shared_services]
 rpc_pool_size = 10
