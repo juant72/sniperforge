@@ -184,7 +184,13 @@ pub async fn test_basic_integration_with_network(network: &str) {
     print!("🔌 Testing WebSocket... ");
     test_websocket_with_network(network).await;
     
-    println!("🎉 Basic integration test completed!");
+    // Test alternative APIs for pool detection
+    crate::alternative_apis_test::test_alternative_apis().await;
+    
+    // Test RPC fallback scenario
+    crate::alternative_apis_test::test_rpc_fallback_scenario().await;
+    
+    println!("\n🎉 Basic integration test completed!");
 }
 
 // Backward compatibility function

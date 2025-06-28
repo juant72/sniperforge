@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use crate::config::Config;
 use crate::types::{HealthStatus, Priority};
 use crate::shared::alternative_apis::AlternativeApiManager;
+use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -51,6 +52,8 @@ pub struct RpcEndpointHealth {
     pub average_response_time: Duration,
     pub total_requests: u64,
     pub successful_requests: u64,
+    pub last_error_type: Option<String>,  // NEW: Track specific error types like "410 Gone"
+    pub error_counts: std::collections::HashMap<String, u32>, // NEW: Count different error types
 }
 
 impl RpcEndpointHealth {
@@ -64,6 +67,8 @@ impl RpcEndpointHealth {
             average_response_time: Duration::from_millis(0),
             total_requests: 0,
             successful_requests: 0,
+            last_error_type: None,
+            error_counts: std::collections::HashMap::new(),
         }
     }
 
@@ -85,9 +90,17 @@ impl RpcEndpointHealth {
     }
 
     pub fn record_failure(&mut self, circuit_breaker_threshold: u32) {
+        self.record_failure_with_error(circuit_breaker_threshold, "unknown_error");
+    }
+
+    pub fn record_failure_with_error(&mut self, circuit_breaker_threshold: u32, error_type: &str) {
         self.consecutive_failures += 1;
         self.last_failure_time = Some(Instant::now());
         self.total_requests += 1;
+        
+        // Track specific error types
+        self.last_error_type = Some(error_type.to_string());
+        *self.error_counts.entry(error_type.to_string()).or_insert(0) += 1;
         
         if self.consecutive_failures >= circuit_breaker_threshold {
             self.is_healthy = false;
@@ -117,6 +130,7 @@ pub struct RpcConnectionPool {
     stats: Arc<RwLock<RpcStats>>,
     endpoint_health: Arc<RwLock<HashMap<String, RpcEndpointHealth>>>,
     alternative_apis: AlternativeApiManager,
+    health_persistence: RpcHealthPersistence,  // NEW: Health persistence
     // Store URLs for health checking
     primary_url: String,
     backup_urls: Vec<String>,
@@ -183,12 +197,40 @@ impl RpcConnectionPool {
             backup_clients.push(client);
         }
         
-        // Initialize endpoint health tracking
+        // Initialize health persistence
+        let health_persistence = RpcHealthPersistence::default();
+        
+        // Load persisted health data
+        let persisted_health = health_persistence.load().await
+            .unwrap_or_else(|e| {
+                warn!("Failed to load RPC health cache: {}", e);
+                HashMap::new()
+            });
+        
+        // Initialize endpoint health tracking with persisted data
         let mut endpoint_health = HashMap::new();
-        endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
+        
+        // Start with persisted data, or create new entries
+        if let Some(persisted) = persisted_health.get(&primary_url) {
+            endpoint_health.insert(primary_url.clone(), persisted.clone());
+            if !persisted.is_healthy {
+                warn!("📋 Restored unhealthy primary endpoint: {} (failures: {})", 
+                      primary_url, persisted.consecutive_failures);
+            }
+        } else {
+            endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
+        }
         
         for backup_url in &backup_urls {
-            endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
+            if let Some(persisted) = persisted_health.get(backup_url) {
+                endpoint_health.insert(backup_url.clone(), persisted.clone());
+                if !persisted.is_healthy {
+                    warn!("📋 Restored unhealthy backup endpoint: {} (failures: {})", 
+                          backup_url, persisted.consecutive_failures);
+                }
+            } else {
+                endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
+            }
         }
         
         // Create connection semaphore
@@ -207,6 +249,7 @@ impl RpcConnectionPool {
             stats: Arc::new(RwLock::new(RpcStats::default())),
             endpoint_health: Arc::new(RwLock::new(endpoint_health)),
             alternative_apis,
+            health_persistence,  // NEW: Add health persistence
             primary_url,
             backup_urls,
         })
@@ -262,7 +305,24 @@ impl RpcConnectionPool {
             Err(e) => {
                 let mut health_map = self.endpoint_health.write().await;
                 if let Some(health) = health_map.get_mut(url) {
-                    health.record_failure(self.config.circuit_breaker_threshold);
+                    // Classify error type for better tracking
+                    let error_type = if e.to_string().contains("410 Gone") {
+                        "410_gone"
+                    } else if e.to_string().contains("401 Unauthorized") {
+                        "401_unauthorized"
+                    } else if e.to_string().contains("403 Forbidden") {
+                        "403_forbidden"
+                    } else if e.to_string().contains("timeout") {
+                        "timeout"
+                    } else if e.to_string().contains("dns error") {
+                        "dns_error"
+                    } else if e.to_string().contains("connect") {
+                        "connection_error"
+                    } else {
+                        "unknown_error"
+                    };
+                    
+                    health.record_failure_with_error(self.config.circuit_breaker_threshold, error_type);
                 }
                 warn!("❌ RPC endpoint {} failed: {}", url, e);
                 Err(e)
@@ -274,6 +334,15 @@ impl RpcConnectionPool {
         info!("🛑 Stopping RPC connection pool");
         
         *self.is_running.write().await = false;
+        
+        // Save current health state before stopping
+        let health_data = self.endpoint_health.read().await;
+        if let Err(e) = self.health_persistence.save(&*health_data).await {
+            warn!("Failed to save RPC health cache: {}", e);
+        } else {
+            info!("💾 RPC health state saved successfully");
+        }
+        drop(health_data);
         
         // Wait for all active connections to complete
         let _permits = self.connection_semaphore.acquire_many(self.config.pool_size as u32).await?;
@@ -827,6 +896,69 @@ impl RpcConnectionPool {
         info!("📡 Using alternative APIs for pool detection");
         self.alternative_apis.get_comprehensive_pool_data().await
     }
+
+    /// Get detailed health statistics including error breakdowns
+    pub async fn get_detailed_health_stats(&self) -> Result<String> {
+        let health_data = self.endpoint_health.read().await;
+        let mut report = String::new();
+        
+        report.push_str("🏥 RPC ENDPOINT HEALTH REPORT\n");
+        report.push_str("===============================\n\n");
+        
+        let mut healthy_count = 0;
+        let mut unhealthy_count = 0;
+        let mut total_410_gone = 0;
+        let mut total_auth_errors = 0;
+        let mut total_timeouts = 0;
+        let mut total_dns_errors = 0;
+        
+        for (url, health) in health_data.iter() {
+            if health.is_healthy {
+                healthy_count += 1;
+                report.push_str(&format!("✅ {} - HEALTHY\n", url));
+                report.push_str(&format!("   Avg response: {}ms\n", health.average_response_time.as_millis()));
+                report.push_str(&format!("   Success rate: {}/{}\n", health.successful_requests, health.total_requests));
+            } else {
+                unhealthy_count += 1;
+                report.push_str(&format!("❌ {} - UNHEALTHY\n", url));
+                report.push_str(&format!("   Consecutive failures: {}\n", health.consecutive_failures));
+                if let Some(error_type) = &health.last_error_type {
+                    report.push_str(&format!("   Last error: {}\n", error_type));
+                }
+                
+                // Error breakdown
+                for (error_type, count) in &health.error_counts {
+                    report.push_str(&format!("   {}: {} times\n", error_type, count));
+                    
+                    match error_type.as_str() {
+                        "410_gone" => total_410_gone += count,
+                        "401_unauthorized" | "403_forbidden" => total_auth_errors += count,
+                        "timeout" => total_timeouts += count,
+                        "dns_error" => total_dns_errors += count,
+                        _ => {}
+                    }
+                }
+            }
+            report.push('\n');
+        }
+        
+        report.push_str(&format!("📊 SUMMARY:\n"));
+        report.push_str(&format!("   Healthy endpoints: {}\n", healthy_count));
+        report.push_str(&format!("   Unhealthy endpoints: {}\n", unhealthy_count));
+        report.push_str(&format!("   Total 410 Gone errors: {}\n", total_410_gone));
+        report.push_str(&format!("   Total auth errors: {}\n", total_auth_errors));
+        report.push_str(&format!("   Total timeouts: {}\n", total_timeouts));
+        report.push_str(&format!("   Total DNS errors: {}\n", total_dns_errors));
+        
+        // Add persistence stats
+        if let Ok(persistence_stats) = self.health_persistence.get_stats().await {
+            report.push_str(&format!("\n💾 PERSISTENCE:\n{}\n", persistence_stats));
+        }
+        
+        Ok(report)
+    }
+
+    // ...existing code...
 }
 pub struct RpcClientHandle<'a> {
     client: Arc<RpcClient>,

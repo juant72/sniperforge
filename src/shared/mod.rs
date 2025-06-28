@@ -1,4 +1,5 @@
 pub mod rpc_pool;
+pub mod rpc_health_persistence;  // NEW: RPC endpoint health persistence
 pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
