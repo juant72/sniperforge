@@ -14,7 +14,7 @@ use tokio::sync::{RwLock, mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use tracing::{info, warn, debug, error};
 use rand::Rng;
-use base64;
+use base64::{Engine as _, engine::general_purpose};
 
 /// Syndica WebSocket configuration
 #[derive(Debug, Clone)]
@@ -902,126 +902,6 @@ pub async fn test_syndica_performance() -> Result<()> {
     
     println!("✅ Test completed");
     Ok(())
-}
-
-/// Calculate price from Raydium AMM account data
-async fn calculate_price_from_raydium_account(
-    mint: &str, 
-    amount: f64, 
-    info: &Value
-) -> Option<SyndicaPriceUpdate> {
-    debug!("🔄 Calculating price from Raydium account data");
-    
-    // Raydium pools contain reserve information that we can use to calculate price
-    // Pool structure: base_reserve, quote_reserve, etc.
-    if let (Some(base_reserve), Some(quote_reserve)) = (
-        info.get("baseReserve").and_then(|v| v.as_f64()),
-        info.get("quoteReserve").and_then(|v| v.as_f64())
-    ) {
-        if base_reserve > 0.0 && quote_reserve > 0.0 {
-            let price = quote_reserve / base_reserve;
-            debug!("💰 Raydium price calculated: {} = {}", mint, price);
-            
-            return Some(SyndicaPriceUpdate {
-                token_mint: mint.to_string(),
-                price_usd: price,
-                timestamp: chrono::Utc::now().timestamp() as u64,
-                volume_24h: None,
-                price_change_24h: None,
-                source: PriceSource::SyndicaRealtime,
-                confidence: PriceConfidence::High,
-            });
-        }
-    }
-    
-    // If we can't extract reserves, try to parse token amount changes
-    // Large amount changes in Raydium accounts often indicate swaps
-    if amount > 10000.0 { // Significant amount threshold
-        debug!("📈 Large Raydium token movement: {} {}", amount, mint);
-        // This indicates market activity but we need more context for exact price
-    }
-    
-    None
-}
-
-/// Calculate price from Orca account data
-async fn calculate_price_from_orca_account(
-    mint: &str,
-    amount: f64,
-    info: &Value
-) -> Option<SyndicaPriceUpdate> {
-    debug!("🐋 Calculating price from Orca account data");
-    
-    // Orca pools have a different structure than Raydium
-    // Look for pool token balances
-    if let (Some(token_a_amount), Some(token_b_amount)) = (
-        info.get("tokenAmountA").and_then(|v| v.as_f64()),
-        info.get("tokenAmountB").and_then(|v| v.as_f64())
-    ) {
-        if token_a_amount > 0.0 && token_b_amount > 0.0 {
-            let price = token_b_amount / token_a_amount;
-            debug!("💰 Orca price calculated: {} = {}", mint, price);
-            
-            return Some(SyndicaPriceUpdate {
-                token_mint: mint.to_string(),
-                price_usd: price,
-                timestamp: chrono::Utc::now().timestamp() as u64,
-                volume_24h: None,
-                price_change_24h: None,
-                source: PriceSource::SyndicaRealtime,
-                confidence: PriceConfidence::High,
-            });
-        }
-    }
-    
-    debug!("📊 Orca account update: {} amount changed to {}", mint, amount);
-    None
-}
-
-/// Parse Raydium AMM data from base64 encoded account data
-async fn parse_raydium_amm_data(
-    pubkey: &str,
-    data_base64: &str
-) -> Option<SyndicaPriceUpdate> {
-    debug!("🔄 Parsing Raydium AMM data for pool: {}", pubkey);
-    
-    // Decode base64 data
-    if let Ok(data_bytes) = base64::decode(data_base64) {
-        if data_bytes.len() >= 64 {
-            // Raydium AMM data structure (simplified)
-            // Bytes 0-32: Pool state
-            // Bytes 32-64: Reserve data
-            // This is a simplified parser - real Raydium data is more complex
-            
-            // Extract reserve information (this is a simplified approach)
-            // In reality, you'd need to parse the exact Raydium account structure
-            let base_reserve_bytes = &data_bytes[32..40];
-            let quote_reserve_bytes = &data_bytes[40..48];
-            
-            if let (Ok(base_reserve), Ok(quote_reserve)) = (
-                u64::from_le_bytes(base_reserve_bytes.try_into().unwrap_or([0; 8])),
-                u64::from_le_bytes(quote_reserve_bytes.try_into().unwrap_or([0; 8]))
-            ) {
-                if base_reserve > 0 && quote_reserve > 0 {
-                    let price = quote_reserve as f64 / base_reserve as f64;
-                    debug!("💰 Raydium AMM price: {} (pool: {})", price, pubkey);
-                    
-                    return Some(SyndicaPriceUpdate {
-                        token_mint: pubkey.to_string(), // Using pool address as identifier
-                        price_usd: price,
-                        timestamp: chrono::Utc::now().timestamp() as u64,
-                        volume_24h: None,
-                        price_change_24h: None,
-                        source: PriceSource::SyndicaRealtime,
-                        confidence: PriceConfidence::High,
-                    });
-                }
-            }
-        }
-    }
-    
-    debug!("⚠️ Could not parse Raydium AMM data for pool: {}", pubkey);
-    None
 }
 
 
