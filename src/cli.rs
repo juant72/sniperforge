@@ -2073,7 +2073,7 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     let network_name = if config.network.is_mainnet() { "Mainnet" } else { "DevNet" };
     let output_token = match network.as_str() {
         "mainnet" => tokens::mainnet::USDC,
-        "devnet" => tokens::devnet::USDC_ALT,
+        "devnet" => tokens::devnet::USDC,
         _ => return Err(anyhow::anyhow!("Invalid network")),
     };
     
