@@ -406,7 +406,7 @@ impl WebSocketManager {
                             break;
                         }
                         None => {
-                            warn!("⚠️  Command channel closed");
+                            debug!("Command channel closed - WebSocket shutting down gracefully");
                             break;
                         }
                     }

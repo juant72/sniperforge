@@ -631,6 +631,12 @@ impl RpcConnectionPool {
     async fn test_connection(&self, client: Arc<RpcClient>) -> Result<()> {
         let start = Instant::now();
         
+        // Update total requests counter
+        {
+            let mut stats = self.stats.write().await;
+            stats.total_requests += 1;
+        }
+        
         // Try to get slot number - simple connectivity test
         match tokio::task::spawn_blocking(move || client.get_slot()).await {
             Ok(Ok(slot)) => {
@@ -640,7 +646,11 @@ impl RpcConnectionPool {
                 // Update stats
                 let mut stats = self.stats.write().await;
                 stats.successful_requests += 1;
-                stats.avg_response_time_ms = (stats.avg_response_time_ms + response_time as f64) / 2.0;
+                stats.avg_response_time_ms = if stats.avg_response_time_ms == 0.0 {
+                    response_time as f64
+                } else {
+                    (stats.avg_response_time_ms + response_time as f64) / 2.0
+                };
                 
                 Ok(())
             }
