@@ -1279,7 +1279,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         // Some(("jupiter", _)) => handle_test_jupiter_command().await?,
         // Some(("wallet", _)) => handle_test_wallet_command().await?,
         Some(("websocket", sub_matches)) => handle_test_websocket_command(sub_matches).await?,
-        Some(("rpc-resilience", sub_matches)) => handle_test_rpc_resilience_command(sub_matches).await?,
+        // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
         // Some(("performance", _)) => handle_test_performance_command().await?,
@@ -1292,7 +1292,6 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  * {} - Jupiter API", "jupiter".bright_yellow());
             println!("  * {} - Wallet functions", "wallet".bright_yellow());
             println!("  * {} - WebSocket connectivity", "websocket".bright_yellow());
-            println!("  * {} - 🛡️ RPC resilience & 410 Gone handling", "rpc-resilience".bright_green().bold());
             println!("  * {} - Trade execution", "trade".bright_yellow());
             println!("  * {} - 🚀 REAL swap execution on DevNet", "swap-real".bright_red().bold());
             println!("  * {} - Integration flow", "integration".bright_yellow());
