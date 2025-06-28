@@ -22,9 +22,7 @@ pub async fn test_dexscreener_integration() -> Result<()> {
             println!("✅ Found {} SOL/USDC pairs", pairs.len());
             for (i, pair) in pairs.iter().take(3).enumerate() {
                 // Safe price extraction
-                let price = pair.price_usd.as_ref()
-                    .and_then(|p| p.parse::<f64>().ok())
-                    .unwrap_or(0.0);
+                let price = pair.price_usd.parse::<f64>().unwrap_or(0.0);
                 
                 let liquidity = pair.liquidity.as_ref()
                     .map(|l| l.usd)
@@ -53,7 +51,8 @@ pub async fn test_dexscreener_integration() -> Result<()> {
             println!("✅ Found {} pools for SOL", pairs.len());
             for (i, pair) in pairs.iter().take(5).enumerate() {
                 let volume_24h = pair.volume.as_ref()
-                    .map(|v| v.h24)
+                    .and_then(|v| v.get("h24"))
+                    .copied()
                     .unwrap_or(0.0);
                 
                 println!("  {}. {}/{} on {} - Volume 24h: ${:.0}",
@@ -116,16 +115,15 @@ pub async fn test_dexscreener_integration() -> Result<()> {
                 pair.dex_id
             );
             
-            let price = pair.price_usd.as_ref()
-                .and_then(|p| p.parse::<f64>().ok())
-                .unwrap_or(0.0);
+            let price = pair.price_usd.parse::<f64>().unwrap_or(0.0);
             
             let liquidity = pair.liquidity.as_ref()
                 .map(|l| l.usd)
                 .unwrap_or(0.0);
             
             let volume_24h = pair.volume.as_ref()
-                .map(|v| v.h24)
+                .and_then(|v| v.get("h24"))
+                .copied()
                 .unwrap_or(0.0);
             
             println!("  💰 Price: ${:.6}", price);
