@@ -46,7 +46,7 @@ circuit_breaker_reset_seconds = 60 # Simple reset time
 # - ALCHEMY_API_KEY=your_alchemy_api_key_here
 
 [network.premium_rpc]
-enabled = false  # Set to true when API keys are configured
+enabled = true  # Set to true when API keys are configured
 
 # Premium endpoints (will be used if API keys are available)
 helius_rpc_template = "https://mainnet.helius-rpc.com/?api-key={API_KEY}"
