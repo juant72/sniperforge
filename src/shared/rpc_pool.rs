@@ -130,7 +130,7 @@ pub struct RpcConnectionPool {
     stats: Arc<RwLock<RpcStats>>,
     endpoint_health: Arc<RwLock<HashMap<String, RpcEndpointHealth>>>,
     alternative_apis: AlternativeApiManager,
-    health_persistence: RpcHealthPersistence,  // NEW: Health persistence
+    health_persistence: Arc<tokio::sync::Mutex<RpcHealthPersistence>>,  // Fixed: Added Arc<Mutex>
     // Store URLs for health checking
     primary_url: String,
     backup_urls: Vec<String>,
@@ -198,39 +198,44 @@ impl RpcConnectionPool {
         }
         
         // Initialize health persistence
-        let health_persistence = RpcHealthPersistence::default();
+        let mut health_persistence = RpcHealthPersistence::new("data/rpc_health.json");
         
         // Load persisted health data
-        let persisted_health = health_persistence.load().await
+        health_persistence.load().await
             .unwrap_or_else(|e| {
-                warn!("Failed to load RPC health cache: {}", e);
-                HashMap::new()
+                warn!("Failed to load RPC health persistence: {}", e);
             });
         
-        // Initialize endpoint health tracking with persisted data
+        let health_persistence = Arc::new(tokio::sync::Mutex::new(health_persistence));
+        
+        // Initialize endpoint health tracking
         let mut endpoint_health = HashMap::new();
         
-        // Start with persisted data, or create new entries
-        if let Some(persisted) = persisted_health.get(&primary_url) {
-            endpoint_health.insert(primary_url.clone(), persisted.clone());
-            if !persisted.is_healthy {
-                warn!("📋 Restored unhealthy primary endpoint: {} (failures: {})", 
-                      primary_url, persisted.consecutive_failures);
+        // Check if primary endpoint should be avoided based on history
+        {
+            let persistence = health_persistence.lock().await;
+            if let Some(persisted_health) = persistence.get_endpoint_health(&primary_url) {
+                if persisted_health.should_avoid_endpoint(1) { // Avoid if failed in last hour
+                    warn!("⚠️ Primary RPC {} has reliability issues (score: {:.2})", 
+                          primary_url, persisted_health.reliability_score);
+                }
             }
-        } else {
-            endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
         }
         
+        endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
+        
         for backup_url in &backup_urls {
-            if let Some(persisted) = persisted_health.get(backup_url) {
-                endpoint_health.insert(backup_url.clone(), persisted.clone());
-                if !persisted.is_healthy {
-                    warn!("📋 Restored unhealthy backup endpoint: {} (failures: {})", 
-                          backup_url, persisted.consecutive_failures);
+            // Check backup endpoint history
+            {
+                let persistence = health_persistence.lock().await;
+                if let Some(persisted_health) = persistence.get_endpoint_health(backup_url) {
+                    if persisted_health.should_avoid_endpoint(1) {
+                        warn!("⚠️ Backup RPC {} has reliability issues (score: {:.2})", 
+                              backup_url, persisted_health.reliability_score);
+                    }
                 }
-            } else {
-                endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
             }
+            endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
         }
         
         // Create connection semaphore
@@ -299,31 +304,49 @@ impl RpcConnectionPool {
                 if let Some(health) = health_map.get_mut(url) {
                     health.record_success(response_time);
                 }
+                drop(health_map); // Release lock before async operation
+                
+                // Update persistence
+                let mut persistence = self.health_persistence.lock().await;
+                if let Err(e) = persistence.record_endpoint_success(url, response_time.as_millis() as u64).await {
+                    warn!("Failed to persist RPC success for {}: {}", url, e);
+                }
+                drop(persistence);
+                
                 info!("✅ RPC endpoint {} is healthy ({}ms)", url, response_time.as_millis());
                 Ok(())
             }
             Err(e) => {
+                // Classify error type for better tracking
+                let error_type = if e.to_string().contains("410 Gone") {
+                    "410 Gone"
+                } else if e.to_string().contains("401 Unauthorized") {
+                    "401 Unauthorized"
+                } else if e.to_string().contains("403 Forbidden") {
+                    "403 Forbidden"
+                } else if e.to_string().contains("timeout") {
+                    "timeout"
+                } else if e.to_string().contains("dns error") {
+                    "dns error"
+                } else if e.to_string().contains("connect") {
+                    "connection refused"
+                } else {
+                    "unknown error"
+                };
+
                 let mut health_map = self.endpoint_health.write().await;
                 if let Some(health) = health_map.get_mut(url) {
-                    // Classify error type for better tracking
-                    let error_type = if e.to_string().contains("410 Gone") {
-                        "410_gone"
-                    } else if e.to_string().contains("401 Unauthorized") {
-                        "401_unauthorized"
-                    } else if e.to_string().contains("403 Forbidden") {
-                        "403_forbidden"
-                    } else if e.to_string().contains("timeout") {
-                        "timeout"
-                    } else if e.to_string().contains("dns error") {
-                        "dns_error"
-                    } else if e.to_string().contains("connect") {
-                        "connection_error"
-                    } else {
-                        "unknown_error"
-                    };
-                    
-                    health.record_failure_with_error(self.config.circuit_breaker_threshold, error_type);
+                    health.record_failure(self.config.circuit_breaker_threshold);
                 }
+                drop(health_map); // Release lock before async operation
+                
+                // Update persistence
+                let mut persistence = self.health_persistence.lock().await;
+                if let Err(persist_err) = persistence.record_endpoint_failure(url, error_type).await {
+                    warn!("Failed to persist RPC failure for {}: {}", url, persist_err);
+                }
+                drop(persistence);
+                
                 warn!("❌ RPC endpoint {} failed: {}", url, e);
                 Err(e)
             }
@@ -336,13 +359,13 @@ impl RpcConnectionPool {
         *self.is_running.write().await = false;
         
         // Save current health state before stopping
-        let health_data = self.endpoint_health.read().await;
-        if let Err(e) = self.health_persistence.save(&*health_data).await {
-            warn!("Failed to save RPC health cache: {}", e);
+        let persistence = self.health_persistence.lock().await;
+        if let Err(e) = persistence.save().await {
+            warn!("Failed to save RPC health persistence: {}", e);
         } else {
             info!("💾 RPC health state saved successfully");
         }
-        drop(health_data);
+        drop(persistence);
         
         // Wait for all active connections to complete
         let _permits = self.connection_semaphore.acquire_many(self.config.pool_size as u32).await?;
@@ -957,8 +980,24 @@ impl RpcConnectionPool {
         
         Ok(report)
     }
+    
+    /// Generate RPC health report
+    pub async fn generate_health_report(&self) -> String {
+        let persistence = self.health_persistence.lock().await;
+        persistence.generate_health_report()
+    }
 
-    // ...existing code...
+    /// Get recommended endpoints based on historical performance
+    pub async fn get_recommended_endpoints(&self) -> Vec<(String, f64)> {
+        let persistence = self.health_persistence.lock().await;
+        persistence.get_recommended_endpoints()
+    }
+
+    /// Get problematic endpoints that should be avoided
+    pub async fn get_problematic_endpoints(&self, hours_to_consider: u64) -> Vec<String> {
+        let persistence = self.health_persistence.lock().await;
+        persistence.get_problematic_endpoints(hours_to_consider)
+    }
 }
 pub struct RpcClientHandle<'a> {
     client: Arc<RpcClient>,
