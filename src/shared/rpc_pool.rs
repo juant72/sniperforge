@@ -974,9 +974,10 @@ impl RpcConnectionPool {
         report.push_str(&format!("   Total DNS errors: {}\n", total_dns_errors));
         
         // Add persistence stats
-        if let Ok(persistence_stats) = self.health_persistence.get_stats().await {
-            report.push_str(&format!("\n💾 PERSISTENCE:\n{}\n", persistence_stats));
-        }
+        let persistence = self.health_persistence.lock().await;
+        let persistence_report = persistence.generate_health_report();
+        report.push_str(&format!("\n💾 HISTORICAL DATA:\n{}\n", persistence_report));
+        drop(persistence);
         
         Ok(report)
     }
