@@ -184,11 +184,11 @@ pub async fn test_basic_integration_with_network(network: &str) {
     print!("🔌 Testing WebSocket... ");
     test_websocket_with_network(network).await;
     
-    // Test alternative APIs for pool detection
-    crate::alternative_apis_test::test_alternative_apis().await;
-    
-    // Test RPC fallback scenario
-    crate::alternative_apis_test::test_rpc_fallback_scenario().await;
+    // Test DexScreener API integration
+    println!("\n🔄 Testing DexScreener API integration...");
+    if let Err(e) = crate::dexscreener_testing::test_dexscreener_integration().await {
+        eprintln!("❌ DexScreener API test failed: {}", e);
+    }
     
     println!("\n🎉 Basic integration test completed!");
 }

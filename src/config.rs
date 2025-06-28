@@ -28,6 +28,25 @@ pub struct PlatformConfig {
     pub event_bus_buffer_size: usize,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct AlternativeApisConfig {
+    pub enabled: bool,
+    pub raydium_api_base: Option<String>,
+    pub jupiter_api_base: Option<String>,
+    pub birdeye_api_base: Option<String>,
+    pub dexscreener_api_base: Option<String>,
+    pub birdeye_api_key_env: Option<String>,  // Environment variable name for Birdeye API key
+    pub rate_limits: Option<AlternativeApiRateLimits>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+pub struct AlternativeApiRateLimits {
+    pub birdeye_requests_per_minute: u32,
+    pub raydium_requests_per_minute: u32,
+    pub jupiter_requests_per_minute: u32,
+    pub dexscreener_requests_per_minute: u32,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
     pub environment: String,  // "devnet" or "mainnet"
@@ -66,9 +85,13 @@ pub struct NetworkConfig {
     #[serde(default)]
     pub circuit_breaker_reset_seconds: Option<u64>,
     
-    // Premium RPC configuration
+    // Premium RPC configuration (API keys loaded from environment)
     #[serde(default)]
     pub premium_rpc: Option<PremiumRpcConfig>,
+    
+    // Alternative APIs configuration (API keys loaded from environment)
+    #[serde(default)]
+    pub alternative_apis: Option<AlternativeApisConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -446,6 +469,20 @@ impl Default for Config {
                             max_requests_per_second: 25,
                         },
                     ]),
+                }),
+                alternative_apis: Some(AlternativeApisConfig {
+                    enabled: true,
+                    raydium_api_base: Some("https://api.raydium.io".to_string()),
+                    jupiter_api_base: Some("https://quote-api.jup.ag".to_string()),
+                    birdeye_api_base: Some("https://public-api.birdeye.so".to_string()),
+                    dexscreener_api_base: Some("https://api.dexscreener.com".to_string()),
+                    birdeye_api_key_env: Some("BIRDEYE_API_KEY".to_string()),
+                    rate_limits: Some(AlternativeApiRateLimits {
+                        birdeye_requests_per_minute: 1000,
+                        raydium_requests_per_minute: 300,
+                        jupiter_requests_per_minute: 600,
+                        dexscreener_requests_per_minute: 300,
+                    }),
                 }),
             },
             shared_services: SharedServicesConfig {

@@ -48,6 +48,7 @@ hex = { version = "0.4", default-features = false }
 # HTTP client ultra-optimizado
 reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
 url = "2.4"
+urlencoding = "2.1"
 
 # TLS/SSL support
 rustls = { version = "0.23", features = ["ring"] }

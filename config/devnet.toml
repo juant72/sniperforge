@@ -17,18 +17,16 @@ environment = "devnet"
 
 # Devnet endpoints (for testing) - Updated June 28, 2025
 devnet_primary_rpc = "https://api.devnet.solana.com"
+
+# Backup endpoints for devnet (alternative endpoints for redundancy)
 devnet_backup_rpc = [
-    # Official Solana Labs devnet endpoint - Most reliable for testing
-    "https://api.devnet.solana.com",
+    # Note: Most public devnet endpoints require API keys
+    # For now, we rely on the primary endpoint since devnet is for testing
+    # To add backup endpoints, configure premium RPC with API keys below
     
-    # Note: The following endpoints require API keys:
-    # - "https://devnet.helius-rpc.com" (401 Unauthorized - API key required)
-    # - "https://rpc-devnet.hellomoon.io" (400 Bad Request - API key required)
-    
-    # For testing purposes, the official endpoint is sufficient
-    # For production devnet testing, consider getting free API keys from:
-    # - Helius (devnet access often free)
-    # - Alchemy, QuickNode, etc.
+    # Alternative: Use premium endpoints when API keys are configured
+    # - Helius devnet (often free): https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+    # - Alchemy devnet: https://solana-devnet.g.alchemy.com/v2/YOUR_KEY
 ]
 devnet_websocket_url = "wss://api.devnet.solana.com"
 
@@ -142,10 +140,10 @@ resource_allocation = { cpu = "25%", memory = "512MB" }
 
 # Development settings
 [development]
-simulate_trades = false  # ENABLE REAL TRADES IN DEVNET
-use_devnet = true       # EXPLICITLY USE DEVNET
-verbose_logging = true
-enable_debug_mode = true
+simulate_trades = false  # ENABLE REAL TRADES IN DEVNET (uses real SOL but low amounts)
+use_devnet = true       # EXPLICITLY USE DEVNET (safe testing environment)
+verbose_logging = true  # Enable detailed logging for debugging
+enable_debug_mode = true # Enable debug features for development
 
 # Performance settings
 [performance]

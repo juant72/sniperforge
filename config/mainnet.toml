@@ -22,9 +22,8 @@ environment = "mainnet"
 # Mainnet endpoints - SIMPLIFIED (only working endpoints)
 mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
 
-# Only 2 reliable endpoints that work without API keys
+# Only reliable backup endpoints (different from primary)
 mainnet_backup_rpc = [
-    "https://api.mainnet-beta.solana.com",
     "https://solana.publicnode.com"
 ]
 

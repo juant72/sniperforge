@@ -16,9 +16,7 @@ pub mod analysis;
 pub mod ml;  // Phase 6B ML module
 pub mod portfolio;  // Phase 6C Portfolio Management
 pub mod sprint_1_demo;  // Sprint 1 functionality demo
-
-// Add test module for alternative APIs
-pub mod alternative_apis_test;
+pub mod dexscreener_testing;  // DexScreener API testing
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;

@@ -19,7 +19,7 @@ impl Default for BasicConfig {
             raydium_api_base: "https://api.raydium.io".to_string(),
             jupiter_api_base: "https://quote-api.jup.ag".to_string(),
             birdeye_api_base: "https://public-api.birdeye.so".to_string(),
-            dexscreener_api_base: "https://api.dexscreener.com/latest/dex".to_string(),
+            dexscreener_api_base: "https://api.dexscreener.com".to_string(),
         }
     }
 }
@@ -90,18 +90,34 @@ pub struct BirdeyeTokenData {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DexscreenerPair {
+    #[serde(rename = "chainId")]
     pub chain_id: String,
+    #[serde(rename = "dexId")]
     pub dex_id: String,
     pub url: String,
+    #[serde(rename = "pairAddress")]
     pub pair_address: String,
+    #[serde(rename = "baseToken")]
     pub base_token: DexscreenerToken,
+    #[serde(rename = "quoteToken")]
     pub quote_token: DexscreenerToken,
+    #[serde(rename = "priceNative")]
     pub price_native: String,
-    pub price_usd: Option<String>,
-    pub volume: Option<DexscreenerVolume>,
+    #[serde(rename = "priceUsd")]
+    pub price_usd: String,
+    pub txns: Option<HashMap<String, DexscreenerTxnData>>,
+    pub volume: Option<HashMap<String, f64>>,
+    #[serde(rename = "priceChange")]
+    pub price_change: Option<HashMap<String, f64>>,
     pub liquidity: Option<DexscreenerLiquidity>,
     pub fdv: Option<f64>,
+    #[serde(rename = "marketCap")]
+    pub market_cap: Option<f64>,
+    #[serde(rename = "pairCreatedAt")]
     pub pair_created_at: Option<u64>,
+    pub info: Option<DexscreenerInfo>,
+    pub boosts: Option<DexscreenerBoosts>,
+    pub labels: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -112,11 +128,9 @@ pub struct DexscreenerToken {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DexscreenerVolume {
-    pub h24: f64,
-    pub h6: f64,
-    pub h1: f64,
-    pub m5: f64,
+pub struct DexscreenerTxnData {
+    pub buys: i32,
+    pub sells: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -124,6 +138,30 @@ pub struct DexscreenerLiquidity {
     pub usd: f64,
     pub base: f64,
     pub quote: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DexscreenerInfo {
+    #[serde(rename = "imageUrl")]
+    pub image_url: Option<String>,
+    pub websites: Option<Vec<DexscreenerWebsite>>,
+    pub socials: Option<Vec<DexscreenerSocial>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DexscreenerWebsite {
+    pub url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DexscreenerSocial {
+    pub platform: String,
+    pub handle: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DexscreenerBoosts {
+    pub active: i32,
 }
 
 impl AlternativeApiManager {
@@ -252,6 +290,41 @@ impl AlternativeApiManager {
     }
 
     /// Fetch pairs from DexScreener
+    /// 
+    /// API Documentation: https://docs.dexscreener.com/api/reference
+    /// Base URL: https://api.dexscreener.com/
+    /// 
+    /// Rate Limits:
+    ///   - 300 requests/minute para endpoints principales (pairs, search, tokens)
+    ///   - 60 requests/minute para endpoints de profiles y boosts
+    /// 
+    /// Autenticación: No requerida
+    /// 
+    /// Endpoints principales:
+    ///   - GET /latest/dex/pairs/{chainId}/{pairId} - Info de un par específico
+    ///   - GET /latest/dex/search?q={query} - Búsqueda de pares (ej: "SOL/USDC")
+    ///   - GET /token-pairs/v1/{chainId}/{tokenAddress} - Pools de un token específico
+    ///   - GET /tokens/v1/{chainId}/{tokenAddresses} - Info de múltiples tokens (hasta 30, comma-separated)
+    /// 
+    /// Endpoints adicionales:
+    ///   - GET /token-profiles/latest/v1 - Últimos perfiles de tokens (60 req/min)
+    ///   - GET /token-boosts/latest/v1 - Tokens con boosts recientes (60 req/min)
+    ///   - GET /token-boosts/top/v1 - Tokens con más boosts activos (60 req/min)
+    ///   - GET /orders/v1/{chainId}/{tokenAddress} - Estado de órdenes pagadas (60 req/min)
+    /// 
+    /// Estructura de respuesta para pares:
+    ///   - chainId: ID de la blockchain ("solana")
+    ///   - dexId: ID del DEX ("raydium", "jupiter", etc.)
+    ///   - pairAddress: Dirección del par
+    ///   - baseToken/quoteToken: Info de tokens (address, name, symbol)
+    ///   - priceUsd: Precio en USD
+    ///   - liquidity: Liquidez (usd, base, quote)
+    ///   - volume: Volumen por período de tiempo
+    ///   - txns: Transacciones (buys, sells) por período
+    ///   - priceChange: Cambio de precio por período
+    ///   - fdv: Fully Diluted Valuation
+    ///   - marketCap: Market Cap
+    ///   - pairCreatedAt: Timestamp de creación
     pub async fn fetch_dexscreener_pairs(&self, tokens: &[String]) -> Result<Vec<DexscreenerPair>> {
         if tokens.is_empty() {
             return Ok(vec![]);
@@ -259,9 +332,11 @@ impl AlternativeApiManager {
 
         info!("🔄 Fetching DexScreener data for {} tokens", tokens.len());
 
-        // DexScreener allows batch queries
+        // DexScreener permite consultas en lote usando el endpoint /tokens/v1/{chainId}/{tokenAddresses}
+        // Este endpoint acepta hasta 30 direcciones de tokens separadas por comas
+        // y devuelve información de todos los pares donde aparecen esos tokens
         let tokens_param = tokens.join(",");
-        let url = format!("{}/solana/tokens/{}", self.dexscreener_api_base, tokens_param);
+        let url = format!("{}/tokens/v1/solana/{}", self.dexscreener_api_base, tokens_param);
         
         match self.client.get(&url).send().await {
             Ok(response) => {
@@ -291,6 +366,151 @@ impl AlternativeApiManager {
             Err(e) => {
                 error!("❌ Failed to connect to DexScreener API: {}", e);
                 Err(anyhow::anyhow!("DexScreener API connection failed: {}", e))
+            }
+        }
+    }
+
+    /// Search for pairs using DexScreener search endpoint
+    /// 
+    /// This endpoint allows searching for pairs using various queries:
+    /// - Token symbols: "SOL/USDC", "BONK"
+    /// - Token addresses
+    /// - Pair names
+    pub async fn search_dexscreener_pairs(&self, query: &str) -> Result<Vec<DexscreenerPair>> {
+        if query.is_empty() {
+            return Ok(vec![]);
+        }
+
+        info!("🔍 Searching DexScreener pairs with query: '{}'", query);
+
+        let url = format!("{}/latest/dex/search?q={}", 
+            self.dexscreener_api_base, 
+            urlencoding::encode(query)
+        );
+        
+        match self.client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    #[derive(Deserialize)]
+                    struct DexscreenerSearchResponse {
+                        pairs: Option<Vec<DexscreenerPair>>,
+                    }
+
+                    match response.json::<DexscreenerSearchResponse>().await {
+                        Ok(data) => {
+                            let pairs = data.pairs.unwrap_or_default();
+                            info!("✅ Found {} pairs for query '{}'", pairs.len(), query);
+                            Ok(pairs)
+                        }
+                        Err(e) => {
+                            error!("❌ Failed to parse DexScreener search response: {}", e);
+                            Err(anyhow::anyhow!("Failed to parse DexScreener search response: {}", e))
+                        }
+                    }
+                }
+                else {
+                    error!("❌ DexScreener search API returned status: {}", response.status());
+                    Err(anyhow::anyhow!("DexScreener search API error: {}", response.status()))
+                }
+            }
+            Err(e) => {
+                error!("❌ Failed to connect to DexScreener search API: {}", e);
+                Err(anyhow::anyhow!("DexScreener search API connection failed: {}", e))
+            }
+        }
+    }
+
+    /// Get all pools for a specific token address using DexScreener
+    /// 
+    /// This is useful for finding all trading pairs where a token appears
+    /// as either base or quote token
+    pub async fn get_token_pools_dexscreener(&self, token_address: &str) -> Result<Vec<DexscreenerPair>> {
+        if token_address.is_empty() {
+            return Ok(vec![]);
+        }
+
+        info!("🔄 Fetching pools for token {} from DexScreener", token_address);
+
+        let url = format!("{}/token-pairs/v1/solana/{}", 
+            self.dexscreener_api_base, 
+            token_address
+        );
+        
+        match self.client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<Vec<DexscreenerPair>>().await {
+                        Ok(pairs) => {
+                            info!("✅ Found {} pools for token {}", pairs.len(), token_address);
+                            Ok(pairs)
+                        }
+                        Err(e) => {
+                            error!("❌ Failed to parse DexScreener token pools response: {}", e);
+                            Err(anyhow::anyhow!("Failed to parse DexScreener token pools response: {}", e))
+                        }
+                    }
+                }
+                else {
+                    error!("❌ DexScreener token pools API returned status: {}", response.status());
+                    Err(anyhow::anyhow!("DexScreener token pools API error: {}", response.status()))
+                }
+            }
+            Err(e) => {
+                error!("❌ Failed to connect to DexScreener token pools API: {}", e);
+                Err(anyhow::anyhow!("DexScreener token pools API connection failed: {}", e))
+            }
+        }
+    }
+
+    /// Get specific pair information by pair address using DexScreener
+    /// 
+    /// This provides detailed information about a specific trading pair
+    pub async fn get_pair_info_dexscreener(&self, pair_address: &str) -> Result<Option<DexscreenerPair>> {
+        if pair_address.is_empty() {
+            return Ok(None);
+        }
+
+        info!("🔄 Fetching pair info for {} from DexScreener", pair_address);
+
+        let url = format!("{}/latest/dex/pairs/solana/{}", 
+            self.dexscreener_api_base, 
+            pair_address
+        );
+        
+        match self.client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    #[derive(Deserialize)]
+                    struct DexscreenerPairResponse {
+                        pairs: Option<Vec<DexscreenerPair>>,
+                    }
+
+                    match response.json::<DexscreenerPairResponse>().await {
+                        Ok(data) => {
+                            let pairs = data.pairs.unwrap_or_default();
+                            let pair = pairs.into_iter().next();
+                            if let Some(ref p) = pair {
+                                info!("✅ Found pair info for {}: {}/{}", 
+                                    pair_address, p.base_token.symbol, p.quote_token.symbol);
+                            } else {
+                                info!("⚠️ No pair found for address {}", pair_address);
+                            }
+                            Ok(pair)
+                        }
+                        Err(e) => {
+                            error!("❌ Failed to parse DexScreener pair response: {}", e);
+                            Err(anyhow::anyhow!("Failed to parse DexScreener pair response: {}", e))
+                        }
+                    }
+                }
+                else {
+                    error!("❌ DexScreener pair API returned status: {}", response.status());
+                    Err(anyhow::anyhow!("DexScreener pair API error: {}", response.status()))
+                }
+            }
+            Err(e) => {
+                error!("❌ Failed to connect to DexScreener pair API: {}", e);
+                Err(anyhow::anyhow!("DexScreener pair API connection failed: {}", e))
             }
         }
     }
