@@ -1371,9 +1371,9 @@ async fn handle_test_websocket_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
     
-    use sniperforge::simple_testing::test_websocket_basic;
+    use sniperforge::simple_testing::test_websocket_with_network;
     
-    test_websocket_basic().await;
+    test_websocket_with_network(network).await;
     
     println!("{}", "[SUCCESS] WebSocket tests completed!".bright_green());
     Ok(())

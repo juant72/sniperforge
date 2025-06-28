@@ -3,10 +3,20 @@
 use anyhow::Result;
 
 pub async fn test_websocket_basic() {
+    test_websocket_with_network("devnet").await;
+}
+
+pub async fn test_websocket_with_network(network: &str) {
     println!("🔌 Basic WebSocket connectivity test");
     
-    // Load config
-    let config = match crate::Config::load("config/devnet.toml") {
+    // Load config based on network
+    let config_file = match network {
+        "mainnet" => "config/mainnet.toml",
+        "devnet" => "config/devnet.toml",
+        _ => "config/devnet.toml", // Default fallback
+    };
+    
+    let config = match crate::Config::load(config_file) {
         Ok(c) => c,
         Err(_) => match crate::Config::load("config/platform.toml") {
             Ok(c) => c,
