@@ -344,7 +344,6 @@ impl RpcConnectionPool {
         info!("✅ RPC connection pool started with enhanced resilience");
         Ok(())
     }
-    }
 
     async fn test_and_update_health(&self, client: Arc<RpcClient>, url: &str) -> Result<()> {
         let start_time = Instant::now();
@@ -599,10 +598,12 @@ impl RpcConnectionPool {
             metrics: std::collections::HashMap::new(),
         })
     }
-      pub async fn get_connection_count(&self) -> usize {
+    
+    pub async fn get_connection_count(&self) -> usize {
         self.stats.read().await.active_connections
     }
-      /// Get RPC pool statistics
+    
+    /// Get RPC pool statistics
     pub async fn get_stats(&self) -> RpcStats {
         self.stats.read().await.clone()
     }
@@ -1102,61 +1103,8 @@ impl RpcConnectionPool {
         let persistence = self.health_persistence.lock().await;
         persistence.get_problematic_endpoints(hours_to_consider)
     }
-}
-pub struct RpcClientHandle<'a> {
-    client: Arc<RpcClient>,
-    _permit: tokio::sync::SemaphorePermit<'a>,
-    stats: Arc<RwLock<RpcStats>>,
-}
 
-impl<'a> RpcClientHandle<'a> {
-    pub fn client(&self) -> &RpcClient {
-        &self.client
-    }
-}
-
-impl<'a> Drop for RpcClientHandle<'a> {
-    fn drop(&mut self) {
-        // Update stats when handle is dropped
-        let stats = self.stats.clone();
-        tokio::spawn(async move {
-            let mut stats = stats.write().await;
-            stats.active_connections = stats.active_connections.saturating_sub(1);
-        });
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct PoolMarketData {
-    pub pool_address: Pubkey,
-    pub token_a_reserve: u64,
-    pub token_b_reserve: u64,
-    pub total_liquidity_usd: f64,
-    pub price_token_a_in_b: f64,
-    pub volume_24h_usd: f64,
-    pub last_updated: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TransactionDetails {
-    pub signature: String,
-    pub slot: u64,
-    pub block_time: Option<i64>,
-    pub meta: Option<solana_transaction_status::UiTransactionStatusMeta>,
-}
-
-impl std::fmt::Debug for RpcConnectionPool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RpcConnectionPool")
-            .field("primary_client", &"<RpcClient>")
-            .field("backup_clients", &self.backup_clients.len())
-            .field("config", &self.config)
-            .field("is_running", &self.is_running)
-            .field("stats", &self.stats)
-            .finish()
-    }
-}
-/// Get the best available WebSocket URL (prioritizing premium endpoints)
+    /// Get the best available WebSocket URL (prioritizing premium endpoints)
     pub async fn get_best_websocket_url(&self) -> Option<String> {
         // First, try to get WebSocket URL from premium manager
         let premium_manager = self.premium_manager.lock().await;
@@ -1221,3 +1169,57 @@ impl std::fmt::Debug for RpcConnectionPool {
             None
         }
     }
+}
+pub struct RpcClientHandle<'a> {
+    client: Arc<RpcClient>,
+    _permit: tokio::sync::SemaphorePermit<'a>,
+    stats: Arc<RwLock<RpcStats>>,
+}
+
+impl<'a> RpcClientHandle<'a> {
+    pub fn client(&self) -> &RpcClient {
+        &self.client
+    }
+}
+
+impl<'a> Drop for RpcClientHandle<'a> {
+    fn drop(&mut self) {
+        // Update stats when handle is dropped
+        let stats = self.stats.clone();
+        tokio::spawn(async move {
+            let mut stats = stats.write().await;
+            stats.active_connections = stats.active_connections.saturating_sub(1);
+        });
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct PoolMarketData {
+    pub pool_address: Pubkey,
+    pub token_a_reserve: u64,
+    pub token_b_reserve: u64,
+    pub total_liquidity_usd: f64,
+    pub price_token_a_in_b: f64,
+    pub volume_24h_usd: f64,
+    pub last_updated: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionDetails {
+    pub signature: String,
+    pub slot: u64,
+    pub block_time: Option<i64>,
+    pub meta: Option<solana_transaction_status::UiTransactionStatusMeta>,
+}
+
+impl std::fmt::Debug for RpcConnectionPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RpcConnectionPool")
+            .field("primary_client", &"<RpcClient>")
+            .field("backup_clients", &self.backup_clients.len())
+            .field("config", &self.config)
+            .field("is_running", &self.is_running)
+            .field("stats", &self.stats)
+            .finish()
+    }
+}
