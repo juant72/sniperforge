@@ -87,6 +87,10 @@ impl WebSocketManager {
     pub async fn new(config: &Config) -> Result<Self> {
         info!("🌐 Initializing WebSocket manager");
         
+        info!("🔧 Loading config for network: {}", config.network.environment);
+        info!("🔧 Primary RPC: {}", config.network.primary_rpc());
+        info!("🔧 WebSocket URL: {}", config.network.websocket_url());
+        
         let ws_config = WebSocketConfig {
             rpc_ws_url: config.network.websocket_url().to_string(),
             ..WebSocketConfig::default()

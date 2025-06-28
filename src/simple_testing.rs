@@ -17,12 +17,20 @@ pub async fn test_websocket_with_network(network: &str) {
     };
     
     let config = match crate::Config::load(config_file) {
-        Ok(c) => c,
-        Err(_) => match crate::Config::load("config/platform.toml") {
-            Ok(c) => c,
-            Err(e) => {
-                println!("❌ Could not load config: {}", e);
-                return;
+        Ok(c) => {
+            println!("✅ Loaded config from: {}", config_file);
+            println!("   Environment: {}", c.network.environment);
+            c
+        },
+        Err(e) => {
+            println!("⚠️ Failed to load {}: {}", config_file, e);
+            println!("   Falling back to platform.toml");
+            match crate::Config::load("config/platform.toml") {
+                Ok(c) => c,
+                Err(e) => {
+                    println!("❌ Could not load config: {}", e);
+                    return;
+                }
             }
         }
     };

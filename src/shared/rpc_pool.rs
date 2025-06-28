@@ -150,6 +150,10 @@ impl RpcConnectionPool {
         // Initialize crypto provider for rustls to fix "no process-level CryptoProvider available"
         Self::init_crypto_provider();
         
+        info!("🔧 RPC Pool Config - Environment: {}", config.network.environment);
+        info!("🔧 RPC Pool Config - Primary: {}", config.network.primary_rpc());
+        info!("🔧 RPC Pool Config - Backup URLs: {:?}", config.network.backup_rpc());
+        
         let pool_config = RpcPoolConfig {
             pool_size: config.shared_services.rpc_pool_size,
             connection_timeout: Duration::from_millis(config.network.connection_timeout_ms),
