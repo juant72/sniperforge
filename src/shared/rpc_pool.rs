@@ -117,6 +117,9 @@ pub struct RpcConnectionPool {
     stats: Arc<RwLock<RpcStats>>,
     endpoint_health: Arc<RwLock<HashMap<String, RpcEndpointHealth>>>,
     alternative_apis: AlternativeApiManager,
+    // Store URLs for health checking
+    primary_url: String,
+    backup_urls: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -166,8 +169,9 @@ impl RpcConnectionPool {
         ));
         
         // Create backup RPC clients
+        let backup_urls = config.network.backup_rpc();
         let mut backup_clients = Vec::new();
-        for backup_url in config.network.backup_rpc() {
+        for backup_url in &backup_urls {
             let client = Arc::new(RpcClient::new_with_commitment(
                 backup_url.clone(),
                 CommitmentConfig::confirmed(),
@@ -177,9 +181,9 @@ impl RpcConnectionPool {
         
         // Initialize endpoint health tracking
         let mut endpoint_health = HashMap::new();
-        endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url));
+        endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
         
-        for backup_url in config.network.backup_rpc() {
+        for backup_url in &backup_urls {
             endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
         }
         
@@ -199,6 +203,8 @@ impl RpcConnectionPool {
             stats: Arc::new(RwLock::new(RpcStats::default())),
             endpoint_health: Arc::new(RwLock::new(endpoint_health)),
             alternative_apis,
+            primary_url,
+            backup_urls,
         })
     }
     
@@ -208,16 +214,16 @@ impl RpcConnectionPool {
         *self.is_running.write().await = true;
         
         // Test all endpoints and update health status
-        let primary_url = self.get_primary_url().await;
-        if let Err(e) = self.test_and_update_health(self.primary_client.clone(), &primary_url).await {
+        if let Err(e) = self.test_and_update_health(self.primary_client.clone(), &self.primary_url).await {
             warn!("⚠️ Primary RPC connection test failed: {}", e);
         }
         
         // Test backup connections
         for (i, client) in self.backup_clients.iter().enumerate() {
-            let backup_url = self.get_backup_url(i).await;
-            if self.test_and_update_health(client.clone(), &backup_url).await.is_ok() {
-                info!("✅ Backup RPC {} is working", i);
+            if let Some(backup_url) = self.backup_urls.get(i) {
+                if self.test_and_update_health(client.clone(), backup_url).await.is_ok() {
+                    info!("✅ Backup RPC {} is working", i);
+                }
             }
         }
         
@@ -234,21 +240,6 @@ impl RpcConnectionPool {
         
         info!("✅ RPC connection pool started with enhanced resilience");
         Ok(())
-    }
-
-    async fn get_primary_url(&self) -> String {
-        // This should come from config, for now use a placeholder
-        "https://api.mainnet-beta.solana.com".to_string()
-    }
-
-    async fn get_backup_url(&self, index: usize) -> String {
-        // This should come from config, for now use placeholders
-        let backup_urls = vec![
-            "https://solana-api.projectserum.com",
-            "https://rpc.ankr.com/solana",
-            "https://solana.publicnode.com",
-        ];
-        backup_urls.get(index).unwrap_or(&"https://api.mainnet-beta.solana.com").to_string()
     }
 
     async fn test_and_update_health(&self, client: Arc<RpcClient>, url: &str) -> Result<()> {
@@ -304,23 +295,23 @@ impl RpcConnectionPool {
         let mut best_response_time = Duration::from_secs(u64::MAX);
         
         // Check primary first if healthy
-        let primary_url = self.get_primary_url().await;
-        if let Some(health) = health_map.get(&primary_url) {
+        if let Some(health) = health_map.get(&self.primary_url) {
             if health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds) {
-                best_endpoint = Some((self.primary_client.clone(), primary_url.clone()));
+                best_endpoint = Some((self.primary_client.clone(), self.primary_url.clone()));
                 best_response_time = health.average_response_time;
             }
         }
         
         // Check backups for better options
         for (i, client) in self.backup_clients.iter().enumerate() {
-            let backup_url = self.get_backup_url(i).await;
-            if let Some(health) = health_map.get(&backup_url) {
-                if health.is_healthy && 
-                   health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                   health.average_response_time < best_response_time {
-                    best_endpoint = Some((client.clone(), backup_url));
-                    best_response_time = health.average_response_time;
+            if let Some(backup_url) = self.backup_urls.get(i) {
+                if let Some(health) = health_map.get(backup_url) {
+                    if health.is_healthy && 
+                       health.should_retry(self.config.circuit_breaker_reset_seconds) &&
+                       health.average_response_time < best_response_time {
+                        best_endpoint = Some((client.clone(), backup_url.clone()));
+                        best_response_time = health.average_response_time;
+                    }
                 }
             }
         }
