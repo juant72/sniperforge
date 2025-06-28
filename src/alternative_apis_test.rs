@@ -14,7 +14,7 @@ pub async fn test_alternative_apis() {
     
     // Test Raydium API
     print!("📡 Testing Raydium API... ");
-    match api_manager.get_raydium_pools().await {
+    match api_manager.fetch_raydium_pools().await {
         Ok(pools) => {
             if pools.is_empty() {
                 println!("⚠️  No pools found (API might be down or changed)");
@@ -23,8 +23,12 @@ pub async fn test_alternative_apis() {
                 
                 // Show first few pools
                 for (i, pool) in pools.iter().take(3).enumerate() {
-                    println!("   Pool {}: {} -> {}", i + 1, pool.token_a, pool.token_b);
-                    println!("      Liquidity: ${:.2}", pool.liquidity_usd);
+                    println!("   Pool {}: {} -> {}", i + 1, pool.base_mint, pool.quote_mint);
+                    if let Some(liquidity) = pool.liquidity {
+                        println!("      Liquidity: ${:.2}", liquidity);
+                    } else {
+                        println!("      Liquidity: Unknown");
+                    }
                 }
             }
         }
@@ -33,14 +37,20 @@ pub async fn test_alternative_apis() {
         }
     }
     
-    // Test Jupiter API - Price verification
-    print!("🪐 Testing Jupiter price API... ");
-    match api_manager.get_token_price("So11111111111111111111111111111111111111112").await {
-        Ok(Some(price)) => {
-            println!("✅ OK - SOL price: ${:.2}", price);
-        }
-        Ok(None) => {
-            println!("⚠️  No price data available");
+    // Test Jupiter API - Token data verification
+    print!("🪐 Testing Jupiter API... ");
+    match api_manager.fetch_jupiter_tokens().await {
+        Ok(tokens) => {
+            if tokens.is_empty() {
+                println!("⚠️  No tokens found");
+            } else {
+                println!("✅ OK - Found {} tokens", tokens.len());
+                
+                // Look for SOL token
+                if let Some(sol_token) = tokens.iter().find(|t| t.symbol == "SOL") {
+                    println!("   Found SOL: {} ({})", sol_token.name, sol_token.address);
+                }
+            }
         }
         Err(e) => {
             println!("❌ FAILED: {}", e);
@@ -49,12 +59,14 @@ pub async fn test_alternative_apis() {
     
     // Test Birdeye API
     print!("🐦 Testing Birdeye API... ");
-    match api_manager.get_birdeye_pools().await {
-        Ok(pools) => {
-            if pools.is_empty() {
-                println!("⚠️  No pools found (API might be down or require API key)");
-            } else {
-                println!("✅ OK - Found {} pools", pools.len());
+    match api_manager.fetch_birdeye_token_data("So11111111111111111111111111111111111111112").await {
+        Ok(token_data) => {
+            println!("✅ OK - SOL data: {}", token_data.symbol);
+            if let Some(price) = token_data.price {
+                println!("   Price: ${:.2}", price);
+            }
+            if let Some(liquidity) = token_data.liquidity {
+                println!("   Liquidity: ${:.2}", liquidity);
             }
         }
         Err(e) => {
@@ -64,12 +76,21 @@ pub async fn test_alternative_apis() {
     
     // Test DexScreener API
     print!("📊 Testing DexScreener API... ");
-    match api_manager.get_dexscreener_pools().await {
-        Ok(pools) => {
-            if pools.is_empty() {
-                println!("⚠️  No pools found (API might be down)");
+    let test_tokens = vec!["So11111111111111111111111111111111111111112".to_string()];
+    match api_manager.fetch_dexscreener_pairs(&test_tokens).await {
+        Ok(pairs) => {
+            if pairs.is_empty() {
+                println!("⚠️  No pairs found (API might be down)");
             } else {
-                println!("✅ OK - Found {} pools", pools.len());
+                println!("✅ OK - Found {} pairs", pairs.len());
+                
+                // Show first pair
+                if let Some(pair) = pairs.first() {
+                    println!("   Pair: {}/{}", pair.base_token.symbol, pair.quote_token.symbol);
+                    if let Some(price_usd) = &pair.price_usd {
+                        println!("   Price USD: ${}", price_usd);
+                    }
+                }
             }
         }
         Err(e) => {
@@ -102,7 +123,7 @@ pub async fn test_rpc_fallback_scenario() {
     let mut total_pools = 0;
     
     // Try Raydium API
-    if let Ok(pools) = api_manager.get_raydium_pools().await {
+    if let Ok(pools) = api_manager.fetch_raydium_pools().await {
         if !pools.is_empty() {
             successful_apis += 1;
             total_pools += pools.len();
@@ -111,11 +132,12 @@ pub async fn test_rpc_fallback_scenario() {
     }
     
     // Try DexScreener API  
-    if let Ok(pools) = api_manager.get_dexscreener_pools().await {
-        if !pools.is_empty() {
+    let test_tokens = vec!["So11111111111111111111111111111111111111112".to_string()];
+    if let Ok(pairs) = api_manager.fetch_dexscreener_pairs(&test_tokens).await {
+        if !pairs.is_empty() {
             successful_apis += 1;
-            total_pools += pools.len();
-            println!("   ✅ DexScreener API: {} pools", pools.len());
+            total_pools += pairs.len();
+            println!("   ✅ DexScreener API: {} pairs", pairs.len());
         }
     }
     
