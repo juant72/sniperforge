@@ -150,12 +150,15 @@ pub struct DexscreenerInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DexscreenerWebsite {
+    pub label: Option<String>,
     pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DexscreenerSocial {
+    #[serde(rename = "type")]
     pub platform: String,
+    #[serde(rename = "url")]
     pub handle: String,
 }
 
