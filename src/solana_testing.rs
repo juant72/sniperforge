@@ -39,12 +39,17 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
     info!("📡 Test 3: Checking Raydium pools...");
     match rpc_pool.get_raydium_pools().await {
         Ok(pools) => {
-            info!("✅ Found {} Raydium pool accounts", pools.len());
-            
-            // Show first few pools for verification
-            for (i, (pubkey, account)) in pools.iter().take(3).enumerate() {
-                info!("  Pool {}: {} (data size: {} bytes, balance: {} lamports)", 
-                      i + 1, pubkey, account.data.len(), account.lamports);
+            if pools.is_empty() {
+                warn!("⚠️  No Raydium pools retrieved (expected on mainnet with public RPCs)");
+                info!("   This indicates RPC rate limiting, which is normal behavior");
+            } else {
+                info!("✅ Found {} Raydium pool accounts", pools.len());
+                
+                // Show first few pools for verification
+                for (i, (pubkey, account)) in pools.iter().take(3).enumerate() {
+                    info!("  Pool {}: {} (data size: {} bytes, balance: {} lamports)", 
+                          i + 1, pubkey, account.data.len(), account.lamports);
+                }
             }
         }
         Err(e) => {

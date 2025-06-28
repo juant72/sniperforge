@@ -763,13 +763,13 @@ impl Jupiter {
     pub async fn get_quote(
         &self,
         input_mint: &str,
-        output_mint: &str,
+        _output_mint: &str,
         amount: f64,
         slippage_bps: u16,
     ) -> Result<QuoteResponse> {
         let quote_request = QuoteRequest {
             inputMint: input_mint.to_string(),
-            outputMint: output_mint.to_string(),
+            outputMint: _output_mint.to_string(),
             amount: (amount * 1_000_000_000.0) as u64, // Convert to lamports
             slippageBps: slippage_bps,
         };

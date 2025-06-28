@@ -373,12 +373,14 @@ impl RpcConnectionPool {
                         filters: None,
                         account_config: solana_client::rpc_config::RpcAccountInfoConfig {
                             encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
-                            data_slice: None, // Remove data slice config due to SDK changes
+                            data_slice: Some(solana_client::rpc_config::RpcDataSliceConfig {
+                                offset: 0,
+                                length: 1000, // Limit data size to reduce load
+                            }),
                             commitment: Some(CommitmentConfig::confirmed()),
                             min_context_slot: None,
                         },
-                        with_context: None,
-                        sort_results: None, // Add missing field
+                        with_context: Some(false),
                     },
                 ) {
                     Ok(accounts) => {
