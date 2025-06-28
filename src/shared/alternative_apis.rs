@@ -341,14 +341,10 @@ impl AlternativeApiManager {
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
-                    #[derive(Deserialize)]
-                    struct DexscreenerResponse {
-                        pairs: Option<Vec<DexscreenerPair>>,
-                    }
-
-                    match response.json::<DexscreenerResponse>().await {
-                        Ok(data) => {
-                            let pairs = data.pairs.unwrap_or_default();
+                    // The /tokens/v1/{chainId}/{tokenAddresses} endpoint returns a direct array of pairs
+                    // instead of a wrapper object with "pairs" field
+                    match response.json::<Vec<DexscreenerPair>>().await {
+                        Ok(pairs) => {
                             info!("✅ Fetched {} pairs from DexScreener", pairs.len());
                             Ok(pairs)
                         }
@@ -391,8 +387,11 @@ impl AlternativeApiManager {
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
+                    // The search endpoint returns: {"schemaVersion": "1.0.0", "pairs": [...]}
                     #[derive(Deserialize)]
                     struct DexscreenerSearchResponse {
+                        #[serde(rename = "schemaVersion")]
+                        schema_version: Option<String>,
                         pairs: Option<Vec<DexscreenerPair>>,
                     }
 
