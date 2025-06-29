@@ -300,8 +300,6 @@ pub struct TradingSessionConfig {
     pub default_duration_minutes: Option<u64>,
 }
 
-}
-
 impl Config {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;

@@ -71,7 +71,7 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     
     // Test 1: Cache-free trade engine con wallet
     let cache_free_config = CacheFreeConfig::devnet_safe_defaults();
-    let mut trade_engine = CacheFreeTradeEngine::new_with_wallet(
+    let trade_engine = CacheFreeTradeEngine::new_with_wallet(
         cache_free_config,
         keypair.insecure_clone()
     ).await?;
