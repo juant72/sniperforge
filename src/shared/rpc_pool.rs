@@ -21,6 +21,7 @@ use crate::types::{HealthStatus, Priority};
 use crate::shared::alternative_apis::AlternativeApiManager;
 use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 use crate::shared::premium_rpc_manager::PremiumRpcManager;
+use crate::shared::tatum_client::TatumRpcWrapper;
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -127,6 +128,7 @@ pub struct RpcConnectionPool {
     primary_client: Arc<RpcClient>,
     backup_clients: Vec<Arc<RpcClient>>,
     premium_clients: Vec<Arc<RpcClient>>,  // NEW: Premium RPC clients
+    tatum_clients: std::collections::HashMap<String, TatumRpcWrapper>,  // NEW: Tatum clients with header auth
     premium_manager: Arc<tokio::sync::Mutex<PremiumRpcManager>>,  // NEW: Premium RPC manager
     connection_semaphore: Arc<Semaphore>,
     config: RpcPoolConfig,
@@ -249,6 +251,43 @@ impl RpcConnectionPool {
             premium_clients.push(client);
         }
         
+        // Create Tatum clients with header authentication
+        let mut tatum_clients = std::collections::HashMap::new();
+        
+        // Check for Tatum endpoints in premium URLs and create special clients for them
+        let premium_manager_ref = &premium_manager;
+        for endpoint in &premium_manager_ref.endpoints {
+            if endpoint.provider == "Tatum" {
+                info!("🔑 Setting up Tatum client with header authentication for {}", endpoint.url);
+                
+                // Determine which API key to use
+                let api_key = if endpoint.url.contains("mainnet") {
+                    std::env::var("TATUM_API_KEY_MAINNET").ok()
+                } else if endpoint.url.contains("devnet") {
+                    std::env::var("TATUM_API_KEY_DEVNET").ok()
+                } else {
+                    // Try both mainnet and devnet keys
+                    std::env::var("TATUM_API_KEY_MAINNET")
+                        .or_else(|_| std::env::var("TATUM_API_KEY_DEVNET"))
+                        .ok()
+                };
+                
+                if let Some(api_key) = api_key {
+                    match TatumRpcWrapper::new(endpoint.url.clone(), api_key) {
+                        Ok(tatum_client) => {
+                            info!("✅ Created Tatum client for {}", endpoint.url);
+                            tatum_clients.insert(endpoint.url.clone(), tatum_client);
+                        }
+                        Err(e) => {
+                            warn!("❌ Failed to create Tatum client for {}: {}", endpoint.url, e);
+                        }
+                    }
+                } else {
+                    warn!("⚠️ No API key found for Tatum endpoint {}", endpoint.url);
+                }
+            }
+        }
+        
         // Initialize health persistence
         let mut health_persistence = RpcHealthPersistence::new("data/rpc_health.json");
         
@@ -309,6 +348,7 @@ impl RpcConnectionPool {
             primary_client,
             backup_clients,
             premium_clients,
+            tatum_clients,  // NEW: Tatum clients with header authentication
             premium_manager: Arc::new(tokio::sync::Mutex::new(premium_manager)),
             connection_semaphore,
             config: pool_config,
@@ -349,6 +389,18 @@ impl RpcConnectionPool {
                     info!("✅ Premium RPC {} is working", i);
                 } else {
                     warn!("⚠️ Premium RPC {} failed connection test", premium_url);
+                }
+            }
+        }
+        
+        // Test Tatum connections (special header-authenticated clients)
+        for (url, tatum_client) in &self.tatum_clients {
+            match tatum_client.test_connection().await {
+                Ok(_) => {
+                    info!("✅ Tatum RPC {} is working with header authentication", Self::sanitize_url_for_logging(url));
+                }
+                Err(e) => {
+                    warn!("⚠️ Tatum RPC {} failed connection test: {}", Self::sanitize_url_for_logging(url), e);
                 }
             }
         }
