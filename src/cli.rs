@@ -1309,7 +1309,8 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  * {} - WebSocket connectivity", "websocket".bright_yellow());
             println!("  * {} - DexScreener API integration", "dexscreener".bright_yellow());
             println!("  * {} - Trade execution", "trade".bright_yellow());
-            println!("  * {} - 🚀 REAL swap execution on DevNet", "swap-real".bright_red().bold());
+            println!("  * {} - � Cache-free trading engine", "cache-free-trading".bright_red().bold());
+            println!("  * {} - �🚀 REAL swap execution on DevNet", "swap-real".bright_red().bold());
             println!("  * {} - Integration flow", "integration".bright_yellow());
             println!("  * {} - Performance testing", "performance".bright_yellow());
         }
