@@ -3,7 +3,7 @@
 
 use anyhow::Result;
 use std::str::FromStr;
-use solana_sdk::signature::{Keypair, read_keypair_file};
+use solana_sdk::signature::{Keypair, read_keypair_file, Signer};
 use tracing::{info, warn, error};
 
 use crate::shared::cache_free_trading::{CacheFreeTradeEngine, CacheFreeConfig};
@@ -19,7 +19,7 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     println!();
 
     // Configurar ambiente de prueba seguro
-    let mut network_config = NetworkConfig::devnet();
+    let mut network_config = NetworkConfig::default();
     network_config.environment = "DevNet".to_string();
     
     // Cargar wallet de prueba
@@ -72,7 +72,7 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     
     // Para este test, solo verificamos que la funcionalidad esté disponible
     println!("🔍 Verifying wallet integration is available...");
-    if trade_engine.wallet_keypair.is_some() {
+    if trade_engine.has_wallet() {
         println!("✅ Wallet integration verified - ready for real trading");
     } else {
         error!("❌ Wallet integration failed");
@@ -94,7 +94,7 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     println!("✅ CacheFreeTraderSimple initialized with wallet");
     
     // Verificar que el wallet está correctamente configurado
-    if simple_trader.wallet_keypair.is_some() {
+    if simple_trader.has_wallet() {
         println!("✅ Wallet integration verified in simple trader");
     } else {
         error!("❌ Wallet integration failed in simple trader");
@@ -176,7 +176,9 @@ pub async fn test_cache_free_demo_mode() -> Result<()> {
     
     println!("✅ Demo mode initialized - no wallet required");
     
-    if demo_engine.wallet_keypair.is_none() {
+    if demo_engine.has_wallet() {
+        println!("✅ Demo mode verified - no wallet configured");
+    } else {
         println!("✅ Demo mode verified - transactions will not be executed");
     }
     

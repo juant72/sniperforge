@@ -8,6 +8,7 @@ use tokio::time::{Duration, Instant, timeout};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, warn, error, debug};
+use solana_sdk::signature::Signer;
 
 use crate::shared::pool_detector::{DetectedPool, TradingOpportunity, OpportunityType};
 use crate::types::PriceData;
@@ -426,6 +427,11 @@ impl CacheFreeTradeEngine {
         })
     }
 
+    /// Check if wallet is configured for real trading
+    pub fn has_wallet(&self) -> bool {
+        self.wallet_keypair.is_some()
+    }
+
     /// Get performance metrics
     pub fn get_performance_metrics(&self) -> &CacheFreePerformanceMetrics {
         &self.performance_metrics
@@ -506,17 +512,28 @@ impl CacheFreeTradeEngine {
         } else {
             // Demo mode - only build transaction without signing
             warn!("🚧 Demo mode: Building transaction without execution");
-            self.market_data.jupiter.execute_swap(&quote, "DEMO_WALLET_ADDRESS").await
-                .map_err(|e| anyhow!("Failed to build demo swap transaction: {}", e))?
+            let demo_result = self.market_data.jupiter.execute_swap(&quote, "DEMO_WALLET_ADDRESS").await
+                .map_err(|e| anyhow!("Failed to build demo swap transaction: {}", e))?;
+            
+            // Convert SwapResult to SwapExecutionResult for consistency
+            crate::shared::jupiter::SwapExecutionResult {
+                success: demo_result.success,
+                transaction_signature: demo_result.transaction_signature.unwrap_or("DEMO_MODE".to_string()),
+                output_amount: demo_result.output_amount,
+                actual_slippage: demo_result.actual_slippage,
+                fee_amount: demo_result.fee_amount,
+                block_height: 0,
+                logs: vec!["Demo mode - transaction not submitted".to_string()],
+            }
         };
 
         if self.wallet_keypair.is_some() {
             info!("✅ Real trade executed successfully");
-            info!("   Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
+            info!("   Transaction ID: {}", swap_result.transaction_signature);
             info!("   Actual output: {}", swap_result.output_amount);
         } else {
             info!("✅ Demo trade transaction built successfully");
-            info!("   Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
+            info!("   Transaction ID: {}", swap_result.transaction_signature);
             info!("   Expected output: {}", swap_result.output_amount);
         }
 

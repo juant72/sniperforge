@@ -5,6 +5,7 @@
 use anyhow::{Result, anyhow};
 use std::time::{Duration, Instant};
 use tracing::{info, warn, error, debug};
+use solana_sdk::signature::Signer;
 
 /// Configuración básica para trading sin caché
 #[derive(Debug, Clone)]
@@ -212,7 +213,7 @@ impl CacheFreeTraderSimple {
         
         // En implementación real, esto llamaría a:
         // jupiter_client.disable_cache().await?;
-        // syndica_client.disable_cache_completely().await?;
+        // syndica_client.disable_cache_completamente().await?;
         
         Ok(())
     }
@@ -255,7 +256,7 @@ impl CacheFreeTraderSimple {
             match jupiter.execute_swap_with_wallet(&quote, &wallet_address, Some(keypair)).await {
                 Ok(result) => {
                     info!("✅ Real swap executed successfully!");
-                    info!("   Transaction ID: {}", result.transaction_signature.unwrap_or("None".to_string()));
+                    info!("   Transaction ID: {}", result.transaction_signature);
                     info!("   Actual output: {}", result.output_amount);
                     true
                 },
@@ -279,6 +280,11 @@ impl CacheFreeTraderSimple {
             output_price: output_price.price,
             latency: input_price.timestamp.elapsed() + output_price.timestamp.elapsed(),
         })
+    }
+
+    /// Check if wallet is configured for real trading
+    pub fn has_wallet(&self) -> bool {
+        self.wallet_keypair.is_some()
     }
 }
 
