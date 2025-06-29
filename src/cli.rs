@@ -1688,26 +1688,26 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         } else {
             "config/devnet.toml"
         };
-        
-        let mut config = Config::load(config_file)?;
-        
-        // Override network environment to ensure consistency
+            "config/mainnet.toml"
+        } else {config = Config::load(config_file)?;
+            "config/devnet.toml"
+        }; Override network environment to ensure consistency
         config.network.environment = network.to_string();
-        
+        let mut config = Config::load(config_file)?;
         // Get network-specific RPC endpoint
+        // Override network environment to ensure consistency
+        config.network.environment = network.to_string(); } else { "DevNet" };
+        
+        // Get network-specific RPC endpointork_name.bright_green(), rpc_endpoint);
         let rpc_endpoint = config.network.primary_rpc();
-        let network_name = if is_mainnet { "Mainnet Beta" } else { "DevNet" };
+        let network_name = if is_mainnet { "Mainnet Beta" } else { "DevNet" };t.to_string());
         
         println!("🌐 Using {} RPC: {}", network_name.bright_green(), rpc_endpoint);
-        
-        let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
-        
-        match rpc_client.get_balance(&pubkey) {
             Ok(balance_lamports) => {
-                let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
+        let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
                 println!("💰 Balance: {} SOL ({} lamports)", 
-                         balance_sol.to_string().bright_green().bold(), 
-                         balance_lamports.to_string().bright_yellow());
+        match rpc_client.get_balance(&pubkey) {).bright_green().bold(), 
+            Ok(balance_lamports) => {orts.to_string().bright_yellow());
                 
                 if is_mainnet {
                     if balance_sol >= 0.01 {

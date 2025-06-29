@@ -106,15 +106,13 @@ impl CacheFreeTraderSimple {
     /// Fetch price directly from Jupiter API (no cache)
     async fn fetch_jupiter_price_direct(&self, token_mint: &str) -> Result<f64> {
         // Use Jupiter client to get fresh price
-        let jupiter = crate::shared::jupiter::Jupiter::new()?;
+        let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
+        let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
         
-        match jupiter.get_price(token_mint).await {
-            Ok(Some(price)) => {
-                info!("✅ Retrieved fresh Jupiter price: ${:.6}", price);
-                Ok(price)
-            },
-            Ok(None) => {
-                Err(anyhow::anyhow!("No price data available from Jupiter for {}", token_mint))
+        match jupiter.get_token_price(token_mint).await {
+            Ok(token_price) => {
+                info!("✅ Retrieved fresh Jupiter price: ${:.6}", token_price.price);
+                Ok(token_price.price)
             },
             Err(e) => {
                 Err(anyhow::anyhow!("Jupiter API error: {}", e))
@@ -158,17 +156,17 @@ impl CacheFreeTraderSimple {
             
             // Use real trading engine for actual execution
             match self.execute_real_swap_internal(input_token, output_token, amount, &input, &output).await {
-                Ok(result) => result,
+                Ok(result) => Ok(result),
                 Err(e) => {
                     error!("❌ Real swap execution failed: {}", e);
-                    SwapResult {
+                    Ok(SwapResult {
                         success: false,
                         input_amount: amount,
                         output_amount: 0,
                         input_price: input.price,
                         output_price: output.price,
                         latency: age_input + age_output,
-                    }
+                    })
                 }
             }
         } else {
@@ -203,18 +201,14 @@ impl CacheFreeTraderSimple {
         info!("🔥 Executing REAL swap internally...");
         
         // Create Jupiter instance
-        let jupiter = crate::shared::jupiter::Jupiter::new()?;
+        let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
+        let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
         
-        // Create quote request
-        let quote_request = crate::shared::jupiter::QuoteRequest {
-            inputMint: input_token.to_string(),
-            outputMint: output_token.to_string(),
-            amount,
-            slippageBps: 300, // 3% max slippage
-        };
+        // Convert amount to SOL for Jupiter API
+        let amount_sol = amount as f64 / 1_000_000_000.0;
         
         // Get quote from Jupiter
-        let quote = jupiter.get_quote(quote_request).await?;
+        let quote = jupiter.get_quote(input_token, output_token, amount_sol, 300).await?;
         
         info!("✅ Jupiter quote received:");
         info!("   Input: {} lamports", quote.inAmount);

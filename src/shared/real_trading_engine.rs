@@ -15,8 +15,9 @@ use solana_sdk::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::shared::jupiter::{Jupiter, QuoteRequest, QuoteResponse};
-use crate::shared::rpc_pool::RpcPool;
+use crate::shared::jupiter::{Jupiter, JupiterConfig, QuoteRequest, QuoteResponse};
+use crate::shared::rpc_pool::RpcConnectionPool;
+use crate::types::Priority;
 
 /// Configuration for real trading execution
 #[derive(Debug, Clone)]
@@ -72,7 +73,7 @@ pub struct QuoteValidation {
 pub struct RealTradingEngine {
     config: RealTradingConfig,
     jupiter: Jupiter,
-    rpc_pool: RpcPool,
+    rpc_pool: RpcConnectionPool,
     wallet_keypair: Keypair,
 }
 
@@ -81,7 +82,7 @@ impl RealTradingEngine {
     pub async fn new(
         config: RealTradingConfig,
         wallet_keypair: Keypair,
-        rpc_pool: RpcPool,
+        rpc_pool: RpcConnectionPool,
     ) -> Result<Self> {
         info!("🔥 Initializing Real Trading Engine");
         info!("   Max slippage: {}bps ({}%)", config.max_slippage_bps, config.max_slippage_bps as f64 / 100.0);
@@ -89,7 +90,8 @@ impl RealTradingEngine {
         info!("   Min SOL balance: {} SOL", config.min_sol_balance);
         info!("   Max trade amount: ${}", config.max_trade_amount_usd);
         
-        let jupiter = Jupiter::new()?;
+        let jupiter_config = JupiterConfig::default();
+        let jupiter = Jupiter::new(&jupiter_config).await?;
         
         Ok(Self {
             config,
@@ -111,14 +113,14 @@ impl RealTradingEngine {
         let mut validation_errors = Vec::new();
         
         // Step 1: Get quote from Jupiter
-        let quote_request = QuoteRequest {
-            inputMint: input_mint.to_string(),
-            outputMint: output_mint.to_string(),
-            amount,
-            slippageBps: self.config.max_slippage_bps,
-        };
-
-        let quote = match self.jupiter.get_quote(quote_request).await {
+        let amount_sol = amount as f64 / 1_000_000_000.0; // Convert lamports to SOL
+        
+        let quote = match self.jupiter.get_quote(
+            input_mint,
+            output_mint, 
+            amount_sol,
+            self.config.max_slippage_bps
+        ).await {
             Ok(quote) => {
                 info!("✅ Quote received: {} {} -> {} {}", 
                       quote.inAmount, input_mint, quote.outAmount, output_mint);
@@ -278,8 +280,8 @@ impl RealTradingEngine {
 
     /// Check wallet SOL balance
     async fn check_wallet_balance(&self) -> Result<f64> {
-        let rpc_client = self.rpc_pool.get_fastest_healthy_client().await?;
-        let balance = rpc_client.get_balance(&self.wallet_keypair.pubkey())?;
+        let rpc_handle = self.rpc_pool.get_client(Priority::High).await?;
+        let balance = rpc_handle.client().get_balance(&self.wallet_keypair.pubkey())?;
         let sol_balance = balance as f64 / 1_000_000_000.0; // Convert lamports to SOL
         
         debug!("💰 Wallet balance: {} SOL", sol_balance);
@@ -289,8 +291,8 @@ impl RealTradingEngine {
     /// Sign and send transaction to network
     async fn sign_and_send_transaction(&self, mut transaction: VersionedTransaction) -> Result<String> {
         // Get recent blockhash
-        let rpc_client = self.rpc_pool.get_fastest_healthy_client().await?;
-        let recent_blockhash = rpc_client.get_latest_blockhash()?;
+        let rpc_handle = self.rpc_pool.get_client(Priority::High).await?;
+        let recent_blockhash = rpc_handle.client().get_latest_blockhash()?;
         
         // Update transaction with fresh blockhash
         if let Some(legacy_message) = transaction.message.as_legacy_message() {
@@ -302,7 +304,7 @@ impl RealTradingEngine {
         transaction.sign(&[&self.wallet_keypair], recent_blockhash)?;
         
         // Send transaction with commitment level
-        let signature = rpc_client.send_and_confirm_transaction_with_spinner_and_commitment(
+        let signature = rpc_handle.client().send_and_confirm_transaction_with_spinner_and_commitment(
             &transaction.into(),
             CommitmentConfig::confirmed()
         )?;
@@ -383,7 +385,8 @@ pub async fn test_real_trading_engine() -> Result<()> {
     println!("Wallet address: {}", wallet_keypair.pubkey());
     
     // Initialize RPC pool
-    let rpc_pool = RpcPool::new_devnet().await?;
+    let config = crate::Config::load_environment_config().await?;
+    let rpc_pool = RpcConnectionPool::new(&config).await?;
     
     // Create trading engine
     let config = RealTradingConfig::default();
