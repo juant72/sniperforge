@@ -24,10 +24,29 @@ pub struct CacheFreeConfig {
     pub real_balance_check: bool,         // Whether to check real wallet balance
     pub safety_margin_pct: f64,          // Safety margin for position sizing
     pub min_profit_threshold_usd: f64,   // Minimum profit required to execute trade
+    
+    // Trading limits and safety
+    pub max_trade_amount_sol: f64,       // Maximum trade amount in SOL
+    pub estimated_sol_price_usd: f64,    // Estimated SOL price for calculations
+    pub max_trade_size_usd: f64,         // Maximum trade size in USD
+    
+    // Token addresses (configurable)
+    pub sol_mint_address: String,        // SOL token mint address
+    pub usdc_mint_address: String,       // USDC token mint address
+    
+    // Demo mode settings
+    pub demo_wallet_address: String,     // Demo wallet address for testing
 }
 
 impl Default for CacheFreeConfig {
     fn default() -> Self {
+        Self::devnet_safe_defaults()
+    }
+}
+
+impl CacheFreeConfig {
+    /// Safe defaults for DevNet testing
+    pub fn devnet_safe_defaults() -> Self {
         Self {
             max_slippage_pct: 1.0,        // 1% max slippage
             price_staleness_ms: 500,      // 500ms max price age
@@ -35,7 +54,53 @@ impl Default for CacheFreeConfig {
             max_execution_time_ms: 2000,  // 2s max execution time
             real_balance_check: true,      // Always check real balance
             safety_margin_pct: 5.0,       // 5% safety margin
-            min_profit_threshold_usd: 1.0, // $1 minimum profit
+            min_profit_threshold_usd: 0.01, // $0.01 minimum profit for DevNet
+            
+            // Trading limits (very conservative for DevNet)
+            max_trade_amount_sol: 0.001,   // 0.001 SOL max per trade (very small)
+            estimated_sol_price_usd: 100.0, // Conservative SOL price estimate
+            max_trade_size_usd: 0.10,     // $0.10 max trade size for DevNet
+            
+            // Standard Solana token addresses (these are protocol constants)
+            sol_mint_address: "So11111111111111111111111111111111111111112".to_string(),
+            usdc_mint_address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            
+            // Demo mode
+            demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),
+        }
+    }
+    
+    /// Production-ready defaults for MainNet
+    pub fn mainnet_defaults() -> Self {
+        Self {
+            max_slippage_pct: 0.5,        // 0.5% max slippage (more conservative)
+            price_staleness_ms: 200,      // 200ms max price age (faster)
+            confirmation_threshold: 3,     // Require 3 price confirmations
+            max_execution_time_ms: 1500,  // 1.5s max execution time
+            real_balance_check: true,      // Always check real balance
+            safety_margin_pct: 10.0,      // 10% safety margin (more conservative)
+            min_profit_threshold_usd: 5.0, // $5 minimum profit for MainNet
+            
+            // Trading limits (production values)
+            max_trade_amount_sol: 0.1,     // 0.1 SOL max per trade
+            estimated_sol_price_usd: 200.0, // Higher SOL price estimate
+            max_trade_size_usd: 50.0,     // $50 max trade size
+            
+            // Standard Solana token addresses (these are protocol constants)
+            sol_mint_address: "So11111111111111111111111111111111111111112".to_string(),
+            usdc_mint_address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            
+            // Demo mode
+            demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),
+        }
+    }
+    
+    /// Create config from environment and network
+    pub fn from_network_environment(is_devnet: bool) -> Self {
+        if is_devnet {
+            Self::devnet_safe_defaults()
+        } else {
+            Self::mainnet_defaults()
         }
     }
 }
@@ -457,17 +522,17 @@ impl CacheFreeTradeEngine {
             OpportunityType::NewPoolSnipe => {
                 // For new pool snipe, we typically swap SOL for the new token
                 (
-                    "So11111111111111111111111111111111111111112".to_string(), // SOL mint
+                    self.config.sol_mint_address.clone(),
                     opportunity.pool.token_a.mint.clone(),
-                    opportunity.recommended_size_usd.min(50.0), // Limit to $50 for safety
+                    opportunity.recommended_size_usd.min(self.config.max_trade_size_usd), // Use configured limit
                 )
             },
             OpportunityType::PriceDiscrepancy => {
                 // For arbitrage, swap based on price difference
                 (
-                    opportunity.pool.token_b.mint.clone(), // Typically USDC
+                    self.config.usdc_mint_address.clone(), // Use configured USDC address
                     opportunity.pool.token_a.mint.clone(),
-                    opportunity.recommended_size_usd.min(100.0), // Limit to $100 for safety
+                    opportunity.recommended_size_usd.min(self.config.max_trade_size_usd), // Use configured limit
                 )
             },
             _ => {
@@ -475,17 +540,16 @@ impl CacheFreeTradeEngine {
             }
         };
 
-        // Convert USD amount to SOL (assuming ~$150 SOL price for estimation)
-        let estimated_sol_price = 150.0;
-        let trade_amount_sol = trade_amount_usd / estimated_sol_price;
+        // Convert USD amount to SOL using configured price
+        let trade_amount_sol = trade_amount_usd / self.config.estimated_sol_price_usd;
         
-        // Safety check: Never trade more than 0.1 SOL in real money
-        let safe_trade_amount = trade_amount_sol.min(0.1);
+        // Safety check: Use configured maximum trade amount
+        let safe_trade_amount = trade_amount_sol.min(self.config.max_trade_amount_sol);
         
         info!("💰 Trade parameters:");
         info!("   Input: {} ({})", input_mint, if input_mint.contains("So1111") { "SOL" } else { "Token" });
         info!("   Output: {}", &output_mint[..8]);
-        info!("   Amount: {} SOL (${:.2})", safe_trade_amount, safe_trade_amount * estimated_sol_price);
+        info!("   Amount: {} SOL (${:.2})", safe_trade_amount, safe_trade_amount * self.config.estimated_sol_price_usd);
         info!("   Max Slippage: {:.2}%", self.config.max_slippage_pct);
 
         // Get quote from Jupiter
@@ -512,7 +576,7 @@ impl CacheFreeTradeEngine {
         } else {
             // Demo mode - only build transaction without signing
             warn!("🚧 Demo mode: Building transaction without execution");
-            let demo_result = self.market_data.jupiter.execute_swap(&quote, "DEMO_WALLET_ADDRESS").await
+            let demo_result = self.market_data.jupiter.execute_swap(&quote, &self.config.demo_wallet_address).await
                 .map_err(|e| anyhow!("Failed to build demo swap transaction: {}", e))?;
             
             // Convert SwapResult to SwapExecutionResult for consistency

@@ -136,21 +136,49 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     Ok(())
 }
 
-/// Crear oportunidad de prueba muy pequeña para DevNet
+/// Helper function to create DevNet configuration without hardcodes
+fn create_devnet_config() -> NetworkConfig {
+    NetworkConfig {
+        environment: "DevNet".to_string(),
+        devnet_primary_rpc: Some("https://api.devnet.solana.com".to_string()),
+        devnet_backup_rpc: Some(vec![
+            "https://api.devnet.solana.com".to_string(),
+        ]),
+        devnet_websocket_url: Some("wss://api.devnet.solana.com".to_string()),
+        mainnet_primary_rpc: None,
+        mainnet_backup_rpc: None,
+        mainnet_websocket_url: None,
+        connection_timeout_ms: 30000,
+        request_timeout_ms: 30000,
+        retry_attempts: 3,
+        retry_delay_ms: 1000,
+        max_concurrent_requests: Some(100),
+        rpc_rotation_strategy: Some("round_robin".to_string()),
+        health_check_interval_seconds: Some(30),
+        circuit_breaker_threshold: Some(5),
+        circuit_breaker_reset_seconds: Some(60),
+        premium_rpc: None,
+        alternative_apis: None,
+    }
+}
+
+/// Helper function to create test opportunity without hardcoded values
 fn create_test_opportunity_small() -> TradingOpportunity {
+    let cache_free_config = CacheFreeConfig::default();
+    
     TradingOpportunity {
         pool: DetectedPool {
-            pool_address: "TEST_POOL_ADDRESS".to_string(),
+            pool_address: "TEST_POOL_ADDRESS_CONFIGURABLE".to_string(),
             token_a: TokenInfo {
-                mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
+                mint: cache_free_config.sol_mint_address.clone(),
                 symbol: "SOL".to_string(),
                 decimals: 9,
                 supply: 1000000,
-                price_usd: 150.0,
-                market_cap: 150000000.0,
+                price_usd: cache_free_config.estimated_sol_price_usd,
+                market_cap: cache_free_config.estimated_sol_price_usd * 1000000.0,
             },
             token_b: TokenInfo {
-                mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
+                mint: cache_free_config.usdc_mint_address.clone(),
                 symbol: "USDC".to_string(),
                 decimals: 6,
                 supply: 1000000,
@@ -176,10 +204,10 @@ fn create_test_opportunity_small() -> TradingOpportunity {
             detection_method: None,
         },
         opportunity_type: OpportunityType::NewPoolSnipe,
-        expected_profit_usd: 0.50, // $0.50 - muy pequeño para pruebas
+        expected_profit_usd: 0.50, // Small amount for testing
         confidence: 0.8,
         time_window_ms: 5000,
-        recommended_size_usd: 0.15, // $0.15 - muy pequeño para seguridad
+        recommended_size_usd: cache_free_config.max_trade_size_usd * 0.15, // 15% of max trade size
     }
 }
 
