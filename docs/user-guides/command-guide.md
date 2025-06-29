@@ -1,8 +1,8 @@
 # 📚 SNIPERFORGE CLI - GUÍA COMPLETA DE COMANDOS
 
-**Versión**: 0.1.0 (Sprint 1 + Fases 6A/6B/6C)  
-**Fecha**: Junio 27, 2025  
-**Estado**: Sprint 1 Completado ✅ + Comandos Avanzados ML/Portfolio - SELECCIÓN DE RED OBLIGATORIA
+**Versión**: 0.1.0 (Sprint 1 + Fases 6A/6B/6C + Tatum Integration)  
+**Fecha**: Junio 29, 2025  
+**Estado**: Sprint 1 Completado ✅ + Comandos Avanzados ML/Portfolio + RPC Premium 100% ✅
 
 ## 🔥 **CAMBIO CRÍTICO DE SEGURIDAD**
 
@@ -13,6 +13,23 @@ A partir de esta versión, **NO HAY VALORES POR DEFECTO** para la red. Debes esp
 - `--network mainnet` - Para operaciones en Mainnet (DINERO REAL)
 
 **Esto previene ejecuciones accidentales en la red incorrecta.**
+
+## 🌟 **NUEVOS COMANDOS - INTEGRACIÓN TATUM (Junio 29, 2025)**
+
+### RPC Testing Comprehensivo
+```bash
+# Test completo de todos los métodos RPC
+cargo run --bin test_all_rpc_methods
+
+# Test específico de Tatum
+cargo run --bin sniperforge -- test tatum
+
+# Test básico con todos los endpoints
+cargo run --bin sniperforge -- test basic --network devnet
+cargo run --bin sniperforge -- test basic --network mainnet
+```
+
+**Estado**: ✅ **100% FUNCIONAL** - Todos los endpoints RPC verificados
 
 ## ℹ️ **AYUDA DISPONIBLE**
 
@@ -202,6 +219,39 @@ cargo run --bin sniperforge wallet export test-wallet.json --output mi-export.tx
 
 ## 🧪 COMANDOS TEST
 
+### 🌟 **NUEVOS TESTS RPC - TATUM INTEGRATION (June 29, 2025)**
+
+#### `test_all_rpc_methods` - Test Comprehensivo de RPC
+```bash
+cargo run --bin test_all_rpc_methods
+```
+
+**Descripción**: Test exhaustivo de todos los métodos RPC en ambas redes (devnet y mainnet)
+**Estado**: ✅ **100% Funcional** - Todos los endpoints verificados
+
+**Métodos Testados**:
+- `getSlot` - Obtener slot actual
+- `getLatestBlockhash` - Obtener último blockhash
+- `getAccountInfo` - Información de cuentas
+- `getBalance` - Balance de cuentas
+
+**Resultados Esperados**:
+- **Devnet**: 4/4 tests passed (100% success rate)
+- **Mainnet**: 4/4 tests passed (100% success rate)
+
+#### `test tatum` - Test Específico de Tatum
+```bash
+cargo run --bin sniperforge -- test tatum
+```
+
+**Descripción**: Test dedicado para endpoints Tatum con autenticación de header
+**Estado**: ✅ **100% Funcional** - Header authentication working
+
+**Características**:
+- Autenticación con `x-api-key` header
+- Test de mainnet y devnet por separado
+- Verificación de conectividad específica de Tatum
+
 ### `test all` - Ejecutar Todos los Tests
 ```bash
 cargo run --bin sniperforge test all --network <NETWORK>
@@ -227,6 +277,14 @@ cargo run --bin sniperforge test basic --network <NETWORK>
 ```
 
 **Descripción**: Tests básicos de conectividad en la red especificada
+**Estado**: ✅ **Actualizado** - Incluye Tatum endpoints
+
+**Incluye**:
+- Conectividad Solana RPC
+- Jupiter API integration
+- WebSocket connectivity
+- DexScreener API integration
+- **Tatum RPC integration** (Nuevo)
 
 **Ejemplos**:
 ```bash
@@ -240,6 +298,7 @@ cargo run --bin sniperforge test solana --network <NETWORK>
 ```
 
 **Descripción**: Tests de conectividad RPC de Solana
+**Estado**: ✅ **Mejorado** - Sin errores falsos
 
 **Ejemplos**:
 ```bash
