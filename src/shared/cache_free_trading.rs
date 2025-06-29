@@ -274,6 +274,7 @@ pub struct CacheFreeTradeEngine {
     market_data: RealTimeMarketData,
     active_trades: HashMap<String, CacheFreeTradeResult>,
     performance_metrics: CacheFreePerformanceMetrics,
+    wallet_keypair: Option<solana_sdk::signature::Keypair>,
 }
 
 impl CacheFreeTradeEngine {
@@ -285,6 +286,23 @@ impl CacheFreeTradeEngine {
             market_data,
             active_trades: HashMap::new(),
             performance_metrics: CacheFreePerformanceMetrics::new(),
+            wallet_keypair: None,
+        })
+    }
+
+    /// Initialize with wallet keypair for real trading
+    pub async fn new_with_wallet(
+        config: CacheFreeConfig, 
+        wallet_keypair: solana_sdk::signature::Keypair
+    ) -> Result<Self> {
+        let market_data = RealTimeMarketData::new(config.clone()).await?;
+        
+        Ok(Self {
+            config,
+            market_data,
+            active_trades: HashMap::new(),
+            performance_metrics: CacheFreePerformanceMetrics::new(),
+            wallet_keypair: Some(wallet_keypair),
         })
     }
 
@@ -477,14 +495,30 @@ impl CacheFreeTradeEngine {
         info!("   Expected output: {}", quote.out_amount);
         info!("   Price impact: {:.4}%", quote.price_impact_pct);
 
-        // For now, we'll just build the transaction without executing it
-        // This is the bridge between cache-free trading and real execution
-        let swap_result = self.market_data.jupiter.execute_swap(&quote, "DEMO_WALLET_ADDRESS").await
-            .map_err(|e| anyhow!("Failed to build swap transaction: {}", e))?;
+        // Execute trade with real wallet integration
+        let swap_result = if let Some(ref keypair) = self.wallet_keypair {
+            // Real trading with wallet integration
+            let wallet_address = keypair.pubkey().to_string();
+            info!("🔐 Executing REAL trade with wallet: {}...", &wallet_address[..8]);
+            
+            self.market_data.jupiter.execute_swap_with_wallet(&quote, &wallet_address, Some(keypair)).await
+                .map_err(|e| anyhow!("Failed to execute real swap: {}", e))?
+        } else {
+            // Demo mode - only build transaction without signing
+            warn!("🚧 Demo mode: Building transaction without execution");
+            self.market_data.jupiter.execute_swap(&quote, "DEMO_WALLET_ADDRESS").await
+                .map_err(|e| anyhow!("Failed to build demo swap transaction: {}", e))?
+        };
 
-        info!("✅ Trade transaction built successfully");
-        info!("   Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
-        info!("   Expected output: {}", swap_result.output_amount);
+        if self.wallet_keypair.is_some() {
+            info!("✅ Real trade executed successfully");
+            info!("   Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
+            info!("   Actual output: {}", swap_result.output_amount);
+        } else {
+            info!("✅ Demo trade transaction built successfully");
+            info!("   Transaction ID: {}", swap_result.transaction_signature.unwrap_or("None".to_string()));
+            info!("   Expected output: {}", swap_result.output_amount);
+        }
 
         // Calculate real metrics
         let execution_time_ms = 1500; // Typical execution time

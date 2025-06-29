@@ -26,6 +26,7 @@ pub mod mainnet_trading;           // Phase 5B: MainNet real trading with minima
 pub mod transaction_monitor;     // Transaction monitoring for trading safety
 pub mod real_trading_engine;       // NEW: Real trading execution engine with Jupiter integration
 pub mod cache_free_trader_simple;   // Simplified cache-free trading
+pub mod test_wallet_integration;    // NEW: Test real wallet integration
 
 use anyhow::Result;
 use std::sync::Arc;

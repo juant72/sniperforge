@@ -52,6 +52,7 @@ pub struct SwapResult {
 pub struct CacheFreeTraderSimple {
     config: TradingSafetyConfig,
     network_config: crate::config::NetworkConfig,
+    wallet_keypair: Option<solana_sdk::signature::Keypair>,
 }
 
 impl CacheFreeTraderSimple {
@@ -66,6 +67,27 @@ impl CacheFreeTraderSimple {
         Ok(Self { 
             config,
             network_config: network_config.clone(),
+            wallet_keypair: None,
+        })
+    }
+
+    /// Crear nuevo trader sin caché con wallet para trading real
+    pub async fn new_with_wallet(
+        config: TradingSafetyConfig, 
+        network_config: &crate::config::NetworkConfig,
+        wallet_keypair: solana_sdk::signature::Keypair
+    ) -> Result<Self> {
+        info!("🛡️ Initializing Cache-Free Trading Engine with REAL WALLET");
+        info!("   Max price age: {}ms", config.max_price_age_ms);
+        info!("   Fresh data timeout: {}ms", config.fresh_data_timeout_ms);
+        info!("   Network: {}", network_config.environment);
+        info!("   RPC Endpoint: {}", network_config.primary_rpc());
+        info!("   Wallet: {}...", wallet_keypair.pubkey().to_string()[..8]);
+        
+        Ok(Self { 
+            config,
+            network_config: network_config.clone(),
+            wallet_keypair: Some(wallet_keypair),
         })
     }
 
@@ -224,13 +246,33 @@ impl CacheFreeTraderSimple {
         // Calculate actual output amount
         let output_amount: u64 = quote.outAmount.parse().unwrap_or(0);
         
-        // For now, we return the quote data without actually executing
-        // In production, this would call jupiter.execute_swap_with_wallet()
-        warn!("🚧 Transaction building successful, but not signed/sent (safety mode)");
-        warn!("    To enable real execution, provide wallet keypair");
+        // Execute trade with real wallet integration if available
+        let swap_executed = if let Some(ref keypair) = self.wallet_keypair {
+            // Real trading with wallet integration
+            let wallet_address = keypair.pubkey().to_string();
+            info!("🔐 Executing REAL swap with wallet: {}...", &wallet_address[..8]);
+            
+            match jupiter.execute_swap_with_wallet(&quote, &wallet_address, Some(keypair)).await {
+                Ok(result) => {
+                    info!("✅ Real swap executed successfully!");
+                    info!("   Transaction ID: {}", result.transaction_signature.unwrap_or("None".to_string()));
+                    info!("   Actual output: {}", result.output_amount);
+                    true
+                },
+                Err(e) => {
+                    error!("❌ Real swap execution failed: {}", e);
+                    return Err(anyhow!("Swap execution failed: {}", e));
+                }
+            }
+        } else {
+            // Demo mode - only build transaction without signing
+            warn!("🚧 Demo mode: Building transaction without execution");
+            warn!("    To enable real execution, use new_with_wallet()");
+            false
+        };
         
         Ok(SwapResult {
-            success: true,
+            success: swap_executed,
             input_amount: amount,
             output_amount,
             input_price: input_price.price,
