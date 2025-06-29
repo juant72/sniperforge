@@ -21,7 +21,8 @@ use crate::types::{HealthStatus, Priority};
 use crate::shared::alternative_apis::AlternativeApiManager;
 use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 use crate::shared::premium_rpc_manager::PremiumRpcManager;
-use crate::shared::tatum_client::TatumRpcWrapper;
+use crate::shared::tatum_rpc_client::TatumRpcClient;
+use crate::shared::tatum_rpc_client::TatumRpcClient;
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -128,7 +129,7 @@ pub struct RpcConnectionPool {
     primary_client: Arc<RpcClient>,
     backup_clients: Vec<Arc<RpcClient>>,
     premium_clients: Vec<Arc<RpcClient>>,  // NEW: Premium RPC clients
-    tatum_clients: std::collections::HashMap<String, TatumRpcWrapper>,  // NEW: Tatum clients with header auth
+    tatum_clients: Vec<Arc<TatumRpcClient>>,  // NEW: Tatum clients with header auth
     premium_manager: Arc<tokio::sync::Mutex<PremiumRpcManager>>,  // NEW: Premium RPC manager
     connection_semaphore: Arc<Semaphore>,
     config: RpcPoolConfig,
@@ -141,6 +142,7 @@ pub struct RpcConnectionPool {
     primary_url: String,
     backup_urls: Vec<String>,
     premium_urls: Vec<String>,  // NEW: Premium URLs
+    tatum_urls: Vec<String>,    // NEW: Tatum URLs
 }
 
 #[derive(Debug, Clone)]
@@ -252,7 +254,8 @@ impl RpcConnectionPool {
         }
         
         // Create Tatum clients with header authentication
-        let mut tatum_clients = std::collections::HashMap::new();
+        let mut tatum_clients = Vec::new();
+        let mut tatum_urls = Vec::new();
         
         // Check for Tatum endpoints in premium URLs and create special clients for them
         let premium_manager_ref = &premium_manager;
@@ -273,10 +276,11 @@ impl RpcConnectionPool {
                 };
                 
                 if let Some(api_key) = api_key {
-                    match TatumRpcWrapper::new(endpoint.url.clone(), api_key) {
+                    match TatumRpcClient::new(endpoint.url.clone(), api_key) {
                         Ok(tatum_client) => {
                             info!("✅ Created Tatum client for {}", endpoint.url);
-                            tatum_clients.insert(endpoint.url.clone(), tatum_client);
+                            tatum_clients.push(Arc::new(tatum_client));
+                            tatum_urls.push(endpoint.url.clone());
                         }
                         Err(e) => {
                             warn!("❌ Failed to create Tatum client for {}: {}", endpoint.url, e);
@@ -360,6 +364,7 @@ impl RpcConnectionPool {
             primary_url,
             backup_urls,
             premium_urls,
+            tatum_urls,
         })
     }
     
@@ -394,13 +399,15 @@ impl RpcConnectionPool {
         }
         
         // Test Tatum connections (special header-authenticated clients)
-        for (url, tatum_client) in &self.tatum_clients {
-            match tatum_client.test_connection().await {
-                Ok(_) => {
-                    info!("✅ Tatum RPC {} is working with header authentication", Self::sanitize_url_for_logging(url));
-                }
-                Err(e) => {
-                    warn!("⚠️ Tatum RPC {} failed connection test: {}", Self::sanitize_url_for_logging(url), e);
+        for (i, tatum_client) in self.tatum_clients.iter().enumerate() {
+            if let Some(tatum_url) = self.tatum_urls.get(i) {
+                match tatum_client.test_connection().await {
+                    Ok(_) => {
+                        info!("✅ Tatum RPC {} is working with header authentication", Self::sanitize_url_for_logging(tatum_url));
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Tatum RPC {} failed connection test: {}", Self::sanitize_url_for_logging(tatum_url), e);
+                    }
                 }
             }
         }

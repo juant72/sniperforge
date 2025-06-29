@@ -375,4 +375,29 @@ impl PremiumRpcManager {
         
         format!("Premium endpoints: {}", providers.join(", "))
     }
+    
+    /// Get Tatum client configurations for custom HTTP client creation
+    pub fn get_tatum_configs(&self) -> Vec<(String, String)> {
+        self.endpoints
+            .iter()
+            .filter(|e| e.provider == "Tatum")
+            .map(|e| (e.url.clone(), "tatum".to_string()))
+            .collect()
+    }
+    
+    /// Get API key for Tatum based on endpoint URL
+    pub fn get_tatum_api_key(endpoint_url: &str) -> Option<String> {
+        use std::env;
+        
+        if endpoint_url.contains("mainnet") {
+            env::var("TATUM_API_KEY_MAINNET").ok()
+        } else if endpoint_url.contains("devnet") {
+            env::var("TATUM_API_KEY_DEVNET").ok()
+        } else {
+            // Try mainnet first, then devnet
+            env::var("TATUM_API_KEY_MAINNET")
+                .or_else(|_| env::var("TATUM_API_KEY_DEVNET"))
+                .ok()
+        }
+    }
 }
