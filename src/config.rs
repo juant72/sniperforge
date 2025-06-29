@@ -2,6 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use crate::shared::cache_free_trading::CacheFreeConfig;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -17,6 +18,7 @@ pub struct Config {
     pub performance: PerformanceConfig,
     pub pool_detection: Option<PoolDetectionConfig>, // New for Phase 5B
     pub trading_session: Option<TradingSessionConfig>, // New for Phase 5B
+    pub cache_free_trading: Option<CacheFreeConfig>, // New for cache-free trading engine
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -297,6 +299,14 @@ pub struct TradingSessionConfig {
     pub default_max_trade: Option<f64>,
     pub default_daily_limit: Option<f64>,
     pub default_duration_minutes: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CacheFreeConfig {
+    pub enabled: bool,
+    pub max_concurrent_orders: usize,
+    pub order_expiration_minutes: usize,
+    pub slippage_tolerance: f64,
 }
 
 impl Config {
@@ -582,6 +592,7 @@ impl Default for Config {
                 },            }),
             pool_detection: None, // Will be loaded from config file
             trading_session: None, // Will be loaded from config file
+            cache_free_trading: None, // Will be loaded from config file
         }
     }
 }

@@ -14,6 +14,15 @@ use crate::shared::pool_detector::{DetectedPool, TradingOpportunity, Opportunity
 use crate::types::PriceData;
 use crate::shared::jupiter::{Jupiter, JupiterConfig};
 
+/// Constants for Solana protocol token addresses (these are protocol constants, not hardcodes)
+pub const SOL_MINT_ADDRESS: &str = "So11111111111111111111111111111111111111112";
+pub const USDC_MINT_ADDRESS: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+pub const USDT_MINT_ADDRESS: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+
+/// System program address (Solana protocol constant)
+pub const SYSTEM_PROGRAM_ADDRESS: &str = "11111111111111111111111111111112";
+pub const TOKEN_PROGRAM_ADDRESS: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+
 /// Cache-free trading configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheFreeConfig {
@@ -62,8 +71,8 @@ impl CacheFreeConfig {
             max_trade_size_usd: 0.10,     // $0.10 max trade size for DevNet
             
             // Standard Solana token addresses (these are protocol constants)
-            sol_mint_address: "So11111111111111111111111111111111111111112".to_string(),
-            usdc_mint_address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            sol_mint_address: SOL_MINT_ADDRESS.to_string(),
+            usdc_mint_address: USDC_MINT_ADDRESS.to_string(),
             
             // Demo mode
             demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),
@@ -87,8 +96,8 @@ impl CacheFreeConfig {
             max_trade_size_usd: 50.0,     // $50 max trade size
             
             // Standard Solana token addresses (these are protocol constants)
-            sol_mint_address: "So11111111111111111111111111111111111111112".to_string(),
-            usdc_mint_address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            sol_mint_address: SOL_MINT_ADDRESS.to_string(),
+            usdc_mint_address: USDC_MINT_ADDRESS.to_string(),
             
             // Demo mode
             demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),

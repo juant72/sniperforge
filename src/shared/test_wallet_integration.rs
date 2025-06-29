@@ -11,15 +11,9 @@ use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafe
 use crate::shared::pool_detector::{TradingOpportunity, OpportunityType, DetectedPool, TokenInfo, RiskScore};
 use crate::config::NetworkConfig;
 
-/// Test de trading real con wallet integration - DevNet SOLAMENTE
-pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
-    println!("🚀 TESTING CACHE-FREE REAL TRADING INTEGRATION");
-    println!("=================================================");
-    println!("⚠️  TESTING ON DEVNET ONLY - NO REAL MONEY");
-    println!();
-
-    // Configurar ambiente de prueba seguro
-    let network_config = NetworkConfig {
+/// Helper function to create DevNet test configuration
+fn create_devnet_test_config() -> NetworkConfig {
+    NetworkConfig {
         environment: "devnet".to_string(),
         devnet_primary_rpc: Some("https://api.devnet.solana.com".to_string()),
         devnet_backup_rpc: None,
@@ -38,7 +32,18 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
         circuit_breaker_reset_seconds: None,
         premium_rpc: None,
         alternative_apis: None,
-    };
+    }
+}
+
+/// Test de trading real con wallet integration - DevNet SOLAMENTE
+pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
+    println!("🚀 TESTING CACHE-FREE REAL TRADING INTEGRATION");
+    println!("=================================================");
+    println!("⚠️  TESTING ON DEVNET ONLY - NO REAL MONEY");
+    println!();
+
+    // Configurar ambiente de prueba seguro (usar configuración por defecto de DevNet)
+    let network_config = create_devnet_test_config();
     
     // Cargar wallet de prueba
     let wallet_path = "test-wallet.json";
@@ -65,7 +70,7 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     println!("--------------------------------------------");
     
     // Test 1: Cache-free trade engine con wallet
-    let cache_free_config = CacheFreeConfig::default();
+    let cache_free_config = CacheFreeConfig::devnet_safe_defaults();
     let mut trade_engine = CacheFreeTradeEngine::new_with_wallet(
         cache_free_config,
         keypair.insecure_clone()
@@ -164,7 +169,7 @@ fn create_devnet_config() -> NetworkConfig {
 
 /// Helper function to create test opportunity without hardcoded values
 fn create_test_opportunity_small() -> TradingOpportunity {
-    let cache_free_config = CacheFreeConfig::default();
+    let cache_free_config = CacheFreeConfig::devnet_safe_defaults();
     
     TradingOpportunity {
         pool: DetectedPool {
@@ -185,9 +190,9 @@ fn create_test_opportunity_small() -> TradingOpportunity {
                 price_usd: 1.0,
                 market_cap: 1000000.0,
             },
-            liquidity_usd: 50000.0,
+            liquidity_usd: cache_free_config.max_trade_size_usd * 500.0, // 500x max trade size for safe testing
             price_impact_1k: 0.1,
-            volume_24h: 10000.0,
+            volume_24h: cache_free_config.max_trade_size_usd * 100.0,   // 100x max trade size
             created_at: chrono::Utc::now().timestamp() as u64,
             detected_at: chrono::Utc::now().timestamp() as u64,
             dex: "Raydium".to_string(),
@@ -204,7 +209,7 @@ fn create_test_opportunity_small() -> TradingOpportunity {
             detection_method: None,
         },
         opportunity_type: OpportunityType::NewPoolSnipe,
-        expected_profit_usd: 0.50, // Small amount for testing
+        expected_profit_usd: cache_free_config.min_profit_threshold_usd * 2.0, // 2x minimum threshold
         confidence: 0.8,
         time_window_ms: 5000,
         recommended_size_usd: cache_free_config.max_trade_size_usd * 0.15, // 15% of max trade size
@@ -217,7 +222,7 @@ pub async fn test_cache_free_demo_mode() -> Result<()> {
     println!("===========================================");
     
     // Test sin wallet - modo demo
-    let config = CacheFreeConfig::default();
+    let config = CacheFreeConfig::devnet_safe_defaults();
     let mut demo_engine = CacheFreeTradeEngine::new(config).await?;
     
     println!("✅ Demo mode initialized - no wallet required");
