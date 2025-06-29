@@ -1,23 +1,38 @@
 # 🚀 SniperForge - Automated Solana Trading Bot
 
-**Estado**: ✅ Sprint 1 Completado - Sistema con datos reales operativo  
-**Fecha**: Junio 27, 2025  
+**Estado**: ✅ Cache-Free Trading Engine Implementado - Sistema Listo para Producción  
+**Fecha**: Junio 29, 2025  
 **Versión**: 0.1.0
 
-## 🛡️ CAMBIOS CRÍTICOS DE SEGURIDAD - VERSIÓN ACTUAL
+## 🛡️ NUEVAS CARACTERÍSTICAS - CACHE-FREE TRADING ENGINE
 
-**⚠️ ATENCIÓN: SELECCIÓN EXPLÍCITA DE RED AHORA OBLIGATORIA**
+**🔥 NUEVO: Motor de Trading Sin Caché con Seguridad Ultra-Estricta**
 
-A partir de esta versión, **TODOS** los comandos principales requieren especificar `--network devnet` o `--network mainnet` explícitamente. **No hay valores por defecto** para prevenir ejecuciones accidentales en la red incorrecta.
+Se ha implementado un motor de trading completamente libre de caché con validaciones de seguridad extremas:
 
-**Ejemplo de comando actualizado**:
+### ✅ Características Principales:
+- **🛡️ Ultra-strict validation**: Datos de precio máximo 50ms de antigüedad
+- **🚫 Zero cache**: Sin caché en Jupiter API, WebSocket, ni feeds de precio
+- **🔄 Fresh data only**: Cada operación usa datos completamente frescos
+- **🌐 Multi-network**: Soporte completo DevNet y MainNet
+
+### 🚀 Comando Principal:
 ```bash
-# ✅ CORRECTO - especificación explícita
-cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet.json --confirm
+# ✅ DevNet - Trading sin caché
+cargo run --bin sniperforge test cache-free-trading --network devnet
 
-# ❌ YA NO FUNCIONA - fallará con error
-cargo run --bin sniperforge test swap-real --wallet test-wallet.json --confirm
+# ✅ MainNet - Trading sin caché  
+cargo run --bin sniperforge test cache-free-trading --network mainnet
+
+# ❌ Falla sin --network (comportamiento esperado)
+cargo run --bin sniperforge test cache-free-trading
 ```
+
+## 🛡️ SEGURIDAD Y REQUISITOS DE RED
+
+**⚠️ SELECCIÓN EXPLÍCITA DE RED OBLIGATORIA**
+
+Todos los comandos principales requieren especificar `--network devnet` o `--network mainnet` explícitamente para máxima seguridad.
 
 ## 📚 Documentación
 
