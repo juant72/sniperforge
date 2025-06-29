@@ -51,16 +51,20 @@ pub struct SwapResult {
 /// Trading Engine simplificado sin caché
 pub struct CacheFreeTraderSimple {
     config: TradingSafetyConfig,
+    network_config: crate::config::NetworkConfig,
 }
 
 impl CacheFreeTraderSimple {
     /// Crear nuevo trader sin caché
-    pub async fn new(config: TradingSafetyConfig) -> Result<Self> {
+    pub async fn new(config: TradingSafetyConfig, network_config: &crate::config::NetworkConfig) -> Result<Self> {
         info!("🛡️ Initializing Cache-Free Trading Engine (Simplified)");
         info!("   Max price age: {}ms", config.max_price_age_ms);
         info!("   Fresh data timeout: {}ms", config.fresh_data_timeout_ms);
         
-        Ok(Self { config })
+        Ok(Self { 
+            config,
+            network_config: network_config.clone(),
+        })
     }
 
     /// Obtener precio fresco sin caché - IMPLEMENTACIÓN REAL
@@ -105,8 +109,8 @@ impl CacheFreeTraderSimple {
     
     /// Fetch price directly from Jupiter API (no cache)
     async fn fetch_jupiter_price_direct(&self, token_mint: &str) -> Result<f64> {
-        // Use Jupiter client to get fresh price
-        let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
+        // Use Jupiter client with network-specific configuration
+        let jupiter_config = crate::shared::jupiter::JupiterConfig::from_network_config(&self.network_config);
         let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
         
         match jupiter.get_token_price(token_mint).await {
@@ -235,12 +239,20 @@ impl CacheFreeTraderSimple {
 }
 
 /// Test function para el trading sin caché
-pub async fn test_cache_free_trading() -> Result<()> {
+pub async fn test_cache_free_trading(network: &str) -> Result<()> {
     println!("🛡️ CACHE-FREE TRADING TEST");
     println!("============================");
     
-    let config = TradingSafetyConfig::default();
-    let trader = CacheFreeTraderSimple::new(config).await?;
+    // Load network-specific configuration
+    let config_file = match network {
+        "devnet" => "config/devnet.toml",
+        "mainnet" => "config/mainnet.toml",
+        _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
+    };
+    
+    let platform_config = crate::Config::load(config_file)?;
+    let trading_config = TradingSafetyConfig::default();
+    let trader = CacheFreeTraderSimple::new(trading_config, &platform_config.network).await?;
     
     // Test 1: Disable all caching
     println!("\n1️⃣ Disabling all caching mechanisms...");

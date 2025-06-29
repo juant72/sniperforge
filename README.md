@@ -250,14 +250,14 @@ sniperforge list-bots                # List all bots
 sniperforge bot-status <bot-id>      # Bot details
 
 # Testing & Validation
-sniperforge test all                 # All system tests
-sniperforge test basic              # Basic connectivity
-sniperforge test solana             # Solana RPC test
-sniperforge test cache-free-trading # 🔥 Cache-free trading engine
-sniperforge test swap-real          # 🚀 REAL swap execution (DevNet)
-sniperforge test websocket          # WebSocket connectivity
-sniperforge test dexscreener        # DexScreener API test
-sniperforge interactive             # Interactive mode
+sniperforge test all --network devnet                 # All system tests
+sniperforge test basic --network devnet               # Basic connectivity
+sniperforge test solana --network devnet              # Solana RPC test
+sniperforge test cache-free-trading --network devnet  # 🔥 Cache-free trading engine
+sniperforge test swap-real --network devnet           # 🚀 REAL swap execution (DevNet)
+sniperforge test websocket --network devnet           # WebSocket connectivity
+sniperforge test dexscreener                          # DexScreener API test
+sniperforge interactive --network devnet              # Interactive mode
 ```
 
 ## 🛡️ Security Features
