@@ -83,7 +83,7 @@ impl CacheFreeTraderSimple {
         info!("   Fresh data timeout: {}ms", config.fresh_data_timeout_ms);
         info!("   Network: {}", network_config.environment);
         info!("   RPC Endpoint: {}", network_config.primary_rpc());
-        info!("   Wallet: {}...", wallet_keypair.pubkey().to_string()[..8]);
+        info!("   Wallet: {}...", &wallet_keypair.pubkey().to_string()[..8]);
         
         Ok(Self { 
             config,

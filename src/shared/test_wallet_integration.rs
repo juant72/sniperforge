@@ -19,8 +19,26 @@ pub async fn test_cache_free_real_trading_devnet() -> Result<()> {
     println!();
 
     // Configurar ambiente de prueba seguro
-    let mut network_config = NetworkConfig::default();
-    network_config.environment = "DevNet".to_string();
+    let network_config = NetworkConfig {
+        environment: "devnet".to_string(),
+        devnet_primary_rpc: Some("https://api.devnet.solana.com".to_string()),
+        devnet_backup_rpc: None,
+        devnet_websocket_url: Some("wss://api.devnet.solana.com".to_string()),
+        mainnet_primary_rpc: None,
+        mainnet_backup_rpc: None,
+        mainnet_websocket_url: None,
+        connection_timeout_ms: 30000,
+        request_timeout_ms: 10000,
+        retry_attempts: 3,
+        retry_delay_ms: 1000,
+        max_concurrent_requests: None,
+        rpc_rotation_strategy: None,
+        health_check_interval_seconds: None,
+        circuit_breaker_threshold: None,
+        circuit_breaker_reset_seconds: None,
+        premium_rpc: None,
+        alternative_apis: None,
+    };
     
     // Cargar wallet de prueba
     let wallet_path = "test-wallet.json";
