@@ -49,6 +49,21 @@ cargo run --bin sniperforge wallet airdrop --network devnet test-nueva.json
 
 ---
 
+## 🛡️ VERIFICACIÓN CACHE-FREE TRADING
+
+```powershell
+# 1. SIMULACIÓN BÁSICA (SEGURO)
+cargo run --bin sniperforge test cache-free-trading --network devnet
+
+# 2. CON WALLET REAL DEVNET (requiere SOL DevNet)
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet-new.json
+
+# 3. CON WALLET REAL MAINNET (¡CUIDADO! - Solo para testing)
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-validation-wallet.json
+```
+
+---
+
 ## 🧪 VERIFICACIÓN SPRINT 1 - SWAP REAL
 
 ```powershell

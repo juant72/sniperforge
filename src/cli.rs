@@ -444,7 +444,7 @@ pub async fn run_cli() -> Result<()> {
                     .after_help("Test Tatum RPC endpoints with header authentication for mainnet and devnet"))
                 .subcommand(Command::new("cache-free-trading")
                     .about("🔥 Test Cache-Free Trading Engine")
-                    .after_help("Test the cache-free trading engine with real Jupiter API integration and fresh price fetching")
+                    .after_help("Test the cache-free trading engine with real Jupiter API integration and fresh price fetching. Use --wallet for real wallet integration testing.")
                     .arg(
                         Arg::new("network")
                             .long("network")
@@ -452,6 +452,13 @@ pub async fn run_cli() -> Result<()> {
                             .help("Network to test cache-free trading on: devnet or mainnet")
                             .required(true)
                             .value_parser(["devnet", "mainnet"])
+                    )
+                    .arg(
+                        Arg::new("wallet")
+                            .long("wallet")
+                            .value_name("WALLET_FILE")
+                            .help("Optional: Path to wallet keypair JSON file for real wallet integration testing")
+                            .required(false)
                     ))
         )
         .subcommand(Command::new("interactive")
@@ -1504,18 +1511,38 @@ async fn handle_test_cache_free_command(matches: &ArgMatches) -> Result<()> {
     let network = matches.get_one::<String>("network")
         .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
     
+    let wallet_path = matches.get_one::<String>("wallet");
+    
     println!("{}", "[TEST] Testing Cache-Free Trading Engine".bright_blue().bold());
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
     
-    // Call the cache-free trading test function with network parameter
-    match test_cache_free_trading(network).await {
-        Ok(_) => {
-            println!("\n{}", "[SUCCESS] Cache-free trading test completed successfully!".bright_green().bold());
+    if let Some(wallet) = wallet_path {
+        println!("💳 Wallet: {}", wallet.bright_cyan());
+        println!("🔥 Mode: Real Wallet Integration Test");
+        
+        // Call the real wallet integration test function
+        match test_cache_free_real_trading_with_wallet(network, wallet).await {
+            Ok(_) => {
+                println!("\n{}", "[SUCCESS] Cache-free wallet integration test completed successfully!".bright_green().bold());
+            }
+            Err(e) => {
+                println!("\n{}", format!("[ERROR] Cache-free wallet integration test failed: {}", e).bright_red().bold());
+                return Err(e);
+            }
         }
-        Err(e) => {
-            println!("\n{}", format!("[ERROR] Cache-free trading test failed: {}", e).bright_red().bold());
-            return Err(e);
+    } else {
+        println!("🔥 Mode: Price Testing (No Wallet)");
+        
+        // Call the existing cache-free trading test function
+        match test_cache_free_trading(network).await {
+            Ok(_) => {
+                println!("\n{}", "[SUCCESS] Cache-free trading test completed successfully!".bright_green().bold());
+            }
+            Err(e) => {
+                println!("\n{}", format!("[ERROR] Cache-free trading test failed: {}", e).bright_red().bold());
+                return Err(e);
+            }
         }
     }
     

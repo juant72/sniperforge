@@ -10,13 +10,22 @@ The Cache-Free Trading Engine is an ultra-secure trading system designed for hig
 
 ## 🚀 Quick Start
 
-### Basic Command
+### Basic Command (Simulation Mode)
 ```bash
-# Test cache-free trading on DevNet
+# Test cache-free trading on DevNet (simulation only)
 cargo run --bin sniperforge test cache-free-trading --network devnet
 
-# Test cache-free trading on MainNet  
+# Test cache-free trading on MainNet (simulation only)
 cargo run --bin sniperforge test cache-free-trading --network mainnet
+```
+
+### Real Wallet Integration
+```bash
+# Test cache-free trading with real wallet on DevNet
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet.json
+
+# Test cache-free trading with real wallet on MainNet
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-wallet.json
 ```
 
 ### Expected Output
@@ -109,13 +118,20 @@ When you see:
 
 ## 🧪 Testing Scenarios
 
-### Test 1: Basic Connectivity
+### Test 1: Basic Connectivity (Simulation Mode)
 ```bash
 cargo run --bin sniperforge test cache-free-trading --network devnet
 ```
 **Expected**: Fresh prices fetched, safety validation triggers
 
-### Test 2: Network Switching
+### Test 2: Real Wallet Integration
+```bash
+# Test with real wallet on DevNet
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet.json
+```
+**Expected**: Real wallet loaded, balance checked, real trading validation
+
+### Test 3: Network Switching
 ```bash
 # Test DevNet
 cargo run --bin sniperforge test cache-free-trading --network devnet
@@ -125,7 +141,7 @@ cargo run --bin sniperforge test cache-free-trading --network mainnet
 ```
 **Expected**: Different RPC endpoints used correctly
 
-### Test 3: Error Handling
+### Test 4: Error Handling
 ```bash
 # Missing network parameter
 cargo run --bin sniperforge test cache-free-trading
