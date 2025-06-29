@@ -24,6 +24,8 @@ pub mod real_time_trading;         // Phase 5A: Real-time trading with live bloc
 pub mod alternative_apis;          // NEW: Alternative API sources for resilience
 pub mod mainnet_trading;           // Phase 5B: MainNet real trading with minimal capital
 pub mod transaction_monitor;     // Transaction monitoring for trading safety
+pub mod real_trading_engine;       // NEW: Real trading execution engine with Jupiter integration
+pub mod cache_free_trader_simple;   // Simplified cache-free trading
 
 use anyhow::Result;
 use std::sync::Arc;

@@ -1289,6 +1289,8 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("tatum", _)) => handle_test_tatum_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
+        Some(("cache-free", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
+        Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
         // Some(("performance", _)) => handle_test_performance_command().await?,
         _ => {
@@ -1391,8 +1393,6 @@ async fn handle_test_websocket_command(matches: &ArgMatches) -> Result<()> {
 
 async fn handle_test_basic_command(matches: &ArgMatches) -> Result<()> {
     let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
-    
     println!("{}", "[TEST] Running Basic Connectivity Tests".bright_blue().bold());
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
