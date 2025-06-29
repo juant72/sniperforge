@@ -1,8 +1,8 @@
 # 📚 SNIPERFORGE CLI - GUÍA COMPLETA DE COMANDOS
 
-**Versión**: 0.1.0 (Sprint 1 + Fases 6A/6B/6C + Tatum Integration)  
+**Versión**: 0.1.0 (Sprint 1 + Fases 6A/6B/6C + Tatum Integration + Cache-Free Trading)  
 **Fecha**: Junio 29, 2025  
-**Estado**: Sprint 1 Completado ✅ + Comandos Avanzados ML/Portfolio + RPC Premium 100% ✅
+**Estado**: Sprint 1 Completado ✅ + Comandos Avanzados ML/Portfolio + RPC Premium 100% ✅ + Cache-Free Trading 🛡️
 
 ## 🔥 **CAMBIO CRÍTICO DE SEGURIDAD**
 
@@ -351,6 +351,63 @@ cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet
 
 # Swap real Mainnet (¡DINERO REAL!)
 cargo run --bin sniperforge test swap-real --network mainnet --wallet mainnet-validation-wallet.json --amount 0.001 --confirm
+```
+
+### `test cache-free-trading` - 🛡️ CACHE-FREE TRADING ENGINE
+```bash
+cargo run --bin sniperforge test cache-free-trading --network <NETWORK> [OPCIONES]
+```
+
+**Descripción**: **TRADING ENGINE ULTRA-SEGURO** - Sistema de trading sin caché para máxima precisión de precios
+
+**Parámetros Obligatorios**:
+- `--network <NETWORK>` - Red a usar: `devnet` o `mainnet`
+
+**Opciones**:
+- `-w, --wallet <FILE>` - **NUEVO** - Archivo de wallet para integración real (opcional)
+
+**🔥 MODOS DE OPERACIÓN**:
+
+**1. Modo Simulación (Por defecto)**:
+```bash
+# Testing básico sin wallet (ultra-seguro)
+cargo run --bin sniperforge test cache-free-trading --network devnet
+cargo run --bin sniperforge test cache-free-trading --network mainnet
+```
+
+**2. Modo Wallet Real (Nuevo)**:
+```bash
+# Testing con wallet real DevNet
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet-new.json
+
+# Testing con wallet real Mainnet (¡CUIDADO!)
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-wallet.json
+```
+
+**🛡️ CARACTERÍSTICAS ÚNICAS**:
+- **Cache COMPLETAMENTE deshabilitado** - datos ultra-frescos (< 50ms)
+- **Validación de precio en tiempo real** - múltiples fuentes
+- **Límites ultra-conservadores en DevNet** - máximo $0.10 USD
+- **Detección de staleness** - rechaza datos antiguos
+- **Integración de wallet opcional** - sin crear comandos duplicados
+
+**⚠️ MEDIDAS DE SEGURIDAD ESPECÍFICAS**:
+- **DevNet**: Máximo $0.10 USD por trade, mínimo $0.01 USD profit
+- **MainNet**: Configuración de producción con límites apropiados
+- **Price Staleness**: Rechaza precios > 50ms de antigüedad
+- **Real Balance Check**: Verificación de fondos reales si se usa wallet
+- **Error Handling**: Manejo robusto de fallos de API
+
+**Ejemplos**:
+```bash
+# Testing básico cache-free (modo demo)
+cargo run --bin sniperforge test cache-free-trading --network devnet
+
+# Integración real de wallet DevNet
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet-new.json
+
+# Verificación Mainnet con wallet real
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-validation-wallet.json
 ```
 
 ### `test integration` - Tests de Integración
@@ -1153,6 +1210,7 @@ cargo run --bin sniperforge test swap-real --network devnet --confirm
 - `test solana` - Tests Solana RPC
 - `test websocket` - Tests WebSocket
 - `test swap-real` - **SWAP REAL** (comando crítico)
+- `test cache-free-trading` - **CACHE-FREE TRADING** (ultra-seguro)
 - `test integration` - Tests integración
 - `test performance` - Tests performance
 - `interactive` - Modo interactivo
@@ -1429,7 +1487,13 @@ cargo run --bin sniperforge wallet balance --network devnet test-wallet-new.json
 # 4. Test básico de conectividad
 cargo run --bin sniperforge test basic --network devnet
 
-# 5. Ejecutar swap real en DevNet (sin riesgo monetario)
+# 5. Test cache-free trading (modo demo)
+cargo run --bin sniperforge test cache-free-trading --network devnet
+
+# 6. Test cache-free trading con wallet real
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet-new.json
+
+# 7. Ejecutar swap real en DevNet (sin riesgo monetario)
 cargo run --bin sniperforge test swap-real --network devnet --wallet test-wallet-new.json --confirm
 ```
 
@@ -1444,7 +1508,10 @@ cargo run --bin sniperforge wallet balance --network mainnet mainnet-wallet.json
 # 3. Verificar estado del sistema
 cargo run --bin sniperforge status --network mainnet
 
-# 4. Ejecutar swap real pequeño (¡DINERO REAL!)
+# 4. Test cache-free trading con wallet real (¡CUIDADO!)
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-wallet.json
+
+# 5. Ejecutar swap real pequeño (¡DINERO REAL!)
 cargo run --bin sniperforge test swap-real --network mainnet --wallet mainnet-wallet.json --amount 0.001 --confirm
 ```
 
@@ -1525,6 +1592,40 @@ cargo run --bin sniperforge ml optimize-execution --size 1000 --max-slippage 0.5
 # Entrenamiento de modelos ML
 cargo run --bin sniperforge ml train-models --model all --days 30
 ```
+
+### **🛡️ NUEVO: CACHE-FREE TRADING ULTRA-SEGURO**
+
+**Cache-Free Trading Engine** - El sistema de trading más seguro disponible:
+
+```bash
+# Modo demo (sin wallet) - completamente seguro
+cargo run --bin sniperforge test cache-free-trading --network devnet
+cargo run --bin sniperforge test cache-free-trading --network mainnet
+
+# Modo wallet real - integración completa
+cargo run --bin sniperforge test cache-free-trading --network devnet --wallet test-wallet-new.json
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-wallet.json
+```
+
+**🔥 Características únicas**:
+- ✅ **Cache completamente deshabilitado** - datos ultra-frescos (< 50ms)
+- ✅ **Validación en tiempo real** - múltiples fuentes de precios
+- ✅ **Límites ultra-conservadores** - máximo $0.10 USD en DevNet
+- ✅ **Integración de wallet opcional** - sin comandos duplicados
+- ✅ **Error handling robusto** - manejo seguro de fallos
+
+**⚠️ Medidas de seguridad específicas**:
+- **DevNet**: Máximo $0.10 USD por trade, ideal para testing
+- **MainNet**: Configuración de producción con límites apropiados
+- **Price Staleness**: Rechaza automáticamente datos > 50ms
+- **Real Balance Check**: Verificación de fondos antes de trading
+- **Safety Validation**: Múltiples validaciones antes de ejecutar
+
+**Perfecto para**:
+- 🧪 Testing de integración real sin riesgo
+- 🔒 Trading con máxima precisión de precios
+- ⚡ Validación de sistemas de trading en vivo
+- 🛡️ Desarrollo seguro con wallet real
 
 ### **⚠️ RECORDATORIO CRÍTICO**
 - **Siempre especificar `--network devnet` o `--network mainnet`**

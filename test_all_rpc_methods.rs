@@ -1,5 +1,4 @@
 use anyhow::Result;
-use tracing::{info, error};
 use sniperforge::Config;
 use sniperforge::shared::rpc_pool::RpcConnectionPool;
 use solana_sdk::pubkey::Pubkey;

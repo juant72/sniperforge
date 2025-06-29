@@ -7,12 +7,17 @@
 cargo run --bin sniperforge wallet balance mainnet-validation-wallet.json
 ```
 
-### 2️⃣ Ejecutar validación final en Mainnet
+### 2️⃣ Test cache-free trading con wallet real
+```bash
+cargo run --bin sniperforge test cache-free-trading --network mainnet --wallet mainnet-validation-wallet.json
+```
+
+### 3️⃣ Ejecutar validación final en Mainnet
 ```bash
 cargo run --bin sniperforge test swap-real --wallet mainnet-validation-wallet.json --network mainnet --amount 0.001 --confirm
 ```
 
-### 3️⃣ Verificar resultado en Solana Explorer
+### 4️⃣ Verificar resultado en Solana Explorer
 ```bash
 # Visitar: https://explorer.solana.com/address/9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD
 ```
