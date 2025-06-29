@@ -217,13 +217,17 @@ impl RealTradingEngine {
         // Step 2: Get swap transaction from Jupiter
         info!("📝 Getting swap transaction from Jupiter...");
         
-        let swap_transaction = match self.jupiter.get_swap_transaction(&quote, &self.wallet_keypair.pubkey()).await {
-            Ok(tx) => {
-                info!("✅ Swap transaction received");
-                tx
+        let swap_result = match self.jupiter.execute_swap_with_wallet(
+            &quote, 
+            &self.wallet_keypair.pubkey().to_string(),
+            Some(&self.wallet_keypair)
+        ).await {
+            Ok(result) => {
+                info!("✅ Swap transaction executed successfully");
+                result
             },
             Err(e) => {
-                error!("❌ Failed to get swap transaction: {}", e);
+                error!("❌ Failed to execute swap: {}", e);
                 return Ok(RealTradeResult {
                     success: false,
                     transaction_signature: None,
@@ -232,50 +236,25 @@ impl RealTradingEngine {
                     actual_slippage_bps: 0,
                     execution_time: start_time.elapsed(),
                     fees_paid: 0,
-                    error_message: Some(format!("Failed to get swap transaction: {}", e)),
+                    error_message: Some(format!("Failed to execute swap: {}", e)),
                 });
             }
         };
 
-        // Step 3: Sign and send transaction
-        info!("✍️ Signing and sending transaction...");
+        // Return the result from Jupiter execution
+        let execution_time = start_time.elapsed();
+        let output_amount: u64 = quote.outAmount.parse().unwrap_or(0);
         
-        match self.sign_and_send_transaction(swap_transaction).await {
-            Ok(signature) => {
-                let execution_time = start_time.elapsed();
-                let output_amount: u64 = quote.outAmount.parse().unwrap_or(0);
-                
-                info!("✅ Swap executed successfully!");
-                info!("   Transaction: {}", signature);
-                info!("   Input: {} {}", amount, input_mint);
-                info!("   Output: {} {}", output_amount, output_mint);
-                info!("   Execution time: {:?}", execution_time);
-                
-                Ok(RealTradeResult {
-                    success: true,
-                    transaction_signature: Some(signature),
-                    input_amount: amount,
-                    output_amount,
-                    actual_slippage_bps: (validation.price_impact_pct * 100.0) as u16,
-                    execution_time,
-                    fees_paid: validation.estimated_fees,
-                    error_message: None,
-                })
-            },
-            Err(e) => {
-                error!("❌ Failed to send transaction: {}", e);
-                Ok(RealTradeResult {
-                    success: false,
-                    transaction_signature: None,
-                    input_amount: amount,
-                    output_amount: 0,
-                    actual_slippage_bps: 0,
-                    execution_time: start_time.elapsed(),
-                    fees_paid: 0,
-                    error_message: Some(format!("Transaction failed: {}", e)),
-                })
-            }
-        }
+        Ok(RealTradeResult {
+            success: swap_result.success,
+            transaction_signature: Some(swap_result.transaction_signature),
+            input_amount: amount,
+            output_amount,
+            actual_slippage_bps: (swap_result.actual_slippage * 100.0) as u16,
+            execution_time,
+            fees_paid: (swap_result.fee_amount * 1_000_000_000.0) as u64, // Convert SOL to lamports
+            error_message: if swap_result.success { None } else { Some("Swap execution failed".to_string()) },
+        })
     }
 
     /// Check wallet SOL balance
@@ -288,6 +267,8 @@ impl RealTradingEngine {
         Ok(sol_balance)
     }
 
+    // DEPRECATED: This method is no longer needed since Jupiter handles transaction signing
+    /*
     /// Sign and send transaction to network
     async fn sign_and_send_transaction(&self, mut transaction: VersionedTransaction) -> Result<String> {
         // Get recent blockhash
@@ -311,6 +292,7 @@ impl RealTradingEngine {
         
         Ok(signature.to_string())
     }
+    */
 
     /// Get detailed swap information
     pub async fn get_swap_info(
@@ -320,8 +302,8 @@ impl RealTradingEngine {
         amount: u64,
     ) -> Result<SwapInfo> {
         // Get current prices
-        let input_price = self.jupiter.get_price(input_mint).await?.unwrap_or(0.0);
-        let output_price = self.jupiter.get_price(output_mint).await?.unwrap_or(0.0);
+        let input_price = self.jupiter.get_token_price(input_mint).await?.price;
+        let output_price = self.jupiter.get_token_price(output_mint).await?.price;
         
         // Get quote
         let validation = self.validate_quote(input_mint, output_mint, amount).await?;
@@ -385,7 +367,7 @@ pub async fn test_real_trading_engine() -> Result<()> {
     println!("Wallet address: {}", wallet_keypair.pubkey());
     
     // Initialize RPC pool
-    let config = crate::Config::load_environment_config().await?;
+    let config = crate::Config::load("config/devnet.toml")?;
     let rpc_pool = RpcConnectionPool::new(&config).await?;
     
     // Create trading engine

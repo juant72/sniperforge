@@ -734,32 +734,6 @@ impl JupiterClient {
         // Could be optimized with caching, connection pooling, etc.
         self.get_price(mint).await
     }
-
-    /// Get swap transaction from Jupiter (builds but doesn't sign)
-    pub async fn get_swap_transaction(
-        &self, 
-        quote: &QuoteResponse, 
-        wallet_pubkey: &Pubkey
-    ) -> Result<VersionedTransaction> {
-        info!("🔧 Getting swap transaction from Jupiter...");
-        
-        // Build swap transaction using internal method
-        let swap_response = self.build_swap_transaction_internal(quote, &wallet_pubkey.to_string()).await?;
-        
-        // Decode the base64 transaction
-        let transaction_data = general_purpose::STANDARD
-            .decode(&swap_response.swapTransaction)
-            .map_err(|e| anyhow!("Failed to decode Jupiter swap transaction: {}", e))?;
-        
-        // Try to deserialize as VersionedTransaction first
-        let versioned_transaction: VersionedTransaction = bincode::deserialize(&transaction_data)
-            .map_err(|e| anyhow!("Failed to deserialize Jupiter transaction: {}", e))?;
-        
-        info!("✅ Swap transaction received from Jupiter");
-        debug!("Transaction accounts: {:?}", versioned_transaction.message.static_account_keys().len());
-        
-        Ok(versioned_transaction)
-    }
 }
 
 /// Jupiter wrapper implementation
