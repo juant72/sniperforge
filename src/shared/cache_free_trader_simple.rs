@@ -60,6 +60,8 @@ impl CacheFreeTraderSimple {
         info!("🛡️ Initializing Cache-Free Trading Engine (Simplified)");
         info!("   Max price age: {}ms", config.max_price_age_ms);
         info!("   Fresh data timeout: {}ms", config.fresh_data_timeout_ms);
+        info!("   Network: {}", network_config.environment);
+        info!("   RPC Endpoint: {}", network_config.primary_rpc());
         
         Ok(Self { 
             config,

@@ -12,6 +12,7 @@ use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, t
 use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
 use sniperforge::shared::wallet_manager::WalletManager;
 use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
+use sniperforge::shared::real_trading_engine::test_real_trading_engine;
 
 // Phase 6A imports for advanced strategies and analysis
 use sniperforge::strategies::trend_following::TrendFollowingStrategy;
