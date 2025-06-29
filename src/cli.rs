@@ -1722,6 +1722,9 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         
         let keypair = match std::fs::read_to_string(wallet_file) {
             Ok(wallet_data) => {
+                // Parse as JSON array (Solana keypair format)
+                match serde_json::from_str::<Vec<u8>>(&wallet_data) {
+                    Ok(key_bytes) => {
                         match Keypair::from_bytes(&key_bytes) {
                             Ok(kp) => {
                                 println!("✅ Wallet loaded successfully");
