@@ -22,7 +22,6 @@ use crate::shared::alternative_apis::AlternativeApiManager;
 use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 use crate::shared::premium_rpc_manager::PremiumRpcManager;
 use crate::shared::tatum_rpc_client::TatumRpcClient;
-use crate::shared::tatum_rpc_client::TatumRpcClient;
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -257,38 +256,25 @@ impl RpcConnectionPool {
         let mut tatum_clients = Vec::new();
         let mut tatum_urls = Vec::new();
         
-        // Check for Tatum endpoints in premium URLs and create special clients for them
-        let premium_manager_ref = &premium_manager;
-        for endpoint in &premium_manager_ref.endpoints {
-            if endpoint.provider == "Tatum" {
-                info!("🔑 Setting up Tatum client with header authentication for {}", endpoint.url);
-                
-                // Determine which API key to use
-                let api_key = if endpoint.url.contains("mainnet") {
-                    std::env::var("TATUM_API_KEY_MAINNET").ok()
-                } else if endpoint.url.contains("devnet") {
-                    std::env::var("TATUM_API_KEY_DEVNET").ok()
-                } else {
-                    // Try both mainnet and devnet keys
-                    std::env::var("TATUM_API_KEY_MAINNET")
-                        .or_else(|_| std::env::var("TATUM_API_KEY_DEVNET"))
-                        .ok()
-                };
-                
-                if let Some(api_key) = api_key {
-                    match TatumRpcClient::new(endpoint.url.clone(), api_key) {
-                        Ok(tatum_client) => {
-                            info!("✅ Created Tatum client for {}", endpoint.url);
-                            tatum_clients.push(Arc::new(tatum_client));
-                            tatum_urls.push(endpoint.url.clone());
-                        }
-                        Err(e) => {
-                            warn!("❌ Failed to create Tatum client for {}: {}", endpoint.url, e);
-                        }
+        // Get Tatum configurations from premium manager
+        let tatum_configs = premium_manager.get_tatum_configs();
+        for (url, _provider) in tatum_configs {
+            info!("🔑 Setting up Tatum client with header authentication for {}", url);
+            
+            // Get the appropriate API key for this endpoint
+            if let Some(api_key) = PremiumRpcManager::get_tatum_api_key(&url) {
+                match TatumRpcClient::new(url.clone(), api_key) {
+                    Ok(tatum_client) => {
+                        info!("✅ Created Tatum client for {}", url);
+                        tatum_clients.push(Arc::new(tatum_client));
+                        tatum_urls.push(url.clone());
                     }
-                } else {
-                    warn!("⚠️ No API key found for Tatum endpoint {}", endpoint.url);
+                    Err(e) => {
+                        warn!("❌ Failed to create Tatum client for {}: {}", url, e);
+                    }
                 }
+            } else {
+                warn!("⚠️ No API key found for Tatum endpoint {}", url);
             }
         }
         
@@ -864,27 +850,6 @@ impl RpcConnectionPool {
         
         // Return empty for now - in practice, use alternative_apis.get_raydium_pools()
         Ok(Vec::new())
-    }
-        
-        let raydium_pools = self.get_raydium_pools().await?;
-        let mut new_pools = Vec::new();
-        
-        for (pubkey, account) in raydium_pools {
-            // Basic validation - in a real implementation, you'd parse the account data
-            // to extract pool information like liquidity, token pairs, creation time, etc.
-            if account.lamports > 0 && !account.data.is_empty() {
-                debug!("📊 Found potential pool: {}", pubkey);
-                new_pools.push(pubkey);
-                
-                // Limit to prevent spam - remove this in production
-                if new_pools.len() >= 5 {
-                    break;
-                }
-            }
-        }
-        
-        info!("🎯 Found {} potential Raydium pools", new_pools.len());
-        Ok(new_pools)
     }
     
     /// Validate if a pool meets our trading criteria

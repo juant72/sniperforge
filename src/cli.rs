@@ -7,7 +7,7 @@ use solana_sdk::signer::{Signer, keypair::Keypair};
 use solana_sdk::pubkey::Pubkey;
 use chrono::{DateTime, Utc, Duration};
 
-use sniperforge::{Config, SniperForgePlatform, solana_testing, dexscreener_testing};
+use sniperforge::{Config, SniperForgePlatform, solana_testing, dexscreener_testing, tatum_testing};
 use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
 use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
 use sniperforge::shared::wallet_manager::WalletManager;
@@ -437,6 +437,9 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("dexscreener")
                     .about("Test DexScreener API integration")
                     .after_help("Test integration with DexScreener API for token pool detection and market data"))
+                .subcommand(Command::new("tatum")
+                    .about("Test Tatum RPC integration")
+                    .after_help("Test Tatum RPC endpoints with header authentication for mainnet and devnet"))
         )
         .subcommand(Command::new("interactive")
             .about("Interactive monitoring mode")
@@ -1283,6 +1286,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         // Some(("wallet", _)) => handle_test_wallet_command().await?,
         Some(("websocket", sub_matches)) => handle_test_websocket_command(sub_matches).await?,
         Some(("dexscreener", _)) => handle_test_dexscreener_command().await?,
+        Some(("tatum", _)) => handle_test_tatum_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
@@ -1467,6 +1471,16 @@ async fn handle_test_dexscreener_command() -> Result<()> {
     dexscreener_testing::test_dexscreener_integration().await?;
     
     println!("\n{}", "[SUCCESS] DexScreener API test completed!".bright_green().bold());
+    Ok(())
+}
+
+async fn handle_test_tatum_command() -> Result<()> {
+    println!("{}", "[TEST] Testing Tatum RPC Integration".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
+    
+    tatum_testing::test_tatum_connectivity().await?;
+    
+    println!("\n{}", "[SUCCESS] Tatum RPC test completed!".bright_green().bold());
     Ok(())
 }
 

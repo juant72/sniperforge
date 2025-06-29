@@ -263,7 +263,7 @@ impl PremiumRpcManager {
                 api_keys.get("tatum_mainnet").or_else(|| api_keys.get("tatum_devnet"))
             };
             
-            if let Some(api_key) = api_key {
+            if let Some(_api_key) = api_key {
                 let priority = Self::get_priority(config, "tatum");
                 let max_rps = Self::get_max_requests_per_second(config, "tatum");
                 
