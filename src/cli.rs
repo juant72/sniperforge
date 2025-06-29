@@ -440,6 +440,9 @@ pub async fn run_cli() -> Result<()> {
                 .subcommand(Command::new("tatum")
                     .about("Test Tatum RPC integration")
                     .after_help("Test Tatum RPC endpoints with header authentication for mainnet and devnet"))
+                .subcommand(Command::new("cache-free-trading")
+                    .about("🔥 Test Cache-Free Trading Engine")
+                    .after_help("Test the cache-free trading engine with real Jupiter API integration and fresh price fetching"))
         )
         .subcommand(Command::new("interactive")
             .about("Interactive monitoring mode")
@@ -1289,8 +1292,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("tatum", _)) => handle_test_tatum_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
-        // TODO: Implement cache-free trading test
-        // Some(("cache-free", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
+        Some(("cache-free-trading", _)) => handle_test_cache_free_command().await?,
         // TODO: Implement real trading test  
         // Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
