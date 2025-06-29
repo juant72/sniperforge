@@ -13,6 +13,7 @@ use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMo
 use sniperforge::shared::wallet_manager::WalletManager;
 use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
 use sniperforge::shared::real_trading_engine::test_real_trading_engine;
+use sniperforge::shared::test_wallet_integration::test_cache_free_real_trading_with_wallet;
 
 // Phase 6A imports for advanced strategies and analysis
 use sniperforge::strategies::trend_following::TrendFollowingStrategy;

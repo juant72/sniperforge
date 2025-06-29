@@ -182,7 +182,7 @@ pub async fn test_cache_free_real_trading_with_wallet(network: &str, wallet_path
     println!("🔧 Trading configuration:");
     println!("   Max trade size: ${:.4}", cache_free_config.max_trade_size_usd);
     println!("   Min profit threshold: ${:.4}", cache_free_config.min_profit_threshold_usd);
-    println!("   Safety mode: {}", cache_free_config.safety_mode_enabled);
+    println!("   Real balance check: {}", cache_free_config.real_balance_check);
 
     // Inicializar engine con wallet real
     let mut trading_engine = CacheFreeTradeEngine::new_with_wallet(
