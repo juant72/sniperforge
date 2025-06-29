@@ -12,6 +12,7 @@ pub mod trade_executor;
 pub mod risk_manager;
 pub mod automated_trader;
 pub mod performance_tracker;
+pub mod performance_profiler;    // NEW: Sprint 2 performance profiling
 pub mod websocket_manager;
 pub mod websocket_price_feed;
 pub mod syndica_websocket;

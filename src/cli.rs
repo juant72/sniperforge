@@ -14,6 +14,8 @@ use sniperforge::shared::wallet_manager::WalletManager;
 use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
 use sniperforge::shared::real_trading_engine::test_real_trading_engine;
 use sniperforge::shared::test_wallet_integration::test_cache_free_real_trading_with_wallet;
+// Sprint 2 Performance Optimization imports
+use sniperforge::shared::performance_profiler::{PerformanceProfiler, get_performance_profiler};
 
 // Phase 6A imports for advanced strategies and analysis
 use sniperforge::strategies::trend_following::TrendFollowingStrategy;
@@ -1720,8 +1722,6 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         
         let keypair = match std::fs::read_to_string(wallet_file) {
             Ok(wallet_data) => {
-                match serde_json::from_str::<Vec<u8>>(&wallet_data) {
-                    Ok(key_bytes) => {
                         match Keypair::from_bytes(&key_bytes) {
                             Ok(kp) => {
                                 println!("✅ Wallet loaded successfully");
