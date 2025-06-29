@@ -20,12 +20,8 @@ devnet_primary_rpc = "https://api.devnet.solana.com"
 
 # Backup endpoints for devnet (alternative endpoints for redundancy)
 devnet_backup_rpc = [
-    # Tatum provides reliable devnet access
-    "https://solana-devnet.gateway.tatum.io",
-    
-    # Alternative: Use premium endpoints when API keys are configured
-    # - Helius devnet (often free): https://devnet.helius-rpc.com/?api-key=YOUR_KEY
-    # - Alchemy devnet: https://solana-devnet.g.alchemy.com/v2/YOUR_KEY
+    # Alternative public endpoints (when premium endpoints are not available)
+    # Note: Tatum is now configured as a premium endpoint with API key authentication
 ]
 devnet_websocket_url = "wss://api.devnet.solana.com"
 
@@ -44,7 +40,7 @@ retry_delay_ms = 1000
 # - TATUM_API_KEY_DEVNET=your_tatum_devnet_api_key_here
 
 [network.premium_rpc]
-enabled = false  # Set to true when API keys are configured
+enabled = true  # Set to true when API keys are configured
 
 # Premium devnet endpoints (will be used if API keys are available)
 helius_rpc_template = "https://devnet.helius-rpc.com/?api-key={API_KEY}"

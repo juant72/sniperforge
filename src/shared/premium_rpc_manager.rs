@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::collections::HashMap;
 use std::env;
-use tracing::{info, warn, error};
+use tracing::{info, warn, error, debug};
 
 use crate::config::{NetworkConfig, PremiumRpcConfig, EndpointPriority};
 
@@ -247,41 +247,56 @@ impl PremiumRpcManager {
     }
     
     /// Build Tatum endpoint if API key is available
+    /// Build Tatum endpoints using configuration templates (no hardcoded URLs)
     /// Note: Tatum uses header authentication (x-api-key), not URL parameters
     fn build_tatum_endpoint(
         config: &PremiumRpcConfig, 
         api_keys: &HashMap<String, String>
     ) -> Result<Vec<PremiumEndpoint>> {
-        if let Some(template) = &config.tatum_rpc_template {
-            // Determine which API key to use based on endpoint URL
-            let api_key = if template.contains("mainnet") {
-                api_keys.get("tatum_mainnet")
-            } else if template.contains("devnet") {
-                api_keys.get("tatum_devnet")
-            } else {
-                // Try mainnet first, then devnet
-                api_keys.get("tatum_mainnet").or_else(|| api_keys.get("tatum_devnet"))
-            };
+        let mut endpoints = Vec::new();
+        
+        // Only build endpoints if Tatum template is configured
+        if let Some(tatum_template) = &config.tatum_rpc_template {
+            // Check for mainnet API key and build mainnet endpoint
+            if let Some(_mainnet_key) = api_keys.get("tatum_mainnet") {
+                if tatum_template.contains("mainnet") {
+                    let priority = Self::get_priority(config, "tatum");
+                    let max_rps = Self::get_max_requests_per_second(config, "tatum");
+                    
+                    endpoints.push(PremiumEndpoint {
+                        provider: "Tatum".to_string(),
+                        url: tatum_template.clone(),
+                        websocket_url: None, // Tatum doesn't provide WebSocket in basic plan
+                        priority,
+                        max_requests_per_second: max_rps,
+                        requests_this_second: 0,
+                        last_reset: std::time::Instant::now(),
+                    });
+                }
+            }
             
-            if let Some(_api_key) = api_key {
-                let priority = Self::get_priority(config, "tatum");
-                let max_rps = Self::get_max_requests_per_second(config, "tatum");
-                
-                Ok(vec![PremiumEndpoint {
-                    provider: "Tatum".to_string(),
-                    url: template.clone(),
-                    websocket_url: None, // Tatum doesn't provide WebSocket in basic plan
-                    priority,
-                    max_requests_per_second: max_rps,
-                    requests_this_second: 0,
-                    last_reset: std::time::Instant::now(),
-                }])
-            } else {
-                Ok(vec![])
+            // Check for devnet API key and build devnet endpoint
+            if let Some(_devnet_key) = api_keys.get("tatum_devnet") {
+                if tatum_template.contains("devnet") {
+                    let priority = Self::get_priority(config, "tatum");
+                    let max_rps = Self::get_max_requests_per_second(config, "tatum");
+                    
+                    endpoints.push(PremiumEndpoint {
+                        provider: "Tatum".to_string(),
+                        url: tatum_template.clone(),
+                        websocket_url: None, // Tatum doesn't provide WebSocket in basic plan
+                        priority,
+                        max_requests_per_second: max_rps,
+                        requests_this_second: 0,
+                        last_reset: std::time::Instant::now(),
+                    });
+                }
             }
         } else {
-            Ok(vec![])
+            debug!("Tatum template not configured, skipping Tatum endpoints");
         }
+        
+        Ok(endpoints)
     }
     
     /// Get priority for a provider
@@ -346,6 +361,16 @@ impl PremiumRpcManager {
     /// Get all available premium URLs
     pub fn get_all_urls(&self) -> Vec<String> {
         self.endpoints.iter().map(|e| e.url.clone()).collect()
+    }
+    
+    /// Get premium URLs excluding Tatum (for regular RPC clients)
+    /// Tatum endpoints use special header authentication and should not be tested as regular RPC endpoints
+    pub fn get_non_tatum_urls(&self) -> Vec<String> {
+        self.endpoints
+            .iter()
+            .filter(|e| e.provider != "Tatum")
+            .map(|e| e.url.clone())
+            .collect()
     }
     
     /// Get the best WebSocket URL available

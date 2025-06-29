@@ -24,8 +24,7 @@ mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
 
 # Only reliable backup endpoints (different from primary)
 mainnet_backup_rpc = [
-    "https://solana.publicnode.com",
-    "https://solana-mainnet.gateway.tatum.io"
+    "https://solana.publicnode.com"
 ]
 
 mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"

@@ -203,7 +203,7 @@ impl RpcConnectionPool {
         
         // Initialize premium RPC manager
         let premium_manager = crate::shared::premium_rpc_manager::PremiumRpcManager::new(&config.network)?;
-        let premium_urls = premium_manager.get_all_urls();
+        let premium_urls = premium_manager.get_non_tatum_urls(); // Exclude Tatum from regular RPC clients
         
         if premium_manager.has_premium_endpoints() {
             info!("🌟 {}", premium_manager.get_status_summary());
@@ -259,22 +259,33 @@ impl RpcConnectionPool {
         // Get Tatum configurations from premium manager
         let tatum_configs = premium_manager.get_tatum_configs();
         for (url, _provider) in tatum_configs {
-            info!("🔑 Setting up Tatum client with header authentication for {}", url);
+            // Only create Tatum client for the current network
+            let is_correct_network = match config.network.environment.as_str() {
+                "mainnet" => url.contains("mainnet"),
+                "devnet" => url.contains("devnet"),
+                _ => false,
+            };
             
-            // Get the appropriate API key for this endpoint
-            if let Some(api_key) = PremiumRpcManager::get_tatum_api_key(&url) {
-                match TatumRpcClient::new(url.clone(), api_key) {
-                    Ok(tatum_client) => {
-                        info!("✅ Created Tatum client for {}", url);
-                        tatum_clients.push(Arc::new(tatum_client));
-                        tatum_urls.push(url.clone());
+            if is_correct_network {
+                info!("🔑 Setting up Tatum client with header authentication for {}", url);
+                
+                // Get the appropriate API key for this endpoint
+                if let Some(api_key) = PremiumRpcManager::get_tatum_api_key(&url) {
+                    match TatumRpcClient::new(url.clone(), api_key) {
+                        Ok(tatum_client) => {
+                            info!("✅ Created Tatum client for {}", url);
+                            tatum_clients.push(Arc::new(tatum_client));
+                            tatum_urls.push(url.clone());
+                        }
+                        Err(e) => {
+                            warn!("❌ Failed to create Tatum client for {}: {}", url, e);
+                        }
                     }
-                    Err(e) => {
-                        warn!("❌ Failed to create Tatum client for {}: {}", url, e);
-                    }
+                } else {
+                    warn!("⚠️ No API key found for Tatum endpoint {}", url);
                 }
             } else {
-                warn!("⚠️ No API key found for Tatum endpoint {}", url);
+                debug!("🔇 Skipping Tatum endpoint {} (wrong network for {})", url, config.network.environment);
             }
         }
         
@@ -320,11 +331,18 @@ impl RpcConnectionPool {
             endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
         }
         
-        // Add premium endpoints to health tracking
+        // Add premium endpoints to health tracking (excluding Tatum - they're tracked separately)
         for premium_url in &premium_urls {
             endpoint_health.insert(premium_url.clone(), RpcEndpointHealth::new(premium_url.clone()));
             let sanitized_url = Self::sanitize_url_for_logging(premium_url);
             info!("📡 Added premium endpoint to health tracking: {}", sanitized_url);
+        }
+        
+        // Add Tatum endpoints to health tracking separately
+        for tatum_url in &tatum_urls {
+            endpoint_health.insert(tatum_url.clone(), RpcEndpointHealth::new(tatum_url.clone()));
+            let sanitized_url = Self::sanitize_url_for_logging(tatum_url);
+            info!("📡 Added Tatum endpoint to health tracking: {}", sanitized_url);
         }
         
         // Create connection semaphore
@@ -387,11 +405,42 @@ impl RpcConnectionPool {
         // Test Tatum connections (special header-authenticated clients)
         for (i, tatum_client) in self.tatum_clients.iter().enumerate() {
             if let Some(tatum_url) = self.tatum_urls.get(i) {
+                let start_time = Instant::now();
                 match tatum_client.test_connection().await {
                     Ok(_) => {
+                        let response_time = start_time.elapsed();
+                        
+                        // Update health tracking for Tatum
+                        let mut health_map = self.endpoint_health.write().await;
+                        if let Some(health) = health_map.get_mut(tatum_url) {
+                            health.record_success(response_time);
+                        }
+                        drop(health_map);
+                        
+                        // Update persistence
+                        let mut persistence = self.health_persistence.lock().await;
+                        if let Err(e) = persistence.record_endpoint_success(tatum_url, response_time.as_millis() as u64).await {
+                            warn!("Failed to persist Tatum success for {}: {}", Self::sanitize_url_for_logging(tatum_url), e);
+                        }
+                        drop(persistence);
+                        
                         info!("✅ Tatum RPC {} is working with header authentication", Self::sanitize_url_for_logging(tatum_url));
                     }
                     Err(e) => {
+                        // Update health tracking for Tatum failure
+                        let mut health_map = self.endpoint_health.write().await;
+                        if let Some(health) = health_map.get_mut(tatum_url) {
+                            health.record_failure(self.config.circuit_breaker_threshold);
+                        }
+                        drop(health_map);
+                        
+                        // Update persistence
+                        let mut persistence = self.health_persistence.lock().await;
+                        if let Err(persist_err) = persistence.record_endpoint_failure(tatum_url, "tatum_auth_error").await {
+                            warn!("Failed to persist Tatum failure for {}: {}", Self::sanitize_url_for_logging(tatum_url), persist_err);
+                        }
+                        drop(persistence);
+                        
                         warn!("⚠️ Tatum RPC {} failed connection test: {}", Self::sanitize_url_for_logging(tatum_url), e);
                     }
                 }

@@ -446,7 +446,7 @@ impl Default for Config {
                     ankr_rpc_template: Some("https://rpc.ankr.com/solana/{API_KEY}".to_string()),
                     quicknode_rpc_template: Some("{ENDPOINT}".to_string()),
                     alchemy_rpc_template: Some("https://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
-                    tatum_rpc_template: Some("https://solana-mainnet.gateway.tatum.io".to_string()),
+                    tatum_rpc_template: None,  // Not hardcoded - loaded from config files when API key available
                     helius_ws_template: Some("wss://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string()),
                     alchemy_ws_template: Some("wss://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
                     endpoint_priorities: Some(vec![
