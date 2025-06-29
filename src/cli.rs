@@ -1289,8 +1289,10 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("tatum", _)) => handle_test_tatum_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
-        Some(("cache-free", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
-        Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
+        // TODO: Implement cache-free trading test
+        // Some(("cache-free", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
+        // TODO: Implement real trading test  
+        // Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
         // Some(("performance", _)) => handle_test_performance_command().await?,
         _ => {
@@ -1392,7 +1394,8 @@ async fn handle_test_websocket_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_test_basic_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
+    let default_network = "devnet".to_string();
+    let network = matches.get_one::<String>("network").unwrap_or(&default_network);
     println!("{}", "[TEST] Running Basic Connectivity Tests".bright_blue().bold());
     println!("{}", "==================================================".bright_blue());
     println!("🌐 Network: {}", network.bright_cyan());
@@ -1688,26 +1691,26 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         } else {
             "config/devnet.toml"
         };
-            "config/mainnet.toml"
-        } else {config = Config::load(config_file)?;
-            "config/devnet.toml"
-        }; Override network environment to ensure consistency
-        config.network.environment = network.to_string();
-        let mut config = Config::load(config_file)?;
-        // Get network-specific RPC endpoint
-        // Override network environment to ensure consistency
-        config.network.environment = network.to_string(); } else { "DevNet" };
         
-        // Get network-specific RPC endpointork_name.bright_green(), rpc_endpoint);
+        let mut config = Config::load(config_file)?;
+        
+        // Override network environment to ensure consistency
+        config.network.environment = network.to_string();
+        
+        // Get network-specific RPC endpoint
         let rpc_endpoint = config.network.primary_rpc();
-        let network_name = if is_mainnet { "Mainnet Beta" } else { "DevNet" };t.to_string());
+        let network_name = if is_mainnet { "Mainnet Beta" } else { "DevNet" };
         
         println!("🌐 Using {} RPC: {}", network_name.bright_green(), rpc_endpoint);
-            Ok(balance_lamports) => {
+        
         let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
+        
+        match rpc_client.get_balance(&pubkey) {
+            Ok(balance_lamports) => {
+                let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
                 println!("💰 Balance: {} SOL ({} lamports)", 
-        match rpc_client.get_balance(&pubkey) {).bright_green().bold(), 
-            Ok(balance_lamports) => {orts.to_string().bright_yellow());
+                         balance_sol.to_string().bright_green().bold(), 
+                         balance_lamports.to_string().bright_yellow());
                 
                 if is_mainnet {
                     if balance_sol >= 0.01 {
