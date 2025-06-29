@@ -24,7 +24,8 @@ mainnet_primary_rpc = "https://api.mainnet-beta.solana.com"
 
 # Only reliable backup endpoints (different from primary)
 mainnet_backup_rpc = [
-    "https://solana.publicnode.com"
+    "https://solana.publicnode.com",
+    "https://solana-mainnet.gateway.tatum.io"
 ]
 
 mainnet_websocket_url = "wss://api.mainnet-beta.solana.com"
@@ -43,6 +44,7 @@ circuit_breaker_reset_seconds = 60 # Simple reset time
 # - ANKR_API_KEY=your_ankr_api_key_here
 # - QUICKNODE_ENDPOINT=your_quicknode_endpoint_here
 # - ALCHEMY_API_KEY=your_alchemy_api_key_here
+# - TATUM_API_KEY_MAINNET=your_tatum_mainnet_api_key_here
 
 [network.premium_rpc]
 enabled = true  # Set to true when API keys are configured
@@ -52,6 +54,7 @@ helius_rpc_template = "https://mainnet.helius-rpc.com/?api-key={API_KEY}"
 ankr_rpc_template = "https://rpc.ankr.com/solana/{API_KEY}"
 quicknode_rpc_template = "{ENDPOINT}"  # Full endpoint provided by QuickNode
 alchemy_rpc_template = "https://solana-mainnet.g.alchemy.com/v2/{API_KEY}"
+tatum_rpc_template = "https://solana-mainnet.gateway.tatum.io"  # Uses header authentication
 
 # Premium WebSocket endpoints
 helius_ws_template = "wss://mainnet.helius-rpc.com/?api-key={API_KEY}"
@@ -62,7 +65,8 @@ endpoint_priorities = [
     { provider = "quicknode", priority = 1, max_requests_per_second = 100 },
     { provider = "helius", priority = 2, max_requests_per_second = 100 },
     { provider = "alchemy", priority = 3, max_requests_per_second = 100 },
-    { provider = "ankr", priority = 4, max_requests_per_second = 50 }
+    { provider = "tatum", priority = 4, max_requests_per_second = 100 },
+    { provider = "ankr", priority = 5, max_requests_per_second = 50 }
 ]
 
 [shared_services]

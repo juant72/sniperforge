@@ -101,6 +101,7 @@ pub struct PremiumRpcConfig {
     pub ankr_rpc_template: Option<String>,
     pub quicknode_rpc_template: Option<String>,
     pub alchemy_rpc_template: Option<String>,
+    pub tatum_rpc_template: Option<String>,
     pub helius_ws_template: Option<String>,
     pub alchemy_ws_template: Option<String>,
     pub endpoint_priorities: Option<Vec<EndpointPriority>>,

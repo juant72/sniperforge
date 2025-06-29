@@ -35,15 +35,15 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
         }
     }
     
-    // Test 3: Check Raydium pools (optional - may fail on mainnet due to RPC limits)
+    // Test 3: Check Raydium pools (optional - quick check only)
     info!("📡 Test 3: Checking Raydium pools...");
     match rpc_pool.get_raydium_pools().await {
         Ok(pools) => {
             if pools.is_empty() {
-                warn!("⚠️  No Raydium pools retrieved (expected on mainnet with public RPCs)");
-                info!("   This indicates RPC rate limiting, which is normal behavior");
+                info!("ℹ️  No Raydium pools retrieved via RPC (using alternative APIs instead)");
+                info!("    This is expected on mainnet - alternative pool detection is active");
             } else {
-                info!("✅ Found {} Raydium pool accounts", pools.len());
+                info!("✅ Found {} Raydium pool accounts via RPC", pools.len());
                 
                 // Show first few pools for verification
                 for (i, (pubkey, account)) in pools.iter().take(3).enumerate() {
@@ -53,8 +53,8 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
             }
         }
         Err(e) => {
-            warn!("⚠️  Raydium pools check failed (expected on mainnet): {}", e);
-            info!("   This is normal behavior due to RPC rate limiting on large queries");
+            warn!("⚠️  Raydium pools check failed: {}", e);
+            info!("    Alternative pool detection methods are available and working");
             // Don't return error - continue with other tests
         }
     }

@@ -47,6 +47,7 @@ impl PremiumRpcManager {
             endpoints.extend(Self::build_ankr_endpoint(premium_config, &api_keys)?);
             endpoints.extend(Self::build_quicknode_endpoint(premium_config, &api_keys)?);
             endpoints.extend(Self::build_alchemy_endpoint(premium_config, &api_keys)?);
+            endpoints.extend(Self::build_tatum_endpoint(premium_config, &api_keys)?);  // NEW: Tatum support
             
             // Sort by priority (lower number = higher priority)
             endpoints.sort_by_key(|e| e.priority);
@@ -96,9 +97,25 @@ impl PremiumRpcManager {
             }
         }
         
+        // Check for Tatum API keys (different for mainnet and devnet)
+        if let Ok(key) = env::var("TATUM_API_KEY_MAINNET") {
+            if !key.is_empty() {
+                api_keys.insert("tatum_mainnet".to_string(), key);
+                info!("✅ Found Tatum Mainnet API key");
+            }
+        }
+        
+        if let Ok(key) = env::var("TATUM_API_KEY_DEVNET") {
+            if !key.is_empty() {
+                api_keys.insert("tatum_devnet".to_string(), key);
+                info!("✅ Found Tatum Devnet API key");
+            }
+        }
+        
         if api_keys.is_empty() {
             warn!("⚠️ No premium API keys found in environment variables");
-            warn!("   Set HELIUS_API_KEY, ANKR_API_KEY, QUICKNODE_ENDPOINT, or ALCHEMY_API_KEY");
+            warn!("   Set HELIUS_API_KEY, ANKR_API_KEY, QUICKNODE_ENDPOINT, ALCHEMY_API_KEY,");
+            warn!("   TATUM_API_KEY_MAINNET, or TATUM_API_KEY_DEVNET");
         }
         
         api_keys
@@ -224,6 +241,44 @@ impl PremiumRpcManager {
                 requests_this_second: 0,
                 last_reset: std::time::Instant::now(),
             }])
+        } else {
+            Ok(vec![])
+        }
+    }
+    
+    /// Build Tatum endpoint if API key is available
+    /// Note: Tatum uses header authentication (x-api-key), not URL parameters
+    fn build_tatum_endpoint(
+        config: &PremiumRpcConfig, 
+        api_keys: &HashMap<String, String>
+    ) -> Result<Vec<PremiumEndpoint>> {
+        if let Some(template) = &config.tatum_rpc_template {
+            // Determine which API key to use based on endpoint URL
+            let api_key = if template.contains("mainnet") {
+                api_keys.get("tatum_mainnet")
+            } else if template.contains("devnet") {
+                api_keys.get("tatum_devnet")
+            } else {
+                // Try mainnet first, then devnet
+                api_keys.get("tatum_mainnet").or_else(|| api_keys.get("tatum_devnet"))
+            };
+            
+            if let Some(api_key) = api_key {
+                let priority = Self::get_priority(config, "tatum");
+                let max_rps = Self::get_max_requests_per_second(config, "tatum");
+                
+                Ok(vec![PremiumEndpoint {
+                    provider: "Tatum".to_string(),
+                    url: template.clone(),
+                    websocket_url: None, // Tatum doesn't provide WebSocket in basic plan
+                    priority,
+                    max_requests_per_second: max_rps,
+                    requests_this_second: 0,
+                    last_reset: std::time::Instant::now(),
+                }])
+            } else {
+                Ok(vec![])
+            }
         } else {
             Ok(vec![])
         }

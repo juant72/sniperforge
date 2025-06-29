@@ -194,7 +194,7 @@ impl RpcHealthPersistence {
     /// Carga el estado persistido desde disco
     pub async fn load(&mut self) -> Result<()> {
         if !Path::new(&self.file_path).exists() {
-            info!("📂 RPC health file not found, starting with clean state");
+            debug!("📂 RPC health file not found, starting with clean state");
             return Ok(());
         }
 
