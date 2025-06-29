@@ -11,6 +11,7 @@ use sniperforge::{Config, SniperForgePlatform, solana_testing, dexscreener_testi
 use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
 use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
 use sniperforge::shared::wallet_manager::WalletManager;
+use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
 
 // Phase 6A imports for advanced strategies and analysis
 use sniperforge::strategies::trend_following::TrendFollowingStrategy;
@@ -1486,6 +1487,24 @@ async fn handle_test_tatum_command() -> Result<()> {
     tatum_testing::test_tatum_connectivity().await?;
     
     println!("\n{}", "[SUCCESS] Tatum RPC test completed!".bright_green().bold());
+    Ok(())
+}
+
+async fn handle_test_cache_free_command() -> Result<()> {
+    println!("{}", "[TEST] Testing Cache-Free Trading Engine".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
+    
+    // Call the cache-free trading test function
+    match test_cache_free_trading().await {
+        Ok(_) => {
+            println!("\n{}", "[SUCCESS] Cache-free trading test completed successfully!".bright_green().bold());
+        }
+        Err(e) => {
+            println!("\n{}", format!("[ERROR] Cache-free trading test failed: {}", e).bright_red().bold());
+            return Err(e);
+        }
+    }
+    
     Ok(())
 }
 
