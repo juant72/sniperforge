@@ -1109,10 +1109,7 @@ pub async fn run_cli() -> Result<()> {
         // Some(("arbitrage-scan", sub_matches)) => handle_arbitrage_scan_command(sub_matches).await?,
         // Phase 6B ML command handlers
         Some(("ml", sub_matches)) => {
-            // Get network from main matches, not sub_matches
-            let network = matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
-            handle_ml_command(sub_matches, network).await?
+            handle_ml_command(sub_matches).await?
         },
         // Phase 6C Portfolio Management command handlers (temporarily commented)
         // Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches).await?,
@@ -1220,9 +1217,11 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
+async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("analyze-patterns", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
             let default_timeframe = "5".to_string();
@@ -1240,8 +1239,7 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[🔗] Initializing REAL ML Pattern Analysis...".bright_yellow());
             
             // Initialize the real PatternRecognizer with ML capabilities
-            use crate::ml::{MLConfig, PatternRecognizer, FeatureVector};
-            use crate::shared::real_data_manager::RealDataManager;
+            use sniperforge::ml::{MLConfig, PatternRecognizer, FeatureVector};
             
             let ml_config = MLConfig::default();
             let mut pattern_recognizer = match PatternRecognizer::new(ml_config.pattern_recognition.clone()).await {
@@ -1267,12 +1265,9 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
                         },
                         Err(_) => println!("{}", "[ERROR] Cannot connect to Jupiter API".bright_red()),
                     }
-                    return;
+                    return Ok(());
                 }
             };
-            
-            // Initialize RealDataManager for live data
-            let mut data_manager = RealDataManager::new().await;
             
             // Get Jupiter client for price data
             let jupiter_config = JupiterConfig::default();
@@ -1286,16 +1281,10 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
                             println!("✅ Retrieved REAL SOL price: ${:.4}", sol_price);
                             
                             // Create feature vector for ML analysis
-                            let mut features = std::collections::HashMap::new();
-                            features.insert("price".to_string(), sol_price);
-                            features.insert("volume".to_string(), 1000000.0); // Mock volume for now
-                            features.insert("avg_volume".to_string(), 800000.0);
-                            
-                            let feature_vector = FeatureVector {
-                                symbol: symbol.clone(),
-                                timestamp: chrono::Utc::now(),
-                                features,
-                            };
+                            let mut feature_vector = FeatureVector::new(symbol.clone());
+                            feature_vector.add_feature("price".to_string(), sol_price);
+                            feature_vector.add_feature("volume".to_string(), 1000000.0); // Mock volume for now
+                            feature_vector.add_feature("avg_volume".to_string(), 800000.0);
                             
                             // Run REAL ML Pattern Analysis
                             println!("{}", "[🧠] Running ML Pattern Recognition...".bright_cyan());
@@ -1349,34 +1338,7 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
                                 }
                             }
                             
-                            // Test real pattern analysis with timeframe
-                            let timeframe_val: u32 = timeframe.parse().unwrap_or(15);
-                            let confidence_val: f64 = confidence.parse().unwrap_or(0.7);
-                            
-                            println!("\n{}", "[📊] Advanced Pattern Analysis...".bright_cyan());
-                            match pattern_recognizer.analyze_real_patterns(
-                                &symbol, timeframe_val, confidence_val, &mut data_manager
-                            ).await {
-                                Ok(pattern_analysis) => {
-                                    println!("✅ Advanced patterns detected:");
-                                    for pattern in &pattern_analysis.patterns {
-                                        println!("  * Pattern: {} (confidence: {:.1}%)", 
-                                            pattern.pattern_type, pattern.confidence * 100.0);
-                                        println!("    Direction: {} | Magnitude: {:.3}", 
-                                            if pattern.predicted_direction > 0.0 { "UP" } else { "DOWN" },
-                                            pattern.predicted_magnitude);
-                                    }
-                                    
-                                    // Show technical indicators
-                                    println!("  * Technical Indicators:");
-                                    for (indicator, value) in &pattern_analysis.technical_indicators {
-                                        println!("    - {}: {:.4}", indicator, value);
-                                    }
-                                },
-                                Err(e) => {
-                                    println!("{}", format!("[INFO] Advanced analysis unavailable: {}", e).bright_yellow());
-                                }
-                            }
+                            println!("{}", "[OK] Pattern analysis with ML integration completed!".bright_green());
                         },
                         Ok(None) => {
                             println!("{}", "[INFO] Jupiter connected but no price data available".bright_yellow());
@@ -1405,6 +1367,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             }
         },
         Some(("predict-trend", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
             let default_horizon = "15".to_string();
@@ -1427,6 +1391,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Real trend prediction completed!".bright_green());
         },
         Some(("optimize-strategy", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_strategy = "trend".to_string();
             let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
             let default_generations = "50".to_string();
@@ -1453,6 +1419,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Real strategy optimization completed!".bright_green());
         },
         Some(("assess-risk", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_window = "24".to_string();
             let window = sub_matches.get_one::<String>("market-window").unwrap_or(&default_window);
             let default_portfolio = "SOL,USDC".to_string();
@@ -1471,6 +1439,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Risk assessment completed!".bright_green());
         },
         Some(("market-regime", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_confidence = "0.9".to_string();
             let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
             let default_lookback = "14".to_string();
@@ -1488,6 +1458,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Market regime detection completed!".bright_green());
         },
         Some(("predict-timing", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
             let default_size = "100".to_string();
@@ -1508,6 +1480,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Timing prediction completed!".bright_green());
         },
         Some(("optimize-execution", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_size = "1000".to_string();
             let size = sub_matches.get_one::<String>("trade-size").unwrap_or(&default_size);
             let default_slippage = "0.5".to_string();
@@ -1529,6 +1503,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Execution optimization completed!".bright_green());
         },
         Some(("backtest-optimized", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_strategy = "trend".to_string();
             let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
             let default_period = "30".to_string();
@@ -1550,6 +1526,8 @@ async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
             println!("{}", "[OK] Backtest completed!".bright_green());
         },
         Some(("optimize-portfolio", sub_matches)) => {
+            let network = sub_matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_portfolio = "SOL:0.5,USDC:0.5".to_string();
             let portfolio = sub_matches.get_one::<String>("portfolio").unwrap_or(&default_portfolio);
             let default_risk = "moderate".to_string();
