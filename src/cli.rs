@@ -212,7 +212,8 @@ pub async fn run_cli() -> Result<()> {
                         .required(true)
                         .value_parser(["devnet", "mainnet"])
                 )
-        )        .subcommand(Command::new("status")
+        )
+        .subcommand(Command::new("status")
             .about("Show platform status")
             .after_help("Display comprehensive status information including active bots, connections, and system health")
             .arg(
@@ -312,7 +313,8 @@ pub async fn run_cli() -> Result<()> {
                                 .default_value("wallet-export-MOBILE.txt")
                         )
                 )
-        )        .subcommand(            
+        )
+        .subcommand(            
             Command::new("test")
                 .about("Comprehensive testing suite")
                 .after_help("Run various tests to verify platform functionality, from basic connectivity to real blockchain transactions")
@@ -1313,7 +1315,7 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
         Some(("cache-free-trading", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
-        // TODO: Implement real trading test  
+        // TODO: Implement remaining test commands:
         // Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
         // Some(("performance", _)) => handle_test_performance_command().await?,
