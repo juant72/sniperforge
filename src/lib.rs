@@ -18,6 +18,7 @@ pub mod portfolio;  // Phase 6C Portfolio Management
 pub mod sprint_1_demo;  // Sprint 1 functionality demo
 pub mod dexscreener_testing;  // DexScreener API testing
 pub mod tatum_testing;  // Tatum RPC testing
+pub mod performance;  // Sprint 2 Performance optimization
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;
