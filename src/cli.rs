@@ -192,6 +192,14 @@ pub async fn run_cli() -> Result<()> {
         .version("0.1.0")
         .about("Interactive CLI for SniperForge Multi-Bot Platform")
         .arg_required_else_help(false)
+        .arg(
+            Arg::new("network")
+                .long("network")
+                .value_name("NET")
+                .help("Network to use: devnet or mainnet")
+                .value_parser(["devnet", "mainnet"])
+                .global(true)
+        )
         .subcommand(
             Command::new("start")
                 .about("Start the platform or specific bots")
@@ -1099,7 +1107,12 @@ pub async fn run_cli() -> Result<()> {
         // Some(("pattern-analysis", sub_matches)) => handle_pattern_analysis_command(sub_matches).await?,
         // Some(("arbitrage-scan", sub_matches)) => handle_arbitrage_scan_command(sub_matches).await?,
         // Phase 6B ML command handlers
-        Some(("ml", sub_matches)) => handle_ml_command(sub_matches).await?,
+        Some(("ml", sub_matches)) => {
+            // Get network from main matches, not sub_matches
+            let network = matches.get_one::<String>("network")
+                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            handle_ml_command(sub_matches, network).await?
+        },
         // Phase 6C Portfolio Management command handlers (temporarily commented)
         // Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches).await?,
         _ => {
@@ -1206,11 +1219,7 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
-    // Require --network parameter for all ML commands
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
-    
+async fn handle_ml_command(matches: &ArgMatches, network: &str) -> Result<()> {
     match matches.subcommand() {
         Some(("analyze-patterns", sub_matches)) => {
             let default_symbol = "SOL/USDC".to_string();
@@ -1240,8 +1249,6 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Real pattern analysis completed! (Using live market data structure)".bright_green());
         },
         Some(("predict-trend", sub_matches)) => {
-            let network = matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
             let default_horizon = "15".to_string();
@@ -1264,8 +1271,6 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Real trend prediction completed!".bright_green());
         },
         Some(("optimize-strategy", sub_matches)) => {
-            let network = matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required"))?;
             let default_strategy = "trend".to_string();
             let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
             let default_generations = "50".to_string();
