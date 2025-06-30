@@ -13,6 +13,7 @@ use chrono::{DateTime, Utc};
 use ndarray::{Array1, Array2};
 
 use super::{PatternRecognitionConfig, MLPrediction, FeatureVector};
+use crate::shared::real_data_manager::RealDataManager;
 
 /// LSTM-based pattern recognition for price movements
 pub struct PatternRecognizer {
@@ -46,6 +47,16 @@ pub struct PatternMatch {
     pub predicted_magnitude: f64,
     pub time_horizon: u64, // seconds
     pub supporting_indicators: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RealPatternAnalysis {
+    pub symbol: String,
+    pub timestamp: DateTime<Utc>,
+    pub patterns: Vec<PatternMatch>,
+    pub technical_indicators: HashMap<String, f64>,
+    pub overall_confidence: f64,
+    pub data_source: String,
 }
 
 /// Technical indicators calculator with ML enhancement
@@ -183,6 +194,16 @@ impl PatternRecognizer {
             pattern_cache: HashMap::new(),
             last_update: Utc::now(),
         })
+    }
+
+    pub fn new_simple() -> Self {
+        Self {
+            config: PatternRecognitionConfig::default(),
+            lstm_model: None, // Start without LSTM for simplicity
+            technical_indicators: TechnicalIndicators::new(),
+            pattern_cache: HashMap::new(),
+            last_update: Utc::now(),
+        }
     }
 
     async fn initialize_lstm_model(config: &PatternRecognitionConfig) -> Result<LSTMModel> {
@@ -344,15 +365,199 @@ impl PatternRecognizer {
         Ok(volume_score)
     }
 
-    fn calculate_prediction_confidence(&self, combined_score: &f64) -> f64 {
-        // Confidence based on how far the score is from neutral (0.5)
-        let distance_from_neutral = (combined_score - 0.5).abs();
-        let base_confidence = distance_from_neutral * 2.0; // 0 to 1
+    /// Analyze real market patterns using live data
+    pub async fn analyze_real_patterns(
+        &self,
+        symbol: &str,
+        timeframe_minutes: u32,
+        confidence_threshold: f64,
+        data_manager: &mut RealDataManager,
+    ) -> Result<RealPatternAnalysis> {
+        // Get real price data from Jupiter/DexScreener
+        let token_mint = match symbol {
+            "SOL/USDC" | "SOL" => "So11111111111111111111111111111111111111112",
+            _ => return Err(anyhow!("Token not supported yet")),
+        };
+
+        let real_price = data_manager.get_real_price(token_mint).await?;
         
-        // Apply minimum confidence threshold
-        (base_confidence + 0.1).clamp(0.1, 0.95)
+        // Get historical price data for pattern analysis
+        let price_history = data_manager.get_price_history(token_mint, timeframe_minutes as u64).await?;
+        
+        let mut patterns = Vec::new();
+        let mut technical_indicators = HashMap::new();
+        
+        // Analyze support/resistance levels
+        if let Some(support_resistance) = self.analyze_support_resistance(&price_history).await? {
+            if support_resistance.confidence >= confidence_threshold {
+                patterns.push(PatternMatch {
+                    pattern_type: "Support/Resistance".to_string(),
+                    confidence: support_resistance.confidence,
+                    predicted_direction: support_resistance.direction,
+                    predicted_magnitude: support_resistance.strength,
+                    time_horizon: timeframe_minutes as u64 * 60,
+                    supporting_indicators: vec!["price_action".to_string(), "volume".to_string()],
+                });
+            }
+        }
+
+        // Calculate real technical indicators
+        if price_history.len() >= 14 {
+            let prices: Vec<f64> = price_history.iter().map(|p| p.price_usd).collect();
+            
+            if let Ok(rsi) = self.technical_indicators.calculate_rsi(&prices) {
+                technical_indicators.insert("RSI".to_string(), rsi);
+                
+                // RSI pattern analysis
+                if rsi > 70.0 && confidence_threshold <= 0.8 {
+                    patterns.push(PatternMatch {
+                        pattern_type: "Overbought (RSI)".to_string(),
+                        confidence: 0.85,
+                        predicted_direction: -1.0,
+                        predicted_magnitude: (rsi - 70.0) / 30.0,
+                        time_horizon: timeframe_minutes as u64 * 60,
+                        supporting_indicators: vec!["RSI".to_string()],
+                    });
+                } else if rsi < 30.0 && confidence_threshold <= 0.8 {
+                    patterns.push(PatternMatch {
+                        pattern_type: "Oversold (RSI)".to_string(),
+                        confidence: 0.85,
+                        predicted_direction: 1.0,
+                        predicted_magnitude: (30.0 - rsi) / 30.0,
+                        time_horizon: timeframe_minutes as u64 * 60,
+                        supporting_indicators: vec!["RSI".to_string()],
+                    });
+                }
+            }
+        }
+
+        // Volume analysis using real data
+        if real_price.volume_24h > 0.0 {
+            technical_indicators.insert("Volume_24h".to_string(), real_price.volume_24h);
+            
+            // Volume trend pattern
+            if price_history.len() >= 2 {
+                let recent_avg_volume = price_history.iter()
+                    .rev()
+                    .take(5)
+                    .map(|p| p.volume_24h)
+                    .sum::<f64>() / 5.0;
+                
+                if real_price.volume_24h > recent_avg_volume * 1.5 {
+                    patterns.push(PatternMatch {
+                        pattern_type: "High Volume Spike".to_string(),
+                        confidence: 0.75,
+                        predicted_direction: 1.0,
+                        predicted_magnitude: real_price.volume_24h / recent_avg_volume - 1.0,
+                        time_horizon: timeframe_minutes as u64 * 30, // Shorter horizon for volume spikes
+                        supporting_indicators: vec!["volume".to_string()],
+                    });
+                }
+            }
+        }
+
+        // Current price trend analysis
+        if price_history.len() >= 3 {
+            let recent_prices: Vec<f64> = price_history.iter()
+                .rev()
+                .take(3)
+                .map(|p| p.price_usd)
+                .collect();
+            
+            if recent_prices[0] > recent_prices[1] && recent_prices[1] > recent_prices[2] {
+                patterns.push(PatternMatch {
+                    pattern_type: "Uptrend".to_string(),
+                    confidence: 0.70,
+                    predicted_direction: 1.0,
+                    predicted_magnitude: (recent_prices[0] - recent_prices[2]) / recent_prices[2],
+                    time_horizon: timeframe_minutes as u64 * 60,
+                    supporting_indicators: vec!["price_trend".to_string()],
+                });
+            } else if recent_prices[0] < recent_prices[1] && recent_prices[1] < recent_prices[2] {
+                patterns.push(PatternMatch {
+                    pattern_type: "Downtrend".to_string(),
+                    confidence: 0.70,
+                    predicted_direction: -1.0,
+                    predicted_magnitude: (recent_prices[2] - recent_prices[0]) / recent_prices[2],
+                    time_horizon: timeframe_minutes as u64 * 60,
+                    supporting_indicators: vec!["price_trend".to_string()],
+                });
+            }
+        }
+
+        // Calculate overall confidence
+        let overall_confidence = if patterns.is_empty() {
+            0.0
+        } else {
+            patterns.iter().map(|p| p.confidence).sum::<f64>() / patterns.len() as f64
+        };
+
+        Ok(RealPatternAnalysis {
+            symbol: symbol.to_string(),
+            timestamp: Utc::now(),
+            patterns,
+            technical_indicators,
+            overall_confidence,
+            data_source: format!("Real Data - {}", real_price.source),
+        })
     }
 
+    async fn analyze_support_resistance(&self, price_history: &[crate::shared::real_data_manager::RealPriceData]) -> Result<Option<SupportResistanceLevel>> {
+        if price_history.len() < 10 {
+            return Ok(None);
+        }
+
+        let prices: Vec<f64> = price_history.iter().map(|p| p.price_usd).collect();
+        let current_price = prices[prices.len() - 1];
+        
+        // Find local minima and maxima for support/resistance
+        let mut support_levels = Vec::new();
+        let mut resistance_levels = Vec::new();
+        
+        for i in 1..prices.len()-1 {
+            if prices[i] < prices[i-1] && prices[i] < prices[i+1] {
+                support_levels.push(prices[i]);
+            }
+            if prices[i] > prices[i-1] && prices[i] > prices[i+1] {
+                resistance_levels.push(prices[i]);
+            }
+        }
+
+        // Find the most relevant support/resistance
+        let nearest_support = support_levels.iter()
+            .filter(|&&level| level < current_price)
+            .max_by(|a, b| a.partial_cmp(b).unwrap());
+        
+        let nearest_resistance = resistance_levels.iter()
+            .filter(|&&level| level > current_price)
+            .min_by(|a, b| a.partial_cmp(b).unwrap());
+
+        if let (Some(&support), Some(&resistance)) = (nearest_support, nearest_resistance) {
+            let distance_to_support = (current_price - support) / current_price;
+            let distance_to_resistance = (resistance - current_price) / current_price;
+            
+            let (direction, strength, confidence) = if distance_to_support < distance_to_resistance {
+                // Closer to support - potential bounce up
+                (1.0, distance_to_support, 0.8)
+            } else {
+                // Closer to resistance - potential rejection down
+                (-1.0, distance_to_resistance, 0.8)
+            };
+
+            Ok(Some(SupportResistanceLevel {
+                support_level: support,
+                resistance_level: resistance,
+                current_price,
+                direction,
+                strength,
+                confidence,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Cache the pattern for future reference
     async fn cache_pattern(&mut self, symbol: &str, prediction: &MLPrediction) -> Result<()> {
         let pattern_match = PatternMatch {
             pattern_type: "ml_prediction".to_string(),

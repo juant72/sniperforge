@@ -120,6 +120,23 @@ impl Default for MLConfig {
     }
 }
 
+impl Default for PatternRecognitionConfig {
+    fn default() -> Self {
+        Self {
+            lstm_units: 128,
+            sequence_length: 60,
+            prediction_horizon: 5,
+            technical_indicators: vec![
+                "rsi".to_string(),
+                "macd".to_string(),
+                "bollinger".to_string(),
+                "volume_profile".to_string(),
+            ],
+            min_confidence: 0.7,
+        }
+    }
+}
+
 /// ML Prediction result with confidence scoring
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MLPrediction {

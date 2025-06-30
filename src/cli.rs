@@ -1207,6 +1207,10 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
+    // Require --network parameter for all ML commands
+    let network = matches.get_one::<String>("network")
+        .ok_or_else(|| anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+    
     match matches.subcommand() {
         Some(("analyze-patterns", sub_matches)) => {
             let default_symbol = "SOL/USDC".to_string();
@@ -1216,17 +1220,45 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             let default_confidence = "0.8".to_string();
             let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
             
-            println!("{}", "[ML] Analyzing Market Patterns".bright_blue().bold());
+            println!("{}", "[ML] Analyzing Market Patterns (REAL DATA)".bright_blue().bold());
+            println!("Network: {}", network.bright_cyan());
             println!("Symbol: {}", symbol.bright_cyan());
             println!("Timeframe: {} minutes", timeframe.bright_cyan());
             println!("Confidence Threshold: {}", confidence.bright_cyan());
             println!();
-            println!("{}", "[PATTERN] Detected Patterns:".bright_green());
-            println!("  * Support Level: $98.45 (Confidence: 0.92)");
-            println!("  * Resistance Level: $112.30 (Confidence: 0.87)");
-            println!("  * Trend: Bullish (Confidence: 0.84)");
-            println!("  * Volume Pattern: Increasing (Confidence: 0.79)");
-            println!("{}", "[OK] Pattern analysis completed!".bright_green());
+            
+            // Initialize real data integration
+            use crate::ml::pattern_recognition::PatternRecognizer;
+            use crate::shared::real_data_manager::RealDataManager;
+            use crate::shared::jupiter::Jupiter;
+            use crate::shared::rpc_pool::RpcConnectionPool;
+            use crate::config::Config;
+            
+            let config = Config::load_for_network(network)?;
+            let rpc_pool = RpcConnectionPool::new(&config).await?;
+            let jupiter = Jupiter::new(&config).await?;
+            let mut data_manager = RealDataManager::new(jupiter, rpc_pool, config);
+            
+            // Create a simple pattern recognizer without complex config
+            let pattern_recognizer = PatternRecognizer::new_simple();
+            
+            // Get real market data
+            let real_patterns = pattern_recognizer.analyze_real_patterns(
+                symbol,
+                timeframe.parse().unwrap_or(5),
+                confidence.parse().unwrap_or(0.8),
+                &mut data_manager
+            ).await?;
+            
+            println!("{}", "[PATTERN] Real Market Analysis Results:".bright_green());
+            for pattern in real_patterns.patterns {
+                println!("  * {}: {} (Confidence: {:.2})", 
+                    pattern.pattern_type, 
+                    pattern.description, 
+                    pattern.confidence
+                );
+            }
+            println!("{}", "[OK] Real pattern analysis completed!".bright_green());
         },
         Some(("predict-trend", sub_matches)) => {
             let default_symbol = "SOL/USDC".to_string();
