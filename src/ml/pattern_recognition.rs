@@ -59,6 +59,16 @@ pub struct RealPatternAnalysis {
     pub data_source: String,
 }
 
+#[derive(Debug, Clone)]
+struct SupportResistanceLevel {
+    support_level: f64,
+    resistance_level: f64,
+    current_price: f64,
+    direction: f64,
+    strength: f64,
+    confidence: f64,
+}
+
 /// Technical indicators calculator with ML enhancement
 struct TechnicalIndicators {
     rsi_period: usize,
@@ -278,6 +288,16 @@ impl PatternRecognizer {
                        symbol, direction, confidence);
 
         Ok(prediction)
+    }
+
+    fn calculate_prediction_confidence(&self, combined_score: &f64) -> f64 {
+        // Convert combined score to confidence percentage
+        // Score of 0.5 = 50% confidence, score of 1.0 = 100% confidence
+        if *combined_score > 0.5 {
+            0.5 + (*combined_score - 0.5) * 1.0 // Scale from 0.5-1.0 to 50%-100%
+        } else {
+            *combined_score * 1.0 // Scale from 0.0-0.5 to 0%-50%
+        }
     }
 
     async fn analyze_patterns(&self, features: &FeatureVector) -> Result<f64> {
