@@ -952,7 +952,24 @@ pub async fn run_cli() -> Result<()> {
         .subcommand(
             Command::new("portfolio")
                 .about("📊 Professional Portfolio Management - Real-time data & analytics")
-                .after_help("Professional portfolio management with real market data. Default behavior shows your portfolio overview. Use 'demo' subcommand for testing.")
+                .after_help("Professional portfolio management with real market data. By default shows your complete portfolio overview. Use subcommands for specific operations.")
+                .arg(Arg::new("network")
+                    .long("network")
+                    .value_name("NET")
+                    .help("Network to use: devnet or mainnet")
+                    .required(true)
+                    .value_parser(["devnet", "mainnet"]))
+                .arg(Arg::new("monitor-duration")
+                    .short('d')
+                    .long("duration")
+                    .value_name("SECONDS")
+                    .help("How long to run the monitoring (in seconds)")
+                    .default_value("60"))
+                .arg(Arg::new("show-suggestions")
+                    .short('s')
+                    .long("suggestions")
+                    .help("Show professional trading suggestions")
+                    .action(clap::ArgAction::SetTrue))
                 .subcommand(
                     Command::new("summary")
                         .about("Show portfolio summary and metrics")
@@ -2150,7 +2167,16 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
             println!("⏱️ Monitor Duration: {} seconds", monitor_duration);
             println!("🔄 Initializing real-time portfolio monitoring...");
 
-            run_professional_portfolio(config.clone()).await?;
+            // Example wallet addresses - in a real implementation, these would come from user config
+            let wallet_addresses = vec![
+                // You can add real wallet addresses here for testing
+                // Example DevNet addresses:
+                "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+            ];
+
+            run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
+        }
 
             println!(
                 "{}",
@@ -2160,66 +2186,74 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
             );
         }
         _ => {
-            // No subcommand specified - show help
-            println!("{}", "❌ Missing required subcommand and --network argument".red().bold());
-            println!();
-            println!("{}", "Available portfolio commands:".bright_white().bold());
-            println!(
-                "  📊 {} --network devnet - Show portfolio summary",
-                "summary".bright_cyan()
-            );
-            println!(
-                "  � {} --network devnet - Show current positions",
-                "positions".bright_cyan()
-            );
-            println!("  ⚠️ {} --network devnet - Portfolio risk assessment", "risk".bright_cyan());
-            println!("  🏢 {} --network devnet - Professional monitoring", "professional".bright_cyan());
-            println!("  🎯 {} --network devnet - Demo mode", "demo".bright_yellow());
-            println!();
-            println!("{}", "Usage: cargo run -- portfolio <subcommand> --network <devnet|mainnet>".bright_white());
-            println!("{}", "Example: cargo run -- portfolio summary --network devnet".bright_green());
+            // No subcommand specified - run professional portfolio if network is provided
+            if let Some(network) = matches.get_one::<String>("network") {
+                println!("🌐 Using network: {}", network.bright_cyan());
 
-            println!();
-            println!("{}", "Available portfolio commands:".bright_white().bold());
-            println!(
-                "  📊 {} - Show portfolio summary (default)",
-                "summary".bright_cyan()
-            );
-            println!(
-                "  � {} - Show current positions",
-                "positions".bright_cyan()
-            );
-            println!("  ⚠️ {} - Portfolio risk assessment", "risk".bright_cyan());
-            println!("  ⚖️ {} - Portfolio rebalancing", "rebalance".bright_cyan());
-            println!(
-                "  🔗 {} - Correlation analysis",
-                "correlation".bright_cyan()
-            );
-            println!(
-                "  📈 {} - Performance attribution",
-                "attribution".bright_cyan()
-            );
-            println!("  🎯 {} - Portfolio optimization", "optimize".bright_cyan());
-            println!(
-                "  🏢 {} - Professional monitoring mode",
-                "professional".bright_cyan()
-            );
-            println!(
-                "  🎯 {} - Demo mode (for testing)",
-                "demo".bright_yellow()
-            );
-            println!();
-            println!(
-                "{}",
-                "Usage: cargo run -- portfolio [subcommand]".bright_white()
-            );
-            println!("{}", "Simple: cargo run -- portfolio".bright_green());
-            println!("{}", "Detailed: cargo run -- portfolio summary".bright_green());
+                // Load configuration for the specified network
+                let config_file = match network.as_str() {
+                    "mainnet" => "config/mainnet.toml",
+                    "devnet" => "config/devnet.toml",
+                    _ => "config/devnet.toml",
+                };
+
+                let config = Config::load(config_file)?;
+                let monitor_duration = matches
+                    .get_one::<String>("monitor-duration")
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(60);
+
+                println!("🏢 Starting Professional Portfolio Management");
+                println!("⏱️ Monitor Duration: {} seconds", monitor_duration);
+                println!("🔄 Initializing real-time portfolio monitoring...");
+
+                // Example wallet addresses - in a real implementation, these would come from user config
+                let wallet_addresses = vec![
+                    // You can add real wallet addresses here for testing
+                    // Example DevNet addresses:
+                    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                    "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+                ];
+
+                // Run professional portfolio integration with real data
+                run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
+
+                println!(
+                    "{}",
+                    "✅ Professional Portfolio Management completed!"
+                        .bright_green()
+                        .bold()
+                );
+            } else {
+                // Missing network argument - show error and help
+                println!("{}", "❌ Missing required --network argument".red().bold());
+                println!();
+                println!("{}", "Usage:".bright_white().bold());
+                println!("  {} - Show professional portfolio overview", "portfolio --network devnet".bright_cyan());
+                println!("  {} - Show professional portfolio overview", "portfolio --network mainnet".bright_cyan());
+                println!();
+                println!("{}", "Advanced options:".bright_white().bold());
+                println!("  {} - Set monitoring duration", "--duration SECONDS".bright_yellow());
+                println!("  {} - Show trading suggestions", "--suggestions".bright_yellow());
+                println!();
+                println!("{}", "Available subcommands for specific operations:".bright_white().bold());
+                println!("  📊 {} - Show portfolio summary", "summary --network devnet".bright_cyan());
+                println!("  📋 {} - Show current positions", "positions --network devnet".bright_cyan());
+                println!("  ⚠️ {} - Portfolio risk assessment", "risk-assessment --network devnet".bright_cyan());
+                println!("  ⚖️ {} - Portfolio rebalancing", "rebalance --network devnet".bright_cyan());
+                println!("  🔗 {} - Correlation analysis", "correlation --network devnet".bright_cyan());
+                println!("  📈 {} - Performance attribution", "attribution --network devnet".bright_cyan());
+                println!("  🎯 {} - Portfolio optimization", "optimize --network devnet".bright_cyan());
+                println!("  🎯 {} - Demo mode (for testing)", "demo --network devnet".bright_yellow());
+                println!();
+                println!("{}", "Examples:".bright_white().bold());
+                println!("  {} - Show professional overview", "cargo run -- portfolio --network devnet".bright_green());
+                println!("  {} - Check positions", "cargo run -- portfolio positions --network devnet".bright_green());
+            }
         }
     }
     Ok(())
 }
-
 async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("all", sub_matches)) => handle_test_all_command(sub_matches).await?,

@@ -6,6 +6,9 @@
 //! - Automated rebalancing based on strategy performance
 //! - Performance attribution and detailed analytics
 //! - Cross-correlation analysis between positions
+//! - Real-time wallet scanning and blockchain analysis
+//! - Live price feeds and market data integration
+//! - Strategy performance tracking and attribution
 
 pub mod manager;
 pub mod risk_manager;
@@ -17,11 +20,21 @@ pub mod real_data_integration;
 pub mod demo_integration;
 pub mod professional_integration;
 
+pub mod wallet_scanner;
+pub mod price_feed;
+pub mod blockchain_analyzer;
+pub mod strategy_tracker;
+
 pub use manager::{PortfolioManager, PortfolioPosition, PortfolioConfig};
 pub use risk_manager::{PortfolioRiskManager, RiskLimits, VaRCalculator};
 pub use rebalancer::{PortfolioRebalancer, RebalanceConfig, RebalanceAction};
 pub use analytics::{PortfolioAnalytics, PerformanceReport, AttributionReport};
 pub use correlation::{CorrelationAnalyzer, CorrelationMatrix, DiversificationMetrics};
+
+pub use wallet_scanner::{WalletScanner, WalletBalance, TokenBalance};
+pub use price_feed::{PriceFeed, TokenPrice};
+pub use blockchain_analyzer::{BlockchainAnalyzer, TransactionHistory, TransactionRecord, PortfolioPerformance};
+pub use strategy_tracker::{StrategyTracker, StrategyPerformance, OverallPortfolioMetrics, TradeResult};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
