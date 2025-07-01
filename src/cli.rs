@@ -7,6 +7,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::{keypair::Keypair, Signer};
 use std::io::{self, Write};
 use std::str::FromStr;
+use tracing::info;
 
 use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
 use sniperforge::shared::jupiter::{tokens, JupiterClient, JupiterConfig, QuoteRequest};
@@ -1129,7 +1130,7 @@ pub async fn run_cli() -> Result<()> {
         // Phase 6B ML command handlers
         Some(("ml", sub_matches)) => handle_ml_command(sub_matches).await?,
         // Phase 6C Portfolio Management command handlers
-        Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches).await?,
+        Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches, &matches).await?,
         _ => {
             println!(
                 "{}",
@@ -1830,7 +1831,24 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
+async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatches) -> Result<()> {
+    // Load configuration with network parameter
+    let network = main_matches
+        .get_one::<String>("network")
+        .map(|s| s.as_str())
+        .unwrap_or("devnet"); // Default to devnet for safety
+
+    info!("🌐 Using network: {}", network);
+
+    // Load configuration for the specified network
+    let config_file = match network {
+        "mainnet" => "config/mainnet.toml",
+        "devnet" => "config/devnet.toml",
+        _ => "config/devnet.toml", // Default to devnet for safety
+    };
+
+    let config = Config::load(config_file)?;
+
     match matches.subcommand() {
         Some(("demo", sub_matches)) => {
             let scenario = sub_matches
@@ -1853,7 +1871,7 @@ async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
                         "{}",
                         "Running complete portfolio demo with all features...".yellow()
                     );
-                    run_portfolio_demo().await?;
+                    run_portfolio_demo(config.clone()).await?;
                 }
                 "trades-only" => {
                     println!("{}", "Running trades-only demo scenario...".yellow());
@@ -1863,7 +1881,7 @@ async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
                         "Trades-only scenario not yet implemented. Running complete demo instead."
                             .bright_yellow()
                     );
-                    run_portfolio_demo().await?;
+                    run_portfolio_demo(config.clone()).await?;
                 }
                 "prices-only" => {
                     println!("{}", "Running prices-only demo scenario...".yellow());
@@ -1873,7 +1891,7 @@ async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
                         "Prices-only scenario not yet implemented. Running complete demo instead."
                             .bright_yellow()
                     );
-                    run_portfolio_demo().await?;
+                    run_portfolio_demo(config.clone()).await?;
                 }
                 _ => {
                     println!("{}", "❌ Unknown scenario. Available scenarios: complete, trades-only, prices-only".red());

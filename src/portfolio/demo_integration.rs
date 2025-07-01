@@ -438,10 +438,7 @@ impl PortfolioIntegrationDemo {
 }
 
 /// Convenience function to run a quick demo
-pub async fn run_portfolio_demo() -> Result<()> {
-    // Create minimal config for demo
-    let config = Config::default();
-
+pub async fn run_portfolio_demo(config: Config) -> Result<()> {
     let demo = PortfolioIntegrationDemo::new(config);
     demo.run_complete_demo().await
 }
@@ -452,7 +449,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_demo_initialization() {
-        let config = Config::default();
+        let config = Config::load("config/devnet.toml").expect("Failed to load test config");
         let demo = PortfolioIntegrationDemo::new(config);
 
         let result = demo.initialize_demo().await;
@@ -465,7 +462,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_simulate_trade() {
-        let config = Config::default();
+        let config = Config::load("config/devnet.toml").expect("Failed to load test config");
         let demo = PortfolioIntegrationDemo::new(config);
 
         demo.initialize_demo().await.unwrap();
@@ -478,7 +475,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_price_update() {
-        let config = Config::default();
+        let config = Config::load("config/devnet.toml").expect("Failed to load test config");
         let demo = PortfolioIntegrationDemo::new(config);
 
         demo.initialize_demo().await.unwrap();
@@ -498,7 +495,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_portfolio_snapshot() {
-        let config = Config::default();
+        let config = Config::load("config/devnet.toml").expect("Failed to load test config");
         let demo = PortfolioIntegrationDemo::new(config);
 
         demo.initialize_demo().await.unwrap();
