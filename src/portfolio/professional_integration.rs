@@ -6,12 +6,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use st                                match tracker.calculate_strategy_performance(
-                                    strategy_name,
-                                    wallet_addr,
-                                    &history,
-                                    self.price_feed.as_ref().unwrap()
-                                ).await {lections::HashMap;
+use std::collections::HashMap;
 use tracing::{info, warn, debug};
 
 use crate::config::Config;
@@ -276,7 +271,7 @@ impl ProfessionalPortfolioIntegration {
                                     strategy_name,
                                     wallet_addr,
                                     &history,
-                                    price_feed.as_ref().unwrap()
+                                    self.price_feed.as_ref().unwrap()
                                 ).await {
                                     Ok(perf) => {
                                         if perf.total_trades > 0 {
