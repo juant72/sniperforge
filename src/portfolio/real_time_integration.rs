@@ -169,7 +169,7 @@ impl RealTimePortfolioIntegration {
         let analytics = Arc::new(RwLock::new(PortfolioAnalytics::new()));
 
         // Create update channel
-        let (update_sender, mut update_receiver) = mpsc::unbounded_channel();
+        let (update_sender, update_receiver) = mpsc::unbounded_channel();
 
         let integration = Self {
             portfolio_manager,
@@ -177,9 +177,29 @@ impl RealTimePortfolioIntegration {
             jupiter_client,
             // cache_free_trader, // Commented temporarily
             websocket_manager: Arc::new(
-                SyndicaWebSocketClient::new(
-                    crate::shared::syndica_websocket::SyndicaConfig::mainnet(),
-                )
+                SyndicaWebSocketClient::new(match config.network.environment.as_str() {
+                    "mainnet" => crate::shared::syndica_websocket::SyndicaConfig::mainnet(),
+                    "devnet" => {
+                        // Create devnet config using user's configuration
+                        crate::shared::syndica_websocket::SyndicaConfig {
+                            access_token: std::env::var("SYNDICA_TOKEN")
+                                .unwrap_or_else(|_| "test-token".to_string()),
+                            endpoint: config.network.websocket_url().to_string(),
+                            reconnect_attempts: 5,
+                            ping_interval: std::time::Duration::from_secs(30),
+                        }
+                    }
+                    _ => {
+                        // Use devnet as safer fallback for unknown environments
+                        crate::shared::syndica_websocket::SyndicaConfig {
+                            access_token: std::env::var("SYNDICA_TOKEN")
+                                .unwrap_or_else(|_| "test-token".to_string()),
+                            endpoint: config.network.websocket_url().to_string(),
+                            reconnect_attempts: 5,
+                            ping_interval: std::time::Duration::from_secs(30),
+                        }
+                    }
+                })
                 .await
                 .unwrap(),
             ),
@@ -314,7 +334,6 @@ impl RealTimePortfolioIntegration {
         info!("🔍 Starting transaction monitoring...");
 
         let transaction_monitor = self.transaction_monitor.clone();
-        let update_sender = self.update_sender.clone();
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
@@ -552,7 +571,7 @@ impl RealTimePortfolioIntegration {
     /// Update portfolio analytics with latest data
     async fn update_portfolio_analytics(&self) -> Result<()> {
         let positions = self.portfolio_manager.get_positions().await;
-        let metrics = self.portfolio_manager.calculate_metrics().await?;
+        let _metrics = self.portfolio_manager.calculate_metrics().await?;
 
         // Create performance snapshot
         let mut strategy_breakdown = HashMap::new();
@@ -588,14 +607,14 @@ impl RealTimePortfolioIntegration {
             strategy_breakdown.insert(strategy, strategy_perf);
         }
 
-        let snapshot = PerformanceSnapshot {
-            timestamp: Utc::now(),
-            total_value: metrics.total_value,
-            total_pnl: metrics.total_pnl,
-            daily_return: metrics.daily_pnl,
-            positions_count: positions.len(),
-            strategy_breakdown,
-        };
+        // let snapshot = PerformanceSnapshot {
+        //     timestamp: Utc::now(),
+        //     total_value: metrics.total_value,
+        //     total_pnl: metrics.total_pnl,
+        //     daily_return: metrics.daily_pnl,
+        //     positions_count: positions.len(),
+        //     strategy_breakdown,
+        // };
 
         // Add snapshot to analytics (pass the positions instead of snapshot)
         let mut analytics = self.analytics.write().await;
