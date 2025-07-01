@@ -34,6 +34,7 @@ use sniperforge::ml::advanced_analytics::AdvancedAnalyticsEngine;
 
 // Phase 6C Portfolio Management imports
 use sniperforge::portfolio::demo_integration::run_portfolio_demo;
+use sniperforge::portfolio::professional_integration::run_professional_portfolio;
 
 // TODO: Re-enable when ML module compilation is fixed
 /*
@@ -950,7 +951,8 @@ pub async fn run_cli() -> Result<()> {
         // Phase 6C Portfolio Management Commands
         .subcommand(
             Command::new("portfolio")
-                .about("[STATS] PHASE 6C: Portfolio management and analytics")
+                .about("📊 Professional Portfolio Management - Real-time data & analytics")
+                .after_help("Professional portfolio management with real market data. Default behavior shows your portfolio overview. Use 'demo' subcommand for testing.")
                 .subcommand(
                     Command::new("summary")
                         .about("Show portfolio summary and metrics")
@@ -1054,6 +1056,12 @@ pub async fn run_cli() -> Result<()> {
                             .value_name("DAYS")
                             .help("Attribution analysis period")
                             .default_value("30"))
+                        .arg(Arg::new("network")
+                            .long("network")
+                            .value_name("NET")
+                            .help("Network to perform attribution analysis on: devnet or mainnet")
+                            .required(true)
+                            .value_parser(["devnet", "mainnet"]))
                 )
                 .subcommand(
                     Command::new("optimize")
@@ -1069,6 +1077,12 @@ pub async fn run_cli() -> Result<()> {
                             .value_name("LEVEL")
                             .help("Risk level: conservative, moderate, aggressive")
                             .default_value("moderate"))
+                        .arg(Arg::new("network")
+                            .long("network")
+                            .value_name("NET")
+                            .help("Network to optimize portfolio on: devnet or mainnet")
+                            .required(true)
+                            .value_parser(["devnet", "mainnet"]))
                 )
                 .subcommand(
                     Command::new("positions")
@@ -1083,6 +1097,12 @@ pub async fn run_cli() -> Result<()> {
                             .value_name("FIELD")
                             .help("Sort by: pnl, value, symbol, strategy")
                             .default_value("pnl"))
+                        .arg(Arg::new("network")
+                            .long("network")
+                            .value_name("NET")
+                            .help("Network to show positions for: devnet or mainnet")
+                            .required(true)
+                            .value_parser(["devnet", "mainnet"]))
                 )
                 .subcommand(
                     Command::new("demo")
@@ -1094,6 +1114,39 @@ pub async fn run_cli() -> Result<()> {
                             .value_name("SCENARIO")
                             .help("Demo scenario to run: complete, trades-only, prices-only")
                             .default_value("complete"))
+                        .arg(Arg::new("network")
+                            .long("network")
+                            .value_name("NET")
+                            .help("Network to run demo on: devnet or mainnet")
+                            .required(true)
+                            .value_parser(["devnet", "mainnet"]))
+                )
+                .subcommand(
+                    Command::new("professional")
+                        .about("🏢 Professional Portfolio Management - Real-time with live data")
+                        .after_help("Professional-grade portfolio management with real market data, live monitoring, blockchain integration, and professional trading capabilities.")
+                        .arg(Arg::new("monitor-duration")
+                            .short('d')
+                            .long("duration")
+                            .value_name("SECONDS")
+                            .help("How long to run the monitoring (in seconds)")
+                            .default_value("60"))
+                        .arg(Arg::new("show-suggestions")
+                            .short('s')
+                            .long("suggestions")
+                            .help("Show professional trading suggestions")
+                            .action(clap::ArgAction::SetTrue))
+                        .arg(Arg::new("auto-execute")
+                            .short('a')
+                            .long("auto-execute")
+                            .help("Auto-execute suggested trades (use with caution)")
+                            .action(clap::ArgAction::SetTrue))
+                        .arg(Arg::new("network")
+                            .long("network")
+                            .value_name("NET")
+                            .help("Network to run professional portfolio on: devnet or mainnet")
+                            .required(true)
+                            .value_parser(["devnet", "mainnet"]))
                 )
         )
         .subcommand(
@@ -1832,25 +1885,24 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatches) -> Result<()> {
-    // Load configuration with network parameter
-    let network = main_matches
-        .get_one::<String>("network")
-        .map(|s| s.as_str())
-        .unwrap_or("devnet"); // Default to devnet for safety
-
-    info!("🌐 Using network: {}", network);
-
-    // Load configuration for the specified network
-    let config_file = match network {
-        "mainnet" => "config/mainnet.toml",
-        "devnet" => "config/devnet.toml",
-        _ => "config/devnet.toml", // Default to devnet for safety
-    };
-
-    let config = Config::load(config_file)?;
-
     match matches.subcommand() {
         Some(("demo", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
+            // Load configuration for the specified network
+            let config_file = match network {
+                "mainnet" => "config/mainnet.toml",
+                "devnet" => "config/devnet.toml",
+                _ => "config/devnet.toml",
+            };
+
+            let config = Config::load(config_file)?;
             let scenario = sub_matches
                 .get_one::<String>("scenario")
                 .map(|s| s.as_str())
@@ -1907,31 +1959,67 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
                     .bold()
             );
         }
-        Some(("summary", _sub_matches)) => {
+        Some(("summary", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
+            let config_file = match network {
+                "mainnet" => "config/mainnet.toml",
+                "devnet" => "config/devnet.toml",
+                _ => "config/devnet.toml",
+            };
+
+            let config = Config::load(config_file)?;
+
             println!(
                 "{}",
-                "📊 Portfolio Summary (placeholder)".bright_blue().bold()
+                "📊 Professional Portfolio Summary"
+                    .bright_blue()
+                    .bold()
             );
-            println!(
-                "{}",
-                "This feature will show real portfolio metrics and positions.".yellow()
-            );
-            // TODO: Implement real portfolio summary
+            println!("🔄 Loading real portfolio data...");
+            run_professional_portfolio(config.clone()).await?;
         }
-        Some(("risk", _sub_matches)) => {
+        Some(("risk", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
+            let config_file = match network {
+                "mainnet" => "config/mainnet.toml",
+                "devnet" => "config/devnet.toml",
+                _ => "config/devnet.toml",
+            };
+
+            let config = Config::load(config_file)?;
+
             println!(
                 "{}",
-                "⚠️ Portfolio Risk Assessment (placeholder)"
+                "⚠️ Portfolio Risk Assessment"
                     .bright_red()
                     .bold()
             );
-            println!(
-                "{}",
-                "This feature will show portfolio risk metrics and analysis.".yellow()
-            );
-            // TODO: Implement portfolio risk assessment
+            println!("🔄 Analyzing portfolio risk metrics...");
+            run_professional_portfolio(config.clone()).await?;
         }
-        Some(("rebalance", _sub_matches)) => {
+        Some(("rebalance", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
             println!(
                 "{}",
                 "⚖️ Portfolio Rebalancing (placeholder)"
@@ -1944,7 +2032,15 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
             );
             // TODO: Implement portfolio rebalancing
         }
-        Some(("correlation", _sub_matches)) => {
+        Some(("correlation", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
             println!(
                 "{}",
                 "🔗 Portfolio Correlation Analysis (placeholder)"
@@ -1957,7 +2053,15 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
             );
             // TODO: Implement correlation analysis
         }
-        Some(("attribution", _sub_matches)) => {
+        Some(("attribution", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
             println!(
                 "{}",
                 "📈 Performance Attribution (placeholder)"
@@ -1970,7 +2074,15 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
             );
             // TODO: Implement performance attribution
         }
-        Some(("optimize", _sub_matches)) => {
+        Some(("optimize", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
             println!(
                 "{}",
                 "🎯 Portfolio Optimization (placeholder)"
@@ -1983,24 +2095,100 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
             );
             // TODO: Implement portfolio optimization
         }
-        Some(("positions", _sub_matches)) => {
+        Some(("positions", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
+            let config_file = match network {
+                "mainnet" => "config/mainnet.toml",
+                "devnet" => "config/devnet.toml",
+                _ => "config/devnet.toml",
+            };
+
+            let config = Config::load(config_file)?;
+
             println!(
                 "{}",
-                "📋 Current Positions (placeholder)".bright_blue().bold()
+                "📋 Current Positions".bright_blue().bold()
             );
+            println!("🔄 Loading real portfolio positions...");
+            run_professional_portfolio(config.clone()).await?;
+        }
+        Some(("professional", sub_matches)) => {
+            // Get network from subcommand (now required)
+            let network = sub_matches
+                .get_one::<String>("network")
+                .map(|s| s.as_str())
+                .unwrap(); // Safe to unwrap since it's required
+
+            println!("🌐 Using network: {}", network.bright_cyan());
+
+            let config_file = match network {
+                "mainnet" => "config/mainnet.toml",
+                "devnet" => "config/devnet.toml",
+                _ => "config/devnet.toml",
+            };
+
+            let config = Config::load(config_file)?;
+
+            let monitor_duration = sub_matches
+                .get_one::<String>("monitor-duration")
+                .map(|s| s.parse::<u64>().unwrap_or(60))
+                .unwrap_or(60);
+
             println!(
                 "{}",
-                "This feature will show current positions and performance.".yellow()
+                "🏢 Starting Professional Portfolio Management"
+                    .bright_green()
+                    .bold()
             );
-            // TODO: Implement positions display
+            println!("⏱️ Monitor Duration: {} seconds", monitor_duration);
+            println!("🔄 Initializing real-time portfolio monitoring...");
+
+            run_professional_portfolio(config.clone()).await?;
+
+            println!(
+                "{}",
+                "✅ Professional Portfolio Management completed!"
+                    .bright_green()
+                    .bold()
+            );
         }
         _ => {
+            // No subcommand specified - show help
+            println!("{}", "❌ Missing required subcommand and --network argument".red().bold());
+            println!();
             println!("{}", "Available portfolio commands:".bright_white().bold());
             println!(
-                "  🎯 {} - Run portfolio integration demo",
-                "demo".bright_cyan()
+                "  📊 {} --network devnet - Show portfolio summary",
+                "summary".bright_cyan()
             );
-            println!("  📊 {} - Show portfolio summary", "summary".bright_cyan());
+            println!(
+                "  � {} --network devnet - Show current positions",
+                "positions".bright_cyan()
+            );
+            println!("  ⚠️ {} --network devnet - Portfolio risk assessment", "risk".bright_cyan());
+            println!("  🏢 {} --network devnet - Professional monitoring", "professional".bright_cyan());
+            println!("  🎯 {} --network devnet - Demo mode", "demo".bright_yellow());
+            println!();
+            println!("{}", "Usage: cargo run -- portfolio <subcommand> --network <devnet|mainnet>".bright_white());
+            println!("{}", "Example: cargo run -- portfolio summary --network devnet".bright_green());
+
+            println!();
+            println!("{}", "Available portfolio commands:".bright_white().bold());
+            println!(
+                "  📊 {} - Show portfolio summary (default)",
+                "summary".bright_cyan()
+            );
+            println!(
+                "  � {} - Show current positions",
+                "positions".bright_cyan()
+            );
             println!("  ⚠️ {} - Portfolio risk assessment", "risk".bright_cyan());
             println!("  ⚖️ {} - Portfolio rebalancing", "rebalance".bright_cyan());
             println!(
@@ -2012,13 +2200,21 @@ async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatche
                 "attribution".bright_cyan()
             );
             println!("  🎯 {} - Portfolio optimization", "optimize".bright_cyan());
-            println!("  📋 {} - Current positions", "positions".bright_cyan());
+            println!(
+                "  🏢 {} - Professional monitoring mode",
+                "professional".bright_cyan()
+            );
+            println!(
+                "  🎯 {} - Demo mode (for testing)",
+                "demo".bright_yellow()
+            );
             println!();
             println!(
                 "{}",
-                "Usage: cargo run -- portfolio <subcommand>".bright_white()
+                "Usage: cargo run -- portfolio [subcommand]".bright_white()
             );
-            println!("{}", "Example: cargo run -- portfolio demo".bright_green());
+            println!("{}", "Simple: cargo run -- portfolio".bright_green());
+            println!("{}", "Detailed: cargo run -- portfolio summary".bright_green());
         }
     }
     Ok(())

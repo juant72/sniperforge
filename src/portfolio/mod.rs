@@ -15,6 +15,7 @@ pub mod correlation;
 pub mod real_time_integration;
 pub mod real_data_integration;
 pub mod demo_integration;
+pub mod professional_integration;
 
 pub use manager::{PortfolioManager, PortfolioPosition, PortfolioConfig};
 pub use risk_manager::{PortfolioRiskManager, RiskLimits, VaRCalculator};
