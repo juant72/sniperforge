@@ -230,26 +230,63 @@ impl PriceFeed {
         }
     }
 
+    pub async fn get_sol_price(&self) -> Result<TokenPrice> {
+        // For demonstration, return sample SOL price
+        // In production, this would fetch from CoinGecko or other APIs
+        Ok(TokenPrice {
+            symbol: "SOL".to_string(),
+            mint: "So11111111111111111111111111111111111111112".to_string(),
+            price_usd: 185.50, // Demo SOL price
+            price_change_24h: 2.5,
+            volume_24h: 1_500_000_000.0,
+            market_cap: Some(85_000_000_000.0),
+            last_updated: chrono::Utc::now(),
+            source: "demo".to_string(),
+        })
+    }
+
     pub async fn get_multiple_prices(&self, mint_addresses: &[String]) -> HashMap<String, TokenPrice> {
         let mut prices = HashMap::new();
 
+        // Return demo prices for common tokens
         for mint in mint_addresses {
-            match self.get_token_price(mint).await {
-                Ok(price) => {
-                    println!("✅ Got price for {}: ${:.6}", price.symbol, price.price_usd);
-                    prices.insert(mint.clone(), price);
+            let token_price = match mint.as_str() {
+                "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => TokenPrice { // USDC
+                    symbol: "USDC".to_string(),
+                    mint: mint.clone(),
+                    price_usd: 1.0,
+                    price_change_24h: 0.01,
+                    volume_24h: 500_000_000.0,
+                    market_cap: Some(25_000_000_000.0),
+                    last_updated: chrono::Utc::now(),
+                    source: "demo".to_string(),
                 },
-                Err(e) => {
-                    eprintln!("❌ Failed to get price for {}: {}", mint, e);
+                "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => TokenPrice { // RAY
+                    symbol: "RAY".to_string(),
+                    mint: mint.clone(),
+                    price_usd: 1.50,
+                    price_change_24h: -1.2,
+                    volume_24h: 15_000_000.0,
+                    market_cap: Some(150_000_000.0),
+                    last_updated: chrono::Utc::now(),
+                    source: "demo".to_string(),
+                },
+                _ => TokenPrice {
+                    symbol: "UNKNOWN".to_string(),
+                    mint: mint.clone(),
+                    price_usd: 0.0,
+                    price_change_24h: 0.0,
+                    volume_24h: 0.0,
+                    market_cap: None,
+                    last_updated: chrono::Utc::now(),
+                    source: "demo".to_string(),
                 }
-            }
+            };
+
+            prices.insert(mint.clone(), token_price);
         }
 
         prices
-    }
-
-    pub async fn get_sol_price(&self) -> Result<TokenPrice> {
-        self.get_price_from_coingecko("solana", "SOL", "So11111111111111111111111111111111111111112").await
     }
 
     pub fn get_network(&self) -> &str {

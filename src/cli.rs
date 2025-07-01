@@ -959,6 +959,12 @@ pub async fn run_cli() -> Result<()> {
                     .help("Network to use: devnet or mainnet")
                     .required(true)
                     .value_parser(["devnet", "mainnet"]))
+                .arg(Arg::new("wallet")
+                    .short('w')
+                    .long("wallet")
+                    .value_name("ADDRESS")
+                    .help("Wallet address(es) to analyze (comma-separated for multiple wallets)")
+                    .action(clap::ArgAction::Append))
                 .arg(Arg::new("monitor-duration")
                     .short('d')
                     .long("duration")
@@ -2228,13 +2234,36 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
                 println!("⏱️ Monitor Duration: {} seconds", monitor_duration);
                 println!("🔄 Initializing real-time portfolio monitoring...");
 
-                // Example wallet addresses - in a real implementation, these would come from user config
-                let wallet_addresses = vec![
-                    // You can add real wallet addresses here for testing
-                    // Example DevNet addresses:
-                    "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
-                    "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
-                ];
+                // Get wallet addresses from user input or use defaults
+                let wallet_addresses = if let Some(wallets) = matches.get_many::<String>("wallet") {
+                    let mut addresses = Vec::new();
+                    for wallet in wallets {
+                        // Split by comma in case user provided comma-separated addresses
+                        for addr in wallet.split(',') {
+                            let addr = addr.trim();
+                            if !addr.is_empty() {
+                                addresses.push(addr.to_string());
+                            }
+                        }
+                    }
+                    if addresses.is_empty() {
+                        println!("⚠️ No valid wallet addresses provided, using demo addresses");
+                        vec![
+                            "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                            "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+                        ]
+                    } else {
+                        println!("📋 Analyzing {} wallet address(es)", addresses.len());
+                        addresses
+                    }
+                } else {
+                    println!("⚠️ No wallet addresses specified, using demo addresses");
+                    println!("💡 Use --wallet <address> to analyze specific wallets");
+                    vec![
+                        "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                        "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+                    ]
+                };
 
                 // Run professional portfolio integration with real data
                 run_professional_portfolio(config.clone(), network, wallet_addresses).await?;

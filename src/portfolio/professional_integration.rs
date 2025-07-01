@@ -158,6 +158,8 @@ impl ProfessionalPortfolioIntegration {
         if let Some(scanner) = &self.wallet_scanner {
             if !wallet_addresses.is_empty() {
                 info!("🔍 Scanning {} wallet(s) for real balances...", wallet_addresses.len());
+                println!("DEBUG: About to call scan_multiple_wallets");
+
                 match scanner.scan_multiple_wallets(wallet_addresses).await {
                     Ok(balances) => {
                         println!("DEBUG: Got {} wallet balances", balances.len());
