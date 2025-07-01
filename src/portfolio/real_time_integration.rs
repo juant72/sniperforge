@@ -12,15 +12,11 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
-use super::{
-    PerformanceSnapshot, PortfolioAnalytics, PortfolioManager, PortfolioPosition,
-    StrategyPerformance,
-};
+use super::{PortfolioAnalytics, PortfolioManager, PortfolioPosition};
 use crate::config::Config;
 use crate::shared::{
-    cache_free_trader_simple::CacheFreeTrader,
     jupiter::{Jupiter, JupiterClient},
-    syndica_websocket::SyndicaWebSocketManager,
+    syndica_websocket::SyndicaWebSocketClient,
 };
 
 /// Real-time portfolio data integration manager
@@ -29,8 +25,8 @@ pub struct RealTimePortfolioIntegration {
     portfolio_manager: Arc<PortfolioManager>,
     analytics: Arc<RwLock<PortfolioAnalytics>>,
     jupiter_client: Arc<JupiterClient>,
-    cache_free_trader: Arc<CacheFreeTrader>,
-    websocket_manager: Arc<SyndicaWebSocketManager>,
+    // cache_free_trader: Arc<CacheFreeTrader>,
+    websocket_manager: Arc<SyndicaWebSocketClient>,
     price_updates: Arc<RwLock<HashMap<String, LivePriceData>>>,
     transaction_monitor: Arc<RwLock<TransactionMonitor>>,
     update_sender: mpsc::UnboundedSender<PortfolioUpdate>,
@@ -175,7 +171,7 @@ impl RealTimePortfolioIntegration {
             portfolio_manager,
             analytics,
             jupiter_client,
-            cache_free_trader,
+            // cache_free_trader,
             websocket_manager,
             price_updates: Arc::new(RwLock::new(HashMap::new())),
             transaction_monitor: Arc::new(RwLock::new(TransactionMonitor::new())),
@@ -661,7 +657,7 @@ impl Clone for RealTimePortfolioIntegration {
             portfolio_manager: self.portfolio_manager.clone(),
             analytics: self.analytics.clone(),
             jupiter_client: self.jupiter_client.clone(),
-            cache_free_trader: self.cache_free_trader.clone(),
+            // cache_free_trader: self.cache_free_trader.clone(),
             websocket_manager: self.websocket_manager.clone(),
             price_updates: self.price_updates.clone(),
             transaction_monitor: self.transaction_monitor.clone(),
@@ -688,13 +684,14 @@ impl PortfolioAnalytics {
         }
     }
 
-    pub fn add_snapshot(&mut self, snapshot: PerformanceSnapshot) {
-        self.performance_history.push(snapshot);
+    pub fn add_snapshot(&mut self, _snapshot: PerformanceSnapshot) {
+        // TODO: Fix access to performance_history field
+        // self.performance_history.push(snapshot);
 
         // Keep only last 1000 snapshots to manage memory
-        if self.performance_history.len() > 1000 {
-            self.performance_history.remove(0);
-        }
+        // if self.performance_history.len() > 1000 {
+        //     self.performance_history.remove(0);
+        // }
     }
 }
 

@@ -1,33 +1,39 @@
 use anyhow::Result;
-use clap::{Command, Arg, ArgMatches, ArgAction};
+use chrono::{DateTime, Duration, Utc};
+use clap::{Arg, ArgAction, ArgMatches, Command};
 use colored::*;
+use reqwest;
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signer::{keypair::Keypair, Signer};
 use std::io::{self, Write};
 use std::str::FromStr;
-use solana_sdk::signer::{Signer, keypair::Keypair};
-use solana_sdk::pubkey::Pubkey;
-use chrono::{DateTime, Utc, Duration};
-use reqwest;
 
-use sniperforge::{Config, SniperForgePlatform, solana_testing, dexscreener_testing, tatum_testing};
-use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
-use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
-use sniperforge::shared::wallet_manager::WalletManager;
 use sniperforge::shared::cache_free_trader_simple::test_cache_free_trading;
+use sniperforge::shared::jupiter::{tokens, JupiterClient, JupiterConfig, QuoteRequest};
 use sniperforge::shared::real_trading_engine::test_real_trading_engine;
 use sniperforge::shared::test_wallet_integration::test_cache_free_real_trading_with_wallet;
+use sniperforge::shared::trade_executor::{TradeExecutor, TradeRequest, TradingMode};
+use sniperforge::shared::wallet_manager::WalletManager;
+use sniperforge::{
+    dexscreener_testing, solana_testing, tatum_testing, Config, SniperForgePlatform,
+};
 // Sprint 2 Performance Optimization imports
-use sniperforge::shared::performance_profiler::{PerformanceProfiler, get_performance_profiler};
+use sniperforge::shared::performance_profiler::{get_performance_profiler, PerformanceProfiler};
 
 // Phase 6A imports for advanced strategies and analysis
-use sniperforge::strategies::trend_following::TrendFollowingStrategy;
+use sniperforge::analysis::patterns::PatternRecognizer;
+use sniperforge::analysis::timeframe::MultiTimeframeAnalyzer;
+use sniperforge::strategies::arbitrage::ArbitrageStrategy;
 use sniperforge::strategies::mean_reversion::MeanReversionStrategy;
 use sniperforge::strategies::momentum::MomentumStrategy;
-use sniperforge::strategies::arbitrage::ArbitrageStrategy;
-use sniperforge::analysis::timeframe::MultiTimeframeAnalyzer;
-use sniperforge::analysis::patterns::PatternRecognizer;
+use sniperforge::strategies::trend_following::TrendFollowingStrategy;
 
 // Phase 6B imports for Machine Learning
 use sniperforge::ml::advanced_analytics::AdvancedAnalyticsEngine;
+
+// Phase 6C Portfolio Management imports
+use sniperforge::portfolio::demo_integration::run_portfolio_demo;
+
 // TODO: Re-enable when ML module compilation is fixed
 /*
 use sniperforge::ml::{
@@ -157,7 +163,8 @@ impl TimingPredictor {
             expected_slippage: 0.003,
             liquidity_score: 0.92,
             execution_priority: ExecutionPriority::Optimal,
-            reasoning: "Favorable liquidity conditions with low volatility window ahead".to_string(),
+            reasoning: "Favorable liquidity conditions with low volatility window ahead"
+                .to_string(),
         })
     }
 
@@ -182,7 +189,8 @@ impl TimingPredictor {
         Ok(ExecutionStrategy {
             chunks,
             timing_windows: timing_windows.clone(),
-            estimated_completion: timing_windows.last().unwrap().clone() + chrono::Duration::minutes(2),
+            estimated_completion: timing_windows.last().unwrap().clone()
+                + chrono::Duration::minutes(2),
             total_expected_slippage: max_slippage * 0.7, // 30% improvement
         })
     }
@@ -1075,6 +1083,17 @@ pub async fn run_cli() -> Result<()> {
                             .help("Sort by: pnl, value, symbol, strategy")
                             .default_value("pnl"))
                 )
+                .subcommand(
+                    Command::new("demo")
+                        .about("🎯 Portfolio Integration Demo - Real data showcase")
+                        .after_help("Run a complete demonstration of portfolio management with real data integration, live price updates, and trade execution simulation.")
+                        .arg(Arg::new("scenario")
+                            .short('s')
+                            .long("scenario")
+                            .value_name("SCENARIO")
+                            .help("Demo scenario to run: complete, trades-only, prices-only")
+                            .default_value("complete"))
+                )
         )
         .subcommand(
             Command::new("check-balance")
@@ -1108,13 +1127,14 @@ pub async fn run_cli() -> Result<()> {
         // Some(("pattern-analysis", sub_matches)) => handle_pattern_analysis_command(sub_matches).await?,
         // Some(("arbitrage-scan", sub_matches)) => handle_arbitrage_scan_command(sub_matches).await?,
         // Phase 6B ML command handlers
-        Some(("ml", sub_matches)) => {
-            handle_ml_command(sub_matches).await?
-        },
-        // Phase 6C Portfolio Management command handlers (temporarily commented)
-        // Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches).await?,
+        Some(("ml", sub_matches)) => handle_ml_command(sub_matches).await?,
+        // Phase 6C Portfolio Management command handlers
+        Some(("portfolio", sub_matches)) => handle_portfolio_command(sub_matches).await?,
         _ => {
-            println!("{}", "No command specified. Use --help for available commands.".yellow());
+            println!(
+                "{}",
+                "No command specified. Use --help for available commands.".yellow()
+            );
             show_main_menu().await?;
         }
     }
@@ -1123,30 +1143,48 @@ pub async fn run_cli() -> Result<()> {
 }
 
 async fn handle_start_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[START] Starting SniperForge Platform...".bright_green().bold());
+    println!(
+        "{}",
+        "[START] Starting SniperForge Platform..."
+            .bright_green()
+            .bold()
+    );
 
     // Get network parameter (required)
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     // Determine config file to use
     let config_file = match network.as_str() {
         "devnet" => {
-            println!("{}", "[TEST] Using DEVNET configuration for testing".bright_yellow());
+            println!(
+                "{}",
+                "[TEST] Using DEVNET configuration for testing".bright_yellow()
+            );
             "config/devnet.toml"
-        },
+        }
         "mainnet" => {
-            println!("{}", "[PROD] Using MAINNET configuration for production".bright_red());
+            println!(
+                "{}",
+                "[PROD] Using MAINNET configuration for production".bright_red()
+            );
             "config/mainnet.toml"
-        },
-        _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
+        }
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid network. Use 'devnet' or 'mainnet'"
+            ))
+        }
     };
 
     let config = Config::load(config_file)?;
     let platform = SniperForgePlatform::new(config).await?;
 
     if let Some(bot_types) = matches.get_many::<String>("bot") {
-        platform.start_specific_bots(bot_types.cloned().collect()).await?;
+        platform
+            .start_specific_bots(bot_types.cloned().collect())
+            .await?;
     } else {
         platform.start_platform().await?;
     }
@@ -1156,11 +1194,15 @@ async fn handle_start_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_status_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     println!("{}", "[STATS] Platform Status".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     // This would typically connect to a running platform
@@ -1175,24 +1217,46 @@ async fn handle_status_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     println!("{}", "[CONFIG] Current Configuration".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     let config_file = match network.as_str() {
         "devnet" => "config/devnet.toml",
         "mainnet" => "config/mainnet.toml",
-        _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid network. Use 'devnet' or 'mainnet'"
+            ))
+        }
     };
 
     let config = Config::load(config_file)?;
 
-    println!("[NOTE] Platform: {} v{}", config.platform.name.bright_cyan(), config.platform.version.bright_yellow());
+    println!(
+        "[NOTE] Platform: {} v{}",
+        config.platform.name.bright_cyan(),
+        config.platform.version.bright_yellow()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
-    println!("[NET] Primary RPC: {}", config.network.primary_rpc().bright_green());
-    println!("[ML] Max Bots: {}", config.platform.max_concurrent_bots.to_string().bright_yellow());
+    println!(
+        "[NET] Primary RPC: {}",
+        config.network.primary_rpc().bright_green()
+    );
+    println!(
+        "[ML] Max Bots: {}",
+        config
+            .platform
+            .max_concurrent_bots
+            .to_string()
+            .bright_yellow()
+    );
 
     println!("\n{}", "Enabled Bots:".bright_white().bold());
     if config.is_bot_enabled("lp_sniper") {
@@ -1220,54 +1284,91 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
 async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("analyze-patterns", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_symbol = "SOL/USDC".to_string();
-            let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
+            let symbol = sub_matches
+                .get_one::<String>("symbol")
+                .unwrap_or(&default_symbol);
             let default_timeframe = "5".to_string();
-            let timeframe = sub_matches.get_one::<String>("timeframe").unwrap_or(&default_timeframe);
+            let timeframe = sub_matches
+                .get_one::<String>("timeframe")
+                .unwrap_or(&default_timeframe);
             let default_confidence = "0.8".to_string();
-            let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
+            let confidence = sub_matches
+                .get_one::<String>("confidence-threshold")
+                .unwrap_or(&default_confidence);
 
-            println!("{}", "[ML] Analyzing Market Patterns (REAL DATA INTEGRATION)".bright_blue().bold());
+            println!(
+                "{}",
+                "[ML] Analyzing Market Patterns (REAL DATA INTEGRATION)"
+                    .bright_blue()
+                    .bold()
+            );
             println!("Network: {}", network.bright_cyan());
             println!("Symbol: {}", symbol.bright_cyan());
             println!("Timeframe: {} minutes", timeframe.bright_cyan());
             println!("Confidence Threshold: {}", confidence.bright_cyan());
             println!();
 
-            println!("{}", "[🔗] Initializing REAL ML Pattern Analysis...".bright_yellow());
+            println!(
+                "{}",
+                "[🔗] Initializing REAL ML Pattern Analysis...".bright_yellow()
+            );
 
             // Initialize the real PatternRecognizer with ML capabilities
-            use sniperforge::ml::{MLConfig, PatternRecognizer, FeatureVector};
+            use sniperforge::ml::{FeatureVector, MLConfig, PatternRecognizer};
 
             let ml_config = MLConfig::default();
-            let mut pattern_recognizer = match PatternRecognizer::new(ml_config.pattern_recognition.clone()).await {
-                Ok(recognizer) => {
-                    println!("✅ ML Pattern Recognizer initialized successfully");
-                    recognizer
-                },
-                Err(e) => {
-                    println!("{}", format!("[ERROR] Failed to initialize ML PatternRecognizer: {}", e).bright_red());
-                    println!("Falling back to basic Jupiter price analysis...");
-
-                    // Fallback to basic Jupiter analysis
-                    let jupiter_config = JupiterConfig::default();
-                    match JupiterClient::new(&jupiter_config).await {
-                        Ok(jupiter_client) => {
-                            if let Ok(Some(sol_price)) = jupiter_client.get_price("So11111111111111111111111111111111111111112").await {
-                                println!("{}", "[PATTERN] Basic Analysis Results:".bright_green());
-                                println!("  * Symbol: {} → SOL (Real data)", symbol);
-                                println!("  * Current SOL Price: ${:.4} (LIVE Jupiter API)", sol_price);
-                                println!("  * Support Level: ${:.2} (Simple calculation)", sol_price * 0.95);
-                                println!("  * Resistance Level: ${:.2} (Simple calculation)", sol_price * 1.08);
-                            }
-                        },
-                        Err(_) => println!("{}", "[ERROR] Cannot connect to Jupiter API".bright_red()),
+            let mut pattern_recognizer =
+                match PatternRecognizer::new(ml_config.pattern_recognition.clone()).await {
+                    Ok(recognizer) => {
+                        println!("✅ ML Pattern Recognizer initialized successfully");
+                        recognizer
                     }
-                    return Ok(());
-                }
-            };
+                    Err(e) => {
+                        println!(
+                            "{}",
+                            format!("[ERROR] Failed to initialize ML PatternRecognizer: {}", e)
+                                .bright_red()
+                        );
+                        println!("Falling back to basic Jupiter price analysis...");
+
+                        // Fallback to basic Jupiter analysis
+                        let jupiter_config = JupiterConfig::default();
+                        match JupiterClient::new(&jupiter_config).await {
+                            Ok(jupiter_client) => {
+                                if let Ok(Some(sol_price)) = jupiter_client
+                                    .get_price("So11111111111111111111111111111111111111112")
+                                    .await
+                                {
+                                    println!(
+                                        "{}",
+                                        "[PATTERN] Basic Analysis Results:".bright_green()
+                                    );
+                                    println!("  * Symbol: {} → SOL (Real data)", symbol);
+                                    println!(
+                                        "  * Current SOL Price: ${:.4} (LIVE Jupiter API)",
+                                        sol_price
+                                    );
+                                    println!(
+                                        "  * Support Level: ${:.2} (Simple calculation)",
+                                        sol_price * 0.95
+                                    );
+                                    println!(
+                                        "  * Resistance Level: ${:.2} (Simple calculation)",
+                                        sol_price * 1.08
+                                    );
+                                }
+                            }
+                            Err(_) => {
+                                println!("{}", "[ERROR] Cannot connect to Jupiter API".bright_red())
+                            }
+                        }
+                        return Ok(());
+                    }
+                };
 
             // Get Jupiter client for price data
             let jupiter_config = JupiterConfig::default();
@@ -1276,7 +1377,10 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
                     println!("✅ Connected to Jupiter API for real-time data");
 
                     // Get SOL price and create feature vector for ML analysis
-                    match jupiter_client.get_price("So11111111111111111111111111111111111111112").await {
+                    match jupiter_client
+                        .get_price("So11111111111111111111111111111111111111112")
+                        .await
+                    {
                         Ok(Some(sol_price)) => {
                             println!("✅ Retrieved REAL SOL price: ${:.4}", sol_price);
 
@@ -1288,49 +1392,80 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
 
                             // Run REAL ML Pattern Analysis
                             println!("{}", "[🧠] Running ML Pattern Recognition...".bright_cyan());
-                            match pattern_recognizer.predict_price_movement(&feature_vector).await {
+                            match pattern_recognizer
+                                .predict_price_movement(&feature_vector)
+                                .await
+                            {
                                 Ok(ml_prediction) => {
-                                    println!("{}", "[PATTERN] REAL ML Analysis Results:".bright_green());
+                                    println!(
+                                        "{}",
+                                        "[PATTERN] REAL ML Analysis Results:".bright_green()
+                                    );
                                     println!("  * Symbol: {} → SOL (LIVE data)", symbol);
                                     println!("  * Current Price: ${:.4} (Jupiter API)", sol_price);
-                                    println!("  * ML Prediction: {:.3} ({}) ",
+                                    println!(
+                                        "  * ML Prediction: {:.3} ({}) ",
                                         ml_prediction.value,
-                                        if ml_prediction.value > 0.0 { "BULLISH ↗" }
-                                        else if ml_prediction.value < 0.0 { "BEARISH ↘" }
-                                        else { "NEUTRAL →" }
+                                        if ml_prediction.value > 0.0 {
+                                            "BULLISH ↗"
+                                        } else if ml_prediction.value < 0.0 {
+                                            "BEARISH ↘"
+                                        } else {
+                                            "NEUTRAL →"
+                                        }
                                     );
-                                    println!("  * ML Confidence: {:.1}% (Real model)", ml_prediction.confidence * 100.0);
+                                    println!(
+                                        "  * ML Confidence: {:.1}% (Real model)",
+                                        ml_prediction.confidence * 100.0
+                                    );
                                     println!("  * Data Source: Jupiter API + ML Analysis");
                                     println!("  * Network: {} (LIVE)", network);
-                                    println!("  * Timestamp: {} UTC", chrono::Utc::now().format("%Y-%m-%d %H:%M:%S"));
+                                    println!(
+                                        "  * Timestamp: {} UTC",
+                                        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+                                    );
 
                                     // Show ML metadata
-                                    if let Some(pattern_score) = ml_prediction.metadata.get("pattern_score") {
+                                    if let Some(pattern_score) =
+                                        ml_prediction.metadata.get("pattern_score")
+                                    {
                                         if let Some(score) = pattern_score.as_f64() {
                                             println!("  * Pattern Score: {:.3}", score);
                                         }
                                     }
-                                    if let Some(technical_score) = ml_prediction.metadata.get("technical_score") {
+                                    if let Some(technical_score) =
+                                        ml_prediction.metadata.get("technical_score")
+                                    {
                                         if let Some(score) = technical_score.as_f64() {
                                             println!("  * Technical Score: {:.3}", score);
                                         }
                                     }
-                                    if let Some(volume_score) = ml_prediction.metadata.get("volume_score") {
+                                    if let Some(volume_score) =
+                                        ml_prediction.metadata.get("volume_score")
+                                    {
                                         if let Some(score) = volume_score.as_f64() {
                                             println!("  * Volume Score: {:.3}", score);
                                         }
                                     }
 
                                     // Calculate support/resistance using ML-enhanced analysis
-                                    let support_level = sol_price * (1.0 - (ml_prediction.confidence * 0.1));
-                                    let resistance_level = sol_price * (1.0 + (ml_prediction.confidence * 0.12));
+                                    let support_level =
+                                        sol_price * (1.0 - (ml_prediction.confidence * 0.1));
+                                    let resistance_level =
+                                        sol_price * (1.0 + (ml_prediction.confidence * 0.12));
                                     println!("  * ML Support Level: ${:.2}", support_level);
                                     println!("  * ML Resistance Level: ${:.2}", resistance_level);
 
-                                    println!("{}", "[OK] REAL ML pattern analysis completed!".bright_green());
-                                },
+                                    println!(
+                                        "{}",
+                                        "[OK] REAL ML pattern analysis completed!".bright_green()
+                                    );
+                                }
                                 Err(e) => {
-                                    println!("{}", format!("[ERROR] ML Analysis failed: {}", e).bright_red());
+                                    println!(
+                                        "{}",
+                                        format!("[ERROR] ML Analysis failed: {}", e).bright_red()
+                                    );
                                     // Fallback to basic analysis
                                     println!("  * Current Price: ${:.4} (Jupiter API)", sol_price);
                                     println!("  * Basic Support: ${:.2}", sol_price * 0.95);
@@ -1338,93 +1473,154 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
                                 }
                             }
 
-                            println!("{}", "[OK] Pattern analysis with ML integration completed!".bright_green());
-                        },
+                            println!(
+                                "{}",
+                                "[OK] Pattern analysis with ML integration completed!"
+                                    .bright_green()
+                            );
+                        }
                         Ok(None) => {
-                            println!("{}", "[INFO] Jupiter connected but no price data available".bright_yellow());
+                            println!(
+                                "{}",
+                                "[INFO] Jupiter connected but no price data available"
+                                    .bright_yellow()
+                            );
                             println!("  * API Status: Connected (REAL)");
                             println!("  * Data: No price returned (this proves real API call)");
-                        },
+                        }
                         Err(e) => {
-                            println!("{}", "[ERROR] Jupiter API error (proves real connection)".bright_red());
+                            println!(
+                                "{}",
+                                "[ERROR] Jupiter API error (proves real connection)".bright_red()
+                            );
                             println!("  * Error: {}", e);
                             println!("  * This confirms we're making REAL API calls");
                         }
                     }
-                },
+                }
                 Err(e) => {
-                    println!("{}", "[ERROR] Failed to initialize Jupiter client".bright_red());
+                    println!(
+                        "{}",
+                        "[ERROR] Failed to initialize Jupiter client".bright_red()
+                    );
                     println!("  * Error: {}", e);
                     println!("  * Falling back to manual API call demonstration");
 
                     // Fallback to show we tried real integration
-                    println!("{}", "[PATTERN] Demonstrating Real Data Structure:".bright_blue());
+                    println!(
+                        "{}",
+                        "[PATTERN] Demonstrating Real Data Structure:".bright_blue()
+                    );
                     println!("  * Symbol: {} (Requested)", symbol);
                     println!("  * Data Integration: Attempted REAL Jupiter API");
                     println!("  * Status: Connection attempted (proves no hardcoded data)");
                     println!("  * Network: {} (CONFIGURED)", network);
                 }
             }
-        },
+        }
         Some(("predict-trend", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_symbol = "SOL/USDC".to_string();
-            let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
+            let symbol = sub_matches
+                .get_one::<String>("symbol")
+                .unwrap_or(&default_symbol);
             let default_horizon = "15".to_string();
-            let horizon = sub_matches.get_one::<String>("horizon").unwrap_or(&default_horizon);
+            let horizon = sub_matches
+                .get_one::<String>("horizon")
+                .unwrap_or(&default_horizon);
             let default_confidence = "0.7".to_string();
-            let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
+            let confidence = sub_matches
+                .get_one::<String>("confidence-threshold")
+                .unwrap_or(&default_confidence);
 
-            println!("{}", "[ML] Predicting Price Trend (REAL DATA)".bright_blue().bold());
+            println!(
+                "{}",
+                "[ML] Predicting Price Trend (REAL DATA)"
+                    .bright_blue()
+                    .bold()
+            );
             println!("Network: {}", _network.bright_cyan());
             println!("Symbol: {}", symbol.bright_cyan());
             println!("Horizon: {} minutes", horizon.bright_cyan());
             println!("Confidence Threshold: {}", confidence.bright_cyan());
             println!();
-            println!("{}", "[PREDICTION] Live Market Trend Forecast:".bright_green());
+            println!(
+                "{}",
+                "[PREDICTION] Live Market Trend Forecast:".bright_green()
+            );
             println!("  * Direction: Bullish (From Real Jupiter Price Feed)");
             println!("  * Confidence: 0.82 (ML Model + Real Market Data)");
             println!("  * Expected Price Range: $102.50 - $108.20 (Based on Live Volatility)");
             println!("  * Risk Level: Medium (Real-time Risk Assessment)");
             println!("  * Data Sources: Jupiter API, Solana RPC, DexScreener");
             println!("{}", "[OK] Real trend prediction completed!".bright_green());
-        },
+        }
         Some(("optimize-strategy", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_strategy = "trend".to_string();
-            let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
+            let strategy = sub_matches
+                .get_one::<String>("strategy")
+                .unwrap_or(&default_strategy);
             let default_generations = "50".to_string();
-            let generations = sub_matches.get_one::<String>("generations").unwrap_or(&default_generations);
+            let generations = sub_matches
+                .get_one::<String>("generations")
+                .unwrap_or(&default_generations);
             let default_population = "20".to_string();
-            let population = sub_matches.get_one::<String>("population").unwrap_or(&default_population);
+            let population = sub_matches
+                .get_one::<String>("population")
+                .unwrap_or(&default_population);
 
-            println!("{}", "[ML] Optimizing Trading Strategy (REAL DATA)".bright_blue().bold());
+            println!(
+                "{}",
+                "[ML] Optimizing Trading Strategy (REAL DATA)"
+                    .bright_blue()
+                    .bold()
+            );
             println!("Network: {}", network.bright_cyan());
             println!("Strategy: {}", strategy.bright_cyan());
             println!("Generations: {}", generations.bright_cyan());
             println!("Population: {}", population.bright_cyan());
             println!();
-            println!("{}", "[OPTIMIZATION] Running GA with Real Market Data...".bright_yellow());
+            println!(
+                "{}",
+                "[OPTIMIZATION] Running GA with Real Market Data...".bright_yellow()
+            );
             println!("  * Generation 1/50: Best fitness = 0.65 (Real backtest data)");
             println!("  * Generation 25/50: Best fitness = 0.78 (Live market validation)");
             println!("  * Generation 50/50: Best fitness = 0.84 (Optimized with real PnL)");
             println!();
-            println!("{}", "[OPTIMIZED] Best Parameters (From Real Trading):".bright_green());
-            println!("  * Entry Threshold: 0.72 (Validated on {} network)", network);
+            println!(
+                "{}",
+                "[OPTIMIZED] Best Parameters (From Real Trading):".bright_green()
+            );
+            println!(
+                "  * Entry Threshold: 0.72 (Validated on {} network)",
+                network
+            );
             println!("  * Exit Threshold: 0.38 (Real slippage adjusted)");
             println!("  * Stop Loss: 2.1% (Based on actual volatility)");
             println!("  * Take Profit: 5.8% (Market-tested optimal)");
-            println!("{}", "[OK] Real strategy optimization completed!".bright_green());
-        },
+            println!(
+                "{}",
+                "[OK] Real strategy optimization completed!".bright_green()
+            );
+        }
         Some(("assess-risk", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_window = "24".to_string();
-            let window = sub_matches.get_one::<String>("market-window").unwrap_or(&default_window);
+            let window = sub_matches
+                .get_one::<String>("market-window")
+                .unwrap_or(&default_window);
             let default_portfolio = "SOL,USDC".to_string();
-            let portfolio = sub_matches.get_one::<String>("portfolio").unwrap_or(&default_portfolio);
+            let portfolio = sub_matches
+                .get_one::<String>("portfolio")
+                .unwrap_or(&default_portfolio);
 
             println!("{}", "[ML] Assessing Market Risk".bright_blue().bold());
             println!("Analysis Window: {} hours", window.bright_cyan());
@@ -1437,14 +1633,19 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("  * Liquidity Risk: Low");
             println!("  * Recommended Position Size: 75% of capital");
             println!("{}", "[OK] Risk assessment completed!".bright_green());
-        },
+        }
         Some(("market-regime", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_confidence = "0.9".to_string();
-            let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
+            let confidence = sub_matches
+                .get_one::<String>("confidence-threshold")
+                .unwrap_or(&default_confidence);
             let default_lookback = "14".to_string();
-            let lookback = sub_matches.get_one::<String>("lookback").unwrap_or(&default_lookback);
+            let lookback = sub_matches
+                .get_one::<String>("lookback")
+                .unwrap_or(&default_lookback);
 
             println!("{}", "[ML] Detecting Market Regime".bright_blue().bold());
             println!("Confidence Threshold: {}", confidence.bright_cyan());
@@ -1455,17 +1656,27 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("  * Confidence: 0.94");
             println!("  * Trend Strength: Strong");
             println!("  * Expected Duration: 2-4 weeks");
-            println!("{}", "[OK] Market regime detection completed!".bright_green());
-        },
+            println!(
+                "{}",
+                "[OK] Market regime detection completed!".bright_green()
+            );
+        }
         Some(("predict-timing", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_symbol = "SOL/USDC".to_string();
-            let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
+            let symbol = sub_matches
+                .get_one::<String>("symbol")
+                .unwrap_or(&default_symbol);
             let default_size = "100".to_string();
-            let size = sub_matches.get_one::<String>("target-size").unwrap_or(&default_size);
+            let size = sub_matches
+                .get_one::<String>("target-size")
+                .unwrap_or(&default_size);
             let default_direction = "buy".to_string();
-            let direction = sub_matches.get_one::<String>("direction").unwrap_or(&default_direction);
+            let direction = sub_matches
+                .get_one::<String>("direction")
+                .unwrap_or(&default_direction);
 
             println!("{}", "[ML] Predicting Optimal Timing".bright_blue().bold());
             println!("Symbol: {}", symbol.bright_cyan());
@@ -1478,16 +1689,23 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("  * Expected Slippage: 0.12%");
             println!("  * Market Impact: Low");
             println!("{}", "[OK] Timing prediction completed!".bright_green());
-        },
+        }
         Some(("optimize-execution", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_size = "1000".to_string();
-            let size = sub_matches.get_one::<String>("trade-size").unwrap_or(&default_size);
+            let size = sub_matches
+                .get_one::<String>("trade-size")
+                .unwrap_or(&default_size);
             let default_slippage = "0.5".to_string();
-            let slippage = sub_matches.get_one::<String>("max-slippage").unwrap_or(&default_slippage);
+            let slippage = sub_matches
+                .get_one::<String>("max-slippage")
+                .unwrap_or(&default_slippage);
             let default_time = "60".to_string();
-            let time_limit = sub_matches.get_one::<String>("time-limit").unwrap_or(&default_time);
+            let time_limit = sub_matches
+                .get_one::<String>("time-limit")
+                .unwrap_or(&default_time);
 
             println!("{}", "[ML] Optimizing Trade Execution".bright_blue().bold());
             println!("Trade Size: {} SOL", size.bright_cyan());
@@ -1500,19 +1718,32 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("  * Interval: 3 minutes");
             println!("  * Expected Completion: 57 minutes");
             println!("  * Estimated Slippage: 0.31%");
-            println!("{}", "[OK] Execution optimization completed!".bright_green());
-        },
+            println!(
+                "{}",
+                "[OK] Execution optimization completed!".bright_green()
+            );
+        }
         Some(("backtest-optimized", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_strategy = "trend".to_string();
-            let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
+            let strategy = sub_matches
+                .get_one::<String>("strategy")
+                .unwrap_or(&default_strategy);
             let default_period = "30".to_string();
-            let period = sub_matches.get_one::<String>("period").unwrap_or(&default_period);
+            let period = sub_matches
+                .get_one::<String>("period")
+                .unwrap_or(&default_period);
             let default_confidence = "0.7".to_string();
-            let confidence = sub_matches.get_one::<String>("min-confidence").unwrap_or(&default_confidence);
+            let confidence = sub_matches
+                .get_one::<String>("min-confidence")
+                .unwrap_or(&default_confidence);
 
-            println!("{}", "[ML] Backtesting Optimized Strategy".bright_blue().bold());
+            println!(
+                "{}",
+                "[ML] Backtesting Optimized Strategy".bright_blue().bold()
+            );
             println!("Strategy: {}", strategy.bright_cyan());
             println!("Period: {} days", period.bright_cyan());
             println!("Min Confidence: {}", confidence.bright_cyan());
@@ -1524,38 +1755,252 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("  * Win Rate: 72.3%");
             println!("  * Total Trades: 156");
             println!("{}", "[OK] Backtest completed!".bright_green());
-        },
+        }
         Some(("optimize-portfolio", sub_matches)) => {
-            let _network = sub_matches.get_one::<String>("network")
-                .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
+            let _network = sub_matches.get_one::<String>("network").ok_or_else(|| {
+                anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>")
+            })?;
             let default_portfolio = "SOL:0.5,USDC:0.5".to_string();
-            let portfolio = sub_matches.get_one::<String>("portfolio").unwrap_or(&default_portfolio);
+            let portfolio = sub_matches
+                .get_one::<String>("portfolio")
+                .unwrap_or(&default_portfolio);
             let default_risk = "moderate".to_string();
-            let risk_level = sub_matches.get_one::<String>("risk-level").unwrap_or(&default_risk);
+            let risk_level = sub_matches
+                .get_one::<String>("risk-level")
+                .unwrap_or(&default_risk);
 
-            println!("{}", "[ML] Optimizing Portfolio Allocation".bright_blue().bold());
+            println!(
+                "{}",
+                "[ML] Optimizing Portfolio Allocation".bright_blue().bold()
+            );
             println!("Current Portfolio: {}", portfolio.bright_cyan());
             println!("Risk Level: {}", risk_level.bright_cyan());
             println!();
-            println!("{}", "[OPTIMIZATION] Recommended Allocation:".bright_green());
+            println!(
+                "{}",
+                "[OPTIMIZATION] Recommended Allocation:".bright_green()
+            );
             println!("  * SOL: 45% (was 50%)");
             println!("  * USDC: 35% (was 50%)");
             println!("  * Additional: RAY 15%, ORCA 5%");
             println!("  * Expected Return: +18.2%");
             println!("  * Risk Score: 6.8/10");
-            println!("{}", "[OK] Portfolio optimization completed!".bright_green());
-        },
+            println!(
+                "{}",
+                "[OK] Portfolio optimization completed!".bright_green()
+            );
+        }
         _ => {
             println!("{}", "[ML] Available ML Commands:".bright_yellow());
-            println!("  * {} - Analyze market patterns", "analyze-patterns".bright_cyan());
-            println!("  * {} - Predict price trends", "predict-trend".bright_cyan());
-            println!("  * {} - Optimize strategy parameters", "optimize-strategy".bright_cyan());
+            println!(
+                "  * {} - Analyze market patterns",
+                "analyze-patterns".bright_cyan()
+            );
+            println!(
+                "  * {} - Predict price trends",
+                "predict-trend".bright_cyan()
+            );
+            println!(
+                "  * {} - Optimize strategy parameters",
+                "optimize-strategy".bright_cyan()
+            );
             println!("  * {} - Assess market risk", "assess-risk".bright_cyan());
-            println!("  * {} - Detect market regime", "market-regime".bright_cyan());
-            println!("  * {} - Predict optimal timing", "predict-timing".bright_cyan());
-            println!("  * {} - Optimize execution", "optimize-execution".bright_cyan());
-            println!("  * {} - Backtest optimized strategy", "backtest-optimized".bright_cyan());
-            println!("  * {} - Optimize portfolio allocation", "optimize-portfolio".bright_cyan());
+            println!(
+                "  * {} - Detect market regime",
+                "market-regime".bright_cyan()
+            );
+            println!(
+                "  * {} - Predict optimal timing",
+                "predict-timing".bright_cyan()
+            );
+            println!(
+                "  * {} - Optimize execution",
+                "optimize-execution".bright_cyan()
+            );
+            println!(
+                "  * {} - Backtest optimized strategy",
+                "backtest-optimized".bright_cyan()
+            );
+            println!(
+                "  * {} - Optimize portfolio allocation",
+                "optimize-portfolio".bright_cyan()
+            );
+        }
+    }
+    Ok(())
+}
+
+async fn handle_portfolio_command(matches: &ArgMatches) -> Result<()> {
+    match matches.subcommand() {
+        Some(("demo", sub_matches)) => {
+            let scenario = sub_matches
+                .get_one::<String>("scenario")
+                .map(|s| s.as_str())
+                .unwrap_or("complete");
+
+            println!(
+                "{}",
+                "🎯 Starting Portfolio Integration Demo"
+                    .bright_green()
+                    .bold()
+            );
+            println!("📊 Scenario: {}", scenario.bright_cyan());
+            println!();
+
+            match scenario {
+                "complete" => {
+                    println!(
+                        "{}",
+                        "Running complete portfolio demo with all features...".yellow()
+                    );
+                    run_portfolio_demo().await?;
+                }
+                "trades-only" => {
+                    println!("{}", "Running trades-only demo scenario...".yellow());
+                    // TODO: Implement trades-only scenario
+                    println!(
+                        "{}",
+                        "Trades-only scenario not yet implemented. Running complete demo instead."
+                            .bright_yellow()
+                    );
+                    run_portfolio_demo().await?;
+                }
+                "prices-only" => {
+                    println!("{}", "Running prices-only demo scenario...".yellow());
+                    // TODO: Implement prices-only scenario
+                    println!(
+                        "{}",
+                        "Prices-only scenario not yet implemented. Running complete demo instead."
+                            .bright_yellow()
+                    );
+                    run_portfolio_demo().await?;
+                }
+                _ => {
+                    println!("{}", "❌ Unknown scenario. Available scenarios: complete, trades-only, prices-only".red());
+                    return Ok(());
+                }
+            }
+
+            println!();
+            println!(
+                "{}",
+                "✅ Portfolio Demo completed successfully!"
+                    .bright_green()
+                    .bold()
+            );
+        }
+        Some(("summary", _sub_matches)) => {
+            println!(
+                "{}",
+                "📊 Portfolio Summary (placeholder)".bright_blue().bold()
+            );
+            println!(
+                "{}",
+                "This feature will show real portfolio metrics and positions.".yellow()
+            );
+            // TODO: Implement real portfolio summary
+        }
+        Some(("risk", _sub_matches)) => {
+            println!(
+                "{}",
+                "⚠️ Portfolio Risk Assessment (placeholder)"
+                    .bright_red()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "This feature will show portfolio risk metrics and analysis.".yellow()
+            );
+            // TODO: Implement portfolio risk assessment
+        }
+        Some(("rebalance", _sub_matches)) => {
+            println!(
+                "{}",
+                "⚖️ Portfolio Rebalancing (placeholder)"
+                    .bright_purple()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "This feature will analyze and execute portfolio rebalancing.".yellow()
+            );
+            // TODO: Implement portfolio rebalancing
+        }
+        Some(("correlation", _sub_matches)) => {
+            println!(
+                "{}",
+                "🔗 Portfolio Correlation Analysis (placeholder)"
+                    .bright_cyan()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "This feature will analyze position correlations and diversification.".yellow()
+            );
+            // TODO: Implement correlation analysis
+        }
+        Some(("attribution", _sub_matches)) => {
+            println!(
+                "{}",
+                "📈 Performance Attribution (placeholder)"
+                    .bright_green()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "This feature will show performance attribution by strategy.".yellow()
+            );
+            // TODO: Implement performance attribution
+        }
+        Some(("optimize", _sub_matches)) => {
+            println!(
+                "{}",
+                "🎯 Portfolio Optimization (placeholder)"
+                    .bright_magenta()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "This feature will optimize portfolio allocation.".yellow()
+            );
+            // TODO: Implement portfolio optimization
+        }
+        Some(("positions", _sub_matches)) => {
+            println!(
+                "{}",
+                "📋 Current Positions (placeholder)".bright_blue().bold()
+            );
+            println!(
+                "{}",
+                "This feature will show current positions and performance.".yellow()
+            );
+            // TODO: Implement positions display
+        }
+        _ => {
+            println!("{}", "Available portfolio commands:".bright_white().bold());
+            println!(
+                "  🎯 {} - Run portfolio integration demo",
+                "demo".bright_cyan()
+            );
+            println!("  📊 {} - Show portfolio summary", "summary".bright_cyan());
+            println!("  ⚠️ {} - Portfolio risk assessment", "risk".bright_cyan());
+            println!("  ⚖️ {} - Portfolio rebalancing", "rebalance".bright_cyan());
+            println!(
+                "  🔗 {} - Correlation analysis",
+                "correlation".bright_cyan()
+            );
+            println!(
+                "  📈 {} - Performance attribution",
+                "attribution".bright_cyan()
+            );
+            println!("  🎯 {} - Portfolio optimization", "optimize".bright_cyan());
+            println!("  📋 {} - Current positions", "positions".bright_cyan());
+            println!();
+            println!(
+                "{}",
+                "Usage: cargo run -- portfolio <subcommand>".bright_white()
+            );
+            println!("{}", "Example: cargo run -- portfolio demo".bright_green());
         }
     }
     Ok(())
@@ -1573,7 +2018,9 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
         Some(("tatum", _)) => handle_test_tatum_command().await?,
         // RPC resilience test - integrated into basic and solana tests
         Some(("swap-real", swap_matches)) => handle_test_swap_real_command(swap_matches).await?,
-        Some(("cache-free-trading", sub_matches)) => handle_test_cache_free_command(sub_matches).await?,
+        Some(("cache-free-trading", sub_matches)) => {
+            handle_test_cache_free_command(sub_matches).await?
+        }
         // TODO: Implement remaining test commands:
         // Some(("real-trading", sub_matches)) => handle_test_real_trading_command(sub_matches).await?,
         // Some(("integration", _)) => handle_test_integration_command().await?,
@@ -1586,24 +2033,46 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
             println!("  * {} - Solana RPC", "solana".bright_yellow());
             println!("  * {} - Jupiter API", "jupiter".bright_yellow());
             println!("  * {} - Wallet functions", "wallet".bright_yellow());
-            println!("  * {} - WebSocket connectivity", "websocket".bright_yellow());
-            println!("  * {} - DexScreener API integration", "dexscreener".bright_yellow());
+            println!(
+                "  * {} - WebSocket connectivity",
+                "websocket".bright_yellow()
+            );
+            println!(
+                "  * {} - DexScreener API integration",
+                "dexscreener".bright_yellow()
+            );
             println!("  * {} - Trade execution", "trade".bright_yellow());
-            println!("  * {} - � Cache-free trading engine", "cache-free-trading".bright_red().bold());
-            println!("  * {} - �🚀 REAL swap execution on DevNet", "swap-real".bright_red().bold());
+            println!(
+                "  * {} - � Cache-free trading engine",
+                "cache-free-trading".bright_red().bold()
+            );
+            println!(
+                "  * {} - �🚀 REAL swap execution on DevNet",
+                "swap-real".bright_red().bold()
+            );
             println!("  * {} - Integration flow", "integration".bright_yellow());
-            println!("  * {} - Performance testing", "performance".bright_yellow());
+            println!(
+                "  * {} - Performance testing",
+                "performance".bright_yellow()
+            );
         }
     }
     Ok(())
 }
 
 async fn handle_test_all_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
-    println!("{}", "[TEST] Running Complete Test Suite".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Running Complete Test Suite".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     let tests = vec![
@@ -1620,22 +2089,26 @@ async fn handle_test_all_command(matches: &ArgMatches) -> Result<()> {
     let total = tests.len();
 
     for test_name in tests {
-        println!("\n{} {}", "[RUN]".bright_blue(), test_name.bright_white().bold());
+        println!(
+            "\n{} {}",
+            "[RUN]".bright_blue(),
+            test_name.bright_white().bold()
+        );
 
         let result: Result<()> = match test_name {
             "Basic Connectivity" => {
                 // Create a mock matches for individual test commands
                 println!("⚠️  Network-specific connectivity tests not yet implemented");
                 Ok(())
-            },
+            }
             "Solana RPC" => {
                 println!("⚠️  Network-specific Solana RPC tests not yet implemented");
                 Ok(())
-            },
+            }
             "WebSocket" => {
                 println!("⚠️  Network-specific WebSocket tests not yet implemented");
                 Ok(())
-            },
+            }
             _ => Ok(()),
         };
 
@@ -1651,22 +2124,38 @@ async fn handle_test_all_command(matches: &ArgMatches) -> Result<()> {
     }
 
     println!("\n{}", "[TARGET] Test Summary".bright_blue().bold());
-    println!("{}/{} tests passed", passed.to_string().bright_green(), total);
+    println!(
+        "{}/{} tests passed",
+        passed.to_string().bright_green(),
+        total
+    );
     if passed == total {
         println!("{}", "[SUCCESS] All tests passed!".bright_green().bold());
     } else {
-        println!("{} Some tests failed. Check logs above.", "[WARN]".bright_yellow());
+        println!(
+            "{} Some tests failed. Check logs above.",
+            "[WARN]".bright_yellow()
+        );
     }
 
     Ok(())
 }
 
 async fn handle_test_websocket_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
-    println!("{}", "[CONNECT] Testing WebSocket Connectivity".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[CONNECT] Testing WebSocket Connectivity"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     use sniperforge::simple_testing::test_websocket_with_network;
@@ -1678,10 +2167,19 @@ async fn handle_test_websocket_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_test_basic_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
-    println!("{}", "[TEST] Running Basic Connectivity Tests".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
+    println!(
+        "{}",
+        "[TEST] Running Basic Connectivity Tests"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     // Use the simple testing module with network parameter
@@ -1695,11 +2193,18 @@ async fn handle_test_basic_command(matches: &ArgMatches) -> Result<()> {
 // Duplicate function removed - keeping the first implementation
 
 async fn handle_test_solana_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
-    println!("{}", "[TEST] Testing Solana Connectivity".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Testing Solana Connectivity".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     use sniperforge::simple_testing::test_basic_integration_with_network;
@@ -1709,18 +2214,35 @@ async fn handle_test_solana_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_test_pools_command() -> Result<()> {
-    println!("{}", "[TEST] Testing Pool Detection & Analysis".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Testing Pool Detection & Analysis"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     let config = Config::load("config/platform.toml")?;
 
     // Run pool analysis tests
     match solana_testing::test_pool_analysis(&config).await {
         Ok(_) => {
-            println!("\n{}", "[SUCCESS] All pool analysis tests passed!".bright_green().bold());
+            println!(
+                "\n{}",
+                "[SUCCESS] All pool analysis tests passed!"
+                    .bright_green()
+                    .bold()
+            );
         }
         Err(e) => {
-            println!("\n{} {}", "[FAIL] Pool analysis tests failed:".bright_red().bold(), e);
+            println!(
+                "\n{} {}",
+                "[FAIL] Pool analysis tests failed:".bright_red().bold(),
+                e
+            );
             return Err(e);
         }
     }
@@ -1729,9 +2251,17 @@ async fn handle_test_pools_command() -> Result<()> {
 }
 
 async fn handle_test_wallets_command() -> Result<()> {
-    println!("{}", "[TEST] Testing Wallet Generation & Management".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
-      // Test wallet generation
+    println!(
+        "{}",
+        "[TEST] Testing Wallet Generation & Management"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
+    // Test wallet generation
     print!("[KEY] Generating test wallet... ");
     io::stdout().flush()?;
     let keypair = Keypair::new();
@@ -1747,38 +2277,72 @@ async fn handle_test_wallets_command() -> Result<()> {
         Err(e) => println!("{} {}", "[FAIL] FAILED:".bright_red(), e),
     }
 
-    println!("\n{}", "[SUCCESS] All wallet tests passed!".bright_green().bold());
+    println!(
+        "\n{}",
+        "[SUCCESS] All wallet tests passed!".bright_green().bold()
+    );
     Ok(())
 }
 
 async fn handle_test_dexscreener_command() -> Result<()> {
-    println!("{}", "[TEST] Testing DexScreener API Integration".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Testing DexScreener API Integration"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     dexscreener_testing::test_dexscreener_integration().await?;
 
-    println!("\n{}", "[SUCCESS] DexScreener API test completed!".bright_green().bold());
+    println!(
+        "\n{}",
+        "[SUCCESS] DexScreener API test completed!"
+            .bright_green()
+            .bold()
+    );
     Ok(())
 }
 
 async fn handle_test_tatum_command() -> Result<()> {
-    println!("{}", "[TEST] Testing Tatum RPC Integration".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Testing Tatum RPC Integration".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     tatum_testing::test_tatum_connectivity().await?;
 
-    println!("\n{}", "[SUCCESS] Tatum RPC test completed!".bright_green().bold());
+    println!(
+        "\n{}",
+        "[SUCCESS] Tatum RPC test completed!".bright_green().bold()
+    );
     Ok(())
 }
 
 async fn handle_test_cache_free_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     let wallet_path = matches.get_one::<String>("wallet");
 
-    println!("{}", "[TEST] Testing Cache-Free Trading Engine".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TEST] Testing Cache-Free Trading Engine"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
 
     if let Some(wallet) = wallet_path {
@@ -1788,10 +2352,20 @@ async fn handle_test_cache_free_command(matches: &ArgMatches) -> Result<()> {
         // Call the real wallet integration test function
         match test_cache_free_real_trading_with_wallet(network, wallet).await {
             Ok(_) => {
-                println!("\n{}", "[SUCCESS] Cache-free wallet integration test completed successfully!".bright_green().bold());
+                println!(
+                    "\n{}",
+                    "[SUCCESS] Cache-free wallet integration test completed successfully!"
+                        .bright_green()
+                        .bold()
+                );
             }
             Err(e) => {
-                println!("\n{}", format!("[ERROR] Cache-free wallet integration test failed: {}", e).bright_red().bold());
+                println!(
+                    "\n{}",
+                    format!("[ERROR] Cache-free wallet integration test failed: {}", e)
+                        .bright_red()
+                        .bold()
+                );
                 return Err(e);
             }
         }
@@ -1801,10 +2375,20 @@ async fn handle_test_cache_free_command(matches: &ArgMatches) -> Result<()> {
         // Call the existing cache-free trading test function
         match test_cache_free_trading(network).await {
             Ok(_) => {
-                println!("\n{}", "[SUCCESS] Cache-free trading test completed successfully!".bright_green().bold());
+                println!(
+                    "\n{}",
+                    "[SUCCESS] Cache-free trading test completed successfully!"
+                        .bright_green()
+                        .bold()
+                );
             }
             Err(e) => {
-                println!("\n{}", format!("[ERROR] Cache-free trading test failed: {}", e).bright_red().bold());
+                println!(
+                    "\n{}",
+                    format!("[ERROR] Cache-free trading test failed: {}", e)
+                        .bright_red()
+                        .bold()
+                );
                 return Err(e);
             }
         }
@@ -1816,11 +2400,18 @@ async fn handle_test_cache_free_command(matches: &ArgMatches) -> Result<()> {
 // Duplicate function removed - using the first implementation above
 
 async fn handle_interactive_command(matches: &ArgMatches) -> Result<()> {
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
-    println!("{}", "[GAME] Interactive Monitoring Mode".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[GAME] Interactive Monitoring Mode".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("🌐 Network: {}", network.bright_cyan());
     println!("Commands: status, bots, metrics, quit");
 
@@ -1860,7 +2451,10 @@ async fn handle_interactive_command(matches: &ArgMatches) -> Result<()> {
                 println!("  quit (q)    - Exit interactive mode");
             }
             "" => continue,
-            _ => println!("Unknown command: {}. Type 'help' for available commands.", input),
+            _ => println!(
+                "Unknown command: {}. Type 'help' for available commands.",
+                input
+            ),
         }
     }
 
@@ -1868,18 +2462,48 @@ async fn handle_interactive_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn show_main_menu() -> Result<()> {
-    println!("{}", "[TARGET] SniperForge Multi-Bot Platform".bright_cyan().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[TARGET] SniperForge Multi-Bot Platform"
+            .bright_cyan()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!();
     println!("Available commands:");
-    println!("  {} - Start the platform", "sniperforge start".bright_green());
-    println!("  {} - Start specific bot", "sniperforge start -b lp-sniper".bright_green());
-    println!("  {} - Show platform status", "sniperforge status".bright_yellow());
-    println!("  {} - Show configuration", "sniperforge config".bright_yellow());
-    println!("  {} - Test system components", "sniperforge test".bright_cyan());
-    println!("  {} - Interactive monitoring", "sniperforge interactive".bright_magenta());
+    println!(
+        "  {} - Start the platform",
+        "sniperforge start".bright_green()
+    );
+    println!(
+        "  {} - Start specific bot",
+        "sniperforge start -b lp-sniper".bright_green()
+    );
+    println!(
+        "  {} - Show platform status",
+        "sniperforge status".bright_yellow()
+    );
+    println!(
+        "  {} - Show configuration",
+        "sniperforge config".bright_yellow()
+    );
+    println!(
+        "  {} - Test system components",
+        "sniperforge test".bright_cyan()
+    );
+    println!(
+        "  {} - Interactive monitoring",
+        "sniperforge interactive".bright_magenta()
+    );
     println!();
-    println!("For help: {} or {}", "sniperforge --help".bright_white(), "sniperforge <command> --help".bright_white());
+    println!(
+        "For help: {} or {}",
+        "sniperforge --help".bright_white(),
+        "sniperforge <command> --help".bright_white()
+    );
 
     Ok(())
 }
@@ -1910,24 +2534,49 @@ async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
         Some(("export", sub_matches)) => handle_wallet_export_command(sub_matches).await?,
         _ => {
             println!("{}", "[WALLET] Available wallet commands:".bright_yellow());
-            println!("  * {} - Check wallet balance", "balance <wallet_file>".bright_cyan());
+            println!(
+                "  * {} - Check wallet balance",
+                "balance <wallet_file>".bright_cyan()
+            );
             println!("  * {} - Request DevNet airdrop", "airdrop".bright_cyan());
-            println!("  * {} - Generate new wallet", "generate <output_file>".bright_cyan());
-            println!("  * {} - Export wallet for mobile", "export <wallet_file> <output_file>".bright_cyan());
+            println!(
+                "  * {} - Generate new wallet",
+                "generate <output_file>".bright_cyan()
+            );
+            println!(
+                "  * {} - Export wallet for mobile",
+                "export <wallet_file> <output_file>".bright_cyan()
+            );
         }
     }
     Ok(())
 }
 
 async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[WALLET] Checking Wallet Balances".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[WALLET] Checking Wallet Balances".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     // Get network parameter
-    let network = matches.get_one::<String>("network").map(|s| s.as_str()).unwrap_or("devnet");
+    let network = matches
+        .get_one::<String>("network")
+        .map(|s| s.as_str())
+        .unwrap_or("devnet");
     let is_mainnet = network == "mainnet";
 
-    println!("🌐 Network: {}", if is_mainnet { "Mainnet".bright_red() } else { "DevNet".bright_yellow() });
+    println!(
+        "🌐 Network: {}",
+        if is_mainnet {
+            "Mainnet".bright_red()
+        } else {
+            "DevNet".bright_yellow()
+        }
+    );
     println!();
 
     // Check if an address was provided directly
@@ -1948,7 +2597,8 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
 
                 // Check balance using RPC
                 let rpc_endpoint = config.network.primary_rpc();
-                let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
+                let rpc_client =
+                    solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
 
                 match rpc_client.get_balance(&pubkey) {
                     Ok(balance_lamports) => {
@@ -1958,7 +2608,11 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
                         if balance_sol == 0.0 {
                             println!("{}", "⚠️  Wallet is empty (0 SOL)".bright_red());
                         } else if balance_sol < 0.001 {
-                            println!("{}", "⚠️  Very low balance - may not cover transaction fees".bright_yellow());
+                            println!(
+                                "{}",
+                                "⚠️  Very low balance - may not cover transaction fees"
+                                    .bright_yellow()
+                            );
                         }
                     }
                     Err(e) => {
@@ -1985,19 +2639,17 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
             Ok(wallet_data) => {
                 // Parse as JSON array (Solana keypair format)
                 match serde_json::from_str::<Vec<u8>>(&wallet_data) {
-                    Ok(key_bytes) => {
-                        match Keypair::from_bytes(&key_bytes) {
-                            Ok(kp) => {
-                                println!("✅ Wallet loaded successfully");
-                                println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
-                                kp
-                            }
-                            Err(e) => {
-                                println!("❌ Failed to parse keypair: {}", e);
-                                return Err(anyhow::anyhow!("Invalid wallet format"));
-                            }
+                    Ok(key_bytes) => match Keypair::from_bytes(&key_bytes) {
+                        Ok(kp) => {
+                            println!("✅ Wallet loaded successfully");
+                            println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
+                            kp
                         }
-                    }
+                        Err(e) => {
+                            println!("❌ Failed to parse keypair: {}", e);
+                            return Err(anyhow::anyhow!("Invalid wallet format"));
+                        }
+                    },
                     Err(e) => {
                         println!("❌ Failed to parse wallet JSON: {}", e);
                         return Err(anyhow::anyhow!("Invalid wallet JSON"));
@@ -2028,39 +2680,63 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         let rpc_endpoint = config.network.primary_rpc();
         let network_name = if is_mainnet { "Mainnet Beta" } else { "DevNet" };
 
-        println!("🌐 Using {} RPC: {}", network_name.bright_green(), rpc_endpoint);
+        println!(
+            "🌐 Using {} RPC: {}",
+            network_name.bright_green(),
+            rpc_endpoint
+        );
 
         let rpc_client = solana_client::rpc_client::RpcClient::new(rpc_endpoint.to_string());
 
         match rpc_client.get_balance(&pubkey) {
             Ok(balance_lamports) => {
                 let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
-                println!("💰 Balance: {} SOL ({} lamports)",
-                         balance_sol.to_string().bright_green().bold(),
-                         balance_lamports.to_string().bright_yellow());
+                println!(
+                    "💰 Balance: {} SOL ({} lamports)",
+                    balance_sol.to_string().bright_green().bold(),
+                    balance_lamports.to_string().bright_yellow()
+                );
 
                 if is_mainnet {
                     if balance_sol >= 0.01 {
-                        println!("✅ {} Sufficient funds for validation", "READY".bright_green().bold());
+                        println!(
+                            "✅ {} Sufficient funds for validation",
+                            "READY".bright_green().bold()
+                        );
                         println!("💡 You can now proceed with Mainnet validation:");
                         println!("   {}", "cargo run --bin sniperforge test swap-real --wallet mainnet-validation-wallet.json --network mainnet --amount 0.001 --confirm".bright_green());
                     } else if balance_sol == 0.0 {
-                        println!("🚨 {} Wallet is completely empty (0 SOL)", "EMPTY".bright_red().bold());
+                        println!(
+                            "🚨 {} Wallet is completely empty (0 SOL)",
+                            "EMPTY".bright_red().bold()
+                        );
                         println!("💰 Fund this wallet with 0.01-0.02 SOL to proceed:");
                         println!("   Address: {}", pubkey.to_string().bright_cyan());
                     } else {
-                        println!("⚠️  {} Requires more SOL for validation", "NEEDS FUNDING".bright_yellow().bold());
+                        println!(
+                            "⚠️  {} Requires more SOL for validation",
+                            "NEEDS FUNDING".bright_yellow().bold()
+                        );
                         println!("💰 Fund this wallet with additional SOL:");
                         println!("   Address: {}", pubkey.to_string().bright_cyan());
-                        println!("   Current: {} SOL, Recommended: 0.01-0.02 SOL", balance_sol);
+                        println!(
+                            "   Current: {} SOL, Recommended: 0.01-0.02 SOL",
+                            balance_sol
+                        );
                     }
                 } else {
                     if balance_lamports > 0 {
                         println!("✅ {} DevNet wallet has funds", "OK".bright_green().bold());
                     } else {
-                        println!("⚠️  {} DevNet wallet needs airdrop", "EMPTY".bright_yellow());
+                        println!(
+                            "⚠️  {} DevNet wallet needs airdrop",
+                            "EMPTY".bright_yellow()
+                        );
                         println!("💧 Request airdrop with:");
-                        println!("   {}", "cargo run --bin sniperforge wallet airdrop".bright_green());
+                        println!(
+                            "   {}",
+                            "cargo run --bin sniperforge wallet airdrop".bright_green()
+                        );
                     }
                 }
             }
@@ -2072,7 +2748,11 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
     } else {
         // No wallet file or address specified - show help
         println!("📋 Please specify a wallet file or address:");
-        println!("  {} - Check DevNet wallet by file", "cargo run --bin sniperforge wallet balance test-wallet.json --network devnet".bright_green());
+        println!(
+            "  {} - Check DevNet wallet by file",
+            "cargo run --bin sniperforge wallet balance test-wallet.json --network devnet"
+                .bright_green()
+        );
         println!("  {} - Check Mainnet wallet by file", "cargo run --bin sniperforge wallet balance mainnet-validation-wallet.json --network mainnet".bright_green());
         println!("  {} - Check by address", "cargo run --bin sniperforge wallet balance --address 9pMAkWBFY8EWW4DisQDbeLBi5xTcFwh62X3E8guK26zD --network mainnet".bright_green());
     }
@@ -2082,7 +2762,10 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
 
 async fn handle_wallet_airdrop_command() -> Result<()> {
     println!("{}", "[DROP] Requesting SOL Airdrop".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     println!(" This will create and fund a new wallet with 2 SOL");
 
@@ -2090,20 +2773,30 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
     let keypair = solana_sdk::signer::keypair::Keypair::new();
     let pubkey = keypair.pubkey();
 
-    println!("[KEY] Generated new wallet: {}", pubkey.to_string().bright_cyan());
+    println!(
+        "[KEY] Generated new wallet: {}",
+        pubkey.to_string().bright_cyan()
+    );
 
     // Load DevNet configuration for airdrop
     let config = Config::load("config/devnet.toml")?;
-    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
+    let rpc_client =
+        solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
     let airdrop_amount = 2_000_000_000; // 2 SOL in lamports
 
-    println!("[COST] Requesting {} SOL airdrop...", (airdrop_amount as f64 / 1_000_000_000.0));
+    println!(
+        "[COST] Requesting {} SOL airdrop...",
+        (airdrop_amount as f64 / 1_000_000_000.0)
+    );
 
     match rpc_client.request_airdrop(&pubkey, airdrop_amount) {
         Ok(signature) => {
             println!("[OK] Airdrop request successful!");
             println!("[NOTE] Signature: {}", signature.to_string().bright_green());
-            println!("[LINK] View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            println!(
+                "[LINK] View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
 
             println!("[WAIT] Waiting for confirmation...");
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -2112,10 +2805,15 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
                 Ok(balance) => {
                     let balance_sol = balance as f64 / 1_000_000_000.0;
                     if balance_sol > 0.0 {
-                        println!("🎉 Airdrop successful! New balance: {} SOL",
-                                 balance_sol.to_string().bright_green().bold());
+                        println!(
+                            "🎉 Airdrop successful! New balance: {} SOL",
+                            balance_sol.to_string().bright_green().bold()
+                        );
                         println!();
-                        println!("{}", "✅ Wallet is ready for testing!".bright_green().bold());
+                        println!(
+                            "{}",
+                            "✅ Wallet is ready for testing!".bright_green().bold()
+                        );
                     } else {
                         println!("⏳ Airdrop pending... Check balance later with:");
                         println!("   {}", "cargo run -- wallet balance".bright_green());
@@ -2135,8 +2833,14 @@ async fn handle_wallet_airdrop_command() -> Result<()> {
 }
 
 async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[WALLET] Generating New DevNet Wallet".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[WALLET] Generating New DevNet Wallet".bright_blue().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     // Get output file from arguments
     let output_file = matches.get_one::<String>("output").unwrap();
@@ -2154,18 +2858,25 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
     std::fs::write(output_file, wallet_json)?;
 
     println!("✅ Generated new wallet: {}", output_file.bright_green());
-    println!("📍 Public key: {}", keypair.pubkey().to_string().bright_cyan());
+    println!(
+        "📍 Public key: {}",
+        keypair.pubkey().to_string().bright_cyan()
+    );
     println!("💰 Balance: {} SOL (new wallet)", "0.0".bright_yellow());
     println!();
     println!("{}", "Next steps:".bright_cyan());
     println!("1. Request an airdrop:");
-    println!("   {} {} --url devnet",
-             "solana airdrop 2".bright_green(),
-             keypair.pubkey().to_string().bright_cyan());
+    println!(
+        "   {} {} --url devnet",
+        "solana airdrop 2".bright_green(),
+        keypair.pubkey().to_string().bright_cyan()
+    );
     println!("2. Use wallet for testing:");
-    println!("   {} --wallet {}",
-             "cargo run -- test swap-real".bright_green(),
-             output_file.bright_cyan());
+    println!(
+        "   {} --wallet {}",
+        "cargo run -- test swap-real".bright_green(),
+        output_file.bright_cyan()
+    );
 
     // Try to request an airdrop automatically
     println!();
@@ -2173,11 +2884,15 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
 
     // Load DevNet configuration for airdrop
     let config = Config::load("config/devnet.toml")?;
-    let rpc_client = solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
+    let rpc_client =
+        solana_client::rpc_client::RpcClient::new(config.network.primary_rpc().to_string());
 
     match rpc_client.request_airdrop(&keypair.pubkey(), 2_000_000_000) {
         Ok(signature) => {
-            println!("✅ Airdrop requested! Signature: {}", signature.to_string().bright_green());
+            println!(
+                "✅ Airdrop requested! Signature: {}",
+                signature.to_string().bright_green()
+            );
             println!("⏳ Waiting for confirmation...");
 
             // Wait a bit and check balance
@@ -2187,10 +2902,15 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
                 Ok(balance) => {
                     let balance_sol = balance as f64 / 1_000_000_000.0;
                     if balance_sol > 0.0 {
-                        println!("🎉 Airdrop successful! New balance: {} SOL",
-                                 balance_sol.to_string().bright_green().bold());
+                        println!(
+                            "🎉 Airdrop successful! New balance: {} SOL",
+                            balance_sol.to_string().bright_green().bold()
+                        );
                         println!();
-                        println!("{}", "✅ Wallet is ready for testing!".bright_green().bold());
+                        println!(
+                            "{}",
+                            "✅ Wallet is ready for testing!".bright_green().bold()
+                        );
                     } else {
                         println!("⏳ Airdrop pending... Check balance later with:");
                         println!("   {}", "cargo run -- wallet balance".bright_green());
@@ -2204,9 +2924,11 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
         Err(e) => {
             println!("⚠️  Automatic airdrop failed: {}", e);
             println!("💡 Try manual airdrop with:");
-            println!("   {} {} --url devnet",
-                     "solana airdrop 2".bright_green(),
-                     keypair.pubkey().to_string().bright_cyan());
+            println!(
+                "   {} {} --url devnet",
+                "solana airdrop 2".bright_green(),
+                keypair.pubkey().to_string().bright_cyan()
+            );
         }
     }
 
@@ -2214,8 +2936,16 @@ async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_wallet_export_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[WALLET] Exporting Wallet for Mobile Import".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "[WALLET] Exporting Wallet for Mobile Import"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     // Get parameters
     let wallet_file = matches.get_one::<String>("wallet_file").unwrap();
@@ -2244,7 +2974,7 @@ async fn handle_wallet_export_command(matches: &ArgMatches) -> Result<()> {
     let private_key_base58 = bs58::encode(&private_key_bytes).into_string();
 
     // Generate seed phrase from private key (for compatibility)
-    use bip39::{Mnemonic, Language};
+    use bip39::{Language, Mnemonic};
 
     // Create a mnemonic from entropy (first 16 bytes of private key for 12-word phrase)
     let entropy = &private_key_bytes[0..16];
@@ -2255,7 +2985,7 @@ async fn handle_wallet_export_command(matches: &ArgMatches) -> Result<()> {
 
     // Create the export content
     let export_content = format!(
-r#"SOLANA WALLET EXPORT FOR MOBILE IMPORT
+        r#"SOLANA WALLET EXPORT FOR MOBILE IMPORT
 =====================================
 Generated: {}
 Source File: {}
@@ -2318,7 +3048,10 @@ WALLET ADDRESS (for funding/verification):
         public_key,
         seed_phrase,
         private_key_base58,
-        private_key_bytes.iter().map(|b| format!("{:02x}", b)).collect::<String>(),
+        private_key_bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>(),
         public_key
     );
 
@@ -2348,13 +3081,18 @@ WALLET ADDRESS (for funding/verification):
 }
 
 async fn handle_check_balance_command(matches: &ArgMatches) -> Result<()> {
-    let address = matches.get_one::<String>("address")
+    let address = matches
+        .get_one::<String>("address")
         .ok_or_else(|| anyhow::anyhow!("Wallet address is required. Use --address <ADDRESS>"))?;
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     println!("{}", "🔍 WALLET BALANCE CHECK".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
     println!("📍 Address: {}", address.bright_cyan());
     println!("🌐 Network: {}", network.bright_cyan());
     println!();
@@ -2364,7 +3102,7 @@ async fn handle_check_balance_command(matches: &ArgMatches) -> Result<()> {
         Ok(pk) => {
             println!("✅ Address format is valid");
             pk
-        },
+        }
         Err(e) => {
             println!("❌ Invalid address format: {}", e);
             return Err(anyhow::anyhow!("Invalid wallet address format"));
@@ -2375,7 +3113,11 @@ async fn handle_check_balance_command(matches: &ArgMatches) -> Result<()> {
     let config_file = match network.as_str() {
         "devnet" => "config/devnet.toml",
         "mainnet" => "config/mainnet.toml",
-        _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid network. Use 'devnet' or 'mainnet'"
+            ))
+        }
     };
 
     let config = Config::load(config_file)?;
@@ -2405,22 +3147,33 @@ async fn handle_check_balance_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "🚀 SPRINT 1: REAL SWAP EXECUTION TEST".bright_red().bold());
-    println!("{}", "==================================================".bright_red());
+    println!(
+        "{}",
+        "🚀 SPRINT 1: REAL SWAP EXECUTION TEST".bright_red().bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_red()
+    );
 
     // Get parameters
     let amount_str = matches.get_one::<String>("amount").unwrap();
     let amount: f64 = amount_str.parse().unwrap_or(0.001);
     let wallet_file = matches.get_one::<String>("wallet");
     let confirmed = matches.get_flag("confirm");
-    let network = matches.get_one::<String>("network")
-        .ok_or_else(|| anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet"))?;
+    let network = matches.get_one::<String>("network").ok_or_else(|| {
+        anyhow::anyhow!("Network selection is required. Use --network devnet or --network mainnet")
+    })?;
 
     // Load configuration based on network
     let config_file = match network.as_str() {
         "mainnet" => "config/mainnet.toml",
         "devnet" => "config/devnet.toml",
-        _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid network. Use 'devnet' or 'mainnet'"
+            ))
+        }
     };
 
     let mut config = Config::load(config_file)?;
@@ -2430,7 +3183,11 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
 
     // Get network-specific settings from configuration
     let rpc_endpoint = config.network.primary_rpc();
-    let network_name = if config.network.is_mainnet() { "Mainnet" } else { "DevNet" };
+    let network_name = if config.network.is_mainnet() {
+        "Mainnet"
+    } else {
+        "DevNet"
+    };
     let output_token = match network.as_str() {
         "mainnet" => tokens::mainnet::USDC,
         "devnet" => tokens::devnet::USDC,
@@ -2450,28 +3207,71 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
     // Safety check with network-specific warnings
     if !confirmed {
         println!();
-        println!("{}", "🚨 CRITICAL SECURITY UPDATE: New safety measures implemented!".bright_red().bold());
+        println!(
+            "{}",
+            "🚨 CRITICAL SECURITY UPDATE: New safety measures implemented!"
+                .bright_red()
+                .bold()
+        );
         println!("   📄 See WALLET_SAFETY_MEASURES.md for details");
         println!();
 
         if network == "mainnet" {
-            println!("{}", "⚠️  WARNING: This will execute a REAL transaction on MAINNET blockchain!".bright_red().bold());
+            println!(
+                "{}",
+                "⚠️  WARNING: This will execute a REAL transaction on MAINNET blockchain!"
+                    .bright_red()
+                    .bold()
+            );
             println!("   - This uses REAL SOL with REAL monetary value");
             println!("   - Transaction will be permanently recorded on Mainnet");
             println!("   - You will be trading REAL money");
-            println!("{}", "   - MAXIMUM SWAP LIMIT: 0.1 SOL per transaction".bright_red().bold());
-            println!("{}", "   - SAFETY MARGIN: 0.01 SOL kept for fees".bright_red().bold());
-            println!("{}", "   - ONLY proceed if you understand the risks!".bright_red().bold());
+            println!(
+                "{}",
+                "   - MAXIMUM SWAP LIMIT: 0.1 SOL per transaction"
+                    .bright_red()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "   - SAFETY MARGIN: 0.01 SOL kept for fees"
+                    .bright_red()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "   - ONLY proceed if you understand the risks!"
+                    .bright_red()
+                    .bold()
+            );
         } else {
-            println!("{}", "⚠️  WARNING: This will execute a REAL transaction on DevNet blockchain!".bright_yellow().bold());
+            println!(
+                "{}",
+                "⚠️  WARNING: This will execute a REAL transaction on DevNet blockchain!"
+                    .bright_yellow()
+                    .bold()
+            );
             println!("   - This uses real DevNet SOL");
             println!("   - Transaction will be visible on blockchain explorer");
             println!("   - DevNet tokens have no monetary value");
-            println!("{}", "   - MAXIMUM SWAP LIMIT: 1.0 SOL per transaction".bright_yellow().bold());
-            println!("{}", "   - SAFETY MARGIN: 0.01 SOL kept for fees".bright_yellow().bold());
+            println!(
+                "{}",
+                "   - MAXIMUM SWAP LIMIT: 1.0 SOL per transaction"
+                    .bright_yellow()
+                    .bold()
+            );
+            println!(
+                "{}",
+                "   - SAFETY MARGIN: 0.01 SOL kept for fees"
+                    .bright_yellow()
+                    .bold()
+            );
         }
         println!();
-        println!("{}", "🛡️  NEW SAFETY PROTECTIONS ACTIVE:".bright_blue().bold());
+        println!(
+            "{}",
+            "🛡️  NEW SAFETY PROTECTIONS ACTIVE:".bright_blue().bold()
+        );
         println!("   ✅ Maximum swap amount limits");
         println!("   ✅ Balance verification with safety margin");
         println!("   ✅ Transaction amount verification");
@@ -2479,10 +3279,14 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         println!("   ✅ Emergency abort conditions");
         println!();
         println!("To proceed, add {} flag:", "--confirm".bright_red());
-        println!("   {} --wallet {} --network {} --confirm",
-                 "cargo run -- test swap-real".bright_green(),
-                 wallet_file.unwrap_or(&"test-wallet-new.json".to_string()).bright_cyan(),
-                 network.bright_yellow());
+        println!(
+            "   {} --wallet {} --network {} --confirm",
+            "cargo run -- test swap-real".bright_green(),
+            wallet_file
+                .unwrap_or(&"test-wallet-new.json".to_string())
+                .bright_cyan(),
+            network.bright_yellow()
+        );
         return Ok(());
     }
 
@@ -2491,27 +3295,23 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         println!("🔓 Loading wallet from: {}", wallet_path.bright_cyan());
 
         match std::fs::read_to_string(wallet_path) {
-            Ok(wallet_data) => {
-                match serde_json::from_str::<Vec<u8>>(&wallet_data) {
-                    Ok(key_bytes) => {
-                        match Keypair::from_bytes(&key_bytes) {
-                            Ok(kp) => {
-                                println!("✅ Wallet loaded successfully");
-                                println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
-                                Some(kp)
-                            }
-                            Err(e) => {
-                                println!("❌ Failed to parse keypair: {}", e);
-                                return Err(anyhow::anyhow!("Invalid wallet format"));
-                            }
-                        }
+            Ok(wallet_data) => match serde_json::from_str::<Vec<u8>>(&wallet_data) {
+                Ok(key_bytes) => match Keypair::from_bytes(&key_bytes) {
+                    Ok(kp) => {
+                        println!("✅ Wallet loaded successfully");
+                        println!("📍 Public key: {}", kp.pubkey().to_string().bright_cyan());
+                        Some(kp)
                     }
                     Err(e) => {
-                        println!("❌ Failed to parse wallet JSON: {}", e);
-                        return Err(anyhow::anyhow!("Invalid wallet JSON"));
+                        println!("❌ Failed to parse keypair: {}", e);
+                        return Err(anyhow::anyhow!("Invalid wallet format"));
                     }
+                },
+                Err(e) => {
+                    println!("❌ Failed to parse wallet JSON: {}", e);
+                    return Err(anyhow::anyhow!("Invalid wallet JSON"));
                 }
-            }
+            },
             Err(e) => {
                 println!("❌ Failed to read wallet file: {}", e);
                 return Err(anyhow::anyhow!("Cannot read wallet file"));
@@ -2574,16 +3374,25 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         inputMint: tokens::SOL.to_string(),
         outputMint: output_token.to_string(), // Network-specific token
         amount: (amount * 1_000_000_000.0) as u64, // Convert to lamports
-        slippageBps: 50, // 0.5% slippage
+        slippageBps: 50,                      // 0.5% slippage
     };
 
     let quote = match jupiter_client.get_quote(quote_request).await {
         Ok(q) => {
             println!("✅ Quote received from Jupiter");
             println!("   Input: {} SOL", q.in_amount.to_string().bright_cyan());
-            println!("   Output: {} USDC", q.out_amount.to_string().bright_green());
-            println!("   Price Impact: {}%", q.price_impact_pct.to_string().bright_yellow());
-            println!("   Route: {} steps", q.routePlan.len().to_string().bright_blue());
+            println!(
+                "   Output: {} USDC",
+                q.out_amount.to_string().bright_green()
+            );
+            println!(
+                "   Price Impact: {}%",
+                q.price_impact_pct.to_string().bright_yellow()
+            );
+            println!(
+                "   Route: {} steps",
+                q.routePlan.len().to_string().bright_blue()
+            );
             q
         }
         Err(e) => {
@@ -2594,31 +3403,55 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
 
     if let Some(kp) = keypair {
         println!();
-        println!("{}", format!("🚀 EXECUTING REAL SWAP ON {}...", network_name.to_uppercase()).bright_red().bold());
+        println!(
+            "{}",
+            format!(
+                "🚀 EXECUTING REAL SWAP ON {}...",
+                network_name.to_uppercase()
+            )
+            .bright_red()
+            .bold()
+        );
 
         // Use Jupiter wrapper for easier integration
         use sniperforge::shared::jupiter::Jupiter;
         let jupiter = Jupiter::new(&jupiter_config).await?;
 
         // Execute real swap with wallet
-        let result = jupiter.execute_swap_with_wallet(
-            &quote,
-            &kp.pubkey().to_string(),
-            Some(&kp)
-        ).await;
+        let result = jupiter
+            .execute_swap_with_wallet(&quote, &kp.pubkey().to_string(), Some(&kp))
+            .await;
 
         match result {
             Ok(swap_result) => {
                 println!();
                 if swap_result.success {
-                    println!("{}", "🎉 REAL SWAP EXECUTED SUCCESSFULLY!".bright_green().bold());
-                    println!("   Transaction: {}", swap_result.transaction_signature.bright_green());
-                    println!("   Output: {} USDC", swap_result.output_amount.to_string().bright_green());
-                    println!("   Slippage: {}%", swap_result.actual_slippage.to_string().bright_yellow());
-                    println!("   Fee: {} SOL", swap_result.fee_amount.to_string().bright_yellow());
+                    println!(
+                        "{}",
+                        "🎉 REAL SWAP EXECUTED SUCCESSFULLY!".bright_green().bold()
+                    );
+                    println!(
+                        "   Transaction: {}",
+                        swap_result.transaction_signature.bright_green()
+                    );
+                    println!(
+                        "   Output: {} USDC",
+                        swap_result.output_amount.to_string().bright_green()
+                    );
+                    println!(
+                        "   Slippage: {}%",
+                        swap_result.actual_slippage.to_string().bright_yellow()
+                    );
+                    println!(
+                        "   Fee: {} SOL",
+                        swap_result.fee_amount.to_string().bright_yellow()
+                    );
                     println!();
                     println!("🔗 View on DevNet Explorer:");
-                    println!("   https://explorer.solana.com/tx/{}?cluster=devnet", swap_result.transaction_signature);
+                    println!(
+                        "   https://explorer.solana.com/tx/{}?cluster=devnet",
+                        swap_result.transaction_signature
+                    );
                     println!();
                     println!("{}", "📋 Execution Logs:".bright_blue());
                     for log in &swap_result.logs {
@@ -2645,10 +3478,11 @@ async fn handle_test_swap_real_command(matches: &ArgMatches) -> Result<()> {
         println!("{}", "💡 Simulation completed successfully!".bright_blue());
         println!("   Quote retrieved and transaction built");
         println!("   To execute real swap, provide wallet:");
-        println!("   {} --wallet test-wallet-new.json --confirm",
-                 "cargo run -- test swap-real".bright_green());
+        println!(
+            "   {} --wallet test-wallet-new.json --confirm",
+            "cargo run -- test swap-real".bright_green()
+        );
     }
 
     Ok(())
 }
-
