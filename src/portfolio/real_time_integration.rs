@@ -177,29 +177,11 @@ impl RealTimePortfolioIntegration {
             jupiter_client,
             // cache_free_trader, // Commented temporarily
             websocket_manager: Arc::new(
-                SyndicaWebSocketClient::new(match config.network.environment.as_str() {
-                    "mainnet" => crate::shared::syndica_websocket::SyndicaConfig::mainnet(),
-                    "devnet" => {
-                        // Create devnet config using user's configuration
-                        crate::shared::syndica_websocket::SyndicaConfig {
-                            access_token: std::env::var("SYNDICA_TOKEN")
-                                .unwrap_or_else(|_| "test-token".to_string()),
-                            endpoint: config.network.websocket_url().to_string(),
-                            reconnect_attempts: 5,
-                            ping_interval: std::time::Duration::from_secs(30),
-                        }
-                    }
-                    _ => {
-                        // Use devnet as safer fallback for unknown environments
-                        crate::shared::syndica_websocket::SyndicaConfig {
-                            access_token: std::env::var("SYNDICA_TOKEN")
-                                .unwrap_or_else(|_| "test-token".to_string()),
-                            endpoint: config.network.websocket_url().to_string(),
-                            reconnect_attempts: 5,
-                            ping_interval: std::time::Duration::from_secs(30),
-                        }
-                    }
-                })
+                SyndicaWebSocketClient::new(
+                    crate::shared::syndica_websocket::SyndicaConfig::from_network_config(
+                        &config.network,
+                    ),
+                )
                 .await
                 .unwrap(),
             ),
