@@ -23,7 +23,6 @@ pub struct TokenBalance {
     pub value_usd: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
 pub struct WalletScanner {
     rpc_client: RpcClient,
     network: String,

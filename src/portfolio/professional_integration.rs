@@ -65,6 +65,13 @@ pub struct PortfolioPosition {
     pub entry_price: f64,
     pub current_price: f64,
     pub quantity: f64,
+    // Additional fields for compatibility
+    pub amount: f64,
+    pub market_value: f64,
+    pub unrealized_pnl_percent: f64,
+    pub position_size_percent: f64,
+    pub entry_time: DateTime<Utc>,
+    pub mint_address: Option<String>,
 }
 
 /// Strategy performance metrics
@@ -80,6 +87,10 @@ pub struct StrategyMetrics {
     pub max_drawdown: f64,
     pub allocation_percent: f64,
     pub risk_adjusted_return: f64,
+    // Additional fields for compatibility
+    pub total_return: f64,
+    pub total_trades: u32,
+    pub sharpe_ratio: f64,
 }
 
 impl ProfessionalPortfolioIntegration {
