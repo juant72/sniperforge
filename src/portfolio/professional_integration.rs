@@ -147,10 +147,10 @@ impl ProfessionalPortfolioIntegration {
         println!("DEBUG: Starting get_professional_status");
 
         let mut total_value = 0.0;
-        let mut positions = Vec::new();
-        let mut real_time_prices = HashMap::new();
-        let mut strategy_performance = HashMap::new();
-        let mut all_wallet_balances = Vec::new();
+        let mut positions: Vec<PortfolioPosition> = Vec::new();
+        let mut real_time_prices: HashMap<String, f64> = HashMap::new();
+        let mut strategy_performance: HashMap<String, StrategyMetrics> = HashMap::new();
+        let mut all_wallet_balances: Vec<WalletBalance> = Vec::new();
 
         println!("DEBUG: About to start wallet scanning");
 

@@ -49,39 +49,10 @@ impl WalletScanner {
 
         // TEMPORARY: Return empty result to avoid stack overflow during debugging
         println!("⚠️ TEMPORARY: Returning empty wallet balance for debugging");
-        return Ok(WalletBalance {
+        Ok(WalletBalance {
             address: wallet_address.to_string(),
             sol_balance: 0.0,
             token_balances: Vec::new(),
-            last_updated: chrono::Utc::now(),
-        });
-
-        let pubkey = Pubkey::from_str(wallet_address)
-            .context("Invalid wallet address format")?;
-
-        // Get SOL balance with timeout
-        let sol_balance = timeout(Duration::from_secs(10), async {
-            self.rpc_client.get_balance(&pubkey)
-        }).await
-            .context("Timeout getting SOL balance")?
-            .context("Failed to get SOL balance")?;
-
-        let sol_balance_f64 = sol_balance as f64 / LAMPORTS_PER_SOL as f64;
-
-        // Get token accounts with timeout
-        let token_balances = timeout(Duration::from_secs(15), async {
-            self.get_token_balances(&pubkey).await
-        }).await
-            .context("Timeout getting token balances")?
-            .unwrap_or_else(|e| {
-                eprintln!("⚠️ Warning: Could not fetch token balances: {}", e);
-                Vec::new()
-            });
-
-        Ok(WalletBalance {
-            address: wallet_address.to_string(),
-            sol_balance: sol_balance_f64,
-            token_balances,
             last_updated: chrono::Utc::now(),
         })
     }
