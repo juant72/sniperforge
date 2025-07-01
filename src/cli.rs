@@ -1367,7 +1367,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             }
         },
         Some(("predict-trend", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
@@ -1377,7 +1377,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
             
             println!("{}", "[ML] Predicting Price Trend (REAL DATA)".bright_blue().bold());
-            println!("Network: {}", network.bright_cyan());
+            println!("Network: {}", _network.bright_cyan());
             println!("Symbol: {}", symbol.bright_cyan());
             println!("Horizon: {} minutes", horizon.bright_cyan());
             println!("Confidence Threshold: {}", confidence.bright_cyan());
@@ -1419,7 +1419,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Real strategy optimization completed!".bright_green());
         },
         Some(("assess-risk", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_window = "24".to_string();
             let window = sub_matches.get_one::<String>("market-window").unwrap_or(&default_window);
@@ -1439,7 +1439,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Risk assessment completed!".bright_green());
         },
         Some(("market-regime", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_confidence = "0.9".to_string();
             let confidence = sub_matches.get_one::<String>("confidence-threshold").unwrap_or(&default_confidence);
@@ -1458,7 +1458,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Market regime detection completed!".bright_green());
         },
         Some(("predict-timing", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_symbol = "SOL/USDC".to_string();
             let symbol = sub_matches.get_one::<String>("symbol").unwrap_or(&default_symbol);
@@ -1480,7 +1480,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Timing prediction completed!".bright_green());
         },
         Some(("optimize-execution", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_size = "1000".to_string();
             let size = sub_matches.get_one::<String>("trade-size").unwrap_or(&default_size);
@@ -1503,7 +1503,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Execution optimization completed!".bright_green());
         },
         Some(("backtest-optimized", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_strategy = "trend".to_string();
             let strategy = sub_matches.get_one::<String>("strategy").unwrap_or(&default_strategy);
@@ -1526,7 +1526,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
             println!("{}", "[OK] Backtest completed!".bright_green());
         },
         Some(("optimize-portfolio", sub_matches)) => {
-            let network = sub_matches.get_one::<String>("network")
+            let _network = sub_matches.get_one::<String>("network")
                 .ok_or_else(|| anyhow::anyhow!("Network parameter is required. Use: --network <mainnet|devnet>"))?;
             let default_portfolio = "SOL:0.5,USDC:0.5".to_string();
             let portfolio = sub_matches.get_one::<String>("portfolio").unwrap_or(&default_portfolio);
