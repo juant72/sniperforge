@@ -176,11 +176,13 @@ impl RealTimePortfolioIntegration {
             analytics,
             jupiter_client,
             // cache_free_trader, // Commented temporarily
-            websocket_manager: Arc::new(SyndicaWebSocketClient::new(
-                crate::shared::syndica_websocket::SyndicaConfig::new(
-                    "wss://api.mainnet-beta.solana.com",
-                ),
-            )),
+            websocket_manager: Arc::new(
+                SyndicaWebSocketClient::new(
+                    crate::shared::syndica_websocket::SyndicaConfig::mainnet(),
+                )
+                .await
+                .unwrap(),
+            ),
             price_updates: Arc::new(RwLock::new(HashMap::new())),
             transaction_monitor: Arc::new(RwLock::new(TransactionMonitor::new())),
             update_sender,
@@ -595,9 +597,9 @@ impl RealTimePortfolioIntegration {
             strategy_breakdown,
         };
 
-        // Add snapshot to analytics
+        // Add snapshot to analytics (pass the positions instead of snapshot)
         let mut analytics = self.analytics.write().await;
-        analytics.record_snapshot(snapshot);
+        analytics.record_snapshot(&positions);
 
         Ok(())
     }
