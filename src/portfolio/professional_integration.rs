@@ -398,25 +398,6 @@ pub async fn run_professional_portfolio(config: Config, network: &str, wallet_ad
     Ok(())
 }
 
-/// Display comprehensive professional portfolio dashboard - ONLY REAL DATA
-async fn display_professional_dashboard(status: &ProfessionalPortfolioStatus) {
-    println!("\n🏢 PROFESSIONAL PORTFOLIO DASHBOARD");
-    println!("═══════════════════════════════════════════════════════════");
-    println!("🌐 Network: {}", status.network);
-    println!("⏰ Last Updated: {}", status.last_updated.format("%Y-%m-%d %H:%M:%S UTC"));
-
-    // Show that this is REAL DATA ONLY mode
-    println!("\n⚠️  REAL DATA ONLY MODE - NO SIMULATED VALUES");
-    println!("─────────────────────────────");
-
-    if status.positions_count == 0 {
-        println!("📭 No portfolio positions found");
-        println!("🔧 To see portfolio data, you need to:");
-        println!("   • Configure real wallet integration");
-        println!("   • Implement blockchain transaction scanning");
-        println!("   • Set up live price feed connections");
-        println!("   • Deploy real trading strategies");
-
 /// Display comprehensive professional portfolio dashboard - REAL DATA ONLY
 async fn display_professional_dashboard(status: &ProfessionalPortfolioStatus) {
     println!("\n🏢 PROFESSIONAL PORTFOLIO DASHBOARD");
