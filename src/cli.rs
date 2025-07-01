@@ -1884,7 +1884,7 @@ async fn handle_ml_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_portfolio_command(matches: &ArgMatches, main_matches: &ArgMatches) -> Result<()> {
+async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("demo", sub_matches)) => {
             // Get network from subcommand (now required)
