@@ -65,7 +65,12 @@ pub struct DemoPositionSummary {
 impl PortfolioIntegrationDemo {
     /// Create new demo instance
     pub fn new(config: Config) -> Self {
-        let portfolio_config = PortfolioConfiguration::default();
+        let mut portfolio_config = PortfolioConfiguration::default();
+
+        // Relax limits for demo to avoid concentration errors
+        portfolio_config.risk_limits.max_position_concentration = 1.0; // 100% for demo (allow any single position)
+        portfolio_config.risk_limits.max_strategy_allocation = 1.0; // 100% for demo
+
         let portfolio_manager = Arc::new(PortfolioManager::new(portfolio_config));
 
         Self {
@@ -142,9 +147,9 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("So11111111111111111111111111111111111111112")
                 .unwrap_or(&180.50),
-            quantity: 1.5, // Reduced from 5.0 to 1.5
-            value_usd: 1.5 * 180.50,
-            unrealized_pnl: 1.5 * (180.50 - 175.00),
+            quantity: 0.3, // Very small position ~10%
+            value_usd: 0.3 * 180.50,
+            unrealized_pnl: 0.3 * (180.50 - 175.00),
             realized_pnl: 0.0,
             entry_time: Utc::now() - chrono::Duration::hours(6),
             last_update: Utc::now(),
@@ -167,9 +172,9 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So")
                 .unwrap_or(&195.30),
-            quantity: 1.2, // Reduced from 2.5 to 1.2
-            value_usd: 1.2 * 195.30,
-            unrealized_pnl: 1.2 * (195.30 - 190.00),
+            quantity: 0.3, // Very small position ~10%
+            value_usd: 0.3 * 195.30,
+            unrealized_pnl: 0.3 * (195.30 - 190.00),
             realized_pnl: 0.0,
             entry_time: Utc::now() - chrono::Duration::hours(4),
             last_update: Utc::now(),
@@ -192,8 +197,8 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
                 .unwrap_or(&1.00),
-            quantity: 1200.0, // Increased to balance portfolio
-            value_usd: 1200.0 * 1.00,
+            quantity: 60.0, // Small position ~10%
+            value_usd: 60.0 * 1.00,
             unrealized_pnl: 0.0,
             realized_pnl: 12.5, // Some realized profit from arbitrage
             entry_time: Utc::now() - chrono::Duration::hours(2),
@@ -203,6 +208,56 @@ impl PortfolioIntegrationDemo {
                 var_99: 5.0,
                 volatility: 0.01,
                 beta: 0.01,
+                max_drawdown: 0.0,
+            },
+        };
+
+        // Position 4: USDT stable strategy
+        let usdt_position = Position {
+            id: Uuid::new_v4(),
+            token_mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".to_string(),
+            symbol: "USDT".to_string(),
+            strategy: "stable".to_string(),
+            entry_price: 1.00,
+            current_price: *prices
+                .get("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB")
+                .unwrap_or(&1.00),
+            quantity: 60.0,
+            value_usd: 60.0 * 1.00,
+            unrealized_pnl: 0.0,
+            realized_pnl: 2.0,
+            entry_time: Utc::now() - chrono::Duration::hours(1),
+            last_update: Utc::now(),
+            risk_metrics: PositionRiskMetrics {
+                var_95: 1.0,
+                var_99: 2.0,
+                volatility: 0.01,
+                beta: 0.01,
+                max_drawdown: 0.0,
+            },
+        };
+
+        // Position 5: UXD experimental
+        let uxd_position = Position {
+            id: Uuid::new_v4(),
+            token_mint: "7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT".to_string(),
+            symbol: "UXD".to_string(),
+            strategy: "experimental".to_string(),
+            entry_price: 0.12,
+            current_price: *prices
+                .get("7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT")
+                .unwrap_or(&0.15),
+            quantity: 400.0, // Large quantity due to low price but balanced value
+            value_usd: 400.0 * 0.15,
+            unrealized_pnl: 600.0 * (0.15 - 0.12),
+            realized_pnl: 0.0,
+            entry_time: Utc::now() - chrono::Duration::minutes(30),
+            last_update: Utc::now(),
+            risk_metrics: PositionRiskMetrics {
+                var_95: 4.5,
+                var_99: 9.0,
+                volatility: 0.60,
+                beta: 1.2,
                 max_drawdown: 0.0,
             },
         };
@@ -217,10 +272,18 @@ impl PortfolioIntegrationDemo {
         self.portfolio_manager
             .add_position(usdc_position.clone())
             .await?;
+        self.portfolio_manager
+            .add_position(usdt_position.clone())
+            .await?;
+        self.portfolio_manager
+            .add_position(uxd_position.clone())
+            .await?;
 
         demo_positions.push(sol_position);
         demo_positions.push(msol_position);
         demo_positions.push(usdc_position);
+        demo_positions.push(usdt_position);
+        demo_positions.push(uxd_position);
 
         info!("📈 Created {} sample positions", demo_positions.len());
         Ok(())

@@ -3,16 +3,15 @@
 //! Manages multiple positions across strategies with risk controls
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
-use tokio::sync::RwLock;
 use std::sync::Arc;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use super::{
-    Position, PortfolioConfiguration, PortfolioMetrics,
-    GlobalRiskLimits, RebalanceFrequency
+    GlobalRiskLimits, PortfolioConfiguration, PortfolioMetrics, Position, RebalanceFrequency,
 };
 
 /// Core portfolio manager handling all positions and strategies
@@ -73,8 +72,13 @@ impl PortfolioManager {
         }
 
         // Check concentration limits
-        let total_value = self.calculate_total_value(&positions).await;
-        let position_concentration = position.value_usd / total_value;
+        let current_total_value = self.calculate_total_value(&positions).await;
+        let new_total_value = current_total_value + position.value_usd;
+        let position_concentration = if new_total_value > 0.0 {
+            position.value_usd / new_total_value
+        } else {
+            1.0 // First position is 100% of portfolio
+        };
 
         if position_concentration > self.config.risk_limits.max_position_concentration {
             return Err(anyhow::anyhow!("Position concentration limit exceeded"));
@@ -87,7 +91,8 @@ impl PortfolioManager {
     /// Remove a position from the portfolio
     pub async fn remove_position(&self, position_id: Uuid) -> Result<Position> {
         let mut positions = self.positions.write().await;
-        positions.remove(&position_id)
+        positions
+            .remove(&position_id)
             .ok_or_else(|| anyhow::anyhow!("Position not found"))
     }
 
@@ -113,7 +118,8 @@ impl PortfolioManager {
     /// Get positions for a specific strategy
     pub async fn get_strategy_positions(&self, strategy: &str) -> Vec<Position> {
         let positions = self.positions.read().await;
-        positions.values()
+        positions
+            .values()
             .filter(|p| p.strategy == strategy)
             .cloned()
             .collect()
@@ -145,12 +151,16 @@ impl PortfolioManager {
         // Calculate basic risk metrics (simplified)
         let sharpe_ratio = if total_return_percent > 0.0 { 1.5 } else { 0.0 }; // Placeholder
         let sortino_ratio = if total_return_percent > 0.0 { 1.8 } else { 0.0 }; // Placeholder
-        let max_drawdown = positions.values()
+        let max_drawdown = positions
+            .values()
             .map(|p| p.risk_metrics.max_drawdown)
             .fold(0.0, f64::max);
 
         // Win rate calculation (simplified)
-        let profitable_positions = positions.values().filter(|p| p.unrealized_pnl > 0.0).count();
+        let profitable_positions = positions
+            .values()
+            .filter(|p| p.unrealized_pnl > 0.0)
+            .count();
         let total_positions = positions.len();
         let win_rate = if total_positions > 0 {
             (profitable_positions as f64 / total_positions as f64) * 100.0
@@ -159,17 +169,31 @@ impl PortfolioManager {
         };
 
         // Average win/loss (simplified)
-        let winning_positions: Vec<_> = positions.values().filter(|p| p.unrealized_pnl > 0.0).collect();
-        let losing_positions: Vec<_> = positions.values().filter(|p| p.unrealized_pnl < 0.0).collect();
+        let winning_positions: Vec<_> = positions
+            .values()
+            .filter(|p| p.unrealized_pnl > 0.0)
+            .collect();
+        let losing_positions: Vec<_> = positions
+            .values()
+            .filter(|p| p.unrealized_pnl < 0.0)
+            .collect();
 
         let average_win = if !winning_positions.is_empty() {
-            winning_positions.iter().map(|p| p.unrealized_pnl).sum::<f64>() / winning_positions.len() as f64
+            winning_positions
+                .iter()
+                .map(|p| p.unrealized_pnl)
+                .sum::<f64>()
+                / winning_positions.len() as f64
         } else {
             0.0
         };
 
         let average_loss = if !losing_positions.is_empty() {
-            losing_positions.iter().map(|p| p.unrealized_pnl.abs()).sum::<f64>() / losing_positions.len() as f64
+            losing_positions
+                .iter()
+                .map(|p| p.unrealized_pnl.abs())
+                .sum::<f64>()
+                / losing_positions.len() as f64
         } else {
             0.0
         };
@@ -195,15 +219,9 @@ impl PortfolioManager {
     pub async fn needs_rebalancing(&self) -> bool {
         match self.config.rebalance_frequency {
             RebalanceFrequency::Never => false,
-            RebalanceFrequency::Daily => {
-                (Utc::now() - self.last_rebalance).num_hours() >= 24
-            },
-            RebalanceFrequency::Weekly => {
-                (Utc::now() - self.last_rebalance).num_days() >= 7
-            },
-            RebalanceFrequency::Monthly => {
-                (Utc::now() - self.last_rebalance).num_days() >= 30
-            },
+            RebalanceFrequency::Daily => (Utc::now() - self.last_rebalance).num_hours() >= 24,
+            RebalanceFrequency::Weekly => (Utc::now() - self.last_rebalance).num_days() >= 7,
+            RebalanceFrequency::Monthly => (Utc::now() - self.last_rebalance).num_days() >= 30,
             RebalanceFrequency::ThresholdBased(threshold) => {
                 // Check if any strategy allocation drifted beyond threshold
                 self.check_allocation_drift(threshold).await
@@ -223,7 +241,8 @@ impl PortfolioManager {
         // Calculate current strategy allocations
         let mut current_allocations = HashMap::new();
         for position in positions.values() {
-            let strategy_value = current_allocations.entry(position.strategy.clone())
+            let strategy_value = current_allocations
+                .entry(position.strategy.clone())
                 .or_insert(0.0);
             *strategy_value += position.value_usd;
         }
@@ -252,8 +271,7 @@ impl PortfolioManager {
 
         let mut allocations = HashMap::new();
         for position in positions.values() {
-            let strategy_value = allocations.entry(position.strategy.clone())
-                .or_insert(0.0);
+            let strategy_value = allocations.entry(position.strategy.clone()).or_insert(0.0);
             *strategy_value += position.value_usd;
         }
 
@@ -274,7 +292,10 @@ impl PortfolioManager {
         summary.push_str(&format!("📊 Portfolio Summary\n"));
         summary.push_str(&format!("═══════════════════\n"));
         summary.push_str(&format!("💰 Total Value: ${:.2}\n", metrics.total_value));
-        summary.push_str(&format!("📈 Total P&L: ${:.2} ({:.2}%)\n", metrics.total_pnl, metrics.total_return_percent));
+        summary.push_str(&format!(
+            "📈 Total P&L: ${:.2} ({:.2}%)\n",
+            metrics.total_pnl, metrics.total_return_percent
+        ));
         summary.push_str(&format!("📊 Daily P&L: ${:.2}\n", metrics.daily_pnl));
         summary.push_str(&format!("📉 Max Drawdown: {:.2}%\n", metrics.max_drawdown));
         summary.push_str(&format!("🎯 Win Rate: {:.1}%\n", metrics.win_rate));
@@ -292,7 +313,7 @@ impl PortfolioManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portfolio::{PositionRiskMetrics, RebalanceFrequency, GlobalRiskLimits};
+    use crate::portfolio::{GlobalRiskLimits, PositionRiskMetrics, RebalanceFrequency};
 
     fn create_test_config() -> PortfolioConfiguration {
         let mut strategy_allocations = HashMap::new();
