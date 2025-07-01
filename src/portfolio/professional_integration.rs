@@ -6,7 +6,12 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use st                                match tracker.calculate_strategy_performance(
+                                    strategy_name,
+                                    wallet_addr,
+                                    &history,
+                                    self.price_feed.as_ref().unwrap()
+                                ).await {lections::HashMap;
 use tracing::{info, warn, debug};
 
 use crate::config::Config;
@@ -548,52 +553,4 @@ async fn display_professional_dashboard(status: &ProfessionalPortfolioStatus) {
     println!("   ✅ Live price feeds: ACTIVE");
     println!("   ✅ Blockchain analysis: ACTIVE");
     println!("   ✅ Strategy tracking: ACTIVE");
-}
-                position.value_usd,
-                if position.unrealized_pnl >= 0.0 { "+" } else { "" },
-                position.unrealized_pnl,
-                (position.unrealized_pnl / (position.value_usd - position.unrealized_pnl)) * 100.0,
-                position.strategy
-            );
-        }
-    }
-
-    // Strategy Performance (only if real data exists)
-    if !status.strategy_performance.is_empty() {
-        println!("\n🎯 STRATEGY PERFORMANCE");
-        println!("─────────────────────────────");
-        for (_, strategy) in &status.strategy_performance {
-            let perf_indicator = if strategy.return_percent >= 0.0 { "📈" } else { "📉" };
-            println!(
-                "  {} {} | {:.1}% allocation | {}{:.2}% return | {:.2} risk-adj",
-                perf_indicator,
-                strategy.name,
-                strategy.allocation_percent,
-                if strategy.return_percent >= 0.0 { "+" } else { "" },
-                strategy.return_percent,
-                strategy.risk_adjusted_return
-            );
-        }
-    }
-
-    // Real-time Prices (only if real data exists)
-    if !status.real_time_prices.is_empty() {
-        println!("\n📡 LIVE MARKET PRICES");
-        println!("─────────────────────────────");
-        for (symbol, price) in &status.real_time_prices {
-            println!("  💱 {}: ${:.4}", symbol, price);
-        }
-    }
-
-    // Implementation Status
-    println!("\n🔧 IMPLEMENTATION STATUS");
-    println!("─────────────────────────────");
-    println!("✅ CLI interface - READY");
-    println!("✅ Network configuration - READY");
-    println!("❌ Real wallet scanning - PENDING");
-    println!("❌ Blockchain data integration - PENDING");
-    println!("❌ Live price feeds - PENDING");
-    println!("❌ Strategy performance tracking - PENDING");
-
-    println!("\n═══════════════════════════════════════════════════════════");
 }

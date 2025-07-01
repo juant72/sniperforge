@@ -103,7 +103,7 @@ impl BlockchainAnalyzer {
         let signatures = timeout(Duration::from_secs(20), async {
             self.rpc_client.get_signatures_for_address_with_config(
                 &pubkey,
-                solana_client::rpc_config::RpcGetSignaturesForAddressConfig {
+                solana_client::rpc_config::RpcSignaturesForAddressConfig {
                     limit: Some(limit),
                     ..Default::default()
                 },
@@ -152,7 +152,7 @@ impl BlockchainAnalyzer {
                 &sig,
                 solana_client::rpc_config::RpcTransactionConfig {
                     encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
-                    commitment: Some(solana_client::rpc_config::RpcGetConfirmedTransactionConfig::default().commitment),
+                    commitment: Some(solana_sdk::commitment_config::CommitmentConfig::confirmed()),
                     max_supported_transaction_version: Some(0),
                 },
             )
