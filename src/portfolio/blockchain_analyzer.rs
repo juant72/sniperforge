@@ -92,7 +92,7 @@ impl BlockchainAnalyzer {
         })
     }
 
-    pub async fn get_transaction_history(&self, wallet_address: &str, limit: usize) -> Result<TransactionHistory> {
+    pub async fn get_transaction_history(&self, wallet_address: &str, _limit: usize) -> Result<TransactionHistory> {
         println!("📊 Analyzing transaction history for: {}", wallet_address);
 
         let pubkey = Pubkey::from_str(wallet_address)
@@ -100,13 +100,7 @@ impl BlockchainAnalyzer {
 
         // Get recent transaction signatures with timeout
         let signatures = timeout(Duration::from_secs(20), async {
-            self.rpc_client.get_signatures_for_address_with_config(
-                &pubkey,
-                solana_client::rpc_config::GetConfirmedSignaturesForAddress2Config {
-                    limit: Some(limit),
-                    ..Default::default()
-                },
-            )
+            self.rpc_client.get_signatures_for_address(&pubkey)
         }).await
             .context("Timeout getting transaction signatures")?
             .context("Failed to get transaction signatures")?;
@@ -175,22 +169,9 @@ impl BlockchainAnalyzer {
             TransactionStatus::Success
         };
 
-        // Analyze balance changes
-        let wallet_pubkey = Pubkey::from_str(wallet_address)?;
-        let mut sol_change = 0.0;
-
-        if let (Some(pre_balances), Some(post_balances)) = (&meta.pre_balances, &meta.post_balances) {
-            // Find wallet's account index - simplified approach for now
-            // TODO: Implement proper account key extraction from encoded transaction
-            if pre_balances.len() > 0 && post_balances.len() > 0 {
-                // Use first account as wallet (simplified)
-                if let (Some(pre), Some(post)) = (pre_balances.get(0), post_balances.get(0)) {
-                    sol_change = (*post as f64 - *pre as f64) / 1_000_000_000.0;
-                }
-            }
-                }
-            }
-        }
+        // Analyze balance changes (simplified)
+        // TODO: Implement proper balance change analysis
+        let sol_change = 0.0;
 
         // Analyze token changes (simplified)
         let token_changes = self.analyze_token_changes(&meta, wallet_address).await

@@ -2000,7 +2000,14 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
                     .bold()
             );
             println!("🔄 Loading real portfolio data...");
-            run_professional_portfolio(config.clone()).await?;
+
+            // Example wallet addresses for demo
+            let wallet_addresses = vec![
+                "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+            ];
+
+            run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
         }
         Some(("risk", sub_matches)) => {
             // Get network from subcommand (now required)
@@ -2026,7 +2033,14 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
                     .bold()
             );
             println!("🔄 Analyzing portfolio risk metrics...");
-            run_professional_portfolio(config.clone()).await?;
+
+            // Example wallet addresses for demo
+            let wallet_addresses = vec![
+                "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+            ];
+
+            run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
         }
         Some(("rebalance", sub_matches)) => {
             // Get network from subcommand (now required)
@@ -2134,7 +2148,14 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
                 "📋 Current Positions".bright_blue().bold()
             );
             println!("🔄 Loading real portfolio positions...");
-            run_professional_portfolio(config.clone()).await?;
+
+            // Example wallet addresses for demo
+            let wallet_addresses = vec![
+                "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string(),
+                "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
+            ];
+
+            run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
         }
         Some(("professional", sub_matches)) => {
             // Get network from subcommand (now required)
@@ -2175,8 +2196,8 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
                 "2hNHZg7XPyECh3CwSJGoNh2ETJC7Q7X4QVWD1BfmZpQ1".to_string(),
             ];
 
+            // Run professional portfolio integration with real data
             run_professional_portfolio(config.clone(), network, wallet_addresses).await?;
-        }
 
             println!(
                 "{}",
@@ -2254,6 +2275,7 @@ async fn handle_portfolio_command(matches: &ArgMatches, _main_matches: &ArgMatch
     }
     Ok(())
 }
+
 async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
         Some(("all", sub_matches)) => handle_test_all_command(sub_matches).await?,

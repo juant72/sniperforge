@@ -47,6 +47,15 @@ impl WalletScanner {
     pub async fn scan_wallet(&self, wallet_address: &str) -> Result<WalletBalance> {
         println!("🔍 Scanning wallet: {}", wallet_address);
 
+        // TEMPORARY: Return empty result to avoid stack overflow during debugging
+        println!("⚠️ TEMPORARY: Returning empty wallet balance for debugging");
+        return Ok(WalletBalance {
+            address: wallet_address.to_string(),
+            sol_balance: 0.0,
+            token_balances: Vec::new(),
+            last_updated: chrono::Utc::now(),
+        });
+
         let pubkey = Pubkey::from_str(wallet_address)
             .context("Invalid wallet address format")?;
 

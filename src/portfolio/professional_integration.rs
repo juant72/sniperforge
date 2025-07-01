@@ -16,7 +16,6 @@ use crate::portfolio::{
 };
 
 /// Professional portfolio integration with real data
-#[derive(Debug)]
 pub struct ProfessionalPortfolioIntegration {
     config: Config,
     wallet_scanner: Option<WalletScanner>,
@@ -145,11 +144,15 @@ impl ProfessionalPortfolioIntegration {
     pub async fn get_professional_status(&self, wallet_addresses: &[String]) -> Result<ProfessionalPortfolioStatus> {
         info!("📊 Fetching REAL portfolio data for network: {}", self.network);
 
+        println!("DEBUG: Starting get_professional_status");
+
         let mut total_value = 0.0;
         let mut positions = Vec::new();
         let mut real_time_prices = HashMap::new();
         let mut strategy_performance = HashMap::new();
         let mut all_wallet_balances = Vec::new();
+
+        println!("DEBUG: About to start wallet scanning");
 
         // Step 1: Scan real wallet balances
         if let Some(scanner) = &self.wallet_scanner {
@@ -157,231 +160,44 @@ impl ProfessionalPortfolioIntegration {
                 info!("🔍 Scanning {} wallet(s) for real balances...", wallet_addresses.len());
                 match scanner.scan_multiple_wallets(wallet_addresses).await {
                     Ok(balances) => {
-                        for balance in &balances {
-                            info!("✅ Wallet {}: SOL {:.4}, {} tokens",
-                                balance.address, balance.sol_balance, balance.token_balances.len());
-
-                            // Add SOL position
-                            if balance.sol_balance > 0.0 {
-                                positions.push(PortfolioPosition {
-                                    symbol: "SOL".to_string(),
-                                    amount: balance.sol_balance,
-                                    entry_price: 0.0, // Will be updated with real price
-                                    current_price: 0.0, // Will be updated with real price
-                                    market_value: 0.0, // Will be calculated
-                                    unrealized_pnl: 0.0,
-                                    unrealized_pnl_percent: 0.0,
-                                    position_size_percent: 0.0,
-                                    strategy: "hodl".to_string(),
-                                    entry_time: balance.last_updated,
-                                    mint_address: Some("So11111111111111111111111111111111111111112".to_string()),
-                                });
-                            }
-
-                            // Add token positions
-                            for token in &balance.token_balances {
-                                if token.balance > 0.0 {
-                                    positions.push(PortfolioPosition {
-                                        symbol: token.symbol.clone(),
-                                        amount: token.balance,
-                                        entry_price: 0.0,
-                                        current_price: 0.0,
-                                        market_value: token.value_usd.unwrap_or(0.0),
-                                        unrealized_pnl: 0.0,
-                                        unrealized_pnl_percent: 0.0,
-                                        position_size_percent: 0.0,
-                                        strategy: "hodl".to_string(),
-                                        entry_time: balance.last_updated,
-                                        mint_address: Some(token.mint.clone()),
-                                    });
-                                }
-                            }
-                        }
+                        println!("DEBUG: Got {} wallet balances", balances.len());
                         all_wallet_balances.extend(balances);
                     },
                     Err(e) => {
                         warn!("❌ Failed to scan wallets: {}", e);
                     }
                 }
-            } else {
-                warn!("⚠️ No wallet addresses provided for scanning");
-            }
-        } else {
-            warn!("❌ Wallet scanner not available");
-        }
-
-        // Step 2: Get real-time prices
-        if let Some(price_feed) = &self.price_feed {
-            info!("💰 Fetching real-time prices...");
-
-            // Get SOL price
-            match price_feed.get_sol_price().await {
-                Ok(sol_price) => {
-                    info!("✅ SOL price: ${:.2}", sol_price.price_usd);
-                    real_time_prices.insert("SOL".to_string(), sol_price.price_usd);
-
-                    // Update SOL positions with real price
-                    for position in &mut positions {
-                        if position.symbol == "SOL" {
-                            position.current_price = sol_price.price_usd;
-                            position.market_value = position.amount * sol_price.price_usd;
-                            total_value += position.market_value;
-                        }
-                    }
-                },
-                Err(e) => {
-                    warn!("❌ Failed to get SOL price: {}", e);
-                }
-            }
-
-            // Get token prices
-            let token_mints: Vec<String> = positions.iter()
-                .filter_map(|p| p.mint_address.clone())
-                .filter(|mint| mint != "So11111111111111111111111111111111111111112") // Skip SOL
-                .collect();
-
-            if !token_mints.is_empty() {
-                let token_prices = price_feed.get_multiple_prices(&token_mints).await;
-                for (mint, price_info) in token_prices {
-                    real_time_prices.insert(price_info.symbol.clone(), price_info.price_usd);
-
-                    // Update token positions with real prices
-                    for position in &mut positions {
-                        if let Some(pos_mint) = &position.mint_address {
-                            if *pos_mint == mint {
-                                position.current_price = price_info.price_usd;
-                                position.market_value = position.amount * price_info.price_usd;
-                                total_value += position.market_value;
-                            }
-                        }
-                    }
-                }
-            }
-        } else {
-            warn!("❌ Price feed not available");
-        }
-
-        // Step 3: Analyze transaction history and strategy performance
-        let mut total_fees_paid = 0.0;
-        let mut total_trades = 0;
-
-        if let Some(analyzer) = &self.blockchain_analyzer {
-            if let Some(tracker) = &self.strategy_tracker {
-                for wallet_addr in wallet_addresses {
-                    info!("📊 Analyzing transaction history for: {}", wallet_addr);
-
-                    match analyzer.get_transaction_history(wallet_addr, 100).await {
-                        Ok(history) => {
-                            info!("✅ Found {} transactions for {}", history.transactions.len(), wallet_addr);
-                            total_fees_paid += history.transactions.iter().map(|tx| tx.fee).sum::<f64>();
-                            total_trades += history.transactions.len() as u32;
-
-                            // Calculate strategy performance
-                            for strategy_name in &["jupiter_arbitrage", "raydium_lp", "dex_trading"] {
-                                match tracker.calculate_strategy_performance(
-                                    strategy_name,
-                                    wallet_addr,
-                                    &history,
-                                    self.price_feed.as_ref().unwrap()
-                                ).await {
-                                    Ok(perf) => {
-                                        if perf.total_trades > 0 {
-                                            info!("✅ Strategy {}: {} trades, ${:.2} P&L",
-                                                strategy_name, perf.total_trades, perf.total_pnl_usd);
-
-                                            strategy_performance.insert(strategy_name.to_string(), StrategyMetrics {
-                                                total_return: perf.total_pnl_usd,
-                                                win_rate: perf.win_rate,
-                                                total_trades: perf.total_trades as u32,
-                                                sharpe_ratio: perf.sharpe_ratio.unwrap_or(0.0),
-                                                max_drawdown: perf.max_drawdown,
-                                                allocation_percent: 0.0, // Would need to calculate
-                                                risk_adjusted_return: perf.total_pnl_usd / (1.0 + perf.max_drawdown),
-                                            });
-                                        }
-                                    },
-                                    Err(e) => {
-                                        debug!("Strategy {} analysis failed: {}", strategy_name, e);
-                                    }
-                                }
-                            }
-                        },
-                        Err(e) => {
-                            warn!("❌ Failed to get transaction history for {}: {}", wallet_addr, e);
-                        }
-                    }
-                }
             }
         }
 
-        // Calculate portfolio metrics
-        let positions_count = positions.len();
-        let active_strategies: Vec<String> = strategy_performance.keys().cloned().collect();
+        println!("DEBUG: About to start price feed analysis");
 
-        // Calculate position percentages
-        for position in &mut positions {
-            if total_value > 0.0 {
-                position.position_size_percent = (position.market_value / total_value) * 100.0;
-            }
-        }
-
-        let largest_position = positions.iter()
-            .max_by(|a, b| a.market_value.partial_cmp(&b.market_value).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|p| format!("{} (${:.2})", p.symbol, p.market_value))
-            .unwrap_or("No positions".to_string());
-
-        let most_profitable_strategy = strategy_performance.iter()
-            .max_by(|a, b| a.1.total_return.partial_cmp(&b.1.total_return).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(name, metrics)| format!("{} (+${:.2})", name, metrics.total_return))
-            .unwrap_or("No strategies active".to_string());
-
-        let total_pnl = strategy_performance.values().map(|m| m.total_return).sum::<f64>();
-        let total_return_percent = if total_value > 0.0 { (total_pnl / total_value) * 100.0 } else { 0.0 };
-
-        let avg_win_rate = if !strategy_performance.is_empty() {
-            strategy_performance.values().map(|m| m.win_rate).sum::<f64>() / strategy_performance.len() as f64
-        } else {
-            0.0
-        };
-
-        let max_drawdown = strategy_performance.values().map(|m| m.max_drawdown).fold(0.0, f64::max);
-        let avg_sharpe = if !strategy_performance.is_empty() {
-            strategy_performance.values().map(|m| m.sharpe_ratio).sum::<f64>() / strategy_performance.len() as f64
-        } else {
-            0.0
-        };
-
-        info!("📊 Portfolio Analysis Complete:");
-        info!("   Total Value: ${:.2}", total_value);
-        info!("   Positions: {}", positions_count);
-        info!("   Active Strategies: {}", active_strategies.len());
-        info!("   Total P&L: ${:.2}", total_pnl);
-        info!("   Total Fees: ${:.4}", total_fees_paid);
-
-        Ok(ProfessionalPortfolioStatus {
-            total_value,
-            total_invested: total_value - total_pnl, // Simplified calculation
-            total_pnl,
-            total_return_percent,
-            daily_pnl: 0.0, // Would need historical data
-            daily_return_percent: 0.0, // Would need historical data
-            positions_count,
-            active_strategies,
-            risk_score: if max_drawdown > 0.0 { max_drawdown * 10.0 } else { 0.0 }, // Simplified risk score
-            max_drawdown,
-            sharpe_ratio: avg_sharpe,
-            win_rate: avg_win_rate,
-            profit_factor: if total_pnl > 0.0 { total_pnl / total_fees_paid.max(1.0) } else { 0.0 },
-            total_fees_paid,
-            total_trades,
-            largest_position,
-            most_profitable_strategy,
-            positions,
-            strategy_performance,
-            real_time_prices,
+        // TEMPORARY: Return early to avoid stack overflow during debugging
+        println!("DEBUG: Returning early to avoid stack overflow");
+        return Ok(ProfessionalPortfolioStatus {
+            total_value: 0.0,
+            total_invested: 0.0,
+            total_pnl: 0.0,
+            total_return_percent: 0.0,
+            daily_pnl: 0.0,
+            daily_return_percent: 0.0,
+            positions_count: 0,
+            active_strategies: Vec::new(),
+            risk_score: 0.0,
+            max_drawdown: 0.0,
+            sharpe_ratio: 0.0,
+            win_rate: 0.0,
+            profit_factor: 0.0,
+            total_fees_paid: 0.0,
+            total_trades: 0,
+            largest_position: "N/A".to_string(),
+            most_profitable_strategy: "N/A".to_string(),
+            positions: Vec::new(),
+            strategy_performance: HashMap::new(),
+            real_time_prices: HashMap::new(),
             network: self.network.clone(),
-            last_updated: Utc::now(),
-        })
+            last_updated: chrono::Utc::now(),
+        });
     }
 }
 

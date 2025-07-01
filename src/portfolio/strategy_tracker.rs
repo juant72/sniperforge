@@ -130,7 +130,7 @@ impl StrategyTracker {
 
         // Analyze individual trades
         let mut trades = Vec::new();
-        for (i, tx) in strategy_transactions.iter().enumerate() {
+        for (_i, tx) in strategy_transactions.iter().enumerate() {
             let trade_result = self.analyze_trade(tx, price_feed).await?;
 
             total_fees += tx.fee;
@@ -225,11 +225,11 @@ impl StrategyTracker {
         })
     }
 
-    fn filter_strategy_transactions(
+    fn filter_strategy_transactions<'a>(
         &self,
-        transactions: &[crate::portfolio::blockchain_analyzer::TransactionRecord],
+        transactions: &'a [crate::portfolio::blockchain_analyzer::TransactionRecord],
         strategy_name: &str,
-    ) -> Vec<&crate::portfolio::blockchain_analyzer::TransactionRecord> {
+    ) -> Vec<&'a crate::portfolio::blockchain_analyzer::TransactionRecord> {
         // This is a simplified filter
         // In a real implementation, we would have strategy-specific transaction tagging
         transactions.iter()
