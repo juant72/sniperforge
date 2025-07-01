@@ -1,5 +1,5 @@
 //! Portfolio Management Module for Phase 6C
-//! 
+//!
 //! This module provides comprehensive portfolio management including:
 //! - Multi-asset portfolio tracking and optimization
 //! - Advanced risk management with portfolio-level controls
@@ -167,7 +167,7 @@ mod tests {
         assert_eq!(config.total_capital, 1000.0);
         assert_eq!(config.max_positions, 20);
         assert!(config.strategy_allocations.len() == 4);
-        
+
         // Verify allocations sum to 1.0
         let total: f64 = config.strategy_allocations.values().sum();
         assert!((total - 1.0).abs() < 0.001);

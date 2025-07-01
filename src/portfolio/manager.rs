@@ -1,5 +1,5 @@
 //! Portfolio Manager - Core portfolio management functionality
-//! 
+//!
 //! Manages multiple positions across strategies with risk controls
 
 use anyhow::Result;
@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use std::sync::Arc;
 
 use super::{
-    Position, PortfolioConfiguration, PortfolioMetrics, 
+    Position, PortfolioConfiguration, PortfolioMetrics,
     GlobalRiskLimits, RebalanceFrequency
 };
 
@@ -66,7 +66,7 @@ impl PortfolioManager {
     /// Add a new position to the portfolio
     pub async fn add_position(&self, position: Position) -> Result<()> {
         let mut positions = self.positions.write().await;
-        
+
         // Check position limits
         if positions.len() >= self.config.max_positions as usize {
             return Err(anyhow::anyhow!("Maximum positions limit reached"));
@@ -75,7 +75,7 @@ impl PortfolioManager {
         // Check concentration limits
         let total_value = self.calculate_total_value(&positions).await;
         let position_concentration = position.value_usd / total_value;
-        
+
         if position_concentration > self.config.risk_limits.max_position_concentration {
             return Err(anyhow::anyhow!("Position concentration limit exceeded"));
         }
@@ -94,14 +94,14 @@ impl PortfolioManager {
     /// Update position with current market data
     pub async fn update_position(&self, position_id: Uuid, current_price: f64) -> Result<()> {
         let mut positions = self.positions.write().await;
-        
+
         if let Some(position) = positions.get_mut(&position_id) {
             position.current_price = current_price;
             position.value_usd = position.quantity * current_price;
             position.unrealized_pnl = (current_price - position.entry_price) * position.quantity;
             position.last_update = Utc::now();
         }
-        
+
         Ok(())
     }
 
@@ -128,11 +128,11 @@ impl PortfolioManager {
     pub async fn calculate_metrics(&self) -> Result<PortfolioMetrics> {
         let positions = self.positions.read().await;
         let total_value = self.calculate_total_value(&positions).await;
-        
+
         let total_unrealized_pnl: f64 = positions.values().map(|p| p.unrealized_pnl).sum();
         let total_realized_pnl: f64 = positions.values().map(|p| p.realized_pnl).sum();
         let total_pnl = total_unrealized_pnl + total_realized_pnl;
-        
+
         let total_return_percent = if self.config.total_capital > 0.0 {
             (total_pnl / self.config.total_capital) * 100.0
         } else {
@@ -161,7 +161,7 @@ impl PortfolioManager {
         // Average win/loss (simplified)
         let winning_positions: Vec<_> = positions.values().filter(|p| p.unrealized_pnl > 0.0).collect();
         let losing_positions: Vec<_> = positions.values().filter(|p| p.unrealized_pnl < 0.0).collect();
-        
+
         let average_win = if !winning_positions.is_empty() {
             winning_positions.iter().map(|p| p.unrealized_pnl).sum::<f64>() / winning_positions.len() as f64
         } else {
@@ -215,7 +215,7 @@ impl PortfolioManager {
     async fn check_allocation_drift(&self, threshold: f64) -> bool {
         let positions = self.positions.read().await;
         let total_value = self.calculate_total_value(&positions).await;
-        
+
         if total_value == 0.0 {
             return false;
         }
@@ -232,7 +232,7 @@ impl PortfolioManager {
         for (strategy, target_pct) in &self.strategy_allocations {
             let current_pct = current_allocations.get(strategy).unwrap_or(&0.0) / total_value;
             let drift = (current_pct - target_pct).abs();
-            
+
             if drift > threshold {
                 return true;
             }
@@ -245,7 +245,7 @@ impl PortfolioManager {
     pub async fn get_strategy_allocations(&self) -> HashMap<String, f64> {
         let positions = self.positions.read().await;
         let total_value = self.calculate_total_value(&positions).await;
-        
+
         if total_value == 0.0 {
             return HashMap::new();
         }
@@ -269,7 +269,7 @@ impl PortfolioManager {
     pub async fn get_summary(&self) -> Result<String> {
         let metrics = self.calculate_metrics().await?;
         let allocations = self.get_strategy_allocations().await;
-        
+
         let mut summary = String::new();
         summary.push_str(&format!("📊 Portfolio Summary\n"));
         summary.push_str(&format!("═══════════════════\n"));
@@ -280,7 +280,7 @@ impl PortfolioManager {
         summary.push_str(&format!("🎯 Win Rate: {:.1}%\n", metrics.win_rate));
         summary.push_str(&format!("📊 Sharpe Ratio: {:.2}\n", metrics.sharpe_ratio));
         summary.push_str(&format!("\n🎯 Strategy Allocations:\n"));
-        
+
         for (strategy, allocation) in allocations {
             summary.push_str(&format!("  • {}: {:.1}%\n", strategy, allocation));
         }
@@ -344,7 +344,7 @@ mod tests {
     async fn test_portfolio_creation() {
         let config = create_test_config();
         let manager = PortfolioManager::new(config);
-        
+
         let positions = manager.get_positions().await;
         assert!(positions.is_empty());
     }
@@ -354,10 +354,10 @@ mod tests {
         let config = create_test_config();
         let manager = PortfolioManager::new(config);
         let position = create_test_position();
-        
+
         let result = manager.add_position(position).await;
         assert!(result.is_ok());
-        
+
         let positions = manager.get_positions().await;
         assert_eq!(positions.len(), 1);
     }
@@ -367,9 +367,9 @@ mod tests {
         let config = create_test_config();
         let manager = PortfolioManager::new(config);
         let position = create_test_position();
-        
+
         manager.add_position(position).await.unwrap();
-        
+
         let metrics = manager.calculate_metrics().await.unwrap();
         assert_eq!(metrics.total_value, 1050.0);
         assert_eq!(metrics.total_pnl, 50.0);
