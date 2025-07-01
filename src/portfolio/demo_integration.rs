@@ -132,7 +132,7 @@ impl PortfolioIntegrationDemo {
         let prices = self.mock_prices.read().await;
         let mut demo_positions = self.demo_positions.write().await;
 
-        // Position 1: SOL trend following
+        // Position 1: SOL trend following (adjusted to avoid concentration limit)
         let sol_position = Position {
             id: Uuid::new_v4(),
             token_mint: "So11111111111111111111111111111111111111112".to_string(),
@@ -142,22 +142,22 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("So11111111111111111111111111111111111111112")
                 .unwrap_or(&180.50),
-            quantity: 5.0,
-            value_usd: 5.0 * 180.50,
-            unrealized_pnl: 5.0 * (180.50 - 175.00),
+            quantity: 1.5, // Reduced from 5.0 to 1.5
+            value_usd: 1.5 * 180.50,
+            unrealized_pnl: 1.5 * (180.50 - 175.00),
             realized_pnl: 0.0,
             entry_time: Utc::now() - chrono::Duration::hours(6),
             last_update: Utc::now(),
             risk_metrics: PositionRiskMetrics {
-                var_95: 45.0,
-                var_99: 72.0,
+                var_95: 13.5, // Adjusted proportionally
+                var_99: 21.6,
                 volatility: 0.35,
                 beta: 1.0,
                 max_drawdown: 0.0,
             },
         };
 
-        // Position 2: mSOL momentum
+        // Position 2: mSOL momentum (adjusted)
         let msol_position = Position {
             id: Uuid::new_v4(),
             token_mint: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So".to_string(),
@@ -167,22 +167,22 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So")
                 .unwrap_or(&195.30),
-            quantity: 2.5,
-            value_usd: 2.5 * 195.30,
-            unrealized_pnl: 2.5 * (195.30 - 190.00),
+            quantity: 1.2, // Reduced from 2.5 to 1.2
+            value_usd: 1.2 * 195.30,
+            unrealized_pnl: 1.2 * (195.30 - 190.00),
             realized_pnl: 0.0,
             entry_time: Utc::now() - chrono::Duration::hours(4),
             last_update: Utc::now(),
             risk_metrics: PositionRiskMetrics {
-                var_95: 24.0,
-                var_99: 39.0,
+                var_95: 11.5, // Adjusted proportionally
+                var_99: 18.7,
                 volatility: 0.28,
                 beta: 0.95,
                 max_drawdown: 0.0,
             },
         };
 
-        // Position 3: USDC arbitrage (stable)
+        // Position 3: USDC arbitrage (reduced to maintain balance)
         let usdc_position = Position {
             id: Uuid::new_v4(),
             token_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
@@ -192,8 +192,8 @@ impl PortfolioIntegrationDemo {
             current_price: *prices
                 .get("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
                 .unwrap_or(&1.00),
-            quantity: 500.0,
-            value_usd: 500.0 * 1.00,
+            quantity: 1200.0, // Increased to balance portfolio
+            value_usd: 1200.0 * 1.00,
             unrealized_pnl: 0.0,
             realized_pnl: 12.5, // Some realized profit from arbitrage
             entry_time: Utc::now() - chrono::Duration::hours(2),
