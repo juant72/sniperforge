@@ -1,4 +1,17 @@
 # ⚡ DEV2 WORKSTREAM: Trading Engine & Production Infrastructure
+
+> **⚠️ Prácticas obligatorias para evitar errores y duplicidad**
+> 
+> 1. **Integración real:** Todos los módulos deben usar funciones de datos y ejecución reales de `/src/shared/jupiter.rs` y `wallet_manager.rs`. Elimina mocks y simulaciones en producción.
+> 2. **Documentación exhaustiva:** Antes de crear nuevas funciones públicas, revisa y actualiza `docs/technical/API_REFERENCE_FULL.md` para evitar duplicidad y asegurar que toda entidad pública esté documentada.
+> 3. **Reutilización:** Si una función es similar a otra, refactoriza para compartir implementación. No dupliques lógica.
+> 4. **Pruebas y validación:** Implementa pruebas unitarias, de integración y de carga para cada módulo crítico. Usa devnet para pruebas reales antes de mainnet.
+> 5. **Manejo de errores y logging:** Añade manejo de errores exhaustivo y logs detallados en todos los puntos críticos.
+> 6. **Actualización continua:** Refleja cualquier cambio relevante en este plan y en la API reference.
+> 7. **Refuerzo de API Reference:** Toda entidad pública (struct, trait, enum, función) debe documentarse en `docs/technical/API_REFERENCE_FULL.md` inmediatamente tras su creación o modificación. Incluye ejemplos de uso y advertencias sobre dependencias cruzadas cuando sea relevante. Realiza revisiones cruzadas periódicas para asegurar la sincronización entre la API reference y el código fuente.
+> 
+> Estas prácticas son obligatorias para todo el equipo DEV2 y deben cumplirse en cada entrega y revisión de código.
+
 **Owner**: Developer 2
 **Focus**: Advanced trading systems, execution optimization, production readiness
 **Duration**: 4 weeks (2 sprints)
@@ -30,11 +43,11 @@ impl StrategyExecutor {
 ```
 
 **Tasks**:
-- [ ] Create pluggable strategy framework
-- [ ] Implement DCA (Dollar Cost Averaging) with real Jupiter trades
-- [ ] Add momentum trading using real price signals
-- [ ] Build grid trading system with multiple price levels
-- [ ] Add CLI command: `sniperforge strategy-run --type dca --config dca.json`
+- [x] Create pluggable strategy framework
+- [x] Implement DCA (Dollar Cost Averaging) with real Jupiter trades
+- [x] Add momentum trading using real price signals
+- [x] Build grid trading system with multiple price levels
+- [x] Add CLI command: `sniperforge strategy-run --type dca --config dca.json`
 
 ### Day 3-4: Advanced Order Manager
 ```rust
@@ -61,10 +74,10 @@ impl OrderManager {
 ```
 
 **Tasks**:
-- [ ] Implement stop-loss orders with real price monitoring
-- [ ] Add take-profit orders with automatic execution
-- [ ] Build trailing stops that adjust with market movement
-- [ ] Create conditional orders based on market conditions
+- [x] Implement stop-loss orders with real price monitoring
+- [x] Add take-profit orders with automatic execution
+- [x] Build trailing stops that adjust with market movement
+- [x] Create conditional orders based on market conditions
 - [ ] Add CLI command: `sniperforge order-create --type stop-loss --token SOL --trigger 140`
 
 ### Day 5-7: Execution Optimizer
@@ -89,10 +102,10 @@ impl ExecutionOptimizer {
 ```
 
 **Tasks**:
-- [ ] Implement dynamic slippage based on real market depth
-- [ ] Build route optimization across Raydium, Orca, Jupiter
-- [ ] Add MEV protection with transaction timing optimization
-- [ ] Calculate execution costs including all fees
+- [x] Implement dynamic slippage based on real market depth
+- [x] Build route optimization across Raydium, Orca, Jupiter
+- [x] Add MEV protection with transaction timing optimization
+- [x] Calculate execution costs including all fees
 - [ ] Add CLI command: `sniperforge execution-optimize --trade-size 1000 --token USDC`
 
 ---

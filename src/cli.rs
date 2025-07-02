@@ -1190,27 +1190,23 @@ pub async fn run_cli() -> Result<()> {
                     .value_parser(["devnet", "mainnet"])))
         .subcommand(
             Command::new("strategy-run")
-                .about("🚀 Execute trading strategies")
-                .after_help("Execute advanced trading strategies with real Jupiter trades")
-                .arg(Arg::new("type")
-                    .long("type")
-                    .short('t')
-                    .value_name("STRATEGY")
-                    .help("Strategy type to execute")
-                    .required(true)
-                    .value_parser(["dca", "momentum", "grid"]))
-                .arg(Arg::new("config")
-                    .long("config")
-                    .short('c')
-                    .value_name("FILE")
-                    .help("Strategy configuration file (JSON)")
-                    .required(true))
-                .arg(Arg::new("network")
-                    .long("network")
-                    .value_name("NET")
-                    .help("Network to execute on: devnet or mainnet")
-                    .required(true)
-                    .value_parser(["devnet", "mainnet"])))
+                .about("Run a trading strategy (DCA, momentum, grid) with real execution")
+                .arg(
+                    Arg::new("type")
+                        .long("type")
+                        .value_name("STRATEGY_TYPE")
+                        .help("Strategy type: dca, momentum, grid")
+                        .required(true)
+                        .value_parser(["dca", "momentum", "grid"])
+                )
+                .arg(
+                    Arg::new("config")
+                        .long("config")
+                        .value_name("CONFIG_FILE")
+                        .help("Path to strategy config JSON file")
+                        .required(true)
+                )
+        )
         .subcommand(
             Command::new("order-create")
                 .about("📋 Create advanced orders")
@@ -1456,6 +1452,51 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
+// ==================== PLACEHOLDER COMMAND HANDLERS ====================
+// These functions need to be implemented as part of ongoing development
+
+async fn handle_wallet_command(_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "Wallet command - implementation pending".yellow());
+    // TODO: Implement wallet management commands
+    Ok(())
+}
+
+async fn handle_test_command(_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "Test command - implementation pending".yellow());
+    // TODO: Implement test commands
+    Ok(())
+}
+
+async fn handle_interactive_command(_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "Interactive command - implementation pending".yellow());
+    // TODO: Implement interactive mode
+    Ok(())
+}
+
+async fn handle_check_balance_command(_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "Check balance command - implementation pending".yellow());
+    // TODO: Implement balance checking
+    Ok(())
+}
+
+async fn handle_ml_command(_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "ML command - implementation pending".yellow());
+    // TODO: Implement ML commands
+    Ok(())
+}
+
+async fn handle_portfolio_command(_matches: &ArgMatches, _parent_matches: &ArgMatches) -> Result<()> {
+    println!("{}", "Portfolio command - implementation pending".yellow());
+    // TODO: Implement portfolio management commands
+    Ok(())
+}
+
+async fn show_main_menu() -> Result<()> {
+    println!("{}", "Main menu - implementation pending".yellow());
+    // TODO: Implement interactive main menu
+    Ok(())
+}
+
 // ============================================================================
 // DEV2 Trading Engine Command Handlers
 // ============================================================================
@@ -1488,11 +1529,15 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     let config = Config::load(network_config_file)?;
 
     // Initialize Jupiter client
-    let jupiter_config = JupiterConfig::new(network == "mainnet");
-    let jupiter_client = JupiterClient::new(jupiter_config);
+    let jupiter_config = if network == "mainnet" {
+        JupiterConfig::mainnet()
+    } else {
+        JupiterConfig::devnet()
+    };
+    let jupiter_client = JupiterClient::new(&jupiter_config).await?;
 
     // Initialize wallet manager
-    let wallet_manager = WalletManager::new(config.clone()).await?;
+    let wallet_manager = WalletManager::new(&config).await?;
 
     // Create strategy executor
     let executor = StrategyExecutor::new(wallet_manager, jupiter_client);
@@ -1578,8 +1623,12 @@ async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
     println!();
 
     // Initialize Jupiter client
-    let jupiter_config = JupiterConfig::new(network == "mainnet");
-    let jupiter_client = JupiterClient::new(jupiter_config);
+    let jupiter_config = if network == "mainnet" {
+        JupiterConfig::mainnet()
+    } else {
+        JupiterConfig::devnet()
+    };
+    let jupiter_client = JupiterClient::new(&jupiter_config).await?;
 
     // Create order manager
     let mut order_manager = OrderManager::new(jupiter_client);
@@ -1662,7 +1711,7 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     let trade_size: f64 = trade_size_str.parse()
         .map_err(|_| anyhow::anyhow!("Invalid trade size: {}", trade_size_str))?;
 
-    let urgency = match urgency_str {
+    let urgency = match urgency_str.as_str() {
         "low" => TradeUrgency::Low,
         "medium" => TradeUrgency::Medium,
         "high" => TradeUrgency::High,
@@ -1686,8 +1735,16 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
         max_price_impact: Some(0.02), // 2% max price impact
     };
 
+    // Initialize Jupiter client for optimization
+    let jupiter_config = if network == "mainnet" {
+        JupiterConfig::mainnet()
+    } else {
+        JupiterConfig::devnet()
+    };
+    let jupiter_client = JupiterClient::new(&jupiter_config).await?;
+
     // Create execution optimizer
-    let optimizer = ExecutionOptimizer::new();
+    let optimizer = ExecutionOptimizer::new(jupiter_client);
 
     println!("🔍 Analyzing market conditions...");
 

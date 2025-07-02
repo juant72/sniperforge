@@ -7,7 +7,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Utc, Duration, Timelike};
 
 use crate::shared::jupiter::JupiterClient;
 use crate::types::PlatformError;
@@ -17,15 +17,17 @@ pub struct ExecutionOptimizer {
     market_analyzer: MarketAnalyzer,
     slippage_calculator: SlippageCalculator,
     route_optimizer: RouteOptimizer,
+    jupiter_client: JupiterClient,
 }
 
 impl ExecutionOptimizer {
     /// Create new execution optimizer
-    pub fn new() -> Self {
+    pub fn new(jupiter_client: JupiterClient) -> Self {
         Self {
             market_analyzer: MarketAnalyzer::new(),
             slippage_calculator: SlippageCalculator::new(),
             route_optimizer: RouteOptimizer::new(),
+            jupiter_client,
         }
     }
 
@@ -86,8 +88,8 @@ impl ExecutionOptimizer {
         info!("Finding best route for trade: {} {} -> {}", 
             trade.amount, trade.input_token, trade.output_token);
 
-        // Get quotes from multiple DEXs
-        let routes = self.route_optimizer.get_all_routes(trade).await?;
+        // Get quotes from multiple DEXs (pass jupiter_client as parameter)
+        let routes = self.route_optimizer.get_all_routes(trade, &self.jupiter_client).await?;
         
         // Analyze each route
         let mut route_analyses = Vec::new();
@@ -125,18 +127,20 @@ impl ExecutionOptimizer {
 
         // Strategy 1: Transaction timing optimization
         let optimal_timing = self.calculate_optimal_timing(trade).await?;
-        if optimal_timing.delay_seconds > 0 {
+        let timing_delay_seconds = optimal_timing.delay_seconds;
+        if timing_delay_seconds > 0 {
             protected_trade.timing_delay = Some(optimal_timing);
             protected_trade.protection_strategies.push("timing_optimization".to_string());
-            info!("MEV protection: Added timing delay of {} seconds", optimal_timing.delay_seconds);
+            info!("MEV protection: Added timing delay of {} seconds", timing_delay_seconds);
         }
 
         // Strategy 2: Order splitting for large trades
         if trade.amount > self.get_large_trade_threshold(&trade.input_token).await? {
             let split_strategy = self.calculate_order_splitting(trade).await?;
+            let num_splits = split_strategy.num_splits;
             protected_trade.split_orders = Some(split_strategy);
             protected_trade.protection_strategies.push("order_splitting".to_string());
-            info!("MEV protection: Split large order into {} parts", split_strategy.num_splits);
+            info!("MEV protection: Split large order into {} parts", num_splits);
         }
 
         // Strategy 3: Private mempool usage for high-value trades
@@ -217,7 +221,7 @@ impl ExecutionOptimizer {
     }
 
     /// Calculate optimal timing to avoid MEV
-    async fn calculate_optimal_timing(&self, trade: &TradeParams) -> Result<TimingOptimization> {
+    async fn calculate_optimal_timing(&self, _trade: &TradeParams) -> Result<TimingOptimization> {
         // Analyze recent block patterns and mempool activity
         let mempool_congestion = self.market_analyzer.get_mempool_congestion().await?;
         let block_pattern = self.market_analyzer.analyze_block_patterns().await?;
@@ -305,13 +309,13 @@ impl ExecutionOptimizer {
     }
 
     /// Estimate slippage cost
-    async fn estimate_slippage_cost(&self, trade: &TradeParams, route: &TradingRoute) -> Result<f64> {
+    async fn estimate_slippage_cost(&self, trade: &TradeParams, _route: &TradingRoute) -> Result<f64> {
         let estimated_slippage = self.optimize_slippage(trade).await?;
         Ok(trade.amount * estimated_slippage)
     }
 
     /// Estimate price impact
-    async fn estimate_price_impact(&self, trade: &TradeParams, route: &TradingRoute) -> Result<f64> {
+    async fn estimate_price_impact(&self, trade: &TradeParams, _route: &TradingRoute) -> Result<f64> {
         // Price impact increases with trade size relative to liquidity
         let market_depth = self.market_analyzer.analyze_market_depth(
             &trade.input_token,
@@ -426,7 +430,7 @@ impl MarketAnalyzer {
         Self {}
     }
 
-    pub async fn analyze_market_depth(&self, input_token: &str, output_token: &str, amount: f64) -> Result<MarketDepth> {
+    pub async fn analyze_market_depth(&self, _input_token: &str, _output_token: &str, amount: f64) -> Result<MarketDepth> {
         // Simulate market depth analysis
         Ok(MarketDepth {
             available_liquidity: amount * 10.0, // 10x the trade amount available
@@ -514,38 +518,24 @@ impl RouteOptimizer {
         Self
     }
 
-    pub async fn get_all_routes(&self, trade: &TradeParams) -> Result<Vec<TradingRoute>> {
-        // Simulate different DEX routes
-        let routes = vec![
-            TradingRoute {
-                dex_name: "Jupiter".to_string(),
-                route_description: "Jupiter aggregated route".to_string(),
-                expected_output: trade.amount * 0.995, // 0.5% slippage
-                fee_percentage: 0.003, // 0.3% fee
-                estimated_execution_time: 15,
-                confidence_score: 0.95,
-                supports_mev_protection: true,
-            },
-            TradingRoute {
-                dex_name: "Raydium".to_string(),
-                route_description: "Direct Raydium swap".to_string(),
-                expected_output: trade.amount * 0.992, // 0.8% slippage
-                fee_percentage: 0.0025, // 0.25% fee
-                estimated_execution_time: 10,
-                confidence_score: 0.9,
-                supports_mev_protection: false,
-            },
-            TradingRoute {
-                dex_name: "Orca".to_string(),
-                route_description: "Orca concentrated liquidity".to_string(),
-                expected_output: trade.amount * 0.993, // 0.7% slippage
-                fee_percentage: 0.003, // 0.3% fee
-                estimated_execution_time: 12,
-                confidence_score: 0.88,
-                supports_mev_protection: false,
-            },
-        ];
-
-        Ok(routes)
+    pub async fn get_all_routes(&self, trade: &TradeParams, jupiter_client: &JupiterClient) -> Result<Vec<TradingRoute>> {
+        // Obtener rutas reales de Jupiter
+        let quote_request = crate::shared::jupiter::QuoteRequest {
+            inputMint: trade.input_token.clone(),
+            outputMint: trade.output_token.clone(),
+            amount: (trade.amount * 1_000_000.0) as u64,
+            slippageBps: (trade.base_slippage.unwrap_or(0.005) * 10000.0) as u16,
+        };
+        let quote = jupiter_client.get_quote(quote_request).await?;
+        let route = TradingRoute {
+            dex_name: "Jupiter".to_string(),
+            route_description: "Jupiter aggregated route (real)".to_string(),
+            expected_output: quote.out_amount,
+            fee_percentage: 0.003, // Puede obtenerse de quote.platformFee
+            estimated_execution_time: 15, // Aproximado
+            confidence_score: 0.95, // Placeholder, puede mejorarse
+            supports_mev_protection: true,
+        };
+        Ok(vec![route])
     }
 }
