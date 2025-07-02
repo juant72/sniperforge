@@ -43,17 +43,8 @@ impl WalletScanner {
         // Validate the address format
         let _pubkey = Pubkey::from_str(wallet_address).context("Invalid wallet address")?;
 
-        // Try to get real balance with minimal HTTP call
-        let sol_balance = match self.get_balance_simple(wallet_address).await {
-            Ok(balance) => {
-                println!("✅ Got real SOL balance: {:.6}", balance);
-                balance
-            }
-            Err(e) => {
-                println!("⚠️ Failed to get balance: {}, using 0.0", e);
-                0.0
-            }
-        };
+        // Only accept REAL balance - no fallbacks
+        let sol_balance = self.get_balance_simple(wallet_address).await?;
 
         Ok(WalletBalance {
             address: wallet_address.to_string(),

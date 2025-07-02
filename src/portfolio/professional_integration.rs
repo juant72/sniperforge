@@ -161,7 +161,7 @@ impl ProfessionalPortfolioIntegration {
         println!("DEBUG: About to start wallet scanning");
 
         // Step 1: Scan real wallet balances
-        if let Some(scanner) = &self.wallet_scanner {
+        if let Some(_scanner) = &self.wallet_scanner {
             if !wallet_addresses.is_empty() {
                 info!(
                     "🔍 Scanning {} wallet(s) for real balances...",
@@ -301,8 +301,8 @@ impl ProfessionalPortfolioIntegration {
                     total_pnl: 0.0,
                     return_percent: 0.0,
                     trades_count: 0,
-                    win_rate: 1.0,
-                    profit_factor: 1.0,
+                    win_rate: 0.0, // No fake win rate - no trades means no win rate
+                    profit_factor: 0.0, // No fake profit factor
                     max_drawdown: 0.0,
                     allocation_percent: 100.0,
                     risk_adjusted_return: 0.0,
