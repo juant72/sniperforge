@@ -1,10 +1,10 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{pubkey::Pubkey, native_token::LAMPORTS_PER_SOL};
-use std::str::FromStr;
+use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
 use std::collections::HashMap;
-use tokio::time::{Duration, timeout};
+use std::str::FromStr;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletBalance {
@@ -45,35 +45,49 @@ impl WalletScanner {
     }
 
     pub async fn scan_wallet(&self, wallet_address: &str) -> Result<WalletBalance> {
-        println!("🔍 Scanning wallet: {}", wallet_address);
+        println!("🔍 Scanning REAL wallet: {}", wallet_address);
 
-        // For demonstration purposes, return sample data to show portfolio functionality
-        // In production, this would make real RPC calls to get wallet balances
+        // Parse wallet address
+        let pubkey = Pubkey::from_str(wallet_address).context("Invalid wallet address")?;
 
-        let sol_balance = if wallet_address.contains("9WzD") {
-            1.5 // Demo SOL balance
-        } else {
-            0.75 // Demo SOL balance
-        };
+        // Get SOL balance from the blockchain
+        let lamports = timeout(Duration::from_secs(10), async {
+            tokio::task::spawn_blocking({
+                let url = self.rpc_client.url();
+                let pubkey = pubkey.clone();
+                move || {
+                    let client = RpcClient::new(url);
+                    client.get_balance(&pubkey)
+                }
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("Join error: {}", e))?
+        })
+        .await
+        .context("Timeout getting SOL balance")?
+        .context("RPC call failed")?;
 
-        let token_balances = vec![
-            TokenBalance {
-                symbol: "USDC".to_string(),
-                mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-                balance: 100.0, // Demo USDC balance
-                decimals: 6,
-                value_usd: Some(100.0),
-            },
-            TokenBalance {
-                symbol: "RAY".to_string(),
-                mint: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R".to_string(),
-                balance: 50.0, // Demo RAY balance
-                decimals: 6,
-                value_usd: Some(75.0),
-            },
-        ];
+        let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
 
-        println!("✅ Wallet scan complete: SOL {:.4}, {} tokens", sol_balance, token_balances.len());
+        // Get token balances from the blockchain
+        let token_balances =
+            match timeout(Duration::from_secs(15), self.get_token_balances(&pubkey)).await {
+                Ok(Ok(balances)) => balances,
+                Ok(Err(e)) => {
+                    eprintln!("⚠️ Failed to get token balances: {}", e);
+                    Vec::new()
+                }
+                Err(_) => {
+                    eprintln!("⚠️ Timeout getting token balances");
+                    Vec::new()
+                }
+            };
+
+        println!(
+            "✅ REAL wallet scan complete: SOL {:.4}, {} tokens",
+            sol_balance,
+            token_balances.len()
+        );
 
         Ok(WalletBalance {
             address: wallet_address.to_string(),
@@ -85,18 +99,16 @@ impl WalletScanner {
 
     async fn get_token_balances(&self, pubkey: &Pubkey) -> Result<Vec<TokenBalance>> {
         use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-        use solana_client::rpc_filter::{RpcFilterType, Memcmp};
+        use solana_client::rpc_filter::{Memcmp, RpcFilterType};
         use solana_sdk::program_pack::Pack;
 
         // Get token accounts owned by this wallet
         let token_program = Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")?;
 
-        let filters = vec![
-            RpcFilterType::Memcmp(Memcmp::new(
-                32, // owner offset in token account
-                solana_client::rpc_filter::MemcmpEncodedBytes::Base58(pubkey.to_string()),
-            )),
-        ];
+        let filters = vec![RpcFilterType::Memcmp(Memcmp::new(
+            32, // owner offset in token account
+            solana_client::rpc_filter::MemcmpEncodedBytes::Base58(pubkey.to_string()),
+        ))];
 
         let config = RpcProgramAccountsConfig {
             filters: Some(filters),
@@ -107,7 +119,8 @@ impl WalletScanner {
             ..Default::default()
         };
 
-        let accounts = self.rpc_client
+        let accounts = self
+            .rpc_client
             .get_program_accounts_with_config(&token_program, config)?;
 
         let mut token_balances = Vec::new();
@@ -118,7 +131,8 @@ impl WalletScanner {
                     // Get mint info to determine decimals
                     if let Ok(mint_account) = self.rpc_client.get_account(&token_account.mint) {
                         if let Ok(mint) = spl_token::state::Mint::unpack(&mint_account.data) {
-                            let balance = token_account.amount as f64 / 10_f64.powi(mint.decimals as i32);
+                            let balance =
+                                token_account.amount as f64 / 10_f64.powi(mint.decimals as i32);
 
                             token_balances.push(TokenBalance {
                                 mint: token_account.mint.to_string(),
@@ -142,9 +156,12 @@ impl WalletScanner {
         for address in addresses {
             match self.scan_wallet(address).await {
                 Ok(balance) => {
-                    println!("✅ Scanned wallet: {} (SOL: {:.4})", address, balance.sol_balance);
+                    println!(
+                        "✅ Scanned wallet: {} (SOL: {:.4})",
+                        address, balance.sol_balance
+                    );
                     results.push(balance);
-                },
+                }
                 Err(e) => {
                     eprintln!("❌ Failed to scan wallet {}: {}", address, e);
                 }

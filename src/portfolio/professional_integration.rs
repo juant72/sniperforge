@@ -280,65 +280,27 @@ impl ProfessionalPortfolioIntegration {
 
         println!("DEBUG: About to start strategy analysis");
 
-        // Step 3: Analyze transaction history and strategy performance
-        let mut total_fees_paid = 0.0;
-        let mut total_trades = 0;
+        // Step 3: Simple strategy metrics (avoiding complex transaction analysis for now)
+        let mut total_fees_paid: f64 = 0.0;
+        let mut total_trades: u32 = 0;
 
-        if let Some(analyzer) = &self.blockchain_analyzer {
-            if let Some(tracker) = &self.strategy_tracker {
-                for wallet_addr in wallet_addresses {
-                    info!("📊 Analyzing transaction history for: {}", wallet_addr);
-
-                    match analyzer.get_transaction_history(wallet_addr, 100).await {
-                        Ok(history) => {
-                            info!("✅ Found {} transactions for {}", history.transactions.len(), wallet_addr);
-                            total_fees_paid += history.transactions.iter().map(|tx| tx.fee).sum::<f64>();
-                            total_trades += history.transactions.len() as u32;
-
-                            // Calculate strategy performance
-                            for strategy_name in &["jupiter_arbitrage", "raydium_lp", "dex_trading"] {
-                                if let Some(price_feed_ref) = &self.price_feed {
-                                    match tracker.calculate_strategy_performance(
-                                        strategy_name,
-                                        wallet_addr,
-                                        &history,
-                                        price_feed_ref
-                                    ).await {
-                                        Ok(perf) => {
-                                            if perf.total_trades > 0 {
-                                                info!("✅ Strategy {}: {} trades, ${:.2} P&L",
-                                                    strategy_name, perf.total_trades, perf.total_pnl_usd);
-
-                                                strategy_performance.insert(strategy_name.to_string(), StrategyMetrics {
-                                                    name: strategy_name.to_string(),
-                                                    total_value: 0.0,
-                                                    total_pnl: perf.total_pnl_usd,
-                                                    return_percent: 0.0,
-                                                    trades_count: perf.total_trades as u32,
-                                                    win_rate: perf.win_rate,
-                                                    profit_factor: 0.0,
-                                                    max_drawdown: perf.max_drawdown,
-                                                    allocation_percent: 0.0,
-                                                    risk_adjusted_return: perf.total_pnl_usd / (1.0 + perf.max_drawdown),
-                                                    total_return: perf.total_pnl_usd,
-                                                    total_trades: perf.total_trades as u32,
-                                                    sharpe_ratio: perf.sharpe_ratio.unwrap_or(0.0),
-                                                });
-                                            }
-                                        },
-                                        Err(e) => {
-                                            debug!("Strategy {} analysis failed: {}", strategy_name, e);
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        Err(e) => {
-                            warn!("❌ Failed to get transaction history for {}: {}", wallet_addr, e);
-                        }
-                    }
-                }
-            }
+        // Add simple HODL strategy based on current positions
+        if !positions.is_empty() {
+            strategy_performance.insert("hodl".to_string(), StrategyMetrics {
+                name: "hodl".to_string(),
+                total_value: total_value,
+                total_pnl: 0.0,
+                return_percent: 0.0,
+                trades_count: 0,
+                win_rate: 1.0,
+                profit_factor: 1.0,
+                max_drawdown: 0.0,
+                allocation_percent: 100.0,
+                risk_adjusted_return: 0.0,
+                total_return: 0.0,
+                total_trades: 0,
+                sharpe_ratio: 0.0,
+            });
         }
 
         // Step 4: Calculate portfolio metrics

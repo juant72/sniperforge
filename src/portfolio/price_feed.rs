@@ -231,59 +231,69 @@ impl PriceFeed {
     }
 
     pub async fn get_sol_price(&self) -> Result<TokenPrice> {
-        // For demonstration, return sample SOL price
-        // In production, this would fetch from CoinGecko or other APIs
+        // Get real SOL price from CoinGecko API
+        let url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true";
+
+        let response = timeout(Duration::from_secs(10), self.client.get(url).send())
+            .await
+            .context("Request timeout")?
+            .context("Failed to send request")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("API request failed with status: {}", response.status()));
+        }
+
+        let json: serde_json::Value = response.json().await
+            .context("Failed to parse JSON response")?;
+
+        let solana_data = json.get("solana")
+            .ok_or_else(|| anyhow::anyhow!("Solana data not found in response"))?;
+
+        let price_usd = solana_data.get("usd")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| anyhow::anyhow!("USD price not found"))?;
+
+        let price_change_24h = solana_data.get("usd_24h_change")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+
+        let volume_24h = solana_data.get("usd_24h_vol")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+
+        let market_cap = solana_data.get("usd_market_cap")
+            .and_then(|v| v.as_f64());
+
         Ok(TokenPrice {
             symbol: "SOL".to_string(),
             mint: "So11111111111111111111111111111111111111112".to_string(),
-            price_usd: 185.50, // Demo SOL price
-            price_change_24h: 2.5,
-            volume_24h: 1_500_000_000.0,
-            market_cap: Some(85_000_000_000.0),
+            price_usd,
+            price_change_24h,
+            volume_24h,
+            market_cap,
             last_updated: chrono::Utc::now(),
-            source: "demo".to_string(),
+            source: "coingecko".to_string(),
         })
     }
 
     pub async fn get_multiple_prices(&self, mint_addresses: &[String]) -> HashMap<String, TokenPrice> {
         let mut prices = HashMap::new();
 
-        // Return demo prices for common tokens
+        // Get real prices from DexScreener API
         for mint in mint_addresses {
-            let token_price = match mint.as_str() {
-                "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => TokenPrice { // USDC
-                    symbol: "USDC".to_string(),
-                    mint: mint.clone(),
-                    price_usd: 1.0,
-                    price_change_24h: 0.01,
-                    volume_24h: 500_000_000.0,
-                    market_cap: Some(25_000_000_000.0),
-                    last_updated: chrono::Utc::now(),
-                    source: "demo".to_string(),
+            match self.get_token_price(mint).await {
+                Ok(price) => {
+                    println!("✅ Got REAL price for {}: ${:.6}", price.symbol, price.price_usd);
+                    prices.insert(mint.clone(), price);
                 },
-                "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => TokenPrice { // RAY
-                    symbol: "RAY".to_string(),
-                    mint: mint.clone(),
-                    price_usd: 1.50,
-                    price_change_24h: -1.2,
-                    volume_24h: 15_000_000.0,
-                    market_cap: Some(150_000_000.0),
-                    last_updated: chrono::Utc::now(),
-                    source: "demo".to_string(),
-                },
-                _ => TokenPrice {
-                    symbol: "UNKNOWN".to_string(),
-                    mint: mint.clone(),
-                    price_usd: 0.0,
-                    price_change_24h: 0.0,
-                    volume_24h: 0.0,
-                    market_cap: None,
-                    last_updated: chrono::Utc::now(),
-                    source: "demo".to_string(),
+                Err(e) => {
+                    eprintln!("❌ Failed to get price for {}: {}", mint, e);
+                    // Don't insert anything for failed requests - let the caller handle missing data
                 }
-            };
+            }
 
-            prices.insert(mint.clone(), token_price);
+            // Add small delay to avoid rate limiting
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
 
         prices
