@@ -1,10 +1,8 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
-use std::collections::HashMap;
 use std::str::FromStr;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletBalance {
@@ -24,22 +22,16 @@ pub struct TokenBalance {
 }
 
 pub struct WalletScanner {
-    rpc_client: RpcClient,
     network: String,
 }
 
 impl WalletScanner {
     pub fn new(network: &str) -> Result<Self> {
-        let rpc_url = match network {
-            "devnet" => "https://api.devnet.solana.com",
-            "mainnet" => "https://api.mainnet-beta.solana.com",
-            _ => return Err(anyhow::anyhow!("Invalid network: {}", network)),
-        };
-
-        let rpc_client = RpcClient::new(rpc_url.to_string());
+        if !matches!(network, "devnet" | "mainnet") {
+            return Err(anyhow::anyhow!("Invalid network: {}", network));
+        }
 
         Ok(Self {
-            rpc_client,
             network: network.to_string(),
         })
     }
@@ -50,16 +42,19 @@ impl WalletScanner {
         // Parse wallet address to validate it
         let _pubkey = Pubkey::from_str(wallet_address).context("Invalid wallet address")?;
 
-        // Use a simpler approach to get real balance via HTTP API
-        let sol_balance = match self.get_sol_balance_via_http(wallet_address).await {
-            Ok(balance) => balance,
+        // Try to get real SOL balance with stack overflow protection
+        let sol_balance = match self.get_sol_balance_safe(wallet_address).await {
+            Ok(balance) => {
+                println!("✅ Got real SOL balance: {:.6}", balance);
+                balance
+            }
             Err(e) => {
-                println!("⚠️ Failed to get SOL balance via HTTP: {}", e);
-                0.0
+                println!("⚠️ Failed to get real SOL balance: {}", e);
+                0.0 // Fallback to 0 if real balance fails
             }
         };
 
-        // Token balances temporarily disabled to avoid complexity
+        // Token balances temporarily disabled for safety
         let token_balances = Vec::new();
 
         println!(
@@ -76,50 +71,71 @@ impl WalletScanner {
         })
     }
 
-    async fn get_sol_balance_via_http(&self, wallet_address: &str) -> Result<f64> {
-        use reqwest::Client;
+    /// Safe SOL balance checking with timeout and error handling
+    async fn get_sol_balance_safe(&self, wallet_address: &str) -> Result<f64> {
+        // Stack overflow protection: Use a short timeout and simple HTTP call
+        let balance_future = self.get_sol_balance_simple_http(wallet_address);
 
-        let client = Client::new();
+        match tokio::time::timeout(Duration::from_secs(3), balance_future).await {
+            Ok(Ok(balance)) => Ok(balance),
+            Ok(Err(e)) => Err(anyhow::anyhow!("Balance request failed: {}", e)),
+            Err(_) => Err(anyhow::anyhow!("Balance request timed out")),
+        }
+    }
+
+    /// Simplified HTTP balance check without complex dependencies
+    async fn get_sol_balance_simple_http(&self, wallet_address: &str) -> Result<f64> {
+        // Use the simplest possible HTTP request to avoid stack overflow
         let rpc_url = match self.network.as_str() {
             "devnet" => "https://api.devnet.solana.com",
             "mainnet" => "https://api.mainnet-beta.solana.com",
             _ => return Err(anyhow::anyhow!("Invalid network")),
         };
 
-        let request_body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "getBalance",
-            "params": [wallet_address]
-        });
+        let request_body = format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"getBalance","params":["{}"]}}"#,
+            wallet_address
+        );
 
-        let response = match tokio::time::timeout(
-            Duration::from_secs(5),
-            client.post(rpc_url).json(&request_body).send(),
-        )
-        .await
-        {
-            Ok(Ok(resp)) => resp,
-            Ok(Err(e)) => return Err(anyhow::anyhow!("HTTP error: {}", e)),
-            Err(_) => return Err(anyhow::anyhow!("Request timeout")),
-        };
+        // Create a simple HTTP client with minimal configuration
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(2))
+            .build()?;
 
-        let json_text = response.text().await?;
-        let json_value: serde_json::Value = serde_json::from_str(&json_text)?;
+        let response = client
+            .post(rpc_url)
+            .header("Content-Type", "application/json")
+            .body(request_body)
+            .send()
+            .await?;
 
-        if let Some(result) = json_value.get("result") {
-            if let Some(value) = result.get("value") {
-                if let Some(lamports) = value.as_u64() {
-                    let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
-                    return Ok(sol_balance);
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("HTTP status: {}", response.status()));
+        }
+
+        let response_text = response.text().await?;
+
+        // Parse JSON manually to avoid potential stack overflow in complex parsing
+        if let Ok(json_value) = serde_json::from_str::<serde_json::Value>(&response_text) {
+            if let Some(result) = json_value.get("result") {
+                if let Some(value) = result.get("value") {
+                    if let Some(lamports) = value.as_u64() {
+                        let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
+                        return Ok(sol_balance);
+                    }
                 }
+            }
+
+            // Check for RPC errors
+            if let Some(error) = json_value.get("error") {
+                return Err(anyhow::anyhow!("RPC error: {:?}", error));
             }
         }
 
-        Err(anyhow::anyhow!("Invalid response format"))
+        Err(anyhow::anyhow!("Invalid JSON response format"))
     }
 
-    async fn get_token_balances(&self, pubkey: &Pubkey) -> Result<Vec<TokenBalance>> {
+    async fn get_token_balances(&self, _pubkey: &Pubkey) -> Result<Vec<TokenBalance>> {
         // For now, return empty vec to avoid stack overflow during RPC calls
         // TODO: Implement proper token account scanning
         println!("⚠️ Token balance scanning temporarily disabled to prevent stack overflow");

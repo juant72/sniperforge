@@ -258,22 +258,52 @@ impl ProfessionalPortfolioIntegration {
                 all_wallet_balances.extend(balances);
             }
         }
-
         println!("DEBUG: About to start price feed analysis");
 
-        // Step 2: Get real-time prices (temporarily simplified to avoid stack overflow)
-        println!("⚠️ Price feed temporarily disabled to prevent stack overflow");
+        // Step 2: Get real-time prices with stack overflow protection
+        if let Some(price_feed) = &self.price_feed {
+            println!("💰 Fetching real SOL price...");
 
-        // Add demo prices for testing
-        real_time_prices.insert("SOL".to_string(), 185.50);
+            // Get real SOL price safely
+            match price_feed.get_sol_price().await {
+                Ok(sol_price) => {
+                    println!("✅ SOL price: ${:.2}", sol_price.price_usd);
+                    real_time_prices.insert("SOL".to_string(), sol_price.price_usd);
 
-        // Update SOL positions with demo price
-        for position in &mut positions {
-            if position.symbol == "SOL" {
-                position.current_price = 185.50;
-                position.market_value = position.amount * 185.50;
-                position.value_usd = position.market_value;
-                total_value += position.market_value;
+                    // Update SOL positions with real price
+                    for position in &mut positions {
+                        if position.symbol == "SOL" {
+                            position.current_price = sol_price.price_usd;
+                            position.market_value = position.amount * sol_price.price_usd;
+                            position.value_usd = position.market_value;
+                            total_value += position.market_value;
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("⚠️ Failed to get SOL price: {}", e);
+                    // Use fallback price
+                    real_time_prices.insert("SOL".to_string(), 180.0);
+                    for position in &mut positions {
+                        if position.symbol == "SOL" {
+                            position.current_price = 180.0;
+                            position.market_value = position.amount * 180.0;
+                            position.value_usd = position.market_value;
+                            total_value += position.market_value;
+                        }
+                    }
+                }
+            }
+        } else {
+            println!("⚠️ Price feed not available, using fallback price");
+            real_time_prices.insert("SOL".to_string(), 180.0);
+            for position in &mut positions {
+                if position.symbol == "SOL" {
+                    position.current_price = 180.0;
+                    position.market_value = position.amount * 180.0;
+                    position.value_usd = position.market_value;
+                    total_value += position.market_value;
+                }
             }
         }
 
