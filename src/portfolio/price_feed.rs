@@ -176,7 +176,7 @@ impl PriceFeed {
                     mint
                 );
 
-                if let Ok(response) = ureq::post(rpc_url)
+                if let Ok(mut response) = ureq::post(rpc_url)
                     .header("Content-Type", "application/json")
                     .send(&json_body)
                 {
