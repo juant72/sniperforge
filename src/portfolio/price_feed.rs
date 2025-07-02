@@ -252,22 +252,10 @@ impl PriceFeed {
             ))
         }
     }
-
     pub async fn get_sol_price(&self) -> Result<TokenPrice> {
-        // Get real SOL price from CoinGecko API with stack overflow protection
-        let price_future = self.fetch_sol_price_safe();
-
-        match tokio::time::timeout(Duration::from_secs(3), price_future).await {
-            Ok(Ok(price)) => Ok(price),
-            Ok(Err(e)) => {
-                println!("⚠️ Failed to get real SOL price: {}, using fallback", e);
-                self.get_fallback_sol_price()
-            }
-            Err(_) => {
-                println!("⚠️ SOL price request timed out, using fallback");
-                self.get_fallback_sol_price()
-            }
-        }
+        // Temporarily use fallback to debug stack overflow
+        println!("⚠️ Real price fetching temporarily disabled to debug stack overflow");
+        self.get_fallback_sol_price()
     }
 
     async fn fetch_sol_price_safe(&self) -> Result<TokenPrice> {
