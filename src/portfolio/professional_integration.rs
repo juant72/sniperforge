@@ -10,9 +10,11 @@ use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use crate::config::Config;
+use crate::portfolio::blockchain_analyzer::TransactionHistory;
+use crate::portfolio::strategy_tracker::OverallPortfolioMetrics;
 use crate::portfolio::{
-    BlockchainAnalyzer, OverallPortfolioMetrics, PriceFeed, StrategyPerformance, StrategyTracker,
-    TokenPrice, TransactionHistory, WalletBalance, WalletScanner,
+    BlockchainAnalyzer, PriceFeed, StrategyPerformance, StrategyTracker, TokenPrice,
+    TransactionAnalyzer, WalletBalance, WalletScanner,
 };
 
 /// Professional portfolio integration with real data
@@ -22,6 +24,7 @@ pub struct ProfessionalPortfolioIntegration {
     price_feed: Option<PriceFeed>,
     blockchain_analyzer: Option<BlockchainAnalyzer>,
     strategy_tracker: Option<StrategyTracker>,
+    transaction_analyzer: Option<TransactionAnalyzer>,
     network: String,
 }
 
@@ -127,12 +130,16 @@ impl ProfessionalPortfolioIntegration {
         let strategy_tracker = Some(StrategyTracker::new(network));
         info!("✅ Strategy tracker initialized for {}", network);
 
+        let transaction_analyzer = Some(TransactionAnalyzer::new(network));
+        info!("✅ Transaction analyzer initialized for {}", network);
+
         let integration = Self {
             config,
             wallet_scanner,
             price_feed,
             blockchain_analyzer,
             strategy_tracker,
+            transaction_analyzer,
             network: network.to_string(),
         };
 
@@ -287,9 +294,50 @@ impl ProfessionalPortfolioIntegration {
 
         println!("DEBUG: About to start strategy analysis");
 
-        // Step 3: Simple strategy metrics (avoiding complex transaction analysis for now)
-        let total_fees_paid: f64 = 0.0;
-        let total_trades: u32 = 0;
+        // Step 3: Analyze real transaction history for insights
+        let mut total_fees_from_transactions = 0.0;
+        let mut total_transactions = 0u32;
+
+        if let Some(tx_analyzer) = &self.transaction_analyzer {
+            if !wallet_addresses.is_empty() {
+                println!("📊 Analyzing REAL transaction history...");
+
+                for address in wallet_addresses {
+                    match tx_analyzer.analyze_wallet_transactions(address, 20).await {
+                        Ok(analysis) => {
+                            println!(
+                                "✅ Analyzed {} transactions for wallet {}",
+                                analysis.total_transactions, address
+                            );
+                            total_fees_from_transactions +=
+                                analysis.transaction_summary.total_fees_paid;
+                            total_transactions += analysis.total_transactions;
+
+                            println!(
+                                "💸 Total fees paid: ${:.4}",
+                                analysis.transaction_summary.total_fees_paid
+                            );
+                            println!(
+                                "🔄 Successful transactions: {}/{}",
+                                analysis.transaction_summary.successful_transactions,
+                                analysis.total_transactions
+                            );
+                            println!(
+                                "🪙 Unique tokens interacted: {}",
+                                analysis.transaction_summary.unique_tokens_interacted
+                            );
+                        }
+                        Err(e) => {
+                            println!("❌ Failed to analyze transactions for {}: {}", address, e);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Step 4: Simple strategy metrics (avoiding complex transaction analysis for now)
+        let total_fees_paid = total_fees_from_transactions;
+        let total_trades = total_transactions;
 
         // Add simple HODL strategy based on current positions
         if !positions.is_empty() {

@@ -15,6 +15,10 @@ path = "src/verify_tokens.rs"
 name = "test_all_rpc_methods"
 path = "test_all_rpc_methods.rs"
 
+[[bin]]
+name = "get_wallet_address"
+path = "get_wallet_address.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

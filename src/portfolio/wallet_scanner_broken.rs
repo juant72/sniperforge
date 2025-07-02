@@ -79,7 +79,7 @@ impl WalletScanner {
 
             let response = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
+                .send(&json_body)?;
 
             let response_text = response.into_string()?;
             let json: serde_json::Value = serde_json::from_str(&response_text)?;
@@ -131,7 +131,7 @@ impl WalletScanner {
 
             let response = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
+                .send(&json_body)?;
 
             let response_text = response.into_string()?;
             let json: serde_json::Value = serde_json::from_str(&response_text)?;

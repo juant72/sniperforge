@@ -10,36 +10,45 @@
 //! - Live price feeds and market data integration
 //! - Strategy performance tracking and attribution
 
-pub mod manager;
-pub mod risk_manager;
-pub mod rebalancer;
 pub mod analytics;
-pub mod correlation;
-pub mod real_time_integration;
-pub mod real_data_integration;
-pub mod demo_integration;
-pub mod professional_integration;
-
-pub mod wallet_scanner;
-pub mod price_feed;
 pub mod blockchain_analyzer;
+pub mod correlation;
+pub mod demo_integration;
+pub mod manager;
+pub mod price_feed;
+pub mod professional_integration;
+pub mod real_data_integration;
+pub mod real_time_integration;
+pub mod rebalancer;
+pub mod risk_manager;
 pub mod strategy_tracker;
+pub mod transaction_analyzer;
+pub mod wallet_scanner;
 
-pub use manager::{PortfolioManager, PortfolioPosition, PortfolioConfig};
-pub use risk_manager::{PortfolioRiskManager, RiskLimits, VaRCalculator};
-pub use rebalancer::{PortfolioRebalancer, RebalanceConfig, RebalanceAction};
-pub use analytics::{PortfolioAnalytics, PerformanceReport, AttributionReport};
+pub use analytics::{AttributionReport, PerformanceReport, PortfolioAnalytics};
 pub use correlation::{CorrelationAnalyzer, CorrelationMatrix, DiversificationMetrics};
+pub use manager::{PortfolioConfig, PortfolioManager, PortfolioPosition};
+pub use rebalancer::{PortfolioRebalancer, RebalanceAction, RebalanceConfig};
+pub use risk_manager::{PortfolioRiskManager, RiskLimits, VaRCalculator};
 
-pub use wallet_scanner::{WalletScanner, WalletBalance, TokenBalance};
+// Re-exports for convenience
+pub use blockchain_analyzer::BlockchainAnalyzer;
 pub use price_feed::{PriceFeed, TokenPrice};
-pub use blockchain_analyzer::{BlockchainAnalyzer, TransactionHistory, TransactionRecord, PortfolioPerformance};
-pub use strategy_tracker::{StrategyTracker, StrategyPerformance, OverallPortfolioMetrics, TradeResult};
+pub use professional_integration::{ProfessionalPortfolioIntegration, ProfessionalPortfolioStatus};
+pub use strategy_tracker::{StrategyPerformance, StrategyTracker};
+pub use transaction_analyzer::{
+    SolanaTransaction, TransactionAnalysis, TransactionAnalyzer, TransactionType,
+};
+pub use wallet_scanner::{TokenBalance, WalletBalance, WalletScanner};
+
+// Legacy re-exports
+pub use blockchain_analyzer::TransactionHistory;
+pub use strategy_tracker::OverallPortfolioMetrics;
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Portfolio configuration for multi-strategy trading
@@ -66,11 +75,11 @@ pub enum RebalanceFrequency {
 /// Global portfolio risk limits
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalRiskLimits {
-    pub max_portfolio_drawdown: f64, // Maximum portfolio drawdown %
-    pub max_daily_loss: f64,         // Maximum daily loss in USD
+    pub max_portfolio_drawdown: f64,     // Maximum portfolio drawdown %
+    pub max_daily_loss: f64,             // Maximum daily loss in USD
     pub max_position_concentration: f64, // Max % in single position
     pub max_strategy_allocation: f64,    // Max % to single strategy
-    pub correlation_limit: f64,         // Max correlation between positions
+    pub correlation_limit: f64,          // Max correlation between positions
 }
 
 /// Portfolio position with full tracking
@@ -94,10 +103,10 @@ pub struct Position {
 /// Risk metrics for individual positions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PositionRiskMetrics {
-    pub var_95: f64,      // Value at Risk 95%
-    pub var_99: f64,      // Value at Risk 99%
+    pub var_95: f64,       // Value at Risk 95%
+    pub var_99: f64,       // Value at Risk 99%
     pub volatility: f64,   // Historical volatility
-    pub beta: f64,        // Beta vs SOL
+    pub beta: f64,         // Beta vs SOL
     pub max_drawdown: f64, // Max drawdown since entry
 }
 
@@ -134,8 +143,8 @@ impl Default for PortfolioConfiguration {
             max_correlation: 0.7,
             rebalance_frequency: RebalanceFrequency::ThresholdBased(0.1), // 10% drift
             risk_limits: GlobalRiskLimits {
-                max_portfolio_drawdown: 0.15, // 15%
-                max_daily_loss: 100.0,        // $100
+                max_portfolio_drawdown: 0.15,    // 15%
+                max_daily_loss: 100.0,           // $100
                 max_position_concentration: 0.2, // 20%
                 max_strategy_allocation: 0.4,    // 40%
                 correlation_limit: 0.8,          // 80%

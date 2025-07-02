@@ -1,8 +1,10 @@
-use crate::portfolio::PriceFeed;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use std::io::Read;
 use std::str::FromStr;
+use tokio::time::Duration;
+use crate::portfolio::PriceFeed;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletBalance {
@@ -57,42 +59,53 @@ impl WalletScanner {
             last_updated: chrono::Utc::now(),
         })
     }
-
     /// Real balance lookup using Solana RPC API
     async fn get_balance_simple(&self, wallet_address: &str) -> Result<f64> {
         println!("📡 Making REAL HTTP call to Solana RPC...");
 
+        // Use std library for HTTP instead of reqwest to avoid stack overflow
         let rpc_url = match self.network.as_str() {
             "devnet" => "https://api.devnet.solana.com",
             "mainnet" => "https://api.mainnet-beta.solana.com",
             _ => return Err(anyhow::anyhow!("Invalid network")),
         };
 
+        // Spawn blocking task to avoid async stack issues
         let wallet_addr = wallet_address.to_string();
         let url = rpc_url.to_string();
 
         let result = tokio::task::spawn_blocking(move || -> Result<f64> {
+            // Create JSON-RPC request
             let json_body = format!(
                 r#"{{"jsonrpc":"2.0","id":1,"method":"getBalance","params":["{}"]}}"#,
                 wallet_addr
             );
 
+            // Use ureq for simpler HTTP (no async, no stack overflow)
             let response = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
+                .send(&json_body);
 
-            let response_text = response.into_string()?;
-            let json: serde_json::Value = serde_json::from_str(&response_text)?;
-
-            if let Some(result) = json.get("result") {
-                if let Some(value) = result.get("value") {
-                    if let Some(lamports) = value.as_u64() {
-                        let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
-                        return Ok(sol_balance);
+            match response {
+                Ok(mut resp) => match resp.body_mut().read_to_string() {
+                    Ok(response_text) => {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text)
+                        {
+                            if let Some(result) = json.get("result") {
+                                if let Some(value) = result.get("value") {
+                                    if let Some(lamports) = value.as_u64() {
+                                        let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
+                                        return Ok(sol_balance);
+                                    }
+                                }
+                            }
+                        }
+                        Err(anyhow::anyhow!("Failed to parse JSON response"))
                     }
-                }
+                    Err(e) => Err(anyhow::anyhow!("Failed to read response: {}", e)),
+                },
+                Err(e) => Err(anyhow::anyhow!("HTTP request failed: {}", e)),
             }
-            Err(anyhow::anyhow!("Failed to parse balance response"))
         })
         .await;
 
@@ -111,19 +124,21 @@ impl WalletScanner {
             }
         }
     }
-
-    /// Get REAL SPL token balances using Solana RPC
+    /// Get REAL SPL token balances using Solana RPC API
     async fn get_token_balances(&self, wallet_address: &str) -> Result<Vec<TokenBalance>> {
         println!("🪙 Getting REAL SPL token balances...");
 
-        let wallet_addr = wallet_address.to_string();
-        let url = match self.network.as_str() {
-            "devnet" => "https://api.devnet.solana.com".to_string(),
-            "mainnet" => "https://api.mainnet-beta.solana.com".to_string(),
+        let rpc_url = match self.network.as_str() {
+            "devnet" => "https://api.devnet.solana.com",
+            "mainnet" => "https://api.mainnet-beta.solana.com",
             _ => return Err(anyhow::anyhow!("Invalid network")),
         };
 
+        let wallet_addr = wallet_address.to_string();
+        let url = rpc_url.to_string();
+
         let result = tokio::task::spawn_blocking(move || -> Result<Vec<TokenBalance>> {
+            // JSON-RPC request for SPL token accounts
             let json_body = format!(
                 r#"{{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner","params":["{}",{{"programId":"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"}},{{"encoding":"jsonParsed"}}]}}"#,
                 wallet_addr
@@ -131,97 +146,78 @@ impl WalletScanner {
 
             let response = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
+                .send(&json_body);
 
-            let response_text = response.into_string()?;
-            let json: serde_json::Value = serde_json::from_str(&response_text)?;
+            match response {
+                Ok(resp) => {
+                    let response_text = resp.into_string().context("Failed to read response")?;
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text) {
+                            if let Some(result) = json.get("result") {
+                                if let Some(value) = result.get("value") {
+                                    if let Some(accounts) = value.as_array() {
+                                        let mut tokens = Vec::new();
 
-            if let Some(result) = json.get("result") {
-                if let Some(value) = result.get("value") {
-                    if let Some(accounts) = value.as_array() {
-                        let mut tokens = Vec::new();
-
-                        for account in accounts {
-                            if let Some(account_data) = account.get("account") {
-                                if let Some(data) = account_data.get("data") {
-                                    if let Some(parsed) = data.get("parsed") {
-                                        if let Some(info) = parsed.get("info") {
-                                            if let (Some(mint), Some(token_amount)) = (
-                                                info.get("mint").and_then(|m| m.as_str()),
-                                                info.get("tokenAmount")
-                                            ) {
-                                                if let (Some(amount), Some(decimals)) = (
-                                                    token_amount.get("amount").and_then(|a| a.as_str()),
-                                                    token_amount.get("decimals").and_then(|d| d.as_u64())
-                                                ) {
-                                                    if let Ok(amount_num) = amount.parse::<u64>() {
-                                                        if amount_num > 0 {
-                                                            let balance = amount_num as f64 / 10_f64.powi(decimals as i32);
-                                                            tokens.push(TokenBalance {
-                                                                mint: mint.to_string(),
-                                                                symbol: "UNKNOWN".to_string(),
-                                                                balance,
-                                                                decimals: decimals as u8,
-                                                                value_usd: None,
-                                                            });
-                                                            println!("✅ Found SPL token: {} (balance: {:.6})", mint, balance);
+                                        for account in accounts {
+                                            if let Some(account_data) = account.get("account") {
+                                                if let Some(data) = account_data.get("data") {
+                                                    if let Some(parsed) = data.get("parsed") {
+                                                        if let Some(info) = parsed.get("info") {
+                                                            if let (Some(mint), Some(token_amount)) = (
+                                                                info.get("mint").and_then(|m| m.as_str()),
+                                                                info.get("tokenAmount")
+                                                            ) {
+                                                                if let (Some(amount), Some(decimals)) = (
+                                                                    token_amount.get("amount").and_then(|a| a.as_str()),
+                                                                    token_amount.get("decimals").and_then(|d| d.as_u64())
+                                                                ) {
+                                                                    if let Ok(amount_num) = amount.parse::<u64>() {
+                                                                        if amount_num > 0 {
+                                                                            let balance = amount_num as f64 / 10_f64.powi(decimals as i32);
+                                                                            tokens.push(TokenBalance {
+                                                                                mint: mint.to_string(),
+                                                                                symbol: "UNKNOWN".to_string(), // Will be resolved later
+                                                                                balance,
+                                                                                decimals: decimals as u8,
+                                                                                value_usd: None,
+                                                                            });
+                                                                            println!("✅ Found SPL token: {} (balance: {:.6})", mint, balance);
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
                                             }
                                         }
+                                        return Ok(tokens);
                                     }
                                 }
                             }
                         }
-                        return Ok(tokens);
+                        Ok(Vec::new()) // No tokens found or parsing failed
                     }
-                }
+                    Err(e) => Err(anyhow::anyhow!("Failed to read SPL token response: {}", e)),
+                },
+                Err(e) => Err(anyhow::anyhow!("SPL token request failed: {}", e)),
             }
-            Ok(Vec::new())
         }).await;
 
-        let mut tokens = match result {
+        match result {
             Ok(Ok(tokens)) => {
                 println!("✅ Found {} real SPL tokens", tokens.len());
-                tokens
+                Ok(tokens)
             }
             Ok(Err(e)) => {
                 println!("❌ Failed to get SPL tokens: {}", e);
-                Vec::new()
+                Ok(Vec::new()) // Return empty instead of failing
             }
             Err(e) => {
                 println!("❌ SPL token task failed: {}", e);
-                Vec::new()
-            }
-        };
-
-        // Enhance token information with metadata and prices
-        for token in &mut tokens {
-            // Get token metadata for better symbol
-            if let Ok((symbol, _mint)) = self.price_feed.get_token_metadata(&token.mint).await {
-                if symbol != token.mint {
-                    token.symbol = symbol;
-                }
-            }
-
-            // Try to get token price
-            if let Ok(price_data) = self.price_feed.get_token_price(&token.mint).await {
-                token.value_usd = Some(token.balance * price_data.price_usd);
-                if price_data.symbol != "UNKNOWN" {
-                    token.symbol = price_data.symbol;
-                }
-                println!(
-                    "💰 Token {} value: ${:.2}",
-                    token.symbol,
-                    token.value_usd.unwrap_or(0.0)
-                );
+                Ok(Vec::new()) // Return empty instead of failing
             }
         }
-
-        Ok(tokens)
     }
-
     pub async fn scan_multiple_wallets(&self, addresses: &[String]) -> Result<Vec<WalletBalance>> {
         let mut results = Vec::new();
 
