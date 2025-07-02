@@ -93,11 +93,11 @@ impl TransactionAnalyzer {
                 wallet_addr, limit
             );
 
-            let response = ureq::post(&url)
+            let response_text: String = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
-
-            let response_text = response.into_string()?;
+                .send_string(&json_body)?
+                .body_mut()
+                .read_to_string()?;
             let json: serde_json::Value = serde_json::from_str(&response_text)?;
 
             let mut transactions = Vec::new();

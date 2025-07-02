@@ -2,6 +2,7 @@ use crate::portfolio::PriceFeed;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use std::io::Read;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,11 +78,12 @@ impl WalletScanner {
                 wallet_addr
             );
 
-            let response = ureq::post(&url)
+            let response_text: String = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
+                .send(&json_body)?
+                .body_mut()
+                .read_to_string()?;
 
-            let response_text = response.into_string()?;
             let json: serde_json::Value = serde_json::from_str(&response_text)?;
 
             if let Some(result) = json.get("result") {
@@ -129,11 +131,11 @@ impl WalletScanner {
                 wallet_addr
             );
 
-            let response = ureq::post(&url)
+            let response_text: String = ureq::post(&url)
                 .header("Content-Type", "application/json")
-                .send_string(&json_body)?;
-
-            let response_text = response.into_string()?;
+                .send_string(&json_body)?
+                .body_mut()
+                .read_to_string()?;
             let json: serde_json::Value = serde_json::from_str(&response_text)?;
 
             if let Some(result) = json.get("result") {

@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Read;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenPrice {
@@ -34,13 +35,12 @@ impl PriceFeed {
         let result = tokio::task::spawn_blocking(|| -> Result<TokenPrice> {
             let url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true";
 
-            let response = ureq::get(url)
+            let body: String = ureq::get(url)
                 .header("User-Agent", "SniperForge/1.0")
                 .call()
-                .context("Failed to fetch SOL price from CoinGecko")?;
-
-            let body = response.into_string()
-                .context("Failed to read response body")?;
+                .context("Failed to fetch SOL price from CoinGecko")?
+                .body_mut()
+                .read_to_string()?;
 
             let json: serde_json::Value = serde_json::from_str(&body)
                 .context("Failed to parse CoinGecko response")?;
@@ -86,14 +86,12 @@ impl PriceFeed {
             move || -> Result<TokenPrice> {
                 let url = format!("https://api.dexscreener.com/latest/dex/tokens/{}", mint);
 
-                let response = ureq::get(&url)
+                let body: String = ureq::get(&url)
                     .header("User-Agent", "SniperForge/1.0")
                     .call()
-                    .context("Failed to fetch token price from DexScreener")?;
-
-                let body = response
-                    .into_string()
-                    .context("Failed to read DexScreener response body")?;
+                    .context("Failed to fetch token price from DexScreener")?
+                    .body_mut()
+                    .read_to_string()?;
 
                 let json: serde_json::Value =
                     serde_json::from_str(&body).context("Failed to parse DexScreener response")?;
@@ -172,36 +170,31 @@ impl PriceFeed {
                     _ => return Err(anyhow::anyhow!("Invalid network")),
                 };
 
-                // Try to get token metadata using getTokenSupply and other methods
+                // Try to get token metadata using getTokenSupply
                 let json_body = format!(
                     r#"{{"jsonrpc":"2.0","id":1,"method":"getTokenSupply","params":["{}"]}}"#,
                     mint
                 );
 
-                let response = ureq::post(rpc_url)
+                if let Ok(response) = ureq::post(rpc_url)
                     .header("Content-Type", "application/json")
-                    .send_string(&json_body);
-
-                match response {
-                    Ok(resp) => {
-                        let body = resp.into_string().context("Failed to read response")?;
-                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
-                            if json.get("result").is_some() {
-                                // Token exists, but we don't have symbol info from this call
-                                // Return mint as symbol for now
-                                let short_mint = if mint.len() > 8 {
-                                    format!("{}...{}", &mint[0..4], &mint[mint.len() - 4..])
-                                } else {
-                                    mint.clone()
-                                };
-                                return Ok((short_mint, mint));
-                            }
+                    .send(&json_body)
+                {
+                    let body = response.body_mut().read_to_string()?;
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&body) {
+                        if json.get("result").is_some() {
+                            // Token exists, return shortened mint as symbol
+                            let short_mint = if mint.len() > 8 {
+                                format!("{}...{}", &mint[0..4], &mint[mint.len() - 4..])
+                            } else {
+                                mint.clone()
+                            };
+                            return Ok((short_mint, mint));
                         }
                     }
-                    Err(_) => {}
                 }
 
-                // Fallback to mint address as symbol
+                // Fallback to shortened mint address as symbol
                 let short_mint = if mint.len() > 8 {
                     format!("{}...{}", &mint[0..4], &mint[mint.len() - 4..])
                 } else {
