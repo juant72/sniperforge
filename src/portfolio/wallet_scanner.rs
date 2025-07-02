@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::{native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+use std::io::Read;
 use std::str::FromStr;
 use tokio::time::Duration;
 
@@ -61,27 +62,70 @@ impl WalletScanner {
             last_updated: chrono::Utc::now(),
         })
     }
-    /// Real balance lookup using known wallet data
+    /// Real balance lookup using Solana RPC API
     async fn get_balance_simple(&self, wallet_address: &str) -> Result<f64> {
-        println!("📡 Getting real balance for wallet: {}", wallet_address);
+        println!("📡 Making REAL HTTP call to Solana RPC...");
 
-        // For demonstration of real data, use known wallet balances
-        // This simulates real API responses without causing stack overflow
-        let real_balance = match wallet_address {
-            // USDC Treasury wallet (known to have balance)
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 12_345.67,
-            // Another example wallet
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 890.12,
-            // Default for any other wallet
-            _ => 1.5,
+        // Use std library for HTTP instead of reqwest to avoid stack overflow
+        let rpc_url = match self.network.as_str() {
+            "devnet" => "https://api.devnet.solana.com",
+            "mainnet" => "https://api.mainnet-beta.solana.com",
+            _ => return Err(anyhow::anyhow!("Invalid network")),
         };
 
-        println!("✅ Real balance found: {:.6} SOL", real_balance);
+        // Spawn blocking task to avoid async stack issues
+        let wallet_addr = wallet_address.to_string();
+        let url = rpc_url.to_string();
 
-        // TODO: Replace with actual HTTP call once stack overflow is resolved
-        // The framework is ready for real API integration
+        let result = tokio::task::spawn_blocking(move || -> Result<f64> {
+            // Create JSON-RPC request
+            let json_body = format!(
+                r#"{{"jsonrpc":"2.0","id":1,"method":"getBalance","params":["{}"]}}"#,
+                wallet_addr
+            );
 
-        Ok(real_balance)
+            // Use ureq for simpler HTTP (no async, no stack overflow)
+            let response = ureq::post(&url)
+                .header("Content-Type", "application/json")
+                .send(&json_body);
+
+            match response {
+                Ok(mut resp) => match resp.body_mut().read_to_string() {
+                    Ok(response_text) => {
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&response_text)
+                        {
+                            if let Some(result) = json.get("result") {
+                                if let Some(value) = result.get("value") {
+                                    if let Some(lamports) = value.as_u64() {
+                                        let sol_balance = lamports as f64 / LAMPORTS_PER_SOL as f64;
+                                        return Ok(sol_balance);
+                                    }
+                                }
+                            }
+                        }
+                        Err(anyhow::anyhow!("Failed to parse JSON response"))
+                    }
+                    Err(e) => Err(anyhow::anyhow!("Failed to read response: {}", e)),
+                },
+                Err(e) => Err(anyhow::anyhow!("HTTP request failed: {}", e)),
+            }
+        })
+        .await;
+
+        match result {
+            Ok(Ok(balance)) => {
+                println!("✅ Real SOL balance from blockchain: {:.6}", balance);
+                Ok(balance)
+            }
+            Ok(Err(e)) => {
+                println!("❌ Failed to get real balance: {}", e);
+                Err(e)
+            }
+            Err(e) => {
+                println!("❌ Task execution failed: {}", e);
+                Err(anyhow::anyhow!("Task failed: {}", e))
+            }
+        }
     }
     pub async fn scan_multiple_wallets(&self, addresses: &[String]) -> Result<Vec<WalletBalance>> {
         let mut results = Vec::new();

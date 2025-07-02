@@ -90,22 +90,13 @@ impl PriceFeed {
             return Ok(price);
         }
 
-        // Fallback to hardcoded known tokens
-        if let Some(price) = self.get_known_token_price(mint_address).await? {
-            return Ok(price);
-        }
+        // NO FALLBACK - only real data
+        eprintln!("❌ Failed to get real price for token: {}", mint_address);
 
-        // Return unknown token with 0 price
-        Ok(TokenPrice {
-            symbol: "UNKNOWN".to_string(),
-            mint: mint_address.to_string(),
-            price_usd: 0.0,
-            price_change_24h: 0.0,
-            volume_24h: 0.0,
-            market_cap: None,
-            last_updated: chrono::Utc::now(),
-            source: "unknown".to_string(),
-        })
+        Err(anyhow::anyhow!(
+            "No real price data available for token: {}",
+            mint_address
+        ))
     }
 
     async fn get_price_from_dexscreener(&self, mint_address: &str) -> Result<TokenPrice> {
@@ -163,33 +154,7 @@ impl PriceFeed {
         }
     }
 
-    async fn get_known_token_price(&self, mint_address: &str) -> Result<Option<TokenPrice>> {
-        // Known Solana token addresses
-        let known_tokens = match mint_address {
-            // SOL (wrapped)
-            "So11111111111111111111111111111111111111112" => Some(("SOL", "solana")),
-            // USDC
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => Some(("USDC", "usd-coin")),
-            // USDT
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => Some(("USDT", "tether")),
-            // RAY (Raydium)
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => Some(("RAY", "raydium")),
-            // SRM (Serum)
-            "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt" => Some(("SRM", "serum")),
-            _ => None,
-        };
-
-        if let Some((symbol, coingecko_id)) = known_tokens {
-            if let Ok(price) = self
-                .get_price_from_coingecko(coingecko_id, symbol, mint_address)
-                .await
-            {
-                return Ok(Some(price));
-            }
-        }
-
-        Ok(None)
-    }
+    // REMOVED: get_known_token_price - only real API data allowed
 
     async fn get_price_from_coingecko(
         &self,
@@ -253,95 +218,74 @@ impl PriceFeed {
         }
     }
     pub async fn get_sol_price(&self) -> Result<TokenPrice> {
-        println!("📡 Getting real SOL price from market data...");
+        println!("📡 Getting REAL SOL price from CoinGecko API...");
 
-        // For demonstration, use current real market price for SOL
-        // This represents real data without HTTP stack overflow issues
-        let current_sol_price = 185.42; // Real SOL price as of today
-
-        println!("✅ Got real SOL price: ${:.2}", current_sol_price);
-
-        Ok(TokenPrice {
-            symbol: "SOL".to_string(),
-            mint: "So11111111111111111111111111111111111111112".to_string(),
-            price_usd: current_sol_price,
-            price_change_24h: 2.34,             // Real 24h change
-            volume_24h: 1_200_000_000.0,        // Real 24h volume
-            market_cap: Some(87_000_000_000.0), // Real market cap
-            last_updated: chrono::Utc::now(),
-            source: "market_data".to_string(),
-        })
+        // ONLY use real API data - no hardcoded prices
+        self.fetch_sol_price_safe().await
     }
 
     async fn fetch_sol_price_safe(&self) -> Result<TokenPrice> {
         let url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true";
 
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(2))
-            .build()?;
+        // Use ureq for blocking HTTP to avoid stack overflow
+        let result = tokio::task::spawn_blocking(move || -> Result<TokenPrice> {
+            let response = ureq::get(url)
+                .header("User-Agent", "SniperForge/1.0")
+                .call();
 
-        let response = client
-            .get(url)
-            .header("User-Agent", "SniperForge/1.0")
-            .send()
-            .await?;
+            match response {
+                Ok(mut resp) => match resp.body_mut().read_to_string() {
+                    Ok(response_text) => {
+                        let json: serde_json::Value = serde_json::from_str(&response_text)?;
 
-        if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "API request failed with status: {}",
-                response.status()
-            ));
+                        let solana_data = json
+                            .get("solana")
+                            .ok_or_else(|| anyhow::anyhow!("Solana data not found in response"))?;
+
+                        let price_usd = solana_data
+                            .get("usd")
+                            .and_then(|v| v.as_f64())
+                            .ok_or_else(|| anyhow::anyhow!("USD price not found"))?;
+
+                        let price_change_24h = solana_data
+                            .get("usd_24h_change")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0);
+
+                        let volume_24h = solana_data
+                            .get("usd_24h_vol")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0);
+
+                        let market_cap = solana_data.get("usd_market_cap").and_then(|v| v.as_f64());
+
+                        println!("✅ Got real SOL price from CoinGecko: ${:.2}", price_usd);
+
+                        Ok(TokenPrice {
+                            symbol: "SOL".to_string(),
+                            mint: "So11111111111111111111111111111111111111112".to_string(),
+                            price_usd,
+                            price_change_24h,
+                            volume_24h,
+                            market_cap,
+                            last_updated: chrono::Utc::now(),
+                            source: "coingecko".to_string(),
+                        })
+                    }
+                    Err(e) => Err(anyhow::anyhow!("Failed to read response: {}", e)),
+                },
+                Err(e) => Err(anyhow::anyhow!("HTTP request failed: {}", e)),
+            }
+        })
+        .await;
+
+        match result {
+            Ok(result) => result,
+            Err(e) => Err(anyhow::anyhow!("Task execution failed: {}", e)),
         }
-
-        let json: serde_json::Value = response.json().await?;
-
-        let solana_data = json
-            .get("solana")
-            .ok_or_else(|| anyhow::anyhow!("Solana data not found in response"))?;
-
-        let price_usd = solana_data
-            .get("usd")
-            .and_then(|v| v.as_f64())
-            .ok_or_else(|| anyhow::anyhow!("USD price not found"))?;
-
-        let price_change_24h = solana_data
-            .get("usd_24h_change")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-
-        let volume_24h = solana_data
-            .get("usd_24h_vol")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-
-        let market_cap = solana_data.get("usd_market_cap").and_then(|v| v.as_f64());
-
-        println!("✅ Got real SOL price from CoinGecko: ${:.2}", price_usd);
-
-        Ok(TokenPrice {
-            symbol: "SOL".to_string(),
-            mint: "So11111111111111111111111111111111111111112".to_string(),
-            price_usd,
-            price_change_24h,
-            volume_24h,
-            market_cap,
-            last_updated: chrono::Utc::now(),
-            source: "coingecko".to_string(),
-        })
     }
 
-    fn get_fallback_sol_price(&self) -> Result<TokenPrice> {
-        Ok(TokenPrice {
-            symbol: "SOL".to_string(),
-            mint: "So11111111111111111111111111111111111111112".to_string(),
-            price_usd: 180.0, // Reasonable fallback price
-            price_change_24h: 0.0,
-            volume_24h: 1_000_000_000.0,
-            market_cap: Some(80_000_000_000.0),
-            last_updated: chrono::Utc::now(),
-            source: "fallback".to_string(),
-        })
-    }
+    // REMOVED: get_fallback_sol_price - only real data allowed
 
     pub async fn get_multiple_prices(
         &self,

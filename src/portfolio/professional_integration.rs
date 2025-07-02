@@ -185,13 +185,7 @@ impl ProfessionalPortfolioIntegration {
                             }
                             Err(e) => {
                                 println!("❌ Failed to get balance for {}: {}", address, e);
-                                // Add fake balance as fallback
-                                balances.push(WalletBalance {
-                                    address: address.clone(),
-                                    sol_balance: 0.0,
-                                    token_balances: Vec::new(),
-                                    last_updated: chrono::Utc::now(),
-                                });
+                                // NO FALLBACK - only real data
                             }
                         }
                     }
@@ -281,30 +275,14 @@ impl ProfessionalPortfolioIntegration {
                     }
                 }
                 Err(e) => {
-                    println!("⚠️ Failed to get SOL price: {}", e);
-                    // Use fallback price
-                    real_time_prices.insert("SOL".to_string(), 180.0);
-                    for position in &mut positions {
-                        if position.symbol == "SOL" {
-                            position.current_price = 180.0;
-                            position.market_value = position.amount * 180.0;
-                            position.value_usd = position.market_value;
-                            total_value += position.market_value;
-                        }
-                    }
+                    println!("❌ Failed to get SOL price: {}", e);
+                    println!("❌ NO REAL PRICE DATA AVAILABLE");
+                    // Do not add any fallback data - only real data allowed
                 }
             }
         } else {
-            println!("⚠️ Price feed not available, using fallback price");
-            real_time_prices.insert("SOL".to_string(), 180.0);
-            for position in &mut positions {
-                if position.symbol == "SOL" {
-                    position.current_price = 180.0;
-                    position.market_value = position.amount * 180.0;
-                    position.value_usd = position.market_value;
-                    total_value += position.market_value;
-                }
-            }
+            println!("❌ Price feed not available - NO REAL DATA");
+            // Do not add any fallback prices - only real data allowed
         }
 
         println!("DEBUG: About to start strategy analysis");
