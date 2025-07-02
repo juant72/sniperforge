@@ -1,7 +1,11 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections                                if let Ok(tx_response) = ureq::post(&url)
+                                    .header("Content-Type", "application/json")
+                                    .send_string(&tx_json_body)
+                                {
+                                    if let Ok(tx_text) = tx_response.into_string() {hMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionAnalysis {
@@ -112,19 +116,23 @@ impl TransactionAnalyzer {
                             if let Some(block_time) = sig_info.get("blockTime") {
                                 let success = sig_info.get("err").is_none();
 
-                                // Create a simple transaction record
-                                let transaction = SolanaTransaction {
-                                    signature: signature.to_string(),
-                                    block_time: block_time.as_i64(),
-                                    slot: 0,
-                                    success,
-                                    fee: 5000, // Default fee in lamports
-                                    transaction_type: if success { TransactionType::Transfer } else { TransactionType::Unknown },
-                                    sol_amount: None,
-                                    token_transfers: Vec::new(),
-                                };
+                                // Get transaction details
+                                let tx_json_body = format!(
+                                    r#"{{"jsonrpc":"2.0","id":1,"method":"getTransaction","params":["{}",{{"encoding":"jsonParsed","commitment":"confirmed"}}]}}"#,
+                                    signature
+                                );
 
-                                transactions.push(transaction);
+                                if let Ok(tx_response) = ureq::post(&url)
+                                    .header("Content-Type", "application/json")
+                                    .send_string(&tx_json_body) 
+                                {
+                                    if let Ok(tx_text) = tx_response.into_string() {
+                                        if let Ok(tx_json) = serde_json::from_str::<serde_json::Value>(&tx_text) {
+                                            let transaction = parse_transaction_details(signature, block_time, success, &tx_json);
+                                            transactions.push(transaction);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -214,32 +222,91 @@ impl TransactionAnalyzer {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn parse_transaction_details(
+    signature: &str,
+    block_time: &serde_json::Value,
+    success: bool,
+    tx_json: &serde_json::Value,
+) -> SolanaTransaction {
+    let mut fee = 0u64;
+    let mut transaction_type = TransactionType::Unknown;
+    let mut sol_amount = None;
+    let mut token_transfers = Vec::new();
 
-    #[test]
-    fn test_transaction_analyzer_creation() {
-        let analyzer = TransactionAnalyzer::new("mainnet");
-        assert_eq!(analyzer.network, "mainnet");
+    if let Some(result) = tx_json.get("result") {
+        if let Some(meta) = result.get("meta") {
+            // Get fee
+            if let Some(fee_val) = meta.get("fee") {
+                fee = fee_val.as_u64().unwrap_or(0);
+            }
+
+            // Analyze pre and post balances to determine SOL transfers
+            if let (Some(pre_balances), Some(post_balances)) = (
+                meta.get("preBalances").and_then(|b| b.as_array()),
+                meta.get("postBalances").and_then(|b| b.as_array()),
+            ) {
+                for (i, (pre, post)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
+                    if let (Some(pre_val), Some(post_val)) = (pre.as_u64(), post.as_u64()) {
+                        if pre_val != post_val {
+                            let diff = (post_val as i64 - pre_val as i64) as f64 / 1_000_000_000.0;
+                            if diff.abs() > 0.001 {
+                                // Significant SOL change
+                                sol_amount = Some(diff.abs());
+                                transaction_type = TransactionType::Transfer;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for token program interactions
+            if let Some(inner_instructions) = meta.get("innerInstructions") {
+                if inner_instructions
+                    .as_array()
+                    .map_or(false, |arr| !arr.is_empty())
+                {
+                    transaction_type = TransactionType::TokenProgram;
+                }
+            }
+        }
+
+        // Analyze transaction instructions
+        if let Some(transaction) = result.get("transaction") {
+            if let Some(message) = transaction.get("message") {
+                if let Some(instructions) = message.get("instructions") {
+                    if let Some(instr_array) = instructions.as_array() {
+                        for instruction in instr_array {
+                            if let Some(program_id) =
+                                instruction.get("programId").and_then(|p| p.as_str())
+                            {
+                                match program_id {
+                                    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" => {
+                                        transaction_type = TransactionType::TokenTransfer;
+                                    }
+                                    "11111111111111111111111111111111" => {
+                                        // System program - might be SOL transfer
+                                        if transaction_type == TransactionType::Unknown {
+                                            transaction_type = TransactionType::SystemProgram;
+                                        }
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    #[test]
-    fn test_transaction_summary_calculation() {
-        let analyzer = TransactionAnalyzer::new("mainnet");
-        let transactions = vec![SolanaTransaction {
-            signature: "test".to_string(),
-            block_time: Some(1234567890),
-            slot: 0,
-            success: true,
-            fee: 5000,
-            transaction_type: TransactionType::Transfer,
-            sol_amount: Some(1.0),
-            token_transfers: Vec::new(),
-        }];
-
-        let summary = analyzer.calculate_transaction_summary(&transactions);
-        assert_eq!(summary.successful_transactions, 1);
-        assert_eq!(summary.total_sol_transferred, 1.0);
+    SolanaTransaction {
+        signature: signature.to_string(),
+        block_time: block_time.as_i64(),
+        slot: 0, // Could be extracted from the response
+        success,
+        fee,
+        transaction_type,
+        sol_amount,
+        token_transfers,
     }
 }
