@@ -68,6 +68,10 @@ openssl-sys = { version = "0.9", features = ["vendored"] }
 # Random number generation for pool detection
 rand = "0.8"
 
+# Additional dependencies for trading engine
+async-trait = "0.1"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
 # Logging ultra-minimal pero funcional
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.19", default-features = false, features = ["env-filter", "std"] }
