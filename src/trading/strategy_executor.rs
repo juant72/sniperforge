@@ -12,6 +12,8 @@ use chrono::{DateTime, Utc, Duration};
 use tokio::time::{sleep, Duration as TokioDuration};
 
 use crate::shared::jupiter::{JupiterClient, QuoteRequest};
+use crate::shared::orca_client::OrcaClient;
+use crate::shared::dex_fallback_manager::{DexFallbackManager, DexProvider, UnifiedQuoteRequest, UnifiedSwapRequest};
 use crate::shared::wallet_manager::WalletManager;
 use crate::types::PlatformError;
 
@@ -74,17 +76,45 @@ pub struct TradeExecution {
 pub struct StrategyExecutor {
     wallet_manager: WalletManager,
     jupiter_client: JupiterClient,
+    orca_client: Option<OrcaClient>,
+    dex_fallback_manager: DexFallbackManager,
     active_strategies: HashMap<String, Box<dyn TradingStrategy>>,
 }
 
 impl StrategyExecutor {
-    /// Create new strategy executor
-    pub fn new(wallet_manager: WalletManager, jupiter_client: JupiterClient) -> Self {
+    /// Create new strategy executor with multi-DEX support
+    pub fn new(
+        wallet_manager: WalletManager, 
+        jupiter_client: JupiterClient,
+        orca_client: Option<OrcaClient>,
+    ) -> Self {
+        // Set up fallback chain: Orca -> SPL -> Jupiter
+        let fallback_chain = vec![
+            DexProvider::Orca,
+            DexProvider::SplSwap,
+            DexProvider::Jupiter,
+        ];
+        
+        let dex_fallback_manager = DexFallbackManager::new(
+            orca_client.clone(),
+            Some(jupiter_client.clone()),
+            fallback_chain,
+            true, // Enable fallback
+            3,    // Max retries
+        );
+        
         Self {
             wallet_manager,
             jupiter_client,
+            orca_client,
+            dex_fallback_manager,
             active_strategies: HashMap::new(),
         }
+    }
+
+    /// Create new strategy executor (legacy compatibility)
+    pub fn new_legacy(wallet_manager: WalletManager, jupiter_client: JupiterClient) -> Self {
+        Self::new(wallet_manager, jupiter_client, None)
     }
 
     /// Execute DCA strategy with real trades
@@ -280,7 +310,7 @@ impl StrategyExecutor {
         Ok(execution_result)
     }
 
-    /// Execute a single trade using Jupiter (REAL IMPLEMENTATION)
+    /// Execute a single trade using multi-DEX fallback (REAL IMPLEMENTATION)
     async fn execute_single_trade(
         &self,
         from_token: &str,
@@ -288,32 +318,71 @@ impl StrategyExecutor {
         amount: f64,
         slippage_tolerance: f64,
     ) -> Result<TradeExecution> {
-        info!("Executing trade: {} {} -> {} {} with slippage {}", 
+        info!("🚀 Executing trade with DEX fallback: {} {} -> {} {} with slippage {}", 
             amount, from_token, to_token, amount, slippage_tolerance);
 
-        // Get quote from Jupiter (real)
-        let quote_request = QuoteRequest {
-            inputMint: from_token.to_string(),
-            outputMint: to_token.to_string(),
+        // Create unified quote request
+        let quote_request = UnifiedQuoteRequest {
+            input_mint: from_token.to_string(),
+            output_mint: to_token.to_string(),
             amount: (amount * 1_000_000.0) as u64, // Convert to lamports/base units
-            slippageBps: (slippage_tolerance * 100.0) as u16,
+            slippage_bps: (slippage_tolerance * 100.0) as u16,
         };
-        let quote = self.jupiter_client.get_quote(quote_request).await
-            .map_err(|e| PlatformError::Trading(format!("Quote failed: {}", e)))?;
+
+        // Get quote with fallback
+        let quote = self.dex_fallback_manager.get_quote_with_fallback(quote_request).await
+            .map_err(|e| PlatformError::Trading(format!("Quote with fallback failed: {}", e)))?;
+
+        info!("✅ Quote obtained from {}: {} -> {} (impact: {:.4}%)", 
+              quote.dex_provider.as_str(), quote.in_amount, quote.out_amount, quote.price_impact_pct);
 
         // Get wallet address and keypair (real)
         let wallet_name = "devnet-trading"; // Use DevNet wallet for testing
         let wallet_address = self.wallet_manager.get_wallet_address(wallet_name).await?;
         let wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
 
-        // Execute real swap with wallet integration
-        info!("🔄 Executing real swap: {} {} -> {} {}", amount, from_token, quote.out_amount(), to_token);
+        // Create unified swap request
+        let swap_request = UnifiedSwapRequest {
+            quote: quote.clone(),
+            user_public_key: wallet_address.clone(),
+            wrap_unwrap_sol: true,
+            compute_unit_price_micro_lamports: Some(1000), // 0.001 SOL priority fee
+        };
+
+        // Build swap with fallback
+        let swap_response = self.dex_fallback_manager.build_swap_with_fallback(swap_request).await
+            .map_err(|e| PlatformError::Trading(format!("Swap build with fallback failed: {}", e)))?;
+
+        info!("🔄 Executing real swap via {}: {} {} -> {} {}", 
+              swap_response.dex_provider.as_str(), amount, from_token, quote.out_amount as f64 / 1_000_000.0, to_token);
         
-        let swap_result = self.jupiter_client.execute_swap_with_wallet(
-            &quote,
-            &wallet_address,
-            Some(&wallet_keypair)
-        ).await.map_err(|e| PlatformError::Trading(format!("Real swap execution failed: {}", e)))?;
+        // Execute the swap transaction using the appropriate client
+        let swap_result = match swap_response.dex_provider {
+            DexProvider::Orca => {
+                if let Some(orca_client) = &self.orca_client {
+                    // Execute Orca swap
+                    orca_client.execute_swap_transaction(
+                        &swap_response.swap_transaction,
+                        &wallet_keypair
+                    ).await.map_err(|e| PlatformError::Trading(format!("Orca swap execution failed: {}", e)))?
+                } else {
+                    return Err(PlatformError::Trading("Orca client not available".to_string()).into());
+                }
+            }
+            DexProvider::Jupiter => {
+                // Use Jupiter's execute_swap_with_wallet method
+                let jupiter_quote = serde_json::from_value(quote.quote_data)?;
+                self.jupiter_client.execute_swap_with_wallet(
+                    &jupiter_quote,
+                    &wallet_address,
+                    Some(&wallet_keypair)
+                ).await.map_err(|e| PlatformError::Trading(format!("Jupiter swap execution failed: {}", e)))?
+            }
+            DexProvider::Raydium | DexProvider::SplSwap => {
+                return Err(PlatformError::Trading(format!("{} execution not yet implemented", 
+                    swap_response.dex_provider.as_str())).into());
+            }
+        };
 
         if !swap_result.success {
             return Err(PlatformError::Trading(format!("Swap execution failed: {}", swap_result.transaction_signature)).into());
@@ -329,6 +398,11 @@ impl StrategyExecutor {
             slippage: slippage_tolerance,
             fees: swap_result.fee_amount,
         };
+
+        info!("✅ Trade executed successfully via {}: {} -> {} (tx: {})", 
+              swap_response.dex_provider.as_str(), trade_execution.amount_in, 
+              trade_execution.amount_out, trade_execution.transaction_signature);
+
         Ok(trade_execution)
     }
 
@@ -425,6 +499,49 @@ impl StrategyExecutor {
 
         levels
     }
+
+    /// Check health of all DEX providers
+    pub async fn check_dex_health(&self) -> HashMap<String, bool> {
+        info!("🏥 Performing DEX health check");
+        
+        let health_results = self.dex_fallback_manager.health_check_all().await;
+        let mut results = HashMap::new();
+        
+        for (dex, healthy) in health_results {
+            let status = if healthy { "✅ HEALTHY" } else { "❌ UNHEALTHY" };
+            info!("{} {}", dex.as_str(), status);
+            results.insert(dex.as_str().to_string(), healthy);
+        }
+        
+        results
+    }
+
+    /// Test quote from all DEX providers
+    pub async fn test_all_dex_quotes(&self, from_token: &str, to_token: &str, amount: f64) -> Result<()> {
+        info!("🧪 Testing quotes from all DEX providers");
+        
+        let quote_request = UnifiedQuoteRequest {
+            input_mint: from_token.to_string(),
+            output_mint: to_token.to_string(),
+            amount: (amount * 1_000_000.0) as u64,
+            slippage_bps: 100, // 1% slippage
+        };
+        
+        // Try to get best quote (will test all DEXs)
+        match self.dex_fallback_manager.get_best_quote(quote_request).await {
+            Ok(best_quote) => {
+                info!("🏆 Best quote from {}: {} -> {} (impact: {:.4}%)", 
+                      best_quote.dex_provider.as_str(), best_quote.in_amount, 
+                      best_quote.out_amount, best_quote.price_impact_pct);
+                Ok(())
+            }
+            Err(e) => {
+                error!("❌ All DEX quote tests failed: {}", e);
+                Err(e)
+            }
+        }
+    }
+
 }
 
 /// DCA (Dollar Cost Averaging) configuration
@@ -437,6 +554,14 @@ pub struct DCAConfig {
     pub intervals: u32,
     pub interval_seconds: u64,
     pub slippage_tolerance: f64,
+    // Multi-DEX fallback support
+    pub preferred_dex: Option<String>,
+    pub enable_fallback: Option<bool>,
+    pub fallback_chain: Option<Vec<String>>,
+    pub network: Option<String>,
+    pub max_retries: Option<u32>,
+    pub timeout_seconds: Option<u64>,
+    pub enable_logging: Option<bool>,
 }
 
 /// Momentum trading configuration
