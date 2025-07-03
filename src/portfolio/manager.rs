@@ -71,14 +71,8 @@ impl PortfolioManager {
             return Err(anyhow::anyhow!("Maximum positions limit reached"));
         }
 
-        // Check concentration limits
-        let current_total_value = self.calculate_total_value(&positions).await;
-        let new_total_value = current_total_value + position.value_usd;
-        let position_concentration = if new_total_value > 0.0 {
-            position.value_usd / new_total_value
-        } else {
-            1.0 // First position is 100% of portfolio
-        };
+        // Check concentration limits (based on total portfolio capital)
+        let position_concentration = position.value_usd / self.config.total_capital;
 
         if position_concentration > self.config.risk_limits.max_position_concentration {
             return Err(anyhow::anyhow!("Position concentration limit exceeded"));

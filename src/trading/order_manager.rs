@@ -344,7 +344,7 @@ impl OrderManager {
         // For now, create structured result (full blockchain integration pending)
         // In production, this would use wallet_manager.get_wallet_keypair() and execute real swap
         info!("📋 Order quote received: {} -> {} (output: {})", 
-              quote.in_amount, quote.out_amount, order.token);
+              quote.in_amount(), quote.out_amount(), order.token);
 
         let executed_order = ExecutedOrder {
             order_id: order.id.clone(),

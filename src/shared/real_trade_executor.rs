@@ -154,7 +154,7 @@ impl RealTradeExecutor {
         match quote_result {
             Ok(Ok(quote)) => {
                 info!("✅ Real quote received: {:.6} -> {:.6} (Price Impact: {:.2}%)", 
-                      quote.in_amount, quote.out_amount, quote.price_impact_pct * 100.0);
+                      quote.in_amount(), quote.out_amount(), quote.price_impact_pct() * 100.0);
                 Ok(quote)
             },
             Ok(Err(e)) => {
@@ -173,24 +173,24 @@ impl RealTradeExecutor {
         debug!("🛡️ Validating quote safety parameters");
 
         // Check price impact
-        if quote.price_impact_pct > request.max_price_impact {
+        if quote.price_impact_pct() > request.max_price_impact {
             return Err(anyhow!(
                 "Price impact too high: {:.2}% > {:.2}% limit", 
-                quote.price_impact_pct * 100.0, request.max_price_impact * 100.0
+                quote.price_impact_pct() * 100.0, request.max_price_impact * 100.0
             ));
         }
 
         // Check minimum output amount
-        if quote.out_amount <= 0.0 {
-            return Err(anyhow!("Invalid output amount: {}", quote.out_amount));
+        if quote.out_amount() <= 0.0 {
+            return Err(anyhow!("Invalid output amount: {}", quote.out_amount()));
         }
 
         // Check route exists
-        if quote.route_plan.is_empty() {
+        if quote.routePlan.is_empty() {
             return Err(anyhow!("No valid route found for swap"));
         }
 
-        info!("✅ Quote safety validated - Price Impact: {:.2}%", quote.price_impact_pct * 100.0);
+        info!("✅ Quote safety validated - Price Impact: {:.2}%", quote.price_impact_pct() * 100.0);
         Ok(())
     }
 

@@ -302,12 +302,12 @@ impl StrategyExecutor {
             .map_err(|e| PlatformError::Trading(format!("Quote failed: {}", e)))?;
 
         // Get wallet address and keypair (real)
-        let wallet_name = "default"; // TODO: parametrizar si es necesario
+        let wallet_name = "devnet-trading"; // Use DevNet wallet for testing
         let wallet_address = self.wallet_manager.get_wallet_address(wallet_name).await?;
         let wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
 
         // Execute real swap with wallet integration
-        info!("🔄 Executing real swap: {} {} -> {} {}", amount, from_token, quote.out_amount, to_token);
+        info!("🔄 Executing real swap: {} {} -> {} {}", amount, from_token, quote.out_amount(), to_token);
         
         let swap_result = self.jupiter_client.execute_swap_with_wallet(
             &quote,

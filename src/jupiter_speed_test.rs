@@ -142,9 +142,9 @@ pub async fn test_jupiter_swap_build() -> Result<()> {
             let quote_time = start.elapsed();
             println!("✅ {}ms", quote_time.as_millis());
             println!("    📊 Quote details:");
-            println!("       Input: {} SOL", quote.in_amount / 1_000_000_000.0);
-            println!("       Output: {} USDC (est.)", quote.out_amount / 1_000_000.0);
-            println!("       Price Impact: {:.4}%", quote.price_impact_pct);
+            println!("       Input: {} SOL", quote.in_amount() / 1_000_000_000.0);
+            println!("       Output: {} USDC (est.)", quote.out_amount() / 1_000_000.0);
+            println!("       Price Impact: {:.4}%", quote.price_impact_pct());
             
             println!("\n🏗️  Step 2: Building swap transaction");
             print!("  Building transaction... ");

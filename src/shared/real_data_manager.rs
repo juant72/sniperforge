@@ -282,7 +282,7 @@ impl RealDataManager {
                             from_token: input_mint.to_string(),
                             to_token: output_mint.to_string(),
                             amount_in: amount,
-                            amount_out: quote.out_amount,
+                            amount_out: quote.out_amount(),
                             actual_fee: swap_result.fee_amount,
                             actual_slippage: swap_result.actual_slippage,
                             success: swap_result.success,

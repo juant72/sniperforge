@@ -519,7 +519,7 @@ mod tests {
         assert!(result.is_ok());
 
         let snapshot = demo.get_portfolio_snapshot().await.unwrap();
-        assert_eq!(snapshot.positions_count, 3);
+        assert_eq!(snapshot.positions_count, 5); // Now creating 5 positions: SOL, mSOL, USDC, USDT, UXD
         assert!(snapshot.total_value > 0.0);
     }
 
@@ -564,7 +564,7 @@ mod tests {
         demo.initialize_demo().await.unwrap();
 
         let snapshot = demo.get_portfolio_snapshot().await.unwrap();
-        assert_eq!(snapshot.positions_count, 3);
+        assert_eq!(snapshot.positions_count, 5); // Now creating 5 positions: SOL, mSOL, USDC, USDT, UXD
         assert!(!snapshot.top_performers.is_empty());
         assert!(!snapshot.strategy_allocation.is_empty());
     }

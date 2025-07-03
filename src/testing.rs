@@ -28,8 +28,8 @@ mod tests {
         match client.get_quote(input_mint, output_mint, amount).await {
             Ok(quote) => {
                 println!("✅ Jupiter quote successful");
-                println!("   Input: {} {}", quote.in_amount, input_mint);
-                println!("   Output: {} {}", quote.out_amount, output_mint);
+                println!("   Input: {} {}", quote.in_amount(), input_mint);
+                println!("   Output: {} {}", quote.out_amount(), output_mint);
             }
             Err(e) => println!("❌ Jupiter quote failed: {}", e),
         }
@@ -198,7 +198,7 @@ mod tests {
             
             match jupiter_client.get_quote(input_mint, output_mint, amount).await {
                 Ok(quote) => {
-                    println!("   ✅ Quote obtained: {} -> {}", quote.in_amount, quote.out_amount);
+                    println!("   ✅ Quote obtained: {} -> {}", quote.in_amount(), quote.out_amount());
                 }
                 Err(e) => println!("   ❌ Quote failed: {}", e),
             }

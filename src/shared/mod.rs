@@ -5,7 +5,14 @@ pub mod tatum_rpc_client;        // NEW: Tatum client with header authentication
 pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
-pub mod jupiter;
+
+// Jupiter API - Refactored into separate modules
+pub mod jupiter_types;           // Data structures and types
+pub mod jupiter_config;          // Configuration
+pub mod jupiter_client;          // HTTP client
+pub mod jupiter_api;             // Main business logic
+pub mod jupiter;                 // Legacy module (deprecated)
+
 pub mod real_data_manager;  // NEW: Centralized real data management
 pub mod real_trade_executor; // NEW: Real-only trade execution
 pub mod trade_executor;

@@ -608,7 +608,7 @@ impl RouteOptimizer {
         let route = TradingRoute {
             dex_name: "Jupiter".to_string(),
             route_description: "Jupiter aggregated route (real)".to_string(),
-            expected_output: quote.out_amount,
+            expected_output: quote.out_amount(),
             fee_percentage: 0.003, // Puede obtenerse de quote.platformFee
             estimated_execution_time: 15, // Aproximado
             confidence_score: 0.95, // Placeholder, puede mejorarse

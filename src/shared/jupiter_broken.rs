@@ -347,13 +347,13 @@ impl JupiterClient {
             .map_err(|e| anyhow!("Failed to parse Jupiter quote response: {}", e))?;
 
         // Populate convenience fields
-        quote.in_amount = quote.inAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000_000.0; // Convert lamports to SOL
-        quote.out_amount = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to USDC
-        quote.price_impact_pct = quote.priceImpactPct.parse::<f64>().unwrap_or(0.0);
+        quote.in_amount() = quote.inAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000_000.0; // Convert lamports to SOL
+        quote.out_amount() = quote.outAmount.parse::<f64>().unwrap_or(0.0) / 1_000_000.0; // Convert to USDC
+        quote.price_impact_pct() = quote.priceImpactPct.parse::<f64>().unwrap_or(0.0);
         quote.route_plan = quote.routePlan.clone();
 
         info!("✅ Jupiter quote received: {} {} -> {} {}", 
-              quote.in_amount, request.inputMint, quote.out_amount, request.outputMint);
+              quote.in_amount(), request.inputMint, quote.out_amount(), request.outputMint);
 
         Ok(quote)
     }
@@ -603,9 +603,9 @@ impl JupiterClient {
             let mut quote = self.client.get_quote(quote_request).await?;
             
             // Convert string fields to numeric for compatibility
-            quote.in_amount = quote.inAmount.parse().unwrap_or(0.0);
-            quote.out_amount = quote.outAmount.parse().unwrap_or(0.0);
-            quote.price_impact_pct = quote.priceImpactPct.parse().unwrap_or(0.0);
+            quote.in_amount() = quote.inAmount.parse().unwrap_or(0.0);
+            quote.out_amount() = quote.outAmount.parse().unwrap_or(0.0);
+            quote.price_impact_pct() = quote.priceImpactPct.parse().unwrap_or(0.0);
 
             Ok(quote)
         }
@@ -677,8 +677,8 @@ impl JupiterClient {
             Ok(SwapResult {
                 success: true, // Transaction was built successfully
                 transaction_signature: Some(format!("SIMULATED_{}", chrono::Utc::now().timestamp())),
-                output_amount: quote.out_amount,
-                actual_slippage: quote.price_impact_pct,
+                output_amount: quote.out_amount(),
+                actual_slippage: quote.price_impact_pct(),
                 fee_amount: 0.001, // Estimated fee
             })
         }
@@ -723,10 +723,10 @@ impl JupiterClient {
             debug!("🔄 Updated transaction with latest blockhash: {}", recent_blockhash);
 
             // Step 5: Sign the transaction using wallet manager
-            let amount_sol = quote.in_amount; // Amount being swapped
+            let amount_sol = quote.in_amount(); // Amount being swapped
             let description = format!(
                 "Jupiter swap: {:.6} {} -> {:.6} {}",
-                quote.in_amount, quote.inputMint, quote.out_amount, quote.outputMint
+                quote.in_amount(), quote.inputMint, quote.out_amount(), quote.outputMint
             );
 
             let signed_transaction = wallet_manager
@@ -771,8 +771,8 @@ impl JupiterClient {
                 Ok(SwapExecutionResult {
                     success: true,
                     transaction_signature: signature.to_string(),
-                    output_amount: quote.out_amount,
-                    actual_slippage: quote.price_impact_pct,
+                    output_amount: quote.out_amount(),
+                    actual_slippage: quote.price_impact_pct(),
                     fee_amount: 0.005, // Estimated from simulation
                     block_height: swap_response.lastValidBlockHeight,
                     logs,

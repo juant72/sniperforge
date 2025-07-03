@@ -164,7 +164,7 @@ impl TradeExecutor {
                 transaction_signature: None,
                 input_amount: request.amount_in,
                 output_amount: 0,
-                actual_price_impact: quote.price_impact_pct,
+                actual_price_impact: quote.price_impact_pct(),
                 actual_slippage: 0.0,
                 gas_fee: 0.0,
                 trading_mode: request.trading_mode.clone(),
@@ -191,7 +191,7 @@ impl TradeExecutor {
             transaction_signature: result.transaction_signature,
             input_amount: request.amount_in,
             output_amount: result.output_amount,
-            actual_price_impact: quote.price_impact_pct,
+            actual_price_impact: quote.price_impact_pct(),
             actual_slippage: result.slippage,
             gas_fee: result.gas_fee,
             trading_mode: request.trading_mode,
@@ -287,14 +287,14 @@ impl TradeExecutor {
 
     /// Validate Jupiter quote
     async fn validate_quote(&self, quote: &QuoteResponse, request: &TradeRequest) -> Result<bool> {
-        let price_impact: f64 = quote.price_impact_pct;
+        let price_impact: f64 = quote.price_impact_pct();
         
         if price_impact > request.max_price_impact {
             warn!("❌ Price impact too high: {}% > {}%", price_impact, request.max_price_impact);
             return Ok(false);
         }
 
-        if quote.route_plan.is_empty() {
+        if quote.routePlan.is_empty() {
             warn!("❌ No route found for trade");
             return Ok(false);
         }
@@ -314,7 +314,7 @@ impl TradeExecutor {
         Ok(TradeExecutionResult {
             success: true,
             transaction_signature: Some(format!("DEVNET_REAL_{}", uuid::Uuid::new_v4())),
-            output_amount: quote.out_amount as u64,
+            output_amount: quote.out_amount() as u64,
             slippage: request.slippage_bps as f64 / 10000.0,
             gas_fee: 0.001, // Lower gas fee for devnet
             error_message: None,
@@ -326,7 +326,7 @@ impl TradeExecutor {
         println!("🚨 Executing REAL TRADE on MainNet - USING REAL MONEY!");
         
         // Extra safety checks for real money trading
-        if quote.price_impact_pct > 2.0 {
+        if quote.price_impact_pct() > 2.0 {
             return Ok(TradeExecutionResult {
                 success: false,
                 transaction_signature: None,

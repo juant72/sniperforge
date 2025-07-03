@@ -222,7 +222,7 @@ impl CacheFreeTrader {
           Ok(SwapResult {
             success: true,
             input_amount: amount,
-            output_amount: quote.out_amount.parse().unwrap_or(0),
+            output_amount: quote.out_amount().parse().unwrap_or(0),
             input_price: input_price.price,
             output_price: output_price.price,
             latency: input_price.total_latency + output_price.total_latency,

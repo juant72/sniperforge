@@ -570,9 +570,9 @@ impl CacheFreeTradeEngine {
         ).await.map_err(|e| anyhow!("Failed to get Jupiter quote: {}", e))?;
 
         info!("📊 Jupiter quote received:");
-        info!("   Input amount: {} SOL", quote.in_amount);
-        info!("   Expected output: {}", quote.out_amount);
-        info!("   Price impact: {:.4}%", quote.price_impact_pct);
+        info!("   Input amount: {} SOL", quote.in_amount());
+        info!("   Expected output: {}", quote.out_amount());
+        info!("   Price impact: {:.4}%", quote.price_impact_pct());
 
         // Execute trade with real wallet integration
         let swap_result = if let Some(ref keypair) = self.wallet_keypair {
@@ -622,7 +622,7 @@ impl CacheFreeTradeEngine {
             executed_at: chrono::Utc::now(),
             execution_time_ms,
             entry_price: current_price,
-            actual_slippage_pct: quote.price_impact_pct,
+            actual_slippage_pct: quote.price_impact_pct(),
             profit_loss_usd: gross_profit,
             gas_fees_usd,
             net_profit_usd: net_profit,
