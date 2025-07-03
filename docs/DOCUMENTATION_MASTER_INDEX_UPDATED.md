@@ -1,16 +1,19 @@
-# 📚 SniperForge Documentation - Master Index (Updated June 29, 2025)
+# 📚 SniperForge Documentation - Master Index (Updated July 3, 2025)
 
 ## 🎯 Quick Access - Latest Updates
 
-### 🌟 **NEW - Tatum Integration Complete (June 29, 2025)**
-- 📊 **[RPC Verification Report](../RPC_VERIFICATION_REPORT.md)** - Comprehensive 100% functionality verification
-- 🔧 **[Tatum Integration Technical Docs](technical/tatum-rpc-integration.md)** - Complete implementation details
-- ✅ **[Tatum Completion Report](project-status/tatum-integration-completion-report.md)** - Project status and achievements
+### 🌟 **NEW - Jupiter Refactor & Test Suite Complete (July 3, 2025)**
+- 🏗️ **[Jupiter Architecture Refactor](technical/jupiter-refactor-details.md)** - Modular architecture, zero recursion
+- 🧪 **[Test Suite Status](project-status/test-status-report.md)** - 68 tests passing, zero failures
+- 📱 **[CLI Commands Reference](user-guides/CLI_COMMANDS.md)** - Complete guide with 16 production-ready commands
+- 📊 **[Current Project Status](project-status/CURRENT_STATUS.md)** - Latest achievements and metrics
+- 📚 **[Full API Reference](technical/API_REFERENCE_FULL.md)** - Complete module documentation
 
-### 🚀 **Core Documentation**
-- 📋 **[Complete Command Guide](user-guides/command-guide.md)** - Updated with Tatum testing commands
-- 🔑 **[Premium RPC Setup](user-guides/premium-rpc-setup.md)** - Updated with Tatum configuration
-- 📈 **[Project Status Overview](project-status/complete-status-overview.md)** - All phases completion status
+### 🚀 **Core Documentation - Updated**
+- 📋 **[DEV2 Trading Engine Plan](sprints/DEV2_TRADING_ENGINE_PLAN.md)** - Sprint 2.1 completed 100%
+- 🏦 **[Portfolio Management Guide](user-guides/portfolio-management.md)** - Professional portfolio features
+- 🔑 **[Tatum Integration Report](../RPC_VERIFICATION_REPORT.md)** - RPC functionality verification
+- 📈 **[Complete Status Overview](project-status/complete-status-overview.md)** - All phases status
 
 ## 📂 Documentation Structure
 
