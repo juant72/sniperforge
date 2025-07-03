@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
 use chrono::{DateTime, Utc, Duration, Timelike};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
 
 use crate::shared::jupiter::JupiterClient;
 use crate::types::PlatformError;
@@ -451,9 +453,85 @@ impl MarketAnalyzer {
         })
     }
 
+    /// Get real mempool congestion analysis
     pub async fn get_mempool_congestion(&self) -> Result<f64> {
-        // Simulate mempool congestion (0.0 to 1.0)
-        Ok(rand::random::<f64>() * 0.8) // Random congestion up to 80%
+        info!("🔍 Analyzing real mempool congestion...");
+        
+        // Create RPC client to analyze real blockchain data
+        let rpc_client = solana_client::rpc_client::RpcClient::new_with_commitment(
+            "https://api.mainnet-beta.solana.com".to_string(),
+            solana_sdk::commitment_config::CommitmentConfig::confirmed(),
+        );
+        
+        // Method 1: Analyze recent slot performance
+        let recent_performance = match rpc_client.get_recent_performance_samples(Some(10)) {
+            Ok(samples) => {
+                let avg_transactions = samples.iter()
+                    .map(|s| s.num_transactions as f64)
+                    .sum::<f64>() / samples.len() as f64;
+                
+                let avg_slot_time = samples.iter()
+                    .map(|s| s.sample_period_secs as f64)
+                    .sum::<f64>() / samples.len() as f64;
+                
+                // Calculate congestion based on transactions per second
+                let tps = avg_transactions / avg_slot_time;
+                let base_tps = 2000.0; // Solana's theoretical max
+                let congestion_from_tps = (tps / base_tps).min(1.0);
+                
+                info!("📊 Recent performance: {:.1} TPS, {:.2}s slot time", tps, avg_slot_time);
+                congestion_from_tps
+            }
+            Err(e) => {
+                warn!("⚠️ Could not get performance samples: {}", e);
+                0.3 // Default moderate congestion
+            }
+        };
+        
+        // Method 2: Analyze current epoch info
+        let epoch_congestion = match rpc_client.get_epoch_info() {
+            Ok(epoch_info) => {
+                let slot_progress = epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64;
+                
+                // Higher congestion towards end of epoch
+                let epoch_factor = if slot_progress > 0.9 {
+                    0.2 // 20% higher congestion near epoch end
+                } else if slot_progress < 0.1 {
+                    0.1 // 10% higher congestion at epoch start
+                } else {
+                    0.0
+                };
+                
+                debug!("🕐 Epoch progress: {:.1}%, factor: {:.3}", slot_progress * 100.0, epoch_factor);
+                epoch_factor
+            }
+            Err(e) => {
+                warn!("⚠️ Could not get epoch info: {}", e);
+                0.0
+            }
+        };
+        
+        // Method 3: Analyze current time patterns (high congestion during trading hours)
+        let time_factor = {
+            let now = chrono::Utc::now();
+            let hour = now.hour();
+            
+            // Higher congestion during US/EU trading hours
+            match hour {
+                13..=16 => 0.3,  // US market open (peak)
+                8..=12 => 0.2,   // EU market hours  
+                17..=21 => 0.25, // US afternoon/close
+                _ => 0.1,        // Off-hours
+            }
+        };
+        
+        // Combine all factors
+        let total_congestion = (recent_performance + epoch_congestion + time_factor).min(1.0);
+        
+        info!("🚦 Mempool congestion analysis: Performance={:.3}, Epoch={:.3}, Time={:.3}, Total={:.3}", 
+              recent_performance, epoch_congestion, time_factor, total_congestion);
+        
+        Ok(total_congestion)
     }
 
     pub async fn analyze_block_patterns(&self) -> Result<BlockPattern> {

@@ -734,6 +734,35 @@ impl JupiterClient {
         // Could be optimized with caching, connection pooling, etc.
         self.get_price(mint).await
     }
+
+    /// Execute swap with wallet integration (wrapper method)
+    pub async fn execute_swap_with_wallet(
+        &self,
+        quote: &QuoteResponse,
+        wallet_address: &str,
+        wallet_keypair: Option<&solana_sdk::signature::Keypair>,
+    ) -> Result<SwapExecutionResult> {
+        // Create Jupiter wrapper with default config
+        let config = JupiterConfig {
+            base_url: self.base_url.clone(),
+            api_key: self.api_key.clone(),
+            timeout_seconds: 30,
+            max_retries: 3,
+            rpc_endpoint: "https://api.devnet.solana.com".to_string(),
+            network_name: "DevNet".to_string(),
+        };
+        
+        let jupiter = Jupiter {
+            client: JupiterClient {
+                client: self.client.clone(),
+                base_url: self.base_url.clone(),
+                api_key: self.api_key.clone(),
+            },
+            config,
+        };
+        
+        jupiter.execute_swap_with_wallet(quote, wallet_address, wallet_keypair).await
+    }
 }
 
 /// Jupiter wrapper implementation
