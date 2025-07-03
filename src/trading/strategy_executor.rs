@@ -6,6 +6,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
 use chrono::{DateTime, Utc, Duration};
@@ -65,8 +66,8 @@ pub struct TradeExecution {
 /// Main strategy executor
 pub struct StrategyExecutor {
     wallet_manager: WalletManager,
-    jupiter_client: JupiterClient,
-    orca_client: Option<OrcaClient>,
+    jupiter_client: Arc<JupiterClient>,
+    orca_client: Option<Arc<OrcaClient>>,
     dex_fallback_manager: DexFallbackManager,
     active_strategies: HashMap<String, Box<dyn TradingStrategy>>,
 }
@@ -78,6 +79,10 @@ impl StrategyExecutor {
         jupiter_client: JupiterClient,
         orca_client: Option<OrcaClient>,
     ) -> Self {
+        // Convert to Arc for sharing
+        let jupiter_client_arc = Arc::new(jupiter_client);
+        let orca_client_arc = orca_client.map(Arc::new);
+        
         // Set up fallback chain: Orca -> SPL -> Jupiter
         let fallback_chain = vec![
             DexProvider::Orca,
@@ -86,8 +91,8 @@ impl StrategyExecutor {
         ];
         
         let dex_fallback_manager = DexFallbackManager::new(
-            orca_client.clone(),
-            Some(jupiter_client.clone()),
+            orca_client_arc.clone(),
+            Some(jupiter_client_arc.clone()),
             fallback_chain,
             true, // Enable fallback
             3,    // Max retries
@@ -95,8 +100,8 @@ impl StrategyExecutor {
         
         Self {
             wallet_manager,
-            jupiter_client,
-            orca_client,
+            jupiter_client: jupiter_client_arc,
+            orca_client: orca_client_arc,
             dex_fallback_manager,
             active_strategies: HashMap::new(),
         }

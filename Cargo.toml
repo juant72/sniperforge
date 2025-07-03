@@ -19,6 +19,14 @@ path = "test_all_rpc_methods.rs"
 name = "get_wallet_address"
 path = "get_wallet_address.rs"
 
+[[bin]]
+name = "test_orca_devnet_real"
+path = "test_orca_devnet_real.rs"
+
+[[bin]]
+name = "test_orca_devnet_simple"
+path = "test_orca_devnet_simple.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

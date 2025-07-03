@@ -6,6 +6,7 @@
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
 
@@ -98,8 +99,8 @@ pub trait DexClient: Send + Sync {
 
 /// Multi-DEX fallback manager
 pub struct DexFallbackManager {
-    orca_client: Option<OrcaClient>,
-    jupiter_client: Option<JupiterClient>,
+    orca_client: Option<Arc<OrcaClient>>,
+    jupiter_client: Option<Arc<JupiterClient>>,
     fallback_chain: Vec<DexProvider>,
     enable_fallback: bool,
     max_retries: u32,
@@ -108,8 +109,8 @@ pub struct DexFallbackManager {
 impl DexFallbackManager {
     /// Create new fallback manager with optional clients
     pub fn new(
-        orca_client: Option<OrcaClient>,
-        jupiter_client: Option<JupiterClient>,
+        orca_client: Option<Arc<OrcaClient>>,
+        jupiter_client: Option<Arc<JupiterClient>>,
         fallback_chain: Vec<DexProvider>,
         enable_fallback: bool,
         max_retries: u32,
