@@ -18,7 +18,7 @@ pub struct OrcaQuoteRequest {
     pub slippage_bps: u16, // slippage in basis points (1% = 100 bps)
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrcaQuoteResponse {
     pub input_amount: String,
     pub output_amount: String,
@@ -27,7 +27,7 @@ pub struct OrcaQuoteResponse {
     pub fees: OrcaFees,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrcaRouteStep {
     pub pool_id: String,
     pub token_in: String,
@@ -36,7 +36,7 @@ pub struct OrcaRouteStep {
     pub amm_type: String, // "CLMM" or "CPMM"
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrcaFees {
     pub trading_fee: String,
     pub total_fee: String,

@@ -14,7 +14,7 @@ use crate::shared::jupiter::{JupiterClient, QuoteRequest as JupiterQuoteRequest}
 use crate::types::PlatformError;
 
 /// Supported DEX providers
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DexProvider {
     Orca,
     Raydium,
@@ -130,10 +130,10 @@ impl DexFallbackManager {
 
         let mut last_error = None;
         
-        for (attempt, &dex) in self.fallback_chain.iter().enumerate() {
+        for (attempt, dex) in self.fallback_chain.iter().enumerate() {
             debug!("🎯 Attempt {} using DEX: {:?}", attempt + 1, dex);
             
-            match self.try_get_quote(&request, dex).await {
+            match self.try_get_quote(&request, *dex).await {
                 Ok(quote) => {
                     info!("✅ Quote successful from {}: {} -> {} (price impact: {:.4}%)", 
                           dex.as_str(), quote.in_amount, quote.out_amount, quote.price_impact_pct);
@@ -175,8 +175,8 @@ impl DexFallbackManager {
 
         // Try fallback DEXs for swap
         let mut last_error = None;
-        for &dex in &self.fallback_chain {
-            if dex == request.quote.dex_provider {
+        for dex in &self.fallback_chain {
+            if *dex == request.quote.dex_provider {
                 continue; // Already tried this one
             }
             
@@ -190,7 +190,7 @@ impl DexFallbackManager {
                 slippage_bps: request.quote.slippage_bps,
             };
             
-            match self.try_get_quote(&quote_request, dex).await {
+            match self.try_get_quote(&quote_request, *dex).await {
                 Ok(fallback_quote) => {
                     let fallback_swap_request = UnifiedSwapRequest {
                         quote: fallback_quote,
@@ -199,7 +199,7 @@ impl DexFallbackManager {
                         compute_unit_price_micro_lamports: request.compute_unit_price_micro_lamports,
                     };
                     
-                    match self.try_build_swap(&fallback_swap_request, dex).await {
+                    match self.try_build_swap(&fallback_swap_request, *dex).await {
                         Ok(swap) => {
                             info!("✅ Fallback swap successful with {}", dex.as_str());
                             return Ok(swap);
@@ -229,23 +229,23 @@ impl DexFallbackManager {
                     let orca_request = OrcaQuoteRequest {
                         input_mint: request.input_mint.clone(),
                         output_mint: request.output_mint.clone(),
-                        amount: request.amount,
+                        amount: request.amount.to_string(),
                         slippage_bps: request.slippage_bps,
                     };
                     
-                    let orca_quote = orca.get_quote(orca_request).await?;
+                    let orca_quote = orca.get_quote(&orca_request).await?;
                     
                     Ok(UnifiedQuoteResponse {
                         input_mint: request.input_mint.clone(),
                         output_mint: request.output_mint.clone(),
-                        in_amount: orca_quote.in_amount,
-                        out_amount: orca_quote.out_amount,
+                        in_amount: orca_quote.input_amount.parse().unwrap_or(0),
+                        out_amount: orca_quote.output_amount.parse().unwrap_or(0),
                         slippage_bps: request.slippage_bps,
-                        price_impact_pct: orca_quote.price_impact_pct,
-                        fee_mint: orca_quote.fee_mint,
-                        fee_amount: orca_quote.fee_amount,
+                        price_impact_pct: orca_quote.price_impact_pct.unwrap_or(0.0),
+                        fee_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
+                        fee_amount: orca_quote.fees.trading_fee.parse().unwrap_or(5000),
                         dex_provider: DexProvider::Orca,
-                        route_plan: orca_quote.route_plan,
+                        route_plan: orca_quote.route.iter().map(|r| format!("{} ({})", r.pool_id, r.amm_type)).collect(),
                         quote_data: serde_json::to_value(&orca_quote)?,
                     })
                 } else {
@@ -266,15 +266,15 @@ impl DexFallbackManager {
                     Ok(UnifiedQuoteResponse {
                         input_mint: request.input_mint.clone(),
                         output_mint: request.output_mint.clone(),
-                        in_amount: jupiter_quote.in_amount(),
-                        out_amount: jupiter_quote.out_amount(),
+                        in_amount: jupiter_quote.in_amount() as u64,
+                        out_amount: jupiter_quote.out_amount() as u64,
                         slippage_bps: request.slippage_bps,
-                        price_impact_pct: jupiter_quote.price_impact_pct.unwrap_or(0.0),
+                        price_impact_pct: jupiter_quote.price_impact_pct().unwrap_or(0.0),
                         fee_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
                         fee_amount: 5000, // Default Solana fee
                         dex_provider: DexProvider::Jupiter,
-                        route_plan: jupiter_quote.route_plan.iter()
-                            .map(|r| format!("{}%", r.swap_info.label))
+                        route_plan: jupiter_quote.routePlan.iter()
+                            .map(|r| format!("{}%", r.swapInfo.label))
                             .collect(),
                         quote_data: serde_json::to_value(&jupiter_quote)?,
                     })
@@ -305,16 +305,15 @@ impl DexFallbackManager {
                         quote: orca_quote,
                         user_public_key: request.user_public_key.clone(),
                         wrap_unwrap_sol: request.wrap_unwrap_sol,
-                        compute_unit_price_micro_lamports: request.compute_unit_price_micro_lamports,
                     };
                     
-                    let orca_swap = orca.build_swap(orca_swap_request).await?;
+                    let orca_swap = orca.get_swap_transaction(&orca_swap_request).await?;
                     
                     Ok(UnifiedSwapResponse {
-                        swap_transaction: orca_swap.swap_transaction,
+                        swap_transaction: orca_swap.transaction,
                         last_valid_block_height: orca_swap.last_valid_block_height,
-                        prioritization_fee_lamports: orca_swap.prioritization_fee_lamports,
-                        compute_unit_limit: orca_swap.compute_unit_limit,
+                        prioritization_fee_lamports: 5000, // Default fee
+                        compute_unit_limit: 200_000, // Default limit  
                         dex_provider: DexProvider::Orca,
                     })
                 } else {
@@ -326,17 +325,20 @@ impl DexFallbackManager {
                     // Convert back to Jupiter quote
                     let jupiter_quote = serde_json::from_value(request.quote.quote_data.clone())?;
                     
-                    let jupiter_swap_request = crate::shared::jupiter::SwapRequest {
+                    let jupiter_swap_request = crate::shared::jupiter_types::SwapRequest {
                         quoteResponse: jupiter_quote,
                         userPublicKey: request.user_public_key.clone(),
-                        wrapAndUnwrapSol: Some(request.wrap_unwrap_sol),
-                        computeUnitPriceMicroLamports: request.compute_unit_price_micro_lamports,
+                        dynamicComputeUnitLimit: Some(true),
+                        dynamicSlippage: Some(true),
+                        prioritizationFeeLamports: request.compute_unit_price_micro_lamports.map(|fee| {
+                            crate::shared::jupiter_types::PrioritizationFee {
+                                priorityLevelWithMaxLamports: crate::shared::jupiter_types::PriorityLevelConfig {
+                                    maxLamports: fee,
+                                    priorityLevel: "medium".to_string(),
+                                }
+                            }
+                        }),
                         asLegacyTransaction: Some(false),
-                        useSharedAccounts: Some(true),
-                        feeAccount: None,
-                        trackingAccount: None,
-                        allowOptimizedWrappedSolTokenAccount: Some(true),
-                        skipUserAccountsRpcCalls: Some(false),
                     };
                     
                     let jupiter_swap = jupiter.build_swap_transaction(jupiter_swap_request).await?;
@@ -344,8 +346,8 @@ impl DexFallbackManager {
                     Ok(UnifiedSwapResponse {
                         swap_transaction: jupiter_swap.swapTransaction,
                         last_valid_block_height: jupiter_swap.lastValidBlockHeight,
-                        prioritization_fee_lamports: jupiter_swap.prioritizationFeeLamports.unwrap_or(0),
-                        compute_unit_limit: jupiter_swap.computeUnitLimit.unwrap_or(200_000),
+                        prioritization_fee_lamports: jupiter_swap.prioritizationFeeLamports,
+                        compute_unit_limit: jupiter_swap.computeUnitLimit as u32,
                         dex_provider: DexProvider::Jupiter,
                     })
                 } else {
@@ -365,7 +367,7 @@ impl DexFallbackManager {
     pub async fn health_check_all(&self) -> HashMap<DexProvider, bool> {
         let mut results = HashMap::new();
         
-        for &dex in &self.fallback_chain {
+        for dex in &self.fallback_chain {
             let health = match dex {
                 DexProvider::Orca => {
                     if let Some(orca) = &self.orca_client {
@@ -385,7 +387,7 @@ impl DexFallbackManager {
                 DexProvider::Raydium | DexProvider::SplSwap => false, // Not implemented yet
             };
             
-            results.insert(dex, health);
+            results.insert(*dex, health);
         }
         
         results
@@ -398,8 +400,8 @@ impl DexFallbackManager {
         let mut quotes = Vec::new();
         let mut errors = Vec::new();
         
-        for &dex in &self.fallback_chain {
-            match self.try_get_quote(&request, dex).await {
+        for dex in &self.fallback_chain {
+            match self.try_get_quote(&request, *dex).await {
                 Ok(quote) => {
                     info!("💰 Quote from {}: {} out for {} in (impact: {:.4}%)", 
                           dex.as_str(), quote.out_amount, quote.in_amount, quote.price_impact_pct);
@@ -407,7 +409,7 @@ impl DexFallbackManager {
                 }
                 Err(e) => {
                     warn!("❌ Quote failed from {}: {}", dex.as_str(), e);
-                    errors.push((dex, e));
+                    errors.push((*dex, e));
                 }
             }
         }
@@ -417,12 +419,13 @@ impl DexFallbackManager {
         }
         
         // Find best quote (highest output amount with reasonable price impact)
+        let quotes_clone = quotes.clone();
         let best_quote = quotes.into_iter()
             .filter(|q| q.price_impact_pct < 5.0) // Filter out high price impact
             .max_by(|a, b| a.out_amount.cmp(&b.out_amount))
             .unwrap_or_else(|| {
                 // If all have high price impact, just take the highest output
-                quotes.into_iter().max_by(|a, b| a.out_amount.cmp(&b.out_amount)).unwrap()
+                quotes_clone.into_iter().max_by(|a, b| a.out_amount.cmp(&b.out_amount)).unwrap()
             });
         
         info!("🏆 Best quote selected from {}: {} -> {} (impact: {:.4}%)", 
