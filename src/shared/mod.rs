@@ -5,6 +5,7 @@ pub mod tatum_rpc_client;        // NEW: Tatum client with header authentication
 pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
+pub mod network_config;          // NEW: Network-specific configuration for Program IDs and tokens
 
 // Jupiter API - Refactored into separate modules
 pub mod jupiter_types;           // Data structures and types

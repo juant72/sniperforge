@@ -43,6 +43,10 @@ path = "test_simple_transfer.rs"
 name = "test_real_trading"
 path = "test_real_trading.rs"
 
+[[bin]]
+name = "test_real_swap_configured"
+path = "test_real_swap_configured.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
