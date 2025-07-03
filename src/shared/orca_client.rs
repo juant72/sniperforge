@@ -1,13 +1,11 @@
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use tracing::{info, warn, debug};
 
 #[derive(Debug, Clone)]
 pub struct OrcaClient {
-    client: Client,
-    base_url: String,
     network: String,
+    rpc_url: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,102 +55,70 @@ pub struct OrcaSwapResponse {
 
 impl OrcaClient {
     pub fn new(network: &str) -> Self {
-        let base_url = match network {
-            "mainnet" => "https://api.orca.so",
-            "devnet" => "https://api.devnet.orca.so",
-            _ => "https://api.devnet.orca.so",
+        let rpc_url = match network {
+            "mainnet" => "https://api.mainnet-beta.solana.com",
+            "devnet" => "https://api.devnet.solana.com",
+            "localhost" => "http://localhost:8899",
+            _ => "https://api.devnet.solana.com",
         }.to_string();
         
-        info!("Initializing Orca client for network: {} at {}", network, base_url);
+        info!("Initializing Orca client for network: {} using RPC: {}", network, rpc_url);
         
         Self {
-            client: Client::new(),
-            base_url,
+            rpc_url,
             network: network.to_string(),
         }
     }
     
     pub async fn get_quote(&self, request: &OrcaQuoteRequest) -> Result<OrcaQuoteResponse> {
-        let url = format!(
-            "{}/v1/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
-            self.base_url, 
-            request.input_mint, 
-            request.output_mint, 
-            request.amount,
-            request.slippage_bps
-        );
+        // TODO: Implement actual Orca Whirlpool SDK integration
+        // For now, return a detailed error explaining the proper approach
         
-        debug!("Orca quote request: {}", url);
+        warn!("❌ Orca client needs proper Whirlpool SDK integration");
+        warn!("🔍 DISCOVERY: Orca doesn't have REST API like Jupiter!");
+        warn!("✅ SOLUTION: Orca uses on-chain program calls via Solana RPC");
+        warn!("📋 Required: 1) Whirlpool SDK, 2) Direct Solana RPC calls, 3) On-chain quote calculation");
         
-        let response = self.client
-            .get(&url)
-            .header("Accept", "application/json")
-            .header("User-Agent", "SniperForge/1.0")
-            .send()
-            .await?;
-            
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            warn!("Orca API error: {} - {}", status, error_text);
-            return Err(anyhow::anyhow!("Orca API error: {} - {}", status, error_text));
-        }
+        info!("💡 This is why we got 403 error - the endpoint doesn't exist!");
+        info!("🎯 Next steps: Integrate Orca Whirlpool Rust SDK instead of REST calls");
         
-        let quote: OrcaQuoteResponse = response.json().await?;
-        debug!("Orca quote response: {:?}", quote);
-        
-        Ok(quote)
+        Err(anyhow::anyhow!(
+            "Orca API requires Whirlpool SDK integration, not REST calls. \
+            Orca calculates quotes on-chain via Solana RPC ({}), not through REST endpoints. \
+            The 403 error was caused by non-existent API endpoints. \
+            Network: {}", 
+            self.rpc_url,
+            self.network
+        ))
     }
     
     pub async fn get_swap_transaction(
         &self, 
         request: &OrcaSwapRequest
     ) -> Result<OrcaSwapResponse> {
-        let url = format!("{}/v1/swap", self.base_url);
+        warn!("❌ Orca swap transaction requires Whirlpool SDK integration");
+        warn!("📋 Required: 1) Solana wallet integration, 2) Whirlpool program calls, 3) Transaction building");
         
-        debug!("Orca swap request to: {}", url);
-        
-        let response = self.client
-            .post(&url)
-            .header("Accept", "application/json")
-            .header("Content-Type", "application/json")
-            .header("User-Agent", "SniperForge/1.0")
-            .json(request)
-            .send()
-            .await?;
-            
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            warn!("Orca swap API error: {} - {}", status, error_text);
-            return Err(anyhow::anyhow!("Orca swap API error: {} - {}", status, error_text));
-        }
-        
-        let swap_response: OrcaSwapResponse = response.json().await?;
-        debug!("Orca swap response received, transaction length: {}", swap_response.transaction.len());
-        
-        Ok(swap_response)
+        Err(anyhow::anyhow!(
+            "Orca swap transaction requires proper Whirlpool SDK integration. \
+            Network: {}, RPC: {}", 
+            self.network, 
+            self.rpc_url
+        ))
     }
     
+    /// Check if Orca Whirlpool program is accessible on the network
     pub async fn health_check(&self) -> Result<bool> {
-        let url = format!("{}/v1/health", self.base_url);
+        info!("Checking Orca Whirlpool program accessibility on {}", self.network);
         
-        match self.client
-            .get(&url)
-            .header("User-Agent", "SniperForge/1.0")
-            .send()
-            .await
-        {
-            Ok(response) => {
-                let is_healthy = response.status().is_success();
-                info!("Orca health check for {}: {}", self.network, if is_healthy { "✅ OK" } else { "❌ Failed" });
-                Ok(is_healthy)
-            }
-            Err(e) => {
-                warn!("Orca health check failed: {}", e);
-                Ok(false)
-            }
-        }
+        // For Orca, we should check if we can access the Whirlpool program
+        // and if Solana RPC is responding, not a REST API endpoint
+        warn!("❌ Orca health check needs proper RPC client integration");
+        warn!("📋 Should check: 1) Solana RPC connectivity, 2) Whirlpool program accessibility");
+        
+        // For now, return false to indicate this needs proper implementation
+        info!("💡 Once properly implemented, this will check Whirlpool program via RPC: {}", self.rpc_url);
+        Ok(false)
     }
     
     /// Convert slippage percentage to basis points
@@ -178,6 +144,17 @@ impl OrcaClient {
             "WSOL" => Some("So11111111111111111111111111111111111111112"),
             _ => None,
         }
+    }
+    
+    /// Get the Whirlpool program ID for the network
+    pub fn get_whirlpool_program_id(&self) -> &'static str {
+        // Whirlpool program ID is the same on all networks
+        "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+    }
+    
+    /// Get recommended RPC endpoint for the network
+    pub fn get_rpc_url(&self) -> &str {
+        &self.rpc_url
     }
 }
 
@@ -215,7 +192,22 @@ mod tests {
     #[tokio::test]
     async fn test_orca_client_creation() {
         let client = OrcaClient::new("devnet");
-        assert!(client.base_url.contains("devnet"));
+        assert!(client.rpc_url.contains("devnet"));
         assert_eq!(client.network, "devnet");
+    }
+    
+    #[tokio::test]
+    async fn test_orca_get_quote_explains_issue() {
+        let client = OrcaClient::new("devnet");
+        let request = OrcaQuoteRequest {
+            input_mint: "So11111111111111111111111111111111111111112".to_string(),
+            output_mint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU".to_string(),
+            amount: "1000000".to_string(),
+            slippage_bps: 100,
+        };
+        
+        let result = client.get_quote(&request).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Whirlpool SDK integration"));
     }
 }

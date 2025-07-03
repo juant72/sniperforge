@@ -214,11 +214,13 @@ impl StrategyExecutor {
                 (config.token.clone(), "USDC".to_string())
             };
 
-            match self.execute_single_trade(
+            match self.execute_single_trade_with_fallback(
                 &from_token,
                 &to_token,
                 config.trade_amount,
-                config.slippage_tolerance
+                config.slippage_tolerance,
+                &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
+                true // Enable fallback
             ).await {
                 Ok(trade) => {
                     execution_result.trades_executed.push(trade.clone());
@@ -280,11 +282,13 @@ impl StrategyExecutor {
 
             // For initial implementation, execute immediate trades
             // In production, this would place limit orders
-            match self.execute_single_trade(
+            match self.execute_single_trade_with_fallback(
                 &from_token,
                 &to_token,
                 amount_per_level,
-                config.slippage_tolerance
+                config.slippage_tolerance,
+                &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
+                true // Enable fallback
             ).await {
                 Ok(trade) => {
                     execution_result.trades_executed.push(trade.clone());
@@ -371,7 +375,7 @@ impl StrategyExecutor {
     ) -> Result<TradeExecution> {
         match dex {
             DexProvider::Orca => {
-                if let Some(orca_client) = &self.orca_client {
+                if let Some(_orca_client) = &self.orca_client {
                     self.execute_orca_trade(quote_request, from_token, to_token, amount, slippage_tolerance).await
                 } else {
                     Err(anyhow::anyhow!("Orca client not available"))
@@ -412,7 +416,7 @@ impl StrategyExecutor {
         // Get wallet credentials
         let wallet_name = "devnet-trading";
         let wallet_address = self.wallet_manager.get_wallet_address(wallet_name).await?;
-        let wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
+        let _wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
 
         // Build Orca swap transaction
         let orca_swap_request = crate::shared::orca_client::OrcaSwapRequest {
@@ -474,7 +478,7 @@ impl StrategyExecutor {
 
         if !swap_result.success {
             return Err(PlatformError::Trading(format!("Jupiter swap execution failed: {}", 
-                swap_result.transaction_signature.unwrap_or_default())).into());
+                swap_result.transaction_signature)).into());
         }
 
         Ok(TradeExecution {
@@ -483,7 +487,7 @@ impl StrategyExecutor {
             to_token: to_token.to_string(),
             amount_in: amount,
             amount_out: swap_result.output_amount,
-            transaction_signature: swap_result.transaction_signature.unwrap_or_default(),
+            transaction_signature: swap_result.transaction_signature,
             slippage: slippage_tolerance,
             fees: swap_result.fee_amount,
         })
