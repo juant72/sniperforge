@@ -3,12 +3,12 @@
 
 use anyhow::Result;
 use tracing::{info, error, warn};
+use solana_sdk::{signature::{Keypair, Signer}};
 use sniperforge::shared::{
     jupiter_api::Jupiter,
     jupiter_config::JupiterConfig,
     network_config::NetworkConfig,
 };
-use solana_sdk::signature::Keypair;
 
 #[tokio::main]
 async fn main() -> Result<()> {

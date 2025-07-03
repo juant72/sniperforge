@@ -369,6 +369,7 @@ impl Jupiter {
             } else {
                 // Check if it's a known program for this network
                 let is_known = program_id == self.network_config.program_ids.associated_token_program ||
+                              program_id == self.network_config.program_ids.compute_budget_program ||
                               Some(program_id) == self.network_config.program_ids.orca_whirlpool_program ||
                               Some(program_id) == self.network_config.program_ids.spl_token_swap_program;
                 

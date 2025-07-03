@@ -54,7 +54,7 @@ use rpc_pool::RpcConnectionPool;
 use wallet_manager::WalletManager;
 use data_feeds::MarketDataFeeds;
 use monitoring::MonitoringSystem;
-use jupiter::Jupiter;
+use jupiter_api::Jupiter;
 use websocket_manager::WebSocketManager;
 
 pub struct SharedServices {
