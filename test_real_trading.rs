@@ -1,23 +1,32 @@
 //! Test Real Trading Engine
 //! 
-//! This is a test script to verify that our real trading engine works correctly
+//! This script tests real DevNet transactions
 
 use anyhow::Result;
-use tracing::{info, warn, error};
-use tokio;
-
-use sniperforge::shared::real_trading_engine::{RealTradingEngine, RealTradingConfig, test_real_trading_engine};
-use sniperforge::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig, test_cache_free_trading};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
+    native_token::LAMPORTS_PER_SOL,
+};
+use tracing::{info, error};
+use chrono::Utc;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging
+    // Load environment variables
+    dotenv::dotenv().ok();
+    
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    println!("🚀 SNIPERFORGE REAL TRADING SYSTEM TEST");
-    println!("======================================");
+    info!("� REAL DEVNET SWAP SIMULATION");
+    info!("==============================");
+    info!("This simulates a real swap by doing multiple SOL transfers");
+    info!("Each transfer represents a step in a real trading strategy");
     
     // Test 1: Cache-Free Trading Engine
     println!("\n1️⃣ Testing Cache-Free Trading Engine...");

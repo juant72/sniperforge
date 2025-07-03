@@ -39,6 +39,10 @@ path = "test_orca_devnet_simple.rs"
 name = "test_simple_transfer"
 path = "test_simple_transfer.rs"
 
+[[bin]]
+name = "test_real_trading"
+path = "test_real_trading.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
