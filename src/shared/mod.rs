@@ -13,6 +13,10 @@ pub mod jupiter_client;          // HTTP client
 pub mod jupiter_api;             // Main business logic
 pub mod jupiter;                 // Legacy module (deprecated)
 
+// Multi-DEX Integration - NEW
+pub mod orca_client;             // NEW: Orca DEX client for DevNet/Mainnet
+pub mod dex_fallback_manager;    // NEW: Multi-DEX fallback logic
+
 pub mod real_data_manager;  // NEW: Centralized real data management
 pub mod real_trade_executor; // NEW: Real-only trade execution
 pub mod trade_executor;

@@ -1521,11 +1521,12 @@ async fn show_main_menu() -> Result<()> {
 async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     use sniperforge::trading::{StrategyExecutor, DCAConfig, MomentumConfig, GridConfig};
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
+    use sniperforge::shared::orca_client::{OrcaClient, OrcaConfig};
     use sniperforge::shared::wallet_manager::WalletManager;
     use std::fs;
 
-    println!("{}", "🚀 STRATEGY EXECUTION".bright_blue().bold());
-    println!("{}", "========================================".bright_blue());
+    println!("{}", "🚀 STRATEGY EXECUTION WITH MULTI-DEX FALLBACK".bright_blue().bold());
+    println!("{}", "==================================================".bright_blue());
 
     let strategy_type = matches.get_one::<String>("type").unwrap();
     let config_file = matches.get_one::<String>("config").unwrap();
@@ -1552,11 +1553,36 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     };
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
 
+    // Initialize Orca client (optional - fallback if fails)
+    let orca_config = if network == "mainnet" {
+        OrcaConfig::mainnet()
+    } else {
+        OrcaConfig::devnet()
+    };
+    let orca_client = match OrcaClient::new(&orca_config).await {
+        Ok(client) => {
+            println!("✅ Orca client initialized successfully");
+            Some(client)
+        }
+        Err(e) => {
+            println!("⚠️  Orca client initialization failed: {} (will use Jupiter fallback)", e);
+            None
+        }
+    };
+
     // Initialize wallet manager
     let wallet_manager = WalletManager::new(&config).await?;
 
-    // Create strategy executor
-    let executor = StrategyExecutor::new(wallet_manager, jupiter_client);
+    // Create strategy executor with multi-DEX support
+    let executor = StrategyExecutor::new(wallet_manager, jupiter_client, orca_client);
+
+    // Perform DEX health check
+    println!("\n🏥 Checking DEX health...");
+    let health_results = executor.check_dex_health().await;
+    for (dex, healthy) in &health_results {
+        let status = if *healthy { "✅" } else { "❌" };
+        println!("  {} {}", status, dex);
+    }
 
     // Load strategy configuration
     let config_content = fs::read_to_string(config_file)
