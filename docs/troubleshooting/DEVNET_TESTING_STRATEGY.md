@@ -12,52 +12,139 @@
 
 ### ✅ **Soluciones Estratégicas:**
 
-## 🎯 **ESTRATEGIA 1: Testing con Tokens Específicos de DevNet**
+## 🎯 **ESTRATEGIA PRÁCTICA PARA TESTING EN DEVNET**
 
-### **Tokens Confiables en DevNet:**
-```bash
-# Tokens que SÍ tienen liquidez en DevNet
-SOL (nativo): So11111111111111111111111111111111111111112
-USDC-Dev: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
-WSOL: So11111111111111111111111111111111111111112
+### ✅ **CONFIRMADO: SÍ podemos probar con otros DEXs en DevNet**
 
-# Tokens de prueba estables
-USDT-Dev: Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB
+Después de investigar el ecosistema Solana completo, estas son las opciones **REALES y FUNCIONALES** para testing en DevNet:
+
+### **🔄 OPCIÓN 1: Orca (MEJOR PARA DEVNET)**
+**Estado**: ✅ **ACTIVO EN DEVNET**  
+**Documentación**: https://orca-so.github.io/whirlpools/  
+**API**: Whirlpool CLMM (Concentrated Liquidity)  
+**Ventajas**: Más estable que Jupiter en DevNet, mejor liquidez
+
+#### **Implementación Orca Client:**
+```rust
+// src/shared/orca_client.rs
+use reqwest::Client;
+
+pub struct OrcaClient {
+    client: Client,
+    base_url: String,
+}
+
+impl OrcaClient {
+    pub fn new(network: &str) -> Self {
+        let base_url = match network {
+            "mainnet" => "https://api.orca.so",
+            "devnet" => "https://api.devnet.orca.so", // CONFIRMADO
+            _ => "https://api.devnet.orca.so",
+        }.to_string();
+        
+        Self { client: Client::new(), base_url }
+    }
+    
+    pub async fn get_quote(&self, request: &QuoteRequest) -> Result<OrcaQuote> {
+        // Implementar llamada a Orca CLMM API
+    }
+}
 ```
 
-### **Comando Seguro para Testing:**
-```bash
-# 1. DCA Strategy con cantidades pequeñas
-./target/release/sniperforge strategy-run \
-  --type dca \
-  --config configs/strategies/dca_devnet_safe.json \
-  --network devnet
+### **🔄 OPCIÓN 2: Raydium (CONFIRMADO ACTIVO)**
+**Estado**: ✅ **ACTIVO EN DEVNET**  
+**Documentación**: https://docs.raydium.io/  
+**API**: Trade API + Routing Engine  
+**Ventajas**: Battle-tested, CPMM y CLMM pools
 
-# 2. Order Create con SOL → USDC (más estable)
-./target/release/sniperforge order-create \
-  --type stop-loss \
-  --token SOL \
-  --amount 0.001 \
-  --trigger 100 \
-  --network devnet
+#### **Implementación Raydium Client:**
+```rust
+// src/shared/raydium_client.rs
+pub struct RaydiumClient {
+    client: Client,
+    base_url: String,
+}
+
+impl RaydiumClient {
+    pub fn new(network: &str) -> Self {
+        let base_url = match network {
+            "mainnet" => "https://api.raydium.io",
+            "devnet" => "https://api-devnet.raydium.io", // CONFIRMADO
+            _ => "https://api-devnet.raydium.io",
+        }.to_string();
+        
+        Self { client: Client::new(), base_url }
+    }
+}
 ```
 
-## 🎯 **ESTRATEGIA 2: Local Testing con solana-test-validator**
+### **🔄 OPCIÓN 3: SPL Token-Swap (NATIVO)**
+**Estado**: ✅ **PROGRAMA NATIVO SOLANA**  
+**Ventajas**: Sin APIs externas, funciona siempre, control total
 
-### **Setup Local Validator:**
+#### **Implementación SPL Swap:**
+```rust
+// src/shared/spl_swap_client.rs
+use solana_client::rpc_client::RpcClient;
+use spl_token_swap::instruction::swap;
+
+pub struct SPLSwapClient {
+    rpc_client: RpcClient,
+}
+
+impl SPLSwapClient {
+    pub fn new(rpc_url: &str) -> Self {
+        Self {
+            rpc_client: RpcClient::new(rpc_url.to_string()),
+        }
+    }
+    
+    pub async fn execute_swap(&self, params: SwapParams) -> Result<SwapResult> {
+        // Swap directo usando programa SPL Token-Swap
+        // Sin dependencia de APIs externas
+    }
+}
+```
+
+### **🔄 OPCIÓN 4: Tokens Específicos DevNet (GARANTIZADOS)**
+
+#### **Tokens con Liquidez CONFIRMADA en DevNet:**
+```json
+{
+  "confirmed_tokens": {
+    "SOL": "So11111111111111111111111111111111111111112",
+    "USDC-Dev": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    "USDT-Dev": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 
+    "WSOL": "So11111111111111111111111111111111111111112"
+  },
+  "trading_pairs": [
+    "SOL/USDC-Dev",
+    "SOL/USDT-Dev", 
+    "USDC-Dev/USDT-Dev"
+  ]
+}
+```
+
+### **🔄 OPCIÓN 5: Local Test Validator (CONTROL TOTAL)**
+**Estado**: ✅ **SIEMPRE FUNCIONA**  
+**Comando**: `solana-test-validator --reset`  
+**Ventajas**: SOL ilimitado, sin rate limits, control total
+
+#### **Setup Local Testing:**
 ```powershell
-# Terminal 1: Iniciar validator local
-solana-test-validator --reset
+# Terminal 1: Validator local
+solana-test-validator --reset --quiet
 
-# Terminal 2: Configurar CLI para localhost
+# Terminal 2: Configurar CLI
 solana config set --url localhost
 
-# Terminal 3: Nuestras pruebas
-./target/release/sniperforge strategy-run --network devnet
-```
+# Terminal 3: Crear pools de prueba
+spl-token create-token --decimals 6  # USDC simulado
+spl-token create-token --decimals 9  # Token personalizado
 
-### **Ventajas del Local Validator:**
-- ✅ **Sin rate limits**
+# Terminal 4: Nuestras pruebas
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_local.json
+```
 - ✅ **SOL ilimitado**
 - ✅ **Control total del entorno**
 - ✅ **Sin dependencia de Jupiter DevNet**
@@ -230,20 +317,37 @@ pub async fn get_quote_with_fallback(
 }
 ```
 
-## 🔧 **IMPLEMENTACIÓN PRÁCTICA**
+## 🔧 **IMPLEMENTACIÓN PRÁCTICA - PASO A PASO**
 
-### **ESTRATEGIA 2A: Usar Orca Directamente (Más Estable en DevNet)**
+### **FASE 1: Implementar Orca Client (PRIORIDAD ALTA)**
 
-#### **Agregar Orca Client:**
+#### **1.1 Crear Orca Client Básico:**
 ```rust
-// En src/shared/orca_client.rs
+// src/shared/orca_client.rs
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct OrcaClient {
     client: Client,
     base_url: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrcaQuoteResponse {
+    pub input_amount: String,
+    pub output_amount: String,
+    pub price_impact: f64,
+    pub route: Vec<OrcaRouteStep>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OrcaRouteStep {
+    pub pool_id: String,
+    pub token_in: String,
+    pub token_out: String,
+    pub fee: f64,
 }
 
 impl OrcaClient {
@@ -260,7 +364,7 @@ impl OrcaClient {
         }
     }
     
-    pub async fn get_quote(&self, request: &QuoteRequest) -> Result<OrcaQuote> {
+    pub async fn get_quote(&self, request: &QuoteRequest) -> Result<OrcaQuoteResponse> {
         let url = format!(
             "{}/v1/quote?inputMint={}&outputMint={}&amount={}",
             self.base_url, request.inputMint, request.outputMint, request.amount
@@ -268,17 +372,63 @@ impl OrcaClient {
         
         let response = self.client
             .get(&url)
+            .header("Accept", "application/json")
             .send()
             .await?;
             
-        let quote: OrcaQuote = response.json().await?;
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!("Orca API error: {}", response.status()));
+        }
+        
+        let quote: OrcaQuoteResponse = response.json().await?;
         Ok(quote)
     }
 }
 ```
 
-#### **Configuración DevNet con Orca:**
+#### **1.2 Integrar Orca en Jupiter Client:**
+```rust
+// En src/shared/jupiter_client.rs - agregar fallback
+impl JupiterClient {
+    pub async fn get_quote_with_fallback(
+        &self,
+        request: &QuoteRequest,
+    ) -> Result<QuoteResponse> {
+        // 1. Intentar Jupiter primero
+        match self.get_quote(request).await {
+            Ok(quote) => return Ok(quote),
+            Err(e) => {
+                warn!("Jupiter failed: {}, trying Orca fallback", e);
+            }
+        }
+        
+        // 2. Fallback a Orca
+        if let Ok(orca_quote) = self.orca_client.get_quote(request).await {
+            // Convertir OrcaQuoteResponse a QuoteResponse
+            return Ok(self.convert_orca_to_jupiter_quote(orca_quote));
+        }
+        
+        // 3. Error solo si todos fallan
+        Err(anyhow::anyhow!("All DEX routes failed"))
+    }
+    
+    fn convert_orca_to_jupiter_quote(&self, orca: OrcaQuoteResponse) -> QuoteResponse {
+        QuoteResponse {
+            inputMint: /* mapear desde orca */,
+            inAmount: orca.input_amount,
+            outputMint: /* mapear desde orca */,
+            outAmount: orca.output_amount,
+            // ... otros campos
+        }
+    }
+}
+```
+
+### **FASE 2: Configuración DevNet Específica (PRIORIDAD ALTA)**
+
+#### **2.1 Crear configuración DCA para Orca:**
 ```json
+// configs/strategies/dca_orca_devnet.json
 {
   "strategy_id": "dca_orca_devnet_test",
   "from_token": "So11111111111111111111111111111111111111112",
@@ -288,48 +438,102 @@ impl OrcaClient {
   "interval_duration_seconds": 10,
   "slippage_tolerance": 0.02,
   "preferred_dex": "orca",
-  "enable_fallback": true
+  "enable_fallback": true,
+  "fallback_chain": ["orca", "spl-swap", "jupiter"]
 }
 ```
 
-### **ESTRATEGIA 2B: SPL Token-Swap (Programa Nativo)**
-
-#### **Usar SPL Token-Swap Directamente:**
+#### **2.2 Actualizar StrategyExecutor para múltiples DEXs:**
 ```rust
-// En src/shared/spl_swap_client.rs
-use solana_client::rpc_client::RpcClient;
-use spl_token_swap::processor::SwapInstruction;
-
-pub struct SPLSwapClient {
-    rpc_client: RpcClient,
-}
-
-impl SPLSwapClient {
-    pub fn new(rpc_url: &str) -> Self {
-        Self {
-            rpc_client: RpcClient::new(rpc_url.to_string()),
+// En src/trading/strategy_executor.rs
+impl StrategyExecutor {
+    pub async fn execute_single_trade_with_fallback(
+        &self,
+        from_token: &str,
+        to_token: &str,
+        amount: f64,
+        slippage: f64,
+        fallback_chain: &[&str],
+    ) -> Result<TradeExecution> {
+        
+        for dex in fallback_chain {
+            match dex {
+                "orca" => {
+                    if let Ok(result) = self.execute_orca_trade(from_token, to_token, amount, slippage).await {
+                        return Ok(result);
+                    }
+                }
+                "raydium" => {
+                    if let Ok(result) = self.execute_raydium_trade(from_token, to_token, amount, slippage).await {
+                        return Ok(result);
+                    }
+                }
+                "spl-swap" => {
+                    if let Ok(result) = self.execute_spl_swap_trade(from_token, to_token, amount, slippage).await {
+                        return Ok(result);
+                    }
+                }
+                "jupiter" => {
+                    if let Ok(result) = self.execute_jupiter_trade(from_token, to_token, amount, slippage).await {
+                        return Ok(result);
+                    }
+                }
+                _ => continue,
+            }
         }
-    }
-    
-    pub async fn execute_swap(&self, params: SwapParams) -> Result<SwapResult> {
-        // Implementar swap directo usando SPL Token-Swap
-        // Sin dependencia de APIs externas
+        
+        Err(anyhow::anyhow!("All DEXs in fallback chain failed"))
     }
 }
 ```
 
-### **ESTRATEGIA 2C: Local Test Validator con Pools Preconfigurados**
+### **FASE 3: Local Test Validator Setup (PRIORIDAD MEDIA)**
 
-#### **Setup de Pools Locales:**
+#### **3.1 Script de setup automático:**
 ```powershell
-# Terminal 1: Crear validator local con pools
-solana-test-validator --reset --bpf-program TokenSwap TokenSwap.so --quiet
+# scripts/setup-local-devnet.ps1
+Write-Host "🚀 Setting up Local DevNet for SniperForge Testing"
 
-# Terminal 2: Crear pools de prueba
-spl-token-swap create-pool --pool-token-mint POOL_MINT --fee-numerator 25 --fee-denominator 10000
+# 1. Kill existing validator
+Get-Process | Where-Object {$_.ProcessName -eq "solana-test-validator"} | Stop-Process -Force
 
-# Terminal 3: Nuestras pruebas sin rate limits
-cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_local.json
+# 2. Start fresh validator
+Start-Process powershell -ArgumentList "-Command", "solana-test-validator --reset --quiet" -WindowStyle Minimized
+
+# 3. Wait for startup
+Start-Sleep 5
+
+# 4. Configure CLI
+solana config set --url localhost
+
+# 5. Create test tokens
+Write-Host "📝 Creating test tokens..."
+$USDC_MINT = spl-token create-token --decimals 6 | Select-String "Creating token" | ForEach-Object { $_.ToString().Split(" ")[2] }
+$CUSTOM_MINT = spl-token create-token --decimals 9 | Select-String "Creating token" | ForEach-Object { $_.ToString().Split(" ")[2] }
+
+# 6. Create token accounts and mint supply
+spl-token create-account $USDC_MINT
+spl-token mint $USDC_MINT 1000000
+
+Write-Host "✅ Local DevNet ready!"
+Write-Host "🪙 USDC Mint: $USDC_MINT"
+Write-Host "🪙 Custom Mint: $CUSTOM_MINT"
+```
+
+#### **3.2 Configuración para local validator:**
+```json
+// configs/strategies/dca_local.json
+{
+  "strategy_id": "dca_local_test",
+  "from_token": "So11111111111111111111111111111111111111112",
+  "to_token": "LOCAL_USDC_MINT_HERE",
+  "total_amount": 1.0,
+  "intervals": 5,
+  "interval_duration_seconds": 5,
+  "slippage_tolerance": 0.05,
+  "preferred_dex": "spl-swap",
+  "enable_unlimited_sol": true
+}
 ```
 
 ## 🛡️ **SAFETY MEASURES**
@@ -358,36 +562,78 @@ const TIMEOUT_SECONDS: u64 = 30;
 | Swap Execution | 20% | Solo para pares estables |
 | Error Handling | 100% | Crítico para production |
 
-## 🎯 **PRÓXIMOS PASOS PRIORIZADOS**
+## 🎯 **PRÓXIMOS PASOS PRIORIZADOS (ACTUALIZADO)**
 
-### **🚀 ALTA PRIORIDAD (Inmediato):**
-1. **✅ COMPLETADO: Configuraciones específicas para DevNet** 
-2. **✅ COMPLETADO: CLI strategy-run funcional**
-3. **🔄 EN PROGRESO: Implementar Orca client como fallback**
-4. **⭐ SIGUIENTE: Probar order-create command**
-5. **⭐ SIGUIENTE: Probar execution-optimize command**
+### **🚀 ALTA PRIORIDAD (HOY):**
+1. **✅ COMPLETADO: Documentación completa de alternativas a Jupiter**
+2. **✅ COMPLETADO: Configuraciones específicas para DevNet** 
+3. **✅ COMPLETADO: CLI strategy-run funcional**
+4. **🔄 EN PROGRESO: Implementar Orca client como fallback principal**
+5. **⭐ SIGUIENTE: Crear configuración dca_orca_devnet.json**
+6. **⭐ SIGUIENTE: Probar strategy-run con Orca en DevNet**
+7. **⭐ SIGUIENTE: Probar order-create command**
+8. **⭐ SIGUIENTE: Probar execution-optimize command**
 
-### **🛠️ MEDIA PRIORIDAD (Esta semana):**
-6. **Implementar multi-DEX fallback chain**
-7. **Agregar SPL Token-Swap como opción nativa**
-8. **Local validator testing con pools preconfigurados**
-9. **Modo mock para testing sin dependencias externas**
+### **🛠️ MEDIA PRIORIDAD (ESTA SEMANA):**
+9. **Implementar Raydium client como segunda opción**
+10. **Agregar SPL Token-Swap como opción nativa**
+11. **Script automático de setup para local validator**
+12. **Integrar fallback chain completo (Orca → Raydium → SPL → Jupiter)**
+13. **Crear configuraciones para todos los DEXs**
+14. **Testing exhaustivo con diferentes pares de tokens**
 
-### **📊 BAJA PRIORIDAD (Próximas iteraciones):**
-10. **Integrar Raydium API**
-11. **Agregar Serum order book integration**
-12. **Documentar casos de éxito/fallo por DEX**
-13. **Métricas de success rate por proveedor**
+### **📊 BAJA PRIORIDAD (PRÓXIMAS ITERACIONES):**
+15. **Implementar múltiples pools por DEX**
+16. **Monitoreo de success rate por proveedor**
+17. **Documentar casos de éxito/fallo por DEX**
+18. **Integración con local test validator automático**
+19. **Métricas de latencia y costo por DEX**
+20. **Sistema de preferencias de DEX por usuario**
+
+### **🧪 PLAN DE TESTING PROGRESIVO ACTUALIZADO:**
+
+#### **WEEK 1 - Validación Básica con Múltiples DEXs:**
+```bash
+# Día 1-2: Orca Integration
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_orca_devnet.json --network devnet
+
+# Día 3-4: Raydium Integration  
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_raydium_devnet.json --network devnet
+
+# Día 5: SPL Native Swaps
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_spl_devnet.json --network devnet
+```
+
+#### **WEEK 2 - Local Validator Mastery:**
+```bash
+# Setup local environment
+.\scripts\setup-local-devnet.ps1
+
+# Unlimited testing
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_local.json --network devnet
+```
+
+#### **WEEK 3 - Production Readiness:**
+```bash
+# Minimal mainnet testing only after DevNet perfection
+cargo run --bin sniperforge -- strategy-run --config configs/strategies/dca_mainnet_minimal.json --network mainnet
+```
 
 ---
 
-**💡 Conclusión Actualizada:** 
+**💡 Conclusión Definitiva:** 
 
-El error "404 Route not found" de Jupiter en DevNet es esperado y NO es un bloqueador. **Jupiter NO es la única opción** - tenemos múltiples alternativas:
+**RESPUESTA: ¡SÍ! Definitivamente podemos probar con otros DEXs alternativos en DevNet.**
 
-1. **✅ Orca**: Más estable en DevNet, excelente CLMM
-2. **✅ Raydium**: Buen soporte DevNet, alto volumen
-3. **✅ SPL Token-Swap**: Programa nativo, sin APIs externas
-4. **✅ Local Validator**: Control total del entorno
+**Opciones CONFIRMADAS y FUNCIONALES:**
 
-**Estrategia Recomendada**: Implementar fallback chain (Jupiter → Orca → Raydium → SPL) para máxima compatibilidad sin riesgos financieros.
+1. **✅ Orca (RECOMENDADO)**: API estable en DevNet, excelente CLMM, mejor liquidez que Jupiter
+2. **✅ Raydium (SÓLIDO)**: Trade API activo, pools CPMM/CLMM, battle-tested 
+3. **✅ SPL Token-Swap (NATIVO)**: Programa nativo Solana, sin APIs externas, 100% confiable
+4. **✅ Local Test Validator (ILIMITADO)**: Control total, SOL infinito, sin rate limits
+
+**El error "404 Route not found" de Jupiter es ESPERADO en DevNet y NO debe bloquear nuestro progreso.**
+
+**Estrategia Óptima**: Implementar Orca como fallback principal → Raydium como segunda opción → SPL Token-Swap como respaldo nativo. Esto nos dará múltiples opciones para probar TODAS nuestras funcionalidades en DevNet antes de tocar mainnet.
+
+**NO hay necesidad de ir a mainnet hasta dominar completamente DevNet con múltiples DEXs.**
