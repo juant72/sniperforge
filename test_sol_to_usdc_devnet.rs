@@ -8,9 +8,10 @@ use solana_sdk::{
     signer::Signer,
     commitment_config::CommitmentConfig,
 };
-use std::fs;
+use std::{fs, env};
 use std::error::Error;
 use sniperforge::shared::jupiter_api::Jupiter;
+use sniperforge::shared::jupiter_config::JupiterConfig;
 use sniperforge::shared::network_config::NetworkConfig;
 
 #[tokio::main]
@@ -21,16 +22,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("==================================================");
     
     // Configuración DevNet
-    let config = NetworkConfig::devnet();
-    let rpc_client = RpcClient::new_with_commitment(&config.rpc_endpoint, CommitmentConfig::confirmed());
+    let network_config = NetworkConfig::devnet();
+    let jupiter_config = JupiterConfig::devnet();
+    let rpc_client = RpcClient::new_with_commitment(&network_config.rpc_endpoint, CommitmentConfig::confirmed());
     
     // Cargar wallet
-    let wallet_path = "test-wallet-new.json";
-    println!("📂 Loading wallet from: {}", wallet_path);
+    println!("📂 Loading wallet from environment...");
     
-    let wallet_data = fs::read_to_string(wallet_path)?;
-    let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_data)?;
-    let wallet = Keypair::from_bytes(&wallet_bytes)?;
+    let private_key = env::var("SOLANA_PRIVATE_KEY")
+        .expect("SOLANA_PRIVATE_KEY not found in environment");
+    
+    let private_key_bytes = bs58::decode(private_key)
+        .into_vec()
+        .expect("Failed to decode private key");
+    
+    let wallet = Keypair::from_bytes(&private_key_bytes)
+        .expect("Failed to create wallet from private key");
     
     println!("✅ Wallet loaded successfully");
     println!("🔑 Public key: {}", wallet.pubkey());
@@ -48,16 +55,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     
     // Inicializar Jupiter API
     println!("\n🌍 Initializing Jupiter API...");
-    let jupiter = Jupiter::new(&config).await?;
+    let jupiter = Jupiter::new_with_network(&jupiter_config, network_config.clone()).await?;
     println!("✅ Jupiter API connected");
     
     // Configurar swap: SOL -> USDC
-    let sol_mint = config.token_addresses.sol;
-    let usdc_mint = config.token_addresses.usdc.expect("USDC not configured for DevNet");
-    let amount_lamports = 10_000; // 0.00001 SOL
+    let sol_mint = network_config.token_addresses.sol;
+    let usdc_mint = network_config.token_addresses.usdc.expect("USDC not configured for DevNet");
+    let amount_sol = 0.00001; // 0.00001 SOL
     
     println!("\n📊 Getting quote from Jupiter...");
-    println!("   Input: {} SOL", amount_lamports as f64 / 1_000_000_000.0);
+    println!("   Input: {} SOL", amount_sol);
     println!("   From: {} (SOL)", sol_mint);
     println!("   To: {} (USDC)", usdc_mint);
     
@@ -65,31 +72,40 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let quote = jupiter.get_quote(
         &sol_mint.to_string(),
         &usdc_mint.to_string(),
-        amount_lamports,
+        amount_sol,
         300, // 3% slippage
     ).await?;
     
     println!("✅ Quote received from Jupiter");
-    println!("   Output: {} USDC tokens", quote.out_amount);
-    println!("   Price Impact: {}%", quote.price_impact_pct.unwrap_or(0.0));
-    println!("   Route: {} steps", quote.route_plan.len());
+    println!("   Output: {} USDC tokens", quote.out_amount());
+    println!("   Price Impact: {}%", quote.price_impact_pct());
+    println!("   Route: {} steps", quote.routePlan.len());
     
     // Construir y ejecutar transacción
     println!("\n🚀 EXECUTING REAL SWAP ON DEVNET...");
     
-    match jupiter.execute_swap_with_wallet(&quote, &wallet, &rpc_client).await {
-        Ok(signature) => {
-            println!("✅ SWAP EXECUTED SUCCESSFULLY!");
-            println!("📝 Transaction signature: {}", signature);
-            println!("🔗 View on Solana Explorer:");
-            println!("   https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-            
-            // Verificar nuevo balance
-            println!("\n💰 Checking new balance...");
-            let new_balance = rpc_client.get_balance(&wallet.pubkey())?;
-            let new_sol_balance = new_balance as f64 / 1_000_000_000.0;
-            println!("   New balance: {} SOL", new_sol_balance);
-            println!("   Difference: {} SOL", new_sol_balance - sol_balance);
+    match jupiter.execute_swap_with_wallet(&quote, &wallet.pubkey().to_string(), Some(&wallet)).await {
+        Ok(result) => {
+            if result.success {
+                println!("✅ SWAP EXECUTED SUCCESSFULLY!");
+                println!("📝 Transaction signature: {}", result.transaction_signature);
+                println!("🔗 View on Solana Explorer:");
+                println!("   https://explorer.solana.com/tx/{}?cluster=devnet", result.transaction_signature);
+                
+                // Verificar nuevo balance
+                println!("\n💰 Checking new balance...");
+                let new_balance = rpc_client.get_balance(&wallet.pubkey())?;
+                let new_sol_balance = new_balance as f64 / 1_000_000_000.0;
+                println!("   New balance: {} SOL", new_sol_balance);
+                println!("   Difference: {} SOL", new_sol_balance - sol_balance);
+            } else {
+                println!("❌ SWAP EXECUTION FAILED");
+                println!("   Transaction signature: {}", result.transaction_signature);
+                println!("   Logs:");
+                for log in result.logs {
+                    println!("     {}", log);
+                }
+            }
         }
         Err(e) => {
             println!("❌ SWAP EXECUTION FAILED");

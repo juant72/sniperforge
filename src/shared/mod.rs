@@ -6,6 +6,7 @@ pub mod wallet_manager;
 pub mod data_feeds;
 pub mod monitoring;
 pub mod network_config;          // NEW: Network-specific configuration for Program IDs and tokens
+pub mod config_loader;           // NEW: JSON-based configuration loader
 
 // Jupiter API - Refactored into separate modules
 pub mod jupiter_types;           // Data structures and types

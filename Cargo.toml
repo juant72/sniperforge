@@ -59,6 +59,14 @@ path = "test_jupiter_fixed.rs"
 name = "test_sol_to_usdc_devnet"
 path = "test_sol_to_usdc_devnet.rs"
 
+[[bin]]
+name = "find_working_routes"
+path = "find_working_routes.rs"
+
+[[bin]]
+name = "test_json_config_trading"
+path = "test_json_config_trading.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
