@@ -8,6 +8,10 @@ name = "request_devnet_airdrop"
 path = "request_devnet_airdrop.rs"
 
 [[bin]]
+name = "test_devnet_tokens"
+path = "test_devnet_tokens.rs"
+
+[[bin]]
 name = "create_test_wallet"
 path = "create_test_wallet.rs"
 
@@ -50,6 +54,10 @@ path = "test_real_swap_configured.rs"
 [[bin]]
 name = "test_jupiter_fixed"
 path = "test_jupiter_fixed.rs"
+
+[[bin]]
+name = "test_sol_to_usdc_devnet"
+path = "test_sol_to_usdc_devnet.rs"
 
 [lib]
 name = "sniperforge"

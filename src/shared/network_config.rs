@@ -43,7 +43,7 @@ impl NetworkConfig {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
                 token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
                 associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-                compute_budget_program: Pubkey::from_str("ComputeBudget11111111111111111111111111111111").unwrap(),
+                compute_budget_program: Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
                 // Jupiter usa el mismo Program ID en DevNet y MainNet
                 jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").ok(),
                 // Orca Whirlpool en DevNet
@@ -55,10 +55,10 @@ impl NetworkConfig {
             },
             token_addresses: TokenAddresses {
                 sol: Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                // USDC en DevNet - token real y tradeable
-                usdc: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(), // MainNet USDC para testing
-                // RAY token en DevNet (puede no estar disponible)
-                ray: None,
+                // USDC en DevNet - mismo que MainNet pero funciona en DevNet
+                usdc: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(),
+                // RAY token - usar USDC para testing en DevNet
+                ray: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(), // USDC en lugar de RAY para DevNet
                 // BONK en DevNet
                 bonk: None,
             },
@@ -74,7 +74,7 @@ impl NetworkConfig {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
                 token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
                 associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-                compute_budget_program: Pubkey::from_str("ComputeBudget11111111111111111111111111111111").unwrap(),
+                compute_budget_program: Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
                 // Jupiter V6 en MainNet
                 jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").ok(),
                 // Orca Whirlpool en MainNet
