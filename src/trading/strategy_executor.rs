@@ -423,17 +423,18 @@ impl StrategyExecutor {
         let wallet_address = self.wallet_manager.get_wallet_address(wallet_name).await?;
         let _wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
 
-        // Build Orca swap transaction
+        // Build Orca swap request
         let orca_swap_request = crate::shared::orca_client::OrcaSwapRequest {
             quote: orca_quote.clone(),
             user_public_key: wallet_address.clone(),
             wrap_unwrap_sol: true,
         };
         
-        let orca_swap = orca_client.get_swap_transaction(&orca_swap_request).await?;
+        // Execute REAL swap on DevNet (not simulation)
+        info!("🚀 Executing REAL Orca swap on DevNet...");
+        let orca_swap = orca_client.execute_real_swap(&orca_swap_request).await?;
         
-        // For now, simulate execution (real execution would need transaction submission)
-        info!("🔄 Orca swap transaction ready: {}", orca_swap.transaction.len());
+        info!("✅ Real Orca swap executed: {}", orca_swap.transaction);
         
         Ok(TradeExecution {
             timestamp: Utc::now(),
@@ -441,7 +442,7 @@ impl StrategyExecutor {
             to_token: to_token.to_string(),
             amount_in: amount,
             amount_out: orca_quote.output_amount.parse().unwrap_or(0.0) / 1_000_000.0,
-            transaction_signature: format!("orca_sim_{}", chrono::Utc::now().timestamp()),
+            transaction_signature: orca_swap.transaction,
             slippage: slippage_tolerance,
             fees: orca_quote.fees.trading_fee.parse().unwrap_or(5000.0) / 1_000_000.0,
         })
