@@ -67,6 +67,14 @@ path = "find_working_routes.rs"
 name = "test_json_config_trading"
 path = "test_json_config_trading.rs"
 
+[[bin]]
+name = "verify_devnet_tokens"
+path = "verify_devnet_tokens.rs"
+
+[[bin]]
+name = "find_real_devnet_tokens"
+path = "find_real_devnet_tokens.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

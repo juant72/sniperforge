@@ -10,7 +10,7 @@ use solana_sdk::{
 };
 use std::env;
 use std::error::Error;
-use sniperforge::shared::config_loader::{NetworkConfigFile, ParsedNetworkConfig};
+use sniperforge::shared::config_loader::NetworkConfigFile;
 use sniperforge::shared::jupiter_api::Jupiter;
 use sniperforge::shared::jupiter_config::JupiterConfig;
 
@@ -123,7 +123,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("✅ Jupiter API connected");
     
     // Determinar cantidad de swap usando límites de configuración
-    let swap_amount = trading_pair.min_trade_amount.max(0.00001);
+    let swap_amount = trading_pair.min_trade_amount; // Usar exactamente el mínimo configurado
     let max_allowed = config.max_swap_amount();
     
     if swap_amount > max_allowed {
@@ -154,13 +154,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if config.feature_flags.verbose_logging {
         println!("\n📍 Route Details:");
         for (i, step) in quote.routePlan.iter().enumerate() {
-            if let Some(swap_info) = &step.swapInfo {
-                println!("   Step {}: {} -> {} via {}", 
-                         i + 1,
-                         swap_info.inputMint,
-                         swap_info.outputMint,
-                         swap_info.label.as_deref().unwrap_or("Unknown DEX"));
-            }
+            let swap_info = &step.swapInfo;
+            println!("   Step {}: {} -> {} via {}", 
+                     i + 1,
+                     swap_info.inputMint,
+                     swap_info.outputMint,
+                     swap_info.label);
         }
     }
     
