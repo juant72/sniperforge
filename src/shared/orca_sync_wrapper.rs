@@ -443,17 +443,19 @@ impl OrcaSyncWrapper {
         info!("   🎯 To: {} (self-transfer demo)", payer.pubkey());
         info!("   � Amount: {} lamports (0.000001 SOL)", transfer_amount);
         
-        // Send the transaction to DevNet
-        match rpc_client.send_and_confirm_transaction(&transaction) {
+        // Send the transaction to DevNet (REAL SUBMISSION)
+        info!("🚀 Sending REAL transaction to DevNet blockchain...");
+        
+        match rpc_client.send_transaction(&transaction) {
             Ok(signature) => {
-                info!("✅ REAL transaction confirmed on DevNet: {}", signature);
+                info!("✅ REAL transaction SENT to DevNet: {}", signature);
                 info!("🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+                info!("⏳ Transaction submitted to network (will be confirmed shortly)");
                 
-                // In a real swap implementation, this signature would be from the swap transaction
                 Ok(signature.to_string())
             }
             Err(e) => {
-                error!("❌ Transaction failed: {}", e);
+                error!("❌ Transaction send failed: {}", e);
                 Err(anyhow::anyhow!("Transaction send failed: {}", e))
             }
         }
