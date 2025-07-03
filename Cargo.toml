@@ -47,6 +47,10 @@ path = "test_real_trading.rs"
 name = "test_real_swap_configured"
 path = "test_real_swap_configured.rs"
 
+[[bin]]
+name = "test_jupiter_fixed"
+path = "test_jupiter_fixed.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
