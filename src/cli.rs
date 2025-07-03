@@ -36,6 +36,14 @@ use sniperforge::ml::advanced_analytics::AdvancedAnalyticsEngine;
 use sniperforge::portfolio::demo_integration::run_portfolio_demo;
 use sniperforge::portfolio::professional_integration::run_professional_portfolio;
 
+// DEV2 Trading Engine imports
+use sniperforge::trading::{
+    StrategyExecutor, OrderManager, ExecutionOptimizer,
+    DCAConfig, MomentumConfig, GridConfig,
+    StopLossParams, TakeProfitParams, TrailingStopParams,
+    TrailingDirection, TradeParams, TradeUrgency
+};
+
 // TODO: Re-enable when ML module compilation is fixed
 /*
 use sniperforge::ml::{
