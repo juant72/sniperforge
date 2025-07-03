@@ -269,7 +269,7 @@ impl DexFallbackManager {
                         in_amount: jupiter_quote.in_amount() as u64,
                         out_amount: jupiter_quote.out_amount() as u64,
                         slippage_bps: request.slippage_bps,
-                        price_impact_pct: jupiter_quote.price_impact_pct().unwrap_or(0.0),
+                        price_impact_pct: jupiter_quote.price_impact_pct(),
                         fee_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
                         fee_amount: 5000, // Default Solana fee
                         dex_provider: DexProvider::Jupiter,

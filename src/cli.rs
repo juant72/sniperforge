@@ -1521,7 +1521,7 @@ async fn show_main_menu() -> Result<()> {
 async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     use sniperforge::trading::{StrategyExecutor, DCAConfig, MomentumConfig, GridConfig};
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
-    use sniperforge::shared::orca_client::{OrcaClient, OrcaConfig};
+    use sniperforge::shared::orca_client::OrcaClient;
     use sniperforge::shared::wallet_manager::WalletManager;
     use std::fs;
 
@@ -1554,19 +1554,10 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
 
     // Initialize Orca client (optional - fallback if fails)
-    let orca_config = if network == "mainnet" {
-        OrcaConfig::mainnet()
-    } else {
-        OrcaConfig::devnet()
-    };
-    let orca_client = match OrcaClient::new(&orca_config).await {
-        Ok(client) => {
+    let orca_client = match OrcaClient::new(if network == "mainnet" { "mainnet" } else { "devnet" }) {
+        client => {
             println!("✅ Orca client initialized successfully");
             Some(client)
-        }
-        Err(e) => {
-            println!("⚠️  Orca client initialization failed: {} (will use Jupiter fallback)", e);
-            None
         }
     };
 
