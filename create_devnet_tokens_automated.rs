@@ -8,13 +8,13 @@ use solana_sdk::{
 };
 use spl_token::{
     instruction as token_instruction,
-    state::{Account as TokenAccount, Mint},
+    state::Mint,
+    solana_program::program_pack::Pack,
 };
 use spl_associated_token_account::{
     get_associated_token_address,
     instruction::create_associated_token_account,
 };
-use std::str::FromStr;
 use dotenv::dotenv;
 use std::env;
 
@@ -27,20 +27,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("🚀 === SniperForge: Creador Automático de Tokens DevNet ===");
     
-    // Configurar cliente RPC para DevNet
-    let rpc_url = "https://api.devnet.solana.com";
-    let client = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
+    // Configurar cliente RPC para DevNet - usar RPC alternativo más estable
+    let rpc_urls = vec![
+        "https://api.devnet.solana.com",
+        "https://devnet.genesysgo.net",
+        "https://solana-devnet.g.alchemy.com/v2/demo",
+    ];
     
-    println!("🌐 Conectado a DevNet: {}", rpc_url);
+    let mut client = None;
+    let mut working_rpc = "";
+    
+    for rpc_url in &rpc_urls {
+        println!("🔍 Probando RPC: {}", rpc_url);
+        let test_client = RpcClient::new_with_commitment(rpc_url.to_string(), CommitmentConfig::confirmed());
+        
+        // Test de conectividad
+        if let Ok(latest_blockhash) = test_client.get_latest_blockhash() {
+            println!("✅ RPC funcionando: {}", rpc_url);
+            client = Some(test_client);
+            working_rpc = rpc_url;
+            break;
+        } else {
+            println!("❌ RPC no disponible: {}", rpc_url);
+        }
+    }
+    
+    let client = client.expect("No se pudo conectar a ningún RPC de DevNet");
+    
+    println!("🌐 Conectado a DevNet: {}", working_rpc);
     
     // Cargar wallet desde .env
     let private_key_str = env::var("SOLANA_PRIVATE_KEY")
         .expect("SOLANA_PRIVATE_KEY no encontrada en .env");
     
-    let private_key_bytes: Vec<u8> = private_key_str
-        .split(',')
-        .map(|s| s.trim().parse::<u8>().unwrap())
-        .collect();
+    // Decodificar desde base58 (formato de Phantom/Solflare)
+    let private_key_bytes = bs58::decode(&private_key_str)
+        .into_vec()
+        .expect("Error decodificando clave privada desde base58");
     
     let payer = Keypair::from_bytes(&private_key_bytes)?;
     println!("💰 Wallet cargada: {}", payer.pubkey());
@@ -56,13 +79,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
     
-    // Definir tokens a crear
+    // Definir tokens a crear - empezar con menos para testing
     let tokens_to_create = vec![
-        ("TEST_USDC", 6, 10000),
-        ("TEST_USDT", 6, 8000),
-        ("TEST_RAY", 6, 5000),
-        ("TEST_BTC", 8, 100),  // Simular Bitcoin con 8 decimales
-        ("TEST_ETH", 18, 1000), // Simular Ethereum con 18 decimales
+        ("TEST_USDC", 6, 1000),   // Reducir supply inicial
+        ("TEST_USDT", 6, 1000),
+        ("TEST_RAY", 6, 500),
     ];
     
     let mut created_tokens = Vec::new();
@@ -84,12 +105,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         
-        // Pausa para evitar rate limiting
-        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+        // Pausa más larga para evitar rate limiting
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
     
     // Generar archivo de configuración JSON
-    generate_config_file(&created_tokens)?;
+    generate_config_file(&created_tokens, working_rpc)?;
     
     // Mostrar resumen
     println!("\n🎉 === RESUMEN FINAL ===");
@@ -142,7 +163,7 @@ async fn create_token_with_supply(
         decimals,
     )?;
     
-    // Crear y enviar transacción para el mint
+    // Crear y enviar transacción para el mint con reintentos
     let mut transaction = Transaction::new_with_payer(
         &[create_mint_account_ix, init_mint_ix],
         Some(&payer.pubkey()),
@@ -151,7 +172,8 @@ async fn create_token_with_supply(
     let recent_blockhash = client.get_latest_blockhash()?;
     transaction.sign(&[payer, &mint_keypair], recent_blockhash);
     
-    let signature = client.send_and_confirm_transaction(&transaction)?;
+    // Intentar enviar con reintentos
+    let signature = retry_transaction(client, &transaction).await?;
     println!("   📝 Mint creado: {}", signature);
     
     // Crear associated token account
@@ -172,7 +194,7 @@ async fn create_token_with_supply(
     let recent_blockhash = client.get_latest_blockhash()?;
     ata_transaction.sign(&[payer], recent_blockhash);
     
-    let ata_signature = client.send_and_confirm_transaction(&ata_transaction)?;
+    let ata_signature = retry_transaction(client, &ata_transaction).await?;
     println!("   📦 Token account creado: {}", ata_signature);
     
     // Mintear tokens al associated token account
@@ -193,15 +215,38 @@ async fn create_token_with_supply(
     let recent_blockhash = client.get_latest_blockhash()?;
     mint_transaction.sign(&[payer], recent_blockhash);
     
-    let mint_signature = client.send_and_confirm_transaction(&mint_transaction)?;
+    let mint_signature = retry_transaction(client, &mint_transaction).await?;
     println!("   🏭 Tokens minteados: {}", mint_signature);
     
     Ok((mint_pubkey, associated_token_account))
 }
 
-fn generate_config_file(tokens: &[(String, Pubkey, u8, i32)]) -> Result<(), Box<dyn std::error::Error>> {
-    use std::collections::HashMap;
-    use serde_json::{json, Map, Value};
+async fn retry_transaction(
+    client: &RpcClient,
+    transaction: &Transaction,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let max_retries = 3;
+    let mut last_error = None;
+    
+    for attempt in 1..=max_retries {
+        match client.send_and_confirm_transaction(transaction) {
+            Ok(signature) => return Ok(signature.to_string()),
+            Err(e) => {
+                println!("   ⚠️  Intento {}/{} falló: {}", attempt, max_retries, e);
+                last_error = Some(e);
+                
+                if attempt < max_retries {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                }
+            }
+        }
+    }
+    
+    Err(Box::new(last_error.unwrap()))
+}
+
+fn generate_config_file(tokens: &[(String, Pubkey, u8, i32)], rpc_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::{json, Map};
     
     let mut token_map = Map::new();
     
@@ -229,7 +274,7 @@ fn generate_config_file(tokens: &[(String, Pubkey, u8, i32)]) -> Result<(), Box<
     
     let config = json!({
         "network": "devnet",
-        "cluster_url": "https://api.devnet.solana.com",
+        "cluster_url": rpc_url,
         "enable_real_swaps": true,
         "description": "Configuración automática con tokens creados programáticamente",
         "created_at": chrono::Utc::now().to_rfc3339(),

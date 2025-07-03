@@ -79,6 +79,14 @@ path = "find_real_devnet_tokens.rs"
 name = "create_devnet_tokens_automated"
 path = "create_devnet_tokens_automated.rs"
 
+[[bin]]
+name = "test_automated_tokens"
+path = "test_automated_tokens.rs"
+
+[[bin]]
+name = "test_devnet_functionality"
+path = "test_devnet_functionality.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
