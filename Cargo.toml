@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
+name = "request_devnet_airdrop"
+path = "request_devnet_airdrop.rs"
+
+[[bin]]
+name = "create_test_wallet"
+path = "create_test_wallet.rs"
+
+[[bin]]
 name = "sniperforge"
 path = "src/main.rs"
 
