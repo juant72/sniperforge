@@ -48,6 +48,9 @@ bincode = { version = "1.3", default-features = false }
 # Web3 and crypto - compatible versions with Solana 2.2.1
 # anchor-client = { version = "0.30.1", default-features = false }
 # anchor-lang = { version = "0.30.1", default-features = false }
+
+# Orca Whirlpool SDK
+orca_whirlpools = { version = "3.1.0", default-features = false }
 base64 = { version = "0.22.1", default-features = false }
 bs58 = { version = "0.5", default-features = false }
 bip39 = { version = "2.0", default-features = false, features = ["std"] }
