@@ -50,15 +50,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     PoolInfo::Initialized(pool) => {
                         println!("  🟢 Pool {}: INITIALIZED", i + 1);
                         println!("    📍 Address: {}", pool.address);
-                        println!("    💰 Token A Vault: {}", pool.token_vault_a);
-                        println!("    💰 Token B Vault: {}", pool.token_vault_b);
-                        println!("    📏 Tick Spacing: {}", pool.tick_spacing);
-                        println!("    💵 Fee Rate: {} bps", pool.fee_rate);
+                        println!("    💰 Token A Vault: {}", pool.data.token_vault_a);
+                        println!("    💰 Token B Vault: {}", pool.data.token_vault_b);
+                        println!("    📏 Tick Spacing: {}", pool.data.tick_spacing);
+                        println!("    💵 Fee Rate: {} bps", pool.data.fee_rate);
                     }
                     PoolInfo::Uninitialized(pool) => {
                         println!("  🟡 Pool {}: UNINITIALIZED", i + 1);
                         println!("    📍 Address: {}", pool.address);
-                        println!("    📏 Tick Spacing: {}", pool.tick_spacing);
+                        println!("    📏 Tick Spacing: {}", pool.data.tick_spacing);
                     }
                 }
             }

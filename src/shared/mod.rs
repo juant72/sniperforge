@@ -15,6 +15,7 @@ pub mod jupiter;                 // Legacy module (deprecated)
 
 // Multi-DEX Integration - NEW
 pub mod orca_client;             // NEW: Orca DEX client for DevNet/Mainnet
+pub mod orca_sync_wrapper;       // NEW: Sync wrapper for Orca SDK async issues
 pub mod dex_fallback_manager;    // NEW: Multi-DEX fallback logic
 
 pub mod real_data_manager;  // NEW: Centralized real data management

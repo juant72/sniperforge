@@ -1,23 +1,20 @@
+// Orca Client for SniperForge - INTEGRATED VERSION
+// Now using sync wrapper to avoid async/Send issues with Orca SDK
+
+use crate::shared::orca_sync_wrapper::{OrcaSyncWrapper, OrcaQuoteRequest as SyncQuoteRequest, OrcaQuoteResponse as SyncQuoteResponse};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn, debug, error};
-use solana_client::nonblocking::rpc_client::RpcClient;
+use tracing::{info, warn, error};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
-// Orca Whirlpool SDK imports - Based on the examples in GitHub
-use orca_whirlpools::{
-    set_whirlpools_config_address, 
-    WhirlpoolsConfigInput,
-    fetch_whirlpools_by_token_pair,
-};
-
+#[derive(Debug, Clone)]
 pub struct OrcaClient {
+    sync_wrapper: OrcaSyncWrapper,
     network: String,
-    rpc_url: String,
-    rpc_client: RpcClient,
 }
 
+// Legacy types for backward compatibility with the rest of the system
 #[derive(Debug, Serialize)]
 pub struct OrcaQuoteRequest {
     pub input_mint: String,
@@ -65,200 +62,147 @@ pub struct OrcaSwapResponse {
 
 impl OrcaClient {
     pub fn new(network: &str) -> Self {
-        let rpc_url = match network {
-            "mainnet" => "https://api.mainnet-beta.solana.com",
-            "devnet" => "https://api.devnet.solana.com",
-            "localhost" => "http://localhost:8899",
-            _ => "https://api.devnet.solana.com",
-        }.to_string();
-        
-        info!("✅ Initializing Orca Whirlpool client for network: {} using RPC: {}", network, rpc_url);
-        
-        let rpc_client = RpcClient::new(rpc_url.clone());
-        
-        // Set the Whirlpools config based on network
-        let config_result = match network {
-            "mainnet" => set_whirlpools_config_address(WhirlpoolsConfigInput::SolanaMainnet),
-            "devnet" => set_whirlpools_config_address(WhirlpoolsConfigInput::SolanaDevnet),
-            _ => set_whirlpools_config_address(WhirlpoolsConfigInput::SolanaDevnet),
-        };
-        
-        match config_result {
-            Ok(_) => info!("✅ Orca Whirlpools config set successfully for {}", network),
-            Err(e) => warn!("⚠️ Failed to set Whirlpools config: {}", e),
-        }
+        info!("🌊 Initializing Orca client for network: {} (using sync wrapper)", network);
         
         Self {
-            rpc_url,
+            sync_wrapper: OrcaSyncWrapper::new(network),
             network: network.to_string(),
-            rpc_client,
         }
     }
     
-    pub async fn get_quote(&self, _request: &OrcaQuoteRequest) -> Result<OrcaQuoteResponse> {
-        info!("🌊 Getting quote using Orca Whirlpool SDK");
+    /// Get quote from Orca using the sync wrapper (main interface for the rest of the system)
+    pub async fn get_quote(&self, request: &OrcaQuoteRequest) -> Result<OrcaQuoteResponse> {
+        info!("🌊 Getting quote using Orca Whirlpool SDK (via sync wrapper)");
+        info!("   Input: {} {} ({})", request.amount, request.input_mint, request.input_mint);
+        info!("   Output: {} ({})", request.output_mint, request.output_mint);
+        info!("   Slippage: {}bps", request.slippage_bps);
         
-        // Parse token mints
-        let input_mint = Pubkey::from_str(&_request.input_mint)
+        // Convert legacy request to sync wrapper format
+        let input_mint = Pubkey::from_str(&request.input_mint)
             .map_err(|e| anyhow::anyhow!("Invalid input mint: {}", e))?;
-        let output_mint = Pubkey::from_str(&_request.output_mint)
+        let output_mint = Pubkey::from_str(&request.output_mint)
             .map_err(|e| anyhow::anyhow!("Invalid output mint: {}", e))?;
-        
-        // Parse amount
-        let amount = _request.amount.parse::<u64>()
+        let amount = request.amount.parse::<u64>()
             .map_err(|e| anyhow::anyhow!("Invalid amount: {}", e))?;
-            
-        info!("📊 Quote request: {} {} → {} (slippage: {} bps)", 
-              amount, input_mint, output_mint, _request.slippage_bps);
         
-        // Try to find Whirlpools for this token pair using the SDK
-        match self.find_whirlpools_for_pair(input_mint, output_mint).await {
-            Ok(pools) => {
-                if pools.is_empty() {
-                    warn!("❌ No Whirlpools found for token pair {} → {}", input_mint, output_mint);
-                    warn!("🔍 This is normal in DevNet due to limited liquidity pools");
-                    warn!("💡 Recommendation: Use SOL/USDC-Dev pair which is more likely to exist");
-                    
-                    Err(anyhow::anyhow!(
-                        "No Whirlpools found for token pair {} → {}. \
-                        DevNet has limited liquidity pools. Try SOL/USDC-Dev instead.", 
-                        input_mint, output_mint
-                    ))
-                } else {
-                    info!("✅ Found {} Whirlpool(s) for token pair", pools.len());
-                    // For now, simulate a quote using the first available pool
-                    self.simulate_quote_from_pools(amount, &pools).await
-                }
-            }
-            Err(e) => {
-                warn!("❌ Failed to fetch Whirlpools: {}", e);
-                warn!("🔍 This could be due to RPC connectivity or network issues");
-                warn!("💡 Fallback: Using simulated quote for testing");
-                
-                // Return a simulated quote for testing purposes
-                Ok(self.create_simulated_quote(amount))
-            }
-        }
-    }
-    
-    /// Find Whirlpools for a token pair using the SDK
-    async fn find_whirlpools_for_pair(
-        &self,
-        token_a: Pubkey,
-        token_b: Pubkey,
-    ) -> Result<Vec<String>> {
-        info!("🔍 Searching for Whirlpools between {} and {}", token_a, token_b);
-        
-        // Use the SDK to fetch whirlpools by token pair
-        match fetch_whirlpools_by_token_pair(&self.rpc_client, token_a, token_b).await {
-            Ok(pools) => {
-                info!("✅ SDK returned {} pools for token pair", pools.len());
-                let pool_addresses: Vec<String> = pools.iter()
-                    .map(|pool_info| {
-                        match pool_info {
-                            orca_whirlpools::PoolInfo::Initialized(pool) => pool.address.to_string(),
-                            orca_whirlpools::PoolInfo::Uninitialized(pool) => pool.address.to_string(),
-                        }
-                    })
-                    .collect();
-                Ok(pool_addresses)
-            }
-            Err(e) => {
-                warn!("❌ SDK fetch_whirlpools_by_token_pair failed: {}", e);
-                Err(anyhow::anyhow!("Failed to fetch Whirlpools: {}", e))
-            }
-        }
-    }
-    
-    /// Simulate a quote from available pools
-    async fn simulate_quote_from_pools(
-        &self,
-        amount: u64,
-        _pools: &[String],
-    ) -> Result<OrcaQuoteResponse> {
-        info!("🧮 Simulating quote for amount: {} using {} pools", amount, _pools.len());
-        
-        // For now, simulate a realistic quote response
-        // In a real implementation, this would use the actual pool data
-        // to calculate quotes using Orca's CLMM math
-        
-        let simulated_quote = OrcaQuoteResponse {
-            input_amount: amount.to_string(),
-            output_amount: (amount * 98 / 100).to_string(), // Simulate 2% price impact
-            price_impact_pct: Some(2.0),
-            route: vec![OrcaRouteStep {
-                pool_id: _pools.first().unwrap_or(&"unknown".to_string()).clone(),
-                token_in: "input_token".to_string(),
-                token_out: "output_token".to_string(),
-                fee_rate: 0.003, // 0.3% fee
-                amm_type: "CLMM".to_string(),
-            }],
-            fees: OrcaFees {
-                trading_fee: (amount * 3 / 1000).to_string(), // 0.3% fee
-                total_fee: (amount * 3 / 1000).to_string(),
-            },
+        let sync_request = SyncQuoteRequest {
+            input_mint,
+            output_mint,
+            amount,
+            slippage_bps: request.slippage_bps,
         };
         
-        info!("✅ Simulated quote generated: {} → {} (Impact: {}%)", 
-              simulated_quote.input_amount, 
-              simulated_quote.output_amount, 
-              simulated_quote.price_impact_pct.unwrap_or(0.0));
-        
-        Ok(simulated_quote)
+        match self.sync_wrapper.get_quote(sync_request).await {
+            Ok(sync_response) => {
+                info!("✅ Orca quote successful:");
+                info!("   Input amount: {}", sync_response.input_amount);
+                info!("   Output amount: {}", sync_response.output_amount);
+                info!("   Price impact: {:.2}%", sync_response.price_impact_pct);
+                info!("   Estimated fee: {}", sync_response.estimated_fee);
+                info!("   Route: {}", sync_response.route);
+                
+                // Convert sync response to legacy format
+                Ok(self.convert_sync_response_to_legacy(sync_response))
+            }
+            Err(e) => {
+                error!("❌ Orca quote failed: {}", e);
+                Err(e)
+            }
+        }
     }
     
-    /// Create a simulated quote for fallback
-    fn create_simulated_quote(&self, amount: u64) -> OrcaQuoteResponse {
-        info!("🎭 Creating fallback simulated quote for amount: {}", amount);
-        
+    /// Convert sync wrapper response to legacy format for backward compatibility
+    fn convert_sync_response_to_legacy(&self, sync_response: SyncQuoteResponse) -> OrcaQuoteResponse {
         OrcaQuoteResponse {
-            input_amount: amount.to_string(),
-            output_amount: (amount * 95 / 100).to_string(), // Simulate 5% price impact
-            price_impact_pct: Some(5.0),
+            input_amount: sync_response.input_amount.to_string(),
+            output_amount: sync_response.output_amount.to_string(),
+            price_impact_pct: Some(sync_response.price_impact_pct),
             route: vec![OrcaRouteStep {
-                pool_id: "simulated_fallback_pool".to_string(),
-                token_in: "input_token".to_string(),
-                token_out: "output_token".to_string(),
-                fee_rate: 0.003, // 0.3% fee
+                pool_id: sync_response.route.clone(),
+                token_in: "input".to_string(),
+                token_out: "output".to_string(),
+                fee_rate: 0.0, // TODO: Extract from sync response
                 amm_type: "CLMM".to_string(),
             }],
             fees: OrcaFees {
-                trading_fee: (amount * 3 / 1000).to_string(), // 0.3% fee
-                total_fee: (amount * 3 / 1000).to_string(),
+                trading_fee: sync_response.estimated_fee.to_string(),
+                total_fee: sync_response.estimated_fee.to_string(),
             },
         }
     }
     
-    pub async fn get_swap_transaction(
-        &self, 
-        _request: &OrcaSwapRequest
-    ) -> Result<OrcaSwapResponse> {
-        info!("🌊 Building swap transaction using Orca Whirlpool SDK");
-        warn!("🚧 TODO: Implement actual transaction building with Whirlpool SDK");
-        warn!("📋 Required: 1) Solana wallet integration, 2) Whirlpool program calls, 3) Transaction building");
-        
-        Err(anyhow::anyhow!(
-            "Orca swap transaction building not yet implemented. \
-            SDK is available but transaction building logic needs implementation. \
-            Network: {}, RPC: {}", 
-            self.network, 
-            self.rpc_url
-        ))
+    /// Build swap transaction using the sync wrapper
+    pub async fn get_swap_transaction(&self, request: &OrcaSwapRequest) -> Result<OrcaSwapResponse> {
+        self.execute_swap_internal(request, true).await
     }
     
-    /// Check if Orca Whirlpool program is accessible on the network
-    pub async fn health_check(&self) -> Result<bool> {
-        info!("🔍 Checking Orca Whirlpool program accessibility on {}", self.network);
+    /// Execute a real swap (non-simulated) using the sync wrapper
+    pub async fn execute_real_swap(&self, request: &OrcaSwapRequest) -> Result<OrcaSwapResponse> {
+        self.execute_swap_internal(request, false).await
+    }
+    
+    /// Internal method to handle both simulated and real swaps
+    async fn execute_swap_internal(&self, request: &OrcaSwapRequest, simulate_only: bool) -> Result<OrcaSwapResponse> {
+        let action_type = if simulate_only { "Building swap transaction" } else { "Executing REAL swap" };
+        info!("🌊 {} using Orca Whirlpool SDK (via sync wrapper)", action_type);
         
-        // Try to make a simple RPC call to verify connectivity
-        match self.rpc_client.get_version().await {
-            Ok(version) => {
-                info!("✅ Solana RPC connectivity confirmed - version: {}", version.solana_core);
-                info!("✅ Orca Whirlpool health check PASSED");
-                Ok(true)
+        // Convert the request to sync wrapper format
+        let user_pubkey = Pubkey::from_str(&request.user_public_key)
+            .map_err(|e| anyhow::anyhow!("Invalid user public key: {}", e))?;
+        
+        let sync_swap_request = crate::shared::orca_sync_wrapper::OrcaSwapRequest {
+            quote: crate::shared::orca_sync_wrapper::OrcaQuoteResponse {
+                input_amount: request.quote.input_amount.parse().unwrap_or(0),
+                output_amount: request.quote.output_amount.parse().unwrap_or(0),
+                price_impact_pct: request.quote.price_impact_pct.unwrap_or(0.0),
+                estimated_fee: request.quote.fees.trading_fee.parse().unwrap_or(0),
+                route: request.quote.route.first().map(|r| r.pool_id.clone()).unwrap_or_default(),
+            },
+            user_pubkey,
+            slippage_bps: 50, // Default 0.5% slippage
+            simulate_only,
+        };
+        
+        match self.sync_wrapper.execute_swap(sync_swap_request).await {
+            Ok(sync_response) => {
+                if sync_response.success {
+                    let action_result = if sync_response.was_simulated { "simulated" } else { "executed" };
+                    info!("✅ Orca swap {} successfully:", action_result);
+                    info!("   Transaction signature: {}", sync_response.transaction_signature);
+                    info!("   Was simulated: {}", sync_response.was_simulated);
+                } else {
+                    error!("❌ Orca swap failed: {}", sync_response.error_message.unwrap_or_default());
+                }
+                
+                // Convert to legacy format
+                Ok(OrcaSwapResponse {
+                    transaction: sync_response.transaction_signature,
+                    last_valid_block_height: 0, // Not provided by sync wrapper
+                })
             }
             Err(e) => {
-                error!("❌ Solana RPC connectivity failed: {}", e);
+                error!("❌ Orca swap failed: {}", e);
+                Err(e)
+            }
+        }
+    }
+    
+    /// Health check for Orca connectivity using sync wrapper
+    pub async fn health_check(&self) -> Result<bool> {
+        info!("🔍 Checking Orca Whirlpool program accessibility on {} (via sync wrapper)", self.network);
+        
+        // Use sync wrapper for health check
+        match self.sync_wrapper.health_check().await {
+            Ok(is_healthy) => {
+                if is_healthy {
+                    info!("✅ Orca Whirlpool health check PASSED");
+                } else {
+                    warn!("⚠️ Orca Whirlpool health check FAILED");
+                }
+                Ok(is_healthy)
+            }
+            Err(e) => {
+                error!("❌ Orca health check error: {}", e);
                 Ok(false)
             }
         }
@@ -295,9 +239,9 @@ impl OrcaClient {
         "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
     }
     
-    /// Get recommended RPC endpoint for the network
-    pub fn get_rpc_url(&self) -> &str {
-        &self.rpc_url
+    /// Get network identifier
+    pub fn get_network(&self) -> &str {
+        &self.network
     }
 }
 
@@ -335,12 +279,11 @@ mod tests {
     #[tokio::test]
     async fn test_orca_client_creation() {
         let client = OrcaClient::new("devnet");
-        assert!(client.rpc_url.contains("devnet"));
         assert_eq!(client.network, "devnet");
     }
     
     #[tokio::test]
-    async fn test_orca_get_quote_with_sdk() {
+    async fn test_orca_get_quote_with_sync_wrapper() {
         let client = OrcaClient::new("devnet");
         let request = OrcaQuoteRequest {
             input_mint: "So11111111111111111111111111111111111111112".to_string(),
@@ -359,9 +302,9 @@ mod tests {
                 assert!(!quote.output_amount.is_empty());
             }
             Err(e) => {
-                // If failed, should mention pools or RPC connectivity
+                // If failed, should mention pools or connectivity
                 let error_msg = e.to_string();
-                assert!(error_msg.contains("Whirlpool") || error_msg.contains("RPC") || error_msg.contains("pools"));
+                assert!(error_msg.contains("Whirlpool") || error_msg.contains("pool") || error_msg.contains("connectivity"));
             }
         }
     }
