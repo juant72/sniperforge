@@ -8,7 +8,9 @@ Write-Host ""
 Write-Host "This script will help you configure premium RPC endpoints for better" -ForegroundColor Yellow
 Write-Host "reliability and performance on Solana mainnet." -ForegroundColor Yellow
 Write-Host ""
-Write-Host "📝 Available API Key: 062bf3dd-23d4-4ffd-99fd-6e397ee59d6c (Helius)" -ForegroundColor Magenta
+Write-Host "📝 Available API Keys:" -ForegroundColor Magenta
+Write-Host "  • Alchemy: X64q4zZFEMz_RYzthxUMg (CURRENT)" -ForegroundColor Green
+Write-Host "  • Helius: 062bf3dd-23d4-4ffd-99fd-6e397ee59d6c" -ForegroundColor Yellow
 Write-Host ""
 
 # Function to set environment variable persistently

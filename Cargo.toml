@@ -87,6 +87,10 @@ path = "test_automated_tokens.rs"
 name = "test_devnet_functionality"
 path = "test_devnet_functionality.rs"
 
+[[bin]]
+name = "test_basic_connectivity"
+path = "test_basic_connectivity.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

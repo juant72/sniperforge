@@ -1,5 +1,5 @@
-use sniperforge::shared::config_loader::load_config;
-use sniperforge::shared::jupiter_api::JupiterApi;
+use sniperforge::shared::config_loader::NetworkConfigFile;
+use sniperforge::shared::jupiter_api::Jupiter;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Usar configuración básica con solo SOL
     let config_path = "config/devnet.json";
-    let config = load_config(config_path)?;
+    let config = NetworkConfigFile::load_from_file(config_path)?;
     println!("✅ Configuración cargada: {}", config_path);
     
     // Configurar cliente RPC con múltiples opciones
@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test de Jupiter API con SOL/wSOL
     println!("\n🔄 === TEST DE JUPITER API ===");
     
-    let jupiter = JupiterApi::new(working_rpc)?;
+    let jupiter = Jupiter::new(working_rpc.to_string());
     
     // SOL mint address (siempre el mismo)
     let sol_mint = "So11111111111111111111111111111111111111112";
@@ -126,11 +126,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test 3: Verificar otros tokens en configuración
     println!("\n📋 === TOKENS EN CONFIGURACIÓN ===");
     
-    for (symbol, token_info) in &config.tokens {
-        println!("🪙 {}: {}", symbol, token_info.mint);
+    for (symbol, token_info) in &config.token_addresses {
+        println!("🪙 {}: {}", symbol, token_info.address);
         
         // Verificar que el mint existe
-        match client.get_account(&Pubkey::from_str(&token_info.mint)?) {
+        match client.get_account(&Pubkey::from_str(&token_info.address)?) {
             Ok(_) => {
                 println!("   ✅ Mint válido");
                 
@@ -138,7 +138,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if symbol != "SOL" && symbol != "sol" {
                     let ata = spl_associated_token_account::get_associated_token_address(
                         &payer.pubkey(),
-                        &Pubkey::from_str(&token_info.mint)?
+                        &Pubkey::from_str(&token_info.address)?
                     );
                     
                     match client.get_token_account_balance(&ata) {
@@ -161,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test 4: Simular búsqueda de rutas para todos los pares
     println!("🔍 === BÚSQUEDA DE RUTAS DISPONIBLES ===");
     
-    let tokens: Vec<_> = config.tokens.iter().collect();
+    let tokens: Vec<_> = config.token_addresses.iter().collect();
     let mut working_pairs = Vec::new();
     
     for (i, (from_symbol, from_token)) in tokens.iter().enumerate() {
@@ -171,7 +171,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 
                 let amount = if from_symbol.to_lowercase().contains("sol") { 10_000_000 } else { 1_000_000 };
                 
-                match jupiter.get_quote(&from_token.mint, &to_token.mint, amount, None).await {
+                match jupiter.get_quote(&from_token.address, &to_token.address, amount, None).await {
                     Ok(_) => {
                         println!("   ✅ Ruta disponible");
                         working_pairs.push((from_symbol.clone(), to_symbol.clone()));

@@ -27,11 +27,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("🚀 === SniperForge: Creador Automático de Tokens DevNet ===");
     
-    // Configurar cliente RPC para DevNet - usar RPC alternativo más estable
+    // Configurar cliente RPC para DevNet - usar RPC premium de Alchemy
     let rpc_urls = vec![
+        "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg",
         "https://api.devnet.solana.com",
         "https://devnet.genesysgo.net",
-        "https://solana-devnet.g.alchemy.com/v2/demo",
     ];
     
     let mut client = None;
