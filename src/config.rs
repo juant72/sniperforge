@@ -51,7 +51,7 @@ pub struct AlternativeApiRateLimits {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
     pub environment: String,  // "devnet" or "mainnet"
-    
+
     // Devnet configuration (optional - only needed in devnet configs)
     #[serde(default)]
     pub devnet_primary_rpc: Option<String>,
@@ -59,7 +59,7 @@ pub struct NetworkConfig {
     pub devnet_backup_rpc: Option<Vec<String>>,
     #[serde(default)]
     pub devnet_websocket_url: Option<String>,
-    
+
     // Mainnet configuration (optional - only needed in mainnet configs)
     #[serde(default)]
     pub mainnet_primary_rpc: Option<String>,
@@ -67,13 +67,13 @@ pub struct NetworkConfig {
     pub mainnet_backup_rpc: Option<Vec<String>>,
     #[serde(default)]
     pub mainnet_websocket_url: Option<String>,
-    
+
     // Connection settings
     pub connection_timeout_ms: u64,
     pub request_timeout_ms: u64,
     pub retry_attempts: u64,
     pub retry_delay_ms: u64,
-    
+
     // Additional resilience settings (optional)
     #[serde(default)]
     pub max_concurrent_requests: Option<u64>,
@@ -85,11 +85,11 @@ pub struct NetworkConfig {
     pub circuit_breaker_threshold: Option<u64>,
     #[serde(default)]
     pub circuit_breaker_reset_seconds: Option<u64>,
-    
+
     // Premium RPC configuration (API keys loaded from environment)
     #[serde(default)]
     pub premium_rpc: Option<PremiumRpcConfig>,
-    
+
     // Alternative APIs configuration (API keys loaded from environment)
     #[serde(default)]
     pub alternative_apis: Option<AlternativeApisConfig>,
@@ -132,7 +132,7 @@ impl NetworkConfig {
             _ => "https://api.devnet.solana.com", // Default to devnet for safety
         }
     }
-    
+
     /// Get backup RPC URLs for the current environment
     pub fn backup_rpc(&self) -> Vec<String> {
         match self.environment.as_str() {
@@ -158,7 +158,7 @@ impl NetworkConfig {
             ], // Default to devnet for safety
         }
     }
-    
+
     /// Get WebSocket URL for the current environment
     pub fn websocket_url(&self) -> &str {
         match self.environment.as_str() {
@@ -175,12 +175,12 @@ impl NetworkConfig {
             _ => "wss://api.devnet.solana.com", // Default to devnet for safety
         }
     }
-    
+
     /// Check if we're running on devnet
     pub fn is_devnet(&self) -> bool {
         self.environment == "devnet"
     }
-    
+
     /// Check if we're running on mainnet
     pub fn is_mainnet(&self) -> bool {
         self.environment == "mainnet"
@@ -306,13 +306,13 @@ impl Config {
         let config: Config = toml::from_str(&content)?;
         Ok(config)
     }
-    
+
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<()> {
         let content = toml::to_string_pretty(self)?;
         std::fs::write(path, content)?;
         Ok(())
     }
-    
+
     pub fn is_bot_enabled(&self, bot_type: &str) -> bool {
         match bot_type {
             "lp_sniper" | "lp-sniper" => self.bots.lp_sniper.enabled,
@@ -322,7 +322,7 @@ impl Config {
             _ => false,
         }
     }
-    
+
     pub fn get_bot_config(&self, bot_type: &str) -> Option<&BotConfig> {
         match bot_type {
             "lp_sniper" | "lp-sniper" => Some(&self.bots.lp_sniper),
@@ -332,40 +332,40 @@ impl Config {
             _ => None,
         }
     }
-    
+
     /// Check if devnet real trading is enabled
     pub fn is_devnet_real_trading_enabled(&self) -> bool {
         self.trading.as_ref()
             .map(|t| t.devnet_real_trading)
             .unwrap_or(false)
     }
-    
+
     /// Check if mainnet paper trading is enabled
     pub fn is_mainnet_paper_trading_enabled(&self) -> bool {
         self.trading.as_ref()
             .map(|t| t.mainnet_paper_trading)
             .unwrap_or(false)
     }
-    
+
     /// Get devnet wallet config
     pub fn devnet_wallet_config(&self) -> Option<&WalletEnvironmentConfig> {
         self.wallets.as_ref().map(|w| &w.devnet)
     }
-    
+
     /// Get mainnet wallet config
     pub fn mainnet_wallet_config(&self) -> Option<&WalletEnvironmentConfig> {
         self.wallets.as_ref().map(|w| &w.mainnet)
     }
-    
+
     pub fn validate(&self) -> Result<()> {        // Validate RPC URLs
         if self.network.primary_rpc().is_empty() {
             return Err(anyhow::anyhow!("Primary RPC URL cannot be empty"));
         }
-        
+
         // Validate resource allocations don't exceed 100%
         let mut total_cpu = 0.0;
         let mut total_memory = 0.0;
-        
+
         for (_bot_name, bot_config) in [
             ("lp_sniper", &self.bots.lp_sniper),
             ("copy_trading", &self.bots.copy_trading),
@@ -380,7 +380,7 @@ impl Config {
                         total_cpu += cpu;
                     }
                 }
-                
+
                 // Parse memory in GB
                 let mem_str = &bot_config.resource_allocation.memory;
                 if let Some(mem_gb) = mem_str.strip_suffix("GB") {
@@ -390,21 +390,21 @@ impl Config {
                 }
             }
         }
-        
+
         if total_cpu > 100.0 {
             return Err(anyhow::anyhow!(
-                "Total CPU allocation ({:.1}%) exceeds 100%", 
+                "Total CPU allocation ({:.1}%) exceeds 100%",
                 total_cpu
             ));
         }
-        
+
         if total_memory > 8.0 {  // Assuming 8GB max
             tracing::warn!(
-                "High memory allocation: {:.1}GB. Ensure system has sufficient RAM", 
+                "High memory allocation: {:.1}GB. Ensure system has sufficient RAM",
                 total_memory
             );
         }
-        
+
         Ok(())
     }
 }

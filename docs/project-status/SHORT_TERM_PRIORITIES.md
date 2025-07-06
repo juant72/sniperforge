@@ -62,45 +62,36 @@
 
 ---
 
-## 📅 **PLAN DE ACCIÓN SEMANAL**
+## 📅 **PLAN DE ACCIÓN ACTUALIZADO - ARBITRAGE BOT**
 
-### **SEMANA 1: PRODUCTION READINESS**
-**Objetivo**: Completar optimizaciones críticas
+### **SEMANA 1: DESARROLLO ARBITRAGE BOT (Julio 6-13)**
+**Objetivo**: Desarrollar y desplegar bot de arbitraje en producción
 
-#### **Días 1-2: Sprint 2 Completion**
-- Finalizar connection pooling
-- Optimizar latencia crítica
-- Resolver WebSocket issues
-- Testing de performance
+#### **Días 1-3: Core Development**
+- **Día 1**: Infraestructura crítica + análisis de mercado
+- **Día 2**: ArbitrageDetector implementation
+- **Día 3**: ArbitrageExecutor implementation
 
-#### **Días 3-4: Production Testing**
-- Testing con fondos reales (cantidades pequeñas)
-- Stress testing bajo carga
-- Error recovery testing
-- Security hardening
+#### **Días 4-5: Testing & Risk Management**
+- **Día 4**: Testing completo y optimización
+- **Día 5**: Risk management y circuit breakers
 
-#### **Días 5-7: Deployment Preparation**
-- Production monitoring setup
-- Documentation finalization
-- Security audit
-- Release preparation
+#### **Días 6-7: Production Deployment**
+- **Día 6**: Monitoring dashboard y alertas
+- **Día 7**: Go-live con capital inicial ($300)
 
----
+### **SEMANA 2: PRODUCCIÓN Y OPTIMIZACIÓN (Julio 13-19)**
+**Objetivo**: Monitorear, optimizar y escalar el bot
 
-### **SEMANA 2: ADVANCED FEATURES**
-**Objetivo**: Implementar características avanzadas
+#### **Días 1-3: Production Monitoring**
+- Monitoreo 24/7 del performance
+- Ajustes basados en datos reales
+- Optimización continua de parámetros
 
-#### **Días 1-3: Portfolio Integration**
-- Conectar datos reales con PortfolioManager
-- Implementar real-time position tracking
-- P&L calculation con transacciones reales
-- Risk metrics implementation
-
-#### **Días 4-7: ML Enhancement**
-- Implementar algoritmos ML reales
-- Training pipeline setup
-- Model accuracy validation
-- AI-powered trading integration
+#### **Días 4-7: Scaling & Growth**
+- Aumentar capital si ROI >15% semanal
+- Análisis de nuevas oportunidades
+- Preparación para diversificación
 
 ---
 
@@ -185,23 +176,30 @@ Production Readiness:     ██████████ 100% ✅
 
 ---
 
-## 📋 **CHECKLIST PRÓXIMOS 7 DÍAS**
+## 📋 **CHECKLIST PRÓXIMOS 7 DÍAS - ARBITRAGE BOT**
 
-### **Esta Semana (Julio 6-12)**:
-- [ ] Completar análisis de performance bottlenecks
-- [ ] Implementar connection pooling
-- [ ] Resolver WebSocket connection issues
-- [ ] Optimizar memory footprint
-- [ ] Stress testing con >100 operations/second
-- [ ] Production readiness audit
-- [ ] Security hardening final
+### **Esta Semana (Julio 6-13) - DESARROLLO ARBITRAGE BOT**:
+- [ ] **Día 1**: Completar infraestructura crítica + análisis de mercado
+- [ ] **Día 2**: Implementar ArbitrageDetector (detección automática)
+- [ ] **Día 3**: Implementar ArbitrageExecutor (ejecución automática)
+- [ ] **Día 4**: Testing completo y optimización de parámetros
+- [ ] **Día 5**: Risk management y circuit breakers
+- [ ] **Día 6**: Monitoring dashboard y alertas
+- [ ] **Día 7**: Deployment en producción con capital inicial
 
-### **Próxima Semana (Julio 13-19)**:
-- [ ] Portfolio management integration
-- [ ] ML algorithms implementation
-- [ ] Real-time risk management
-- [ ] Performance monitoring dashboard
-- [ ] Production deployment preparation
+### **Plan Detallado**:
+- **Ver**: [Plan de Desarrollo Arbitrage Bot](ARBITRAGE_BOT_DEVELOPMENT_PLAN.md)
+- **Capital inicial**: $300 USD
+- **ROI esperado**: 15% semanal, 100% mensual
+- **Riesgo**: MÍNIMO (profit matemáticamente garantizado)
+
+### **Próxima Semana (Julio 13-19) - PRODUCCIÓN Y SCALING**:
+- [ ] **Monitoreo 24/7** del bot en producción
+- [ ] **Optimización continua** basada en performance real
+- [ ] **Scaling de capital** si ROI >15% semanal
+- [ ] **Análisis de nuevas oportunidades** de arbitraje
+- [ ] **Preparación para Bot #2** (si es necesario)
+- [ ] **Documentación de lessons learned**
 
 ---
 
