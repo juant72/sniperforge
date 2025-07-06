@@ -1,7 +1,7 @@
 # 📚 SniperForge - Índice de Documentación Consolidado
 
-**Fecha de actualización**: Junio 29, 2025  
-**Estado**: Cache-Free Trading Engine Implementado  
+**Fecha de actualización**: Junio 29, 2025
+**Estado**: Cache-Free Trading Engine Implementado
 **Objetivo**: Documentación completa del sistema de trading sin caché
 
 ---
@@ -11,7 +11,7 @@
 ### **🔥 CRÍTICOS - LEE PRIMERO**
 1. **[🛡️ Cache-Free Trading Engine Report](project-status/CACHE_FREE_TRADING_COMPLETION_REPORT.md)** - ⭐ **NUEVO** - Motor sin caché completado
 2. **[Sprint 1 - Completion Report](sprints/sprint-1/completion-report.md)** - Estado final Sprint 1
-3. **[Command Guide](user-guides/command-guide.md)** - Guía completa de comandos CLI  
+3. **[Command Guide](user-guides/command-guide.md)** - Guía completa de comandos CLI
 4. **[🛡️ Cache-Free Trading Technical Docs](technical/cache-free-trading-engine.md)** - ⭐ **NUEVO** - Documentación técnica completa
 
 ### **📊 ESTADO DEL PROYECTO**
@@ -24,7 +24,7 @@
 ### **👤 PARA USUARIOS**
 1. **[🛡️ Cache-Free Trading Commands](user-guides/cache-free-trading-guide.md)** - ⭐ **NUEVO** - Comandos de trading sin caché
 2. **[Command Guide](user-guides/command-guide.md)** - Todos los comandos CLI
-3. **[Mainnet Guide](user-guides/mainnet-guide.md)** - Uso en Mainnet  
+3. **[Mainnet Guide](user-guides/mainnet-guide.md)** - Uso en Mainnet
 4. **[Wallet Safety](user-guides/wallet-safety.md)** - Seguridad de wallets
 
 ### **⚙️ PARA DESARROLLADORES**
@@ -102,7 +102,7 @@ docs/
 ### **📝 PARA NUEVOS DOCUMENTOS**:
 1. **Determinar categoría**:
    - `project-status/` - Estado del proyecto, listas de trabajo pendiente
-   - `sprints/` - Documentación específica de sprints 
+   - `sprints/` - Documentación específica de sprints
    - `user-guides/` - Guías para usuarios finales
    - `technical/` - Documentación técnica de arquitectura/APIs
    - `troubleshooting/` - Resolución de problemas y errores
@@ -168,6 +168,24 @@ Para dudas sobre la documentación:
 
 ---
 
-**🎉 MISIÓN CUMPLIDA**: Documentación reorganizada de **99 archivos dispersos** a **estructura organizada y mantenible**. 
+**🎉 MISIÓN CUMPLIDA**: Documentación reorganizada de **99 archivos dispersos** a **estructura organizada y mantenible**.
 
 **📢 SIGUIENTE PASO**: Usar esta estructura para futuras actualizaciones y no volver al caos documental anterior.
+
+---
+
+# DOCUMENTATION_MASTER_INDEX.md (ÚNICO)
+
+## Índice Maestro de Documentación
+
+- [Estado Consolidado del Proyecto](project-status/CURRENT_PROJECT_STATUS.md)
+- [Checklist de Trabajo Pendiente](project-status/PENDING_WORK_MASTER_CHECKLIST.md)
+- [Guía de Comandos](user-guides/command-guide.md)
+- [Guía de Inicio Rápido](../QUICK_START.md)
+- [Guías Técnicas](technical/)
+- [Guías de Usuario](user-guides/)
+- [Troubleshooting](troubleshooting/)
+- [Sprints y Planificación](sprints/)
+- [Arquitectura](architecture/)
+
+> Mantener este índice como fuente única. Eliminar duplicados y actualizar rutas tras reorganización.
