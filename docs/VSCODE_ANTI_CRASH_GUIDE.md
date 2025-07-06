@@ -145,3 +145,6 @@ Con estas configuraciones deberías experimentar:
 - Rust-analyzer: `Output > Rust Analyzer Language Server`
 - Copilot: `Output > GitHub Copilot`
 - VS Code: `Help > Toggle Developer Tools > Console`
+
+# Este archivo ha sido movido a troubleshooting/vscode-anti-crash-guide.md
+# Por favor, consulte la nueva ubicación para la versión actualizada.
