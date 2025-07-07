@@ -111,7 +111,6 @@ pub trait QATest {
 }
 
 /// QA Test Macros for easier test creation
-#[macro_export]
 macro_rules! qa_test {
     ($name:expr, $test_fn:expr) => {{
         let start_time = std::time::Instant::now();
@@ -136,7 +135,6 @@ macro_rules! qa_test {
     }};
 }
 
-#[macro_export]
 macro_rules! qa_assert {
     ($condition:expr, $message:expr) => {
         if !$condition {
@@ -145,7 +143,6 @@ macro_rules! qa_assert {
     };
 }
 
-#[macro_export]
 macro_rules! qa_assert_eq {
     ($left:expr, $right:expr, $message:expr) => {
         if $left != $right {
@@ -153,3 +150,8 @@ macro_rules! qa_assert_eq {
         }
     };
 }
+
+// Re-export macros for use in tests
+pub(crate) use qa_test;
+pub(crate) use qa_assert;
+pub(crate) use qa_assert_eq;

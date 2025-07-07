@@ -3,11 +3,14 @@ mod qa;
 use sniperforge::bots::arbitrage_bot::ArbitrageBot;
 use sniperforge::shared::SharedServices;
 use sniperforge::config::Config;
-use qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
+use qa::{QATestSuite, QATestResult};
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, error, warn};
+
+// Import QA macros from qa module
+use qa::{qa_test, qa_assert, qa_assert_eq};
 
 /// Main QA Test Runner for ArbitrageBot
 #[tokio::main]
@@ -18,7 +21,7 @@ async fn main() -> Result<()> {
         .init();
 
     info!("🧪 Starting SniperForge ArbitrageBot QA Test Suite");
-    info!("=" .repeat(70));
+    info!("{}", "=".repeat(70));
 
     let start_time = Instant::now();
     let mut all_suites = Vec::new();
