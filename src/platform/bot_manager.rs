@@ -236,7 +236,7 @@ impl BotManager {
 
                                 // Store bot instance and spawn background task
                                 let bot_id = bot.id;
-                                let bot_handle = tokio::spawn(async move {
+                                let _bot_handle = tokio::spawn(async move {
                                     let mut bot = arbitrage_bot;
                                     if let Err(e) = bot.start_trading().await {
                                         error!("Arbitrage bot {} failed: {}", bot_id, e);
