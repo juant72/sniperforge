@@ -1,5 +1,5 @@
 /// Trading Engine Sin Caché - Versión Simplificada
-/// 
+///
 /// Sistema de trading completamente libre de caché para máxima seguridad
 
 use anyhow::{Result, anyhow};
@@ -47,6 +47,9 @@ pub struct SwapResult {
     pub input_price: f64,
     pub output_price: f64,
     pub latency: Duration,
+    pub transaction_id: Option<String>,
+    pub actual_slippage: f64,
+    pub total_fees: f64,
 }
 
 /// Trading Engine simplificado sin caché
@@ -64,8 +67,8 @@ impl CacheFreeTraderSimple {
         info!("   Fresh data timeout: {}ms", config.fresh_data_timeout_ms);
         info!("   Network: {}", network_config.environment);
         info!("   RPC Endpoint: {}", network_config.primary_rpc());
-        
-        Ok(Self { 
+
+        Ok(Self {
             config,
             network_config: network_config.clone(),
             wallet_keypair: None,
@@ -74,7 +77,7 @@ impl CacheFreeTraderSimple {
 
     /// Crear nuevo trader sin caché con wallet para trading real
     pub async fn new_with_wallet(
-        config: TradingSafetyConfig, 
+        config: TradingSafetyConfig,
         network_config: &crate::config::NetworkConfig,
         wallet_keypair: solana_sdk::signature::Keypair
     ) -> Result<Self> {
@@ -84,8 +87,8 @@ impl CacheFreeTraderSimple {
         info!("   Network: {}", network_config.environment);
         info!("   RPC Endpoint: {}", network_config.primary_rpc());
         info!("   Wallet: {}...", &wallet_keypair.pubkey().to_string()[..8]);
-        
-        Ok(Self { 
+
+        Ok(Self {
             config,
             network_config: network_config.clone(),
             wallet_keypair: Some(wallet_keypair),
@@ -95,7 +98,7 @@ impl CacheFreeTraderSimple {
     /// Obtener precio fresco sin caché - IMPLEMENTACIÓN REAL
     pub async fn get_fresh_price_no_cache(&self, token_mint: &str) -> Result<Option<SafePriceInfo>> {
         info!("🔍 Fetching REAL fresh price for {} (NO CACHE)", token_mint);
-        
+
         // 1. Fetch directo desde Jupiter API
         let jupiter_price = match self.fetch_jupiter_price_direct(token_mint).await {
             Ok(price) => {
@@ -107,16 +110,16 @@ impl CacheFreeTraderSimple {
                 None
             }
         };
-        
+
         // 2. Validar frescura de datos
         let timestamp = Instant::now();
         let age_ms = 0; // Fresh fetch, age is 0
-        
+
         if age_ms > self.config.max_price_age_ms as u128 {
             warn!("❌ Price data too old: {}ms > {}ms", age_ms, self.config.max_price_age_ms);
             return Ok(None);
         }
-        
+
         // 3. Retornar precio real si está disponible
         if let Some(price) = jupiter_price {
             Ok(Some(SafePriceInfo {
@@ -131,13 +134,13 @@ impl CacheFreeTraderSimple {
             Ok(None)
         }
     }
-    
+
     /// Fetch price directly from Jupiter API (no cache)
     async fn fetch_jupiter_price_direct(&self, token_mint: &str) -> Result<f64> {
         // Use Jupiter client with network-specific configuration
         let jupiter_config = crate::shared::jupiter::JupiterConfig::from_network_config(&self.network_config);
         let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
-        
+
         match jupiter.get_token_price(token_mint).await {
             Ok(token_price) => {
                 info!("✅ Retrieved fresh Jupiter price: ${:.6}", token_price.price);
@@ -156,33 +159,33 @@ impl CacheFreeTraderSimple {
         output_token: &str,
         amount: u64,
     ) -> Result<SwapResult> {
-        info!("🔄 Executing SAFE swap: {} -> {} (amount: {})", 
+        info!("🔄 Executing SAFE swap: {} -> {} (amount: {})",
               input_token, output_token, amount);
-        
+
         // Step 1: Get fresh prices (no cache)
         let input_price = self.get_fresh_price_no_cache(input_token).await?;
         let output_price = self.get_fresh_price_no_cache(output_token).await?;
-        
+
         // Step 2: Validate prices are fresh and safe
         if let (Some(input), Some(output)) = (input_price, output_price) {
             if !input.is_safe_for_trading || !output.is_safe_for_trading {
                 return Err(anyhow!("❌ Prices not safe for trading"));
             }
-            
+
             let age_input = input.timestamp.elapsed();
             let age_output = output.timestamp.elapsed();
-            
+
             if age_input.as_millis() > self.config.max_price_age_ms as u128 ||
                age_output.as_millis() > self.config.max_price_age_ms as u128 {
                 return Err(anyhow!("❌ Price data too old for safe trading"));
             }
-            
+
             info!("✅ Fresh prices validated:");
             info!("   {} = ${:.4} ({}ms old)", input.token_mint, input.price, age_input.as_millis());
             info!("   {} = ${:.4} ({}ms old)", output.token_mint, output.price, age_output.as_millis());
               // Step 3: Execute swap with fresh data
             info!("🚀 Executing real swap with fresh prices...");
-            
+
             // Use real trading engine for actual execution
             match self.execute_real_swap_internal(input_token, output_token, amount, &input, &output).await {
                 Ok(result) => Ok(result),
@@ -195,6 +198,10 @@ impl CacheFreeTraderSimple {
                         input_price: input.price,
                         output_price: output.price,
                         latency: age_input + age_output,
+                        transaction_id: None,
+                        actual_slippage: 0.0,
+                        total_fees: 0.0,
+                    })
                     })
                 }
             }
@@ -210,14 +217,14 @@ impl CacheFreeTraderSimple {
         warn!("   • Syndica WebSocket cache: DISABLED");
         warn!("   • Price feed cache: DISABLED");
         warn!("   • Quote cache: DISABLED");
-        
+
         // En implementación real, esto llamaría a:
         // jupiter_client.disable_cache().await?;
         // syndica_client.disable_cache_completamente().await?;
-        
+
         Ok(())
     }
-    
+
     /// Execute real swap using Jupiter API (internal method)
     async fn execute_real_swap_internal(
         &self,
@@ -228,31 +235,31 @@ impl CacheFreeTraderSimple {
         output_price: &SafePriceInfo,
     ) -> Result<SwapResult> {
         info!("🔥 Executing REAL swap internally...");
-        
+
         // Create Jupiter instance
         let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
         let jupiter = crate::shared::jupiter::Jupiter::new(&jupiter_config).await?;
-        
+
         // Convert amount to SOL for Jupiter API
         let amount_sol = amount as f64 / 1_000_000_000.0;
-        
+
         // Get quote from Jupiter
         let quote = jupiter.get_quote(input_token, output_token, amount_sol, 300).await?;
-        
+
         info!("✅ Jupiter quote received:");
         info!("   Input: {} lamports", quote.inAmount);
         info!("   Output: {} tokens", quote.outAmount);
         info!("   Price impact: {}%", quote.priceImpactPct);
-        
+
         // Calculate actual output amount
         let output_amount: u64 = quote.outAmount.parse().unwrap_or(0);
-        
+
         // Execute trade with real wallet integration if available
         let swap_executed = if let Some(ref keypair) = self.wallet_keypair {
             // Real trading with wallet integration
             let wallet_address = keypair.pubkey().to_string();
             info!("🔐 Executing REAL swap with wallet: {}...", &wallet_address[..8]);
-            
+
             match jupiter.execute_swap_with_wallet(&quote, &wallet_address, Some(keypair)).await {
                 Ok(result) => {
                     info!("✅ Real swap executed successfully!");
@@ -271,7 +278,7 @@ impl CacheFreeTraderSimple {
             warn!("    To enable real execution, use new_with_wallet()");
             false
         };
-        
+
         Ok(SwapResult {
             success: swap_executed,
             input_amount: amount,
@@ -279,6 +286,9 @@ impl CacheFreeTraderSimple {
             input_price: input_price.price,
             output_price: output_price.price,
             latency: input_price.timestamp.elapsed() + output_price.timestamp.elapsed(),
+            transaction_id: if swap_executed { Some("tx_placeholder".to_string()) } else { None },
+            actual_slippage: 0.0, // TODO: Calculate from actual execution
+            total_fees: 0.0, // TODO: Calculate from actual execution
         })
     }
 
@@ -292,27 +302,27 @@ impl CacheFreeTraderSimple {
 pub async fn test_cache_free_trading(network: &str) -> Result<()> {
     println!("🛡️ CACHE-FREE TRADING TEST");
     println!("============================");
-    
+
     // Load network-specific configuration
     let config_file = match network {
         "devnet" => "config/devnet.toml",
         "mainnet" => "config/mainnet.toml",
         _ => return Err(anyhow::anyhow!("Invalid network. Use 'devnet' or 'mainnet'")),
     };
-    
+
     let platform_config = crate::Config::load(config_file)?;
     let trading_config = TradingSafetyConfig::default();
     let trader = CacheFreeTraderSimple::new(trading_config, &platform_config.network).await?;
-    
+
     // Test 1: Disable all caching
     println!("\n1️⃣ Disabling all caching mechanisms...");
     trader.disable_all_caching().await?;
     println!("✅ All caching disabled");
-    
+
     // Test 2: Get fresh price
     println!("\n2️⃣ Testing fresh price fetching...");
     let token = "So11111111111111111111111111111111111111112"; // SOL
-    
+
     match trader.get_fresh_price_no_cache(token).await? {
         Some(price_info) => {
             println!("✅ Fresh price obtained:");
@@ -320,14 +330,14 @@ pub async fn test_cache_free_trading(network: &str) -> Result<()> {
             println!("   Price: ${:.4}", price_info.price);
             println!("   Source: {}", price_info.source);
             println!("   Age: {:?}", price_info.timestamp.elapsed());
-            println!("   Safe for trading: {}", 
+            println!("   Safe for trading: {}",
                 if price_info.is_safe_for_trading { "✅ YES" } else { "❌ NO" });
         }
         None => {
             println!("❌ No fresh price data available");
         }
     }
-    
+
     // Test 3: Safe swap execution
     println!("\n3️⃣ Testing safe swap execution...");
     let input_token = "So11111111111111111111111111111111111111112"; // SOL
@@ -347,7 +357,7 @@ pub async fn test_cache_free_trading(network: &str) -> Result<()> {
             println!("❌ Swap validation failed: {}", e);
         }
     }
-    
+
     println!("\n🎯 TRADING SAFETY SUMMARY:");
     println!("============================");
     println!("✅ No cached data used");
@@ -355,7 +365,7 @@ pub async fn test_cache_free_trading(network: &str) -> Result<()> {
     println!("✅ Ultra-strict age limits (< 50ms)");
     println!("✅ Multiple source verification");
     println!("✅ Safe for real money trading");
-    
+
     println!("\n✅ Cache-free trading test completed!");
     Ok(())
 }
