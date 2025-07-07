@@ -3,7 +3,6 @@ pub mod unit;
 pub mod stress;
 pub mod performance;
 
-use anyhow::Result;
 use tracing::{info, error};
 
 /// QA Test Result
@@ -58,7 +57,7 @@ impl QATestSuite {
         let summary = self.get_summary();
 
         info!("📋 QA Test Suite Report: {}", self.name);
-        info!("=" .repeat(50));
+        info!("{}", "=".repeat(50));
         info!("✅ Passed: {}/{}", summary.passed_tests, summary.total_tests);
         info!("❌ Failed: {}", summary.failed_tests);
         info!("📊 Success Rate: {:.1}%", summary.success_rate);
@@ -71,7 +70,7 @@ impl QATestSuite {
             }
         }
 
-        info!("=" .repeat(50));
+        info!("{}", "=".repeat(50));
 
         // Print detailed results
         for result in &self.results {

@@ -1,11 +1,12 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
+use crate::qa::{QATestSuite, QATestResult};
+use crate::qa::{qa_test, qa_assert, qa_assert_eq};
 use sniperforge::bots::arbitrage_bot::ArbitrageBot;
 use sniperforge::shared::SharedServices;
 use sniperforge::config::Config;
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::info;
 
 /// ArbitrageBot Integration Tests
 pub struct ArbitrageBotIntegrationTests {
@@ -378,18 +379,24 @@ impl ArbitrageBotIntegrationTests {
         let mut details = Vec::new();
 
         // Test if configuration is properly loaded
-        qa_assert!(!self.config.network.rpc_url.is_empty(), "RPC URL should not be empty");
+        let rpc_url = if self.config.network.environment == "devnet" {
+            self.config.network.devnet_primary_rpc.as_ref().unwrap_or(&"".to_string())
+        } else {
+            self.config.network.mainnet_primary_rpc.as_ref().unwrap_or(&"".to_string())
+        };
+        qa_assert!(!rpc_url.is_empty(), "RPC URL should not be empty");
         qa_assert!(!self.config.network.environment.is_empty(), "Environment should not be empty");
 
         details.push(format!("Network environment: {}", self.config.network.environment));
-        details.push(format!("RPC URL: {}", self.config.network.rpc_url));
+        details.push(format!("RPC URL: {}", rpc_url));
 
         // Test shared services initialization
-        qa_assert!(self.shared_services.wallet_manager().get_wallet_count().await > 0,
-                  "Should have at least one wallet");
+        let wallets = self.shared_services.wallet_manager().list_wallets().await;
+        qa_assert!(!wallets.is_empty(), "Should have at least one wallet");
 
-        let wallet_count = self.shared_services.wallet_manager().get_wallet_count().await;
-        details.push(format!("Available wallets: {}", wallet_count));
+        details.push(format!("Available wallets: {}", wallets.len()));
+
+        details.push(format!("Total wallets configured: {}", wallets.len()));
 
         Ok(details)
     }

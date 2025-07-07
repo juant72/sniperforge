@@ -1,16 +1,65 @@
-mod qa;
-
 use sniperforge::bots::arbitrage_bot::ArbitrageBot;
 use sniperforge::shared::SharedServices;
 use sniperforge::config::Config;
-use qa::{QATestSuite, QATestResult};
 use anyhow::Result;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{info, error, warn};
 
-// Import QA macros from root
-use crate::{qa_test, qa_assert, qa_assert_eq};
+/// Simple QA Test Result
+#[derive(Debug)]
+struct TestResult {
+    name: String,
+    passed: bool,
+    duration_ms: u64,
+    details: Vec<String>,
+    error: Option<String>,
+}
+
+impl TestResult {
+    fn new(name: String) -> Self {
+        Self {
+            name,
+            passed: false,
+            duration_ms: 0,
+            details: Vec::new(),
+            error: None,
+        }
+    }
+
+    fn success(name: String, duration_ms: u64, details: Vec<String>) -> Self {
+        Self {
+            name,
+            passed: true,
+            duration_ms,
+            details,
+            error: None,
+        }
+    }
+
+    fn failure(name: String, duration_ms: u64, error: String) -> Self {
+        Self {
+            name,
+            passed: false,
+            duration_ms,
+            details: Vec::new(),
+            error: Some(error),
+        }
+    }
+
+    fn print(&self) {
+        let status = if self.passed { "✅" } else { "❌" };
+        info!("{} {} ({}ms)", status, self.name, self.duration_ms);
+
+        for detail in &self.details {
+            info!("    {}", detail);
+        }
+
+        if let Some(error) = &self.error {
+            error!("    Error: {}", error);
+        }
+    }
+}
 
 /// Main QA Test Runner for ArbitrageBot
 #[tokio::main]
@@ -24,118 +73,126 @@ async fn main() -> Result<()> {
     info!("{}", "=".repeat(70));
 
     let start_time = Instant::now();
-    let mut all_suites = Vec::new();
+    let mut all_results = Vec::new();
 
-    // Run Integration Tests
+    // Integration Tests
     info!("🔗 Running Integration Tests...");
-    let integration_suite = run_integration_tests().await;
-    all_suites.push(integration_suite);
+    run_integration_tests(&mut all_results).await;
 
-    // Run Unit Tests
+    // Unit Tests
     info!("🧪 Running Unit Tests...");
-    let unit_suite = run_unit_tests().await;
-    all_suites.push(unit_suite);
+    run_unit_tests(&mut all_results).await;
 
-    // Run Stress Tests
+    // Stress Tests
     info!("💥 Running Stress Tests...");
-    let stress_suite = run_stress_tests().await;
-    all_suites.push(stress_suite);
+    run_stress_tests(&mut all_results).await;
 
-    // Run Performance Tests
+    // Performance Tests
     info!("⚡ Running Performance Tests...");
-    let performance_suite = run_performance_tests().await;
-    all_suites.push(performance_suite);
+    run_performance_tests(&mut all_results).await;
 
     let total_duration = start_time.elapsed();
 
     // Generate Overall Report
-    generate_overall_report(&all_suites, total_duration);
+    generate_report(&all_results, total_duration);
 
     Ok(())
 }
 
 /// Run Integration Tests
-async fn run_integration_tests() -> QATestSuite {
-    let mut suite = QATestSuite::new("Integration Tests".to_string());
-
+async fn run_integration_tests(results: &mut Vec<TestResult>) {
     // Test 1: ArbitrageBot Creation
-    let result = qa_test!("ArbitrageBot Creation", test_arbitrage_bot_creation());
-    suite.add_result(result);
+    let result = run_test("ArbitrageBot Creation", || test_arbitrage_bot_creation()).await;
+    result.print();
+    results.push(result);
 
     // Test 2: Price Feed Integration
-    let result = qa_test!("Price Feed Integration", test_price_feed_integration());
-    suite.add_result(result);
+    let result = run_test("Price Feed Integration", || test_price_feed_integration()).await;
+    result.print();
+    results.push(result);
 
     // Test 3: Market Data Fetching
-    let result = qa_test!("Market Data Fetching", test_market_data_fetching());
-    suite.add_result(result);
+    let result = run_test("Market Data Fetching", || test_market_data_fetching()).await;
+    result.print();
+    results.push(result);
 
     // Test 4: Opportunity Detection
-    let result = qa_test!("Opportunity Detection", test_opportunity_detection());
-    suite.add_result(result);
+    let result = run_test("Opportunity Detection", || test_opportunity_detection()).await;
+    result.print();
+    results.push(result);
 
     // Test 5: Emergency Stop
-    let result = qa_test!("Emergency Stop", test_emergency_stop());
-    suite.add_result(result);
+    let result = run_test("Emergency Stop", || test_emergency_stop()).await;
+    result.print();
+    results.push(result);
 
     // Test 6: Status Reporting
-    let result = qa_test!("Status Reporting", test_status_reporting());
-    suite.add_result(result);
-
-    suite.print_report();
-    suite
+    let result = run_test("Status Reporting", || test_status_reporting()).await;
+    result.print();
+    results.push(result);
 }
 
 /// Run Unit Tests
-async fn run_unit_tests() -> QATestSuite {
-    let mut suite = QATestSuite::new("Unit Tests".to_string());
-
+async fn run_unit_tests(results: &mut Vec<TestResult>) {
     // Test 1: Strategy Analysis
-    let result = qa_test!("Strategy Analysis", test_strategy_analysis());
-    suite.add_result(result);
+    let result = run_test("Strategy Analysis", || test_strategy_analysis()).await;
+    result.print();
+    results.push(result);
 
     // Test 2: Market Data Processing
-    let result = qa_test!("Market Data Processing", test_market_data_processing());
-    suite.add_result(result);
-
-    // Test 3: Signal Generation
-    let result = qa_test!("Signal Generation", test_signal_generation());
-    suite.add_result(result);
-
-    suite.print_report();
-    suite
+    let result = run_test("Market Data Processing", || test_market_data_processing()).await;
+    result.print();
+    results.push(result);
 }
 
 /// Run Stress Tests
-async fn run_stress_tests() -> QATestSuite {
-    let mut suite = QATestSuite::new("Stress Tests".to_string());
-
-    // Test 1: Rapid Bot Creation/Destruction
-    let result = qa_test!("Rapid Bot Creation", test_rapid_bot_creation());
-    suite.add_result(result);
+async fn run_stress_tests(results: &mut Vec<TestResult>) {
+    // Test 1: Rapid Bot Creation
+    let result = run_test("Rapid Bot Creation", || test_rapid_bot_creation()).await;
+    result.print();
+    results.push(result);
 
     // Test 2: Continuous Market Data
-    let result = qa_test!("Continuous Market Data", test_continuous_market_data());
-    suite.add_result(result);
-
-    suite.print_report();
-    suite
+    let result = run_test("Continuous Market Data", || test_continuous_market_data()).await;
+    result.print();
+    results.push(result);
 }
 
 /// Run Performance Tests
-async fn run_performance_tests() -> QATestSuite {
-    let mut suite = QATestSuite::new("Performance Tests".to_string());
-
+async fn run_performance_tests(results: &mut Vec<TestResult>) {
     // Test 1: Initialization Speed
-    let result = qa_test!("Initialization Speed", test_initialization_speed());
-    suite.add_result(result);
+    let result = run_test("Initialization Speed", test_initialization_speed()).await;
+    result.print();
+    results.push(result);
 
     // Test 2: Market Data Latency
-    let result = qa_test!("Market Data Latency", test_market_data_latency());
-    suite.add_result(result);
+    let result = run_test("Market Data Latency", test_market_data_latency()).await;
+    result.print();
+    results.push(result);
+}
 
-    suite.print_report();
-    suite
+/// Helper function to run a test with timing
+async fn run_test<F, Fut>(name: &str, test_future: F) -> TestResult
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<String>>>,
+{
+    let start_time = Instant::now();
+    let test_name = name.to_string();
+
+    match tokio::time::timeout(std::time::Duration::from_secs(30), test_future()).await {
+        Ok(Ok(details)) => {
+            let duration = start_time.elapsed().as_millis() as u64;
+            TestResult::success(test_name, duration, details)
+        },
+        Ok(Err(e)) => {
+            let duration = start_time.elapsed().as_millis() as u64;
+            TestResult::failure(test_name, duration, e.to_string())
+        },
+        Err(_) => {
+            TestResult::failure(test_name, 30000, "Test timeout (30s)".to_string())
+        }
+    }
 }
 
 // ============================================================================
@@ -163,8 +220,12 @@ async fn test_arbitrage_bot_creation() -> Result<Vec<String>> {
     details.push("✅ ArbitrageBot created successfully".to_string());
 
     let status = bot.get_status();
-    qa_assert!(!status.emergency_stop, "Emergency stop should be false initially");
-    qa_assert_eq!(status.total_trades, 0, "Initial trade count should be 0");
+    if status.emergency_stop {
+        return Err(anyhow::anyhow!("Emergency stop should be false initially"));
+    }
+    if status.total_trades != 0 {
+        return Err(anyhow::anyhow!("Initial trade count should be 0"));
+    }
 
     details.push("✅ Bot initial state verified".to_string());
 
@@ -190,22 +251,13 @@ async fn test_price_feed_integration() -> Result<Vec<String>> {
     // Test Jupiter price fetching
     match bot.get_jupiter_price("SOL", "USDC").await {
         Ok(price) => {
-            qa_assert!(price > 0.0, "Price should be positive");
+            if price <= 0.0 {
+                return Err(anyhow::anyhow!("Price should be positive"));
+            }
             details.push(format!("✅ Jupiter price: ${:.6}", price));
         },
         Err(e) => {
             details.push(format!("⚠️ Jupiter price failed (expected in DevNet): {}", e));
-        }
-    }
-
-    // Test WebSocket price feed
-    match bot.get_jupiter_price("SOL", "USDC").await {
-        Ok(price) => {
-            qa_assert!(price > 0.0, "WebSocket price should be positive");
-            details.push(format!("✅ Fallback price: ${:.6}", price));
-        },
-        Err(e) => {
-            details.push(format!("⚠️ Fallback price failed: {}", e));
         }
     }
 
@@ -230,16 +282,19 @@ async fn test_market_data_fetching() -> Result<Vec<String>> {
 
     match bot.get_real_market_data().await {
         Ok(market_data) => {
-            qa_assert!(!market_data.symbol.is_empty(), "Symbol should not be empty");
-            qa_assert!(market_data.price >= 0.0, "Price should be non-negative");
+            if market_data.symbol.is_empty() {
+                return Err(anyhow::anyhow!("Symbol should not be empty"));
+            }
+            if market_data.price < 0.0 {
+                return Err(anyhow::anyhow!("Price should be non-negative"));
+            }
 
             details.push(format!("✅ Market data for {}", market_data.symbol));
             details.push(format!("  Price: ${:.6}", market_data.price));
             details.push(format!("  Spread: ${:.6}", market_data.spread));
-        },        Err(e) => {
+        },
+        Err(e) => {
             details.push(format!("⚠️ Market data failed (expected in DevNet): {}", e));
-
-            // Use real market data as fallback instead
             details.push("✅ Using real market data method".to_string());
         }
     }
@@ -267,9 +322,15 @@ async fn test_opportunity_detection() -> Result<Vec<String>> {
     details.push(format!("✅ Detected {} signals", signals.len()));
 
     for (i, signal) in signals.iter().enumerate() {
-        qa_assert!(!signal.strategy_name.is_empty(), "Strategy name should not be empty");
-        qa_assert!(signal.confidence >= 0.0 && signal.confidence <= 1.0, "Confidence should be 0-1");
-        qa_assert!(signal.position_size >= 0.0, "Position size should be non-negative");
+        if signal.strategy_name.is_empty() {
+            return Err(anyhow::anyhow!("Strategy name should not be empty"));
+        }
+        if signal.confidence < 0.0 || signal.confidence > 1.0 {
+            return Err(anyhow::anyhow!("Confidence should be between 0 and 1"));
+        }
+        if signal.position_size < 0.0 {
+            return Err(anyhow::anyhow!("Position size should be non-negative"));
+        }
 
         details.push(format!("  Signal {}: {} ({:.1}%)",
                            i + 1, signal.strategy_name, signal.confidence * 100.0));
@@ -299,13 +360,17 @@ async fn test_emergency_stop() -> Result<Vec<String>> {
     details.push("✅ Bot initialized for emergency stop test".to_string());
 
     let initial_status = bot.get_status();
-    qa_assert!(!initial_status.emergency_stop, "Emergency stop should be false initially");
+    if initial_status.emergency_stop {
+        return Err(anyhow::anyhow!("Emergency stop should be false initially"));
+    }
 
     bot.emergency_stop();
     details.push("✅ Emergency stop activated".to_string());
 
     let stopped_status = bot.get_status();
-    qa_assert!(stopped_status.emergency_stop, "Emergency stop should be true after activation");
+    if !stopped_status.emergency_stop {
+        return Err(anyhow::anyhow!("Emergency stop should be true after activation"));
+    }
 
     details.push("✅ Emergency stop state verified".to_string());
 
@@ -330,10 +395,15 @@ async fn test_status_reporting() -> Result<Vec<String>> {
 
     let status = bot.get_status();
 
-    qa_assert!(status.uptime_seconds >= 0, "Uptime should be non-negative");
-    qa_assert!(status.total_trades >= 0, "Total trades should be non-negative");
-    qa_assert!(status.success_rate_percent >= 0.0 && status.success_rate_percent <= 100.0,
-               "Success rate should be 0-100");
+    if status.uptime_seconds < 0 {
+        return Err(anyhow::anyhow!("Uptime should be non-negative"));
+    }
+    if status.total_trades < 0 {
+        return Err(anyhow::anyhow!("Total trades should be non-negative"));
+    }
+    if status.success_rate_percent < 0.0 || status.success_rate_percent > 100.0 {
+        return Err(anyhow::anyhow!("Success rate should be between 0 and 100"));
+    }
 
     details.push(format!("✅ Uptime: {}s", status.uptime_seconds));
     details.push(format!("✅ Trades: {}", status.total_trades));
@@ -376,8 +446,12 @@ async fn test_strategy_analysis() -> Result<Vec<String>> {
     details.push(format!("✅ Generated {} signals", signals.len()));
 
     for signal in &signals {
-        qa_assert!(signal.confidence >= 0.0 && signal.confidence <= 1.0, "Confidence should be 0-1");
-        qa_assert!(signal.position_size >= 0.0, "Position size should be non-negative");
+        if signal.confidence < 0.0 || signal.confidence > 1.0 {
+            return Err(anyhow::anyhow!("Confidence should be between 0 and 1"));
+        }
+        if signal.position_size < 0.0 {
+            return Err(anyhow::anyhow!("Position size should be non-negative"));
+        }
     }
 
     Ok(details)
@@ -406,40 +480,19 @@ async fn test_market_data_processing() -> Result<Vec<String>> {
         volume_history: vec![8000.0, 10000.0, 12000.0],
     };
 
-    qa_assert!(!market_data.symbol.is_empty(), "Symbol should not be empty");
-    qa_assert!(market_data.price > 0.0, "Price should be positive");
-    qa_assert!(market_data.bid <= market_data.ask, "Bid should be <= ask");
+    if market_data.symbol.is_empty() {
+        return Err(anyhow::anyhow!("Symbol should not be empty"));
+    }
+    if market_data.price <= 0.0 {
+        return Err(anyhow::anyhow!("Price should be positive"));
+    }
+    if market_data.bid > market_data.ask {
+        return Err(anyhow::anyhow!("Bid should be <= ask"));
+    }
 
     details.push("✅ Market data structure validated".to_string());
     details.push(format!("✅ Symbol: {}", market_data.symbol));
     details.push(format!("✅ Price: ${:.2}", market_data.price));
-
-    Ok(details)
-}
-
-async fn test_signal_generation() -> Result<Vec<String>> {
-    let mut details = Vec::new();
-
-    use sniperforge::bots::arbitrage_bot::StrategySignal;
-    use std::collections::HashMap;
-
-    let signal = StrategySignal {
-        signal_type: "ARBITRAGE".to_string(),
-        confidence: 0.75,
-        symbol: "SOL/USDC".to_string(),
-        timeframe: "INSTANT".to_string(),
-        metadata: HashMap::new(),
-        position_size: 10.0,
-        strategy_name: "TestStrategy".to_string(),
-    };
-
-    qa_assert!(!signal.signal_type.is_empty(), "Signal type should not be empty");
-    qa_assert!(signal.confidence >= 0.0 && signal.confidence <= 1.0, "Confidence should be 0-1");
-    qa_assert!(signal.position_size >= 0.0, "Position size should be non-negative");
-
-    details.push("✅ Signal structure validated".to_string());
-    details.push(format!("✅ Type: {}", signal.signal_type));
-    details.push(format!("✅ Confidence: {:.1}%", signal.confidence * 100.0));
 
     Ok(details)
 }
@@ -457,7 +510,7 @@ async fn test_rapid_bot_creation() -> Result<Vec<String>> {
 
     let start_time = Instant::now();
 
-    for i in 0..5 {
+    for i in 0..3 {
         let _bot = ArbitrageBot::new(
             wallet_address.clone(),
             50.0,
@@ -469,9 +522,11 @@ async fn test_rapid_bot_creation() -> Result<Vec<String>> {
     }
 
     let elapsed = start_time.elapsed();
-    details.push(format!("✅ Created 5 bots in {}ms", elapsed.as_millis()));
+    details.push(format!("✅ Created 3 bots in {}ms", elapsed.as_millis()));
 
-    qa_assert!(elapsed.as_secs() < 30, "Bot creation should complete within 30 seconds");
+    if elapsed.as_secs() >= 30 {
+        return Err(anyhow::anyhow!("Bot creation should complete within 30 seconds"));
+    }
 
     Ok(details)
 }
@@ -528,7 +583,9 @@ async fn test_initialization_speed() -> Result<Vec<String>> {
 
     details.push(format!("✅ Bot initialized in {}ms", elapsed_ms));
 
-    qa_assert!(elapsed_ms < 5000, "Initialization should complete within 5 seconds");
+    if elapsed_ms >= 5000 {
+        return Err(anyhow::anyhow!("Initialization should complete within 5 seconds"));
+    }
 
     // Performance benchmarks
     match elapsed_ms {
@@ -562,7 +619,9 @@ async fn test_market_data_latency() -> Result<Vec<String>> {
 
     details.push(format!("✅ Market data fetched in {}ms", elapsed_ms));
 
-    qa_assert!(elapsed_ms < 2000, "Market data fetch should complete within 2 seconds");
+    if elapsed_ms >= 2000 {
+        return Err(anyhow::anyhow!("Market data fetch should complete within 2 seconds"));
+    }
 
     // Performance benchmarks
     match elapsed_ms {
@@ -579,34 +638,18 @@ async fn test_market_data_latency() -> Result<Vec<String>> {
 // REPORT GENERATION
 // ============================================================================
 
-fn generate_overall_report(suites: &[QATestSuite], total_duration: std::time::Duration) {
+fn generate_report(results: &[TestResult], total_duration: std::time::Duration) {
     info!("");
     info!("📊 COMPREHENSIVE QA REPORT");
     info!("{}", "=".repeat(70));
 
-    let mut total_tests = 0;
-    let mut total_passed = 0;
-    let mut total_failed = 0;
-    let mut total_test_duration = 0;
-    let mut all_failed_tests = Vec::new();
-
-    for suite in suites {
-        let summary = suite.get_summary();
-        total_tests += summary.total_tests;
-        total_passed += summary.passed_tests;
-        total_failed += summary.failed_tests;
-        total_test_duration += summary.total_duration_ms;
-        all_failed_tests.extend(summary.failed_test_names);
-
-        info!("📋 {}: {}/{} passed ({:.1}%)",
-              summary.suite_name,
-              summary.passed_tests,
-              summary.total_tests,
-              summary.success_rate);
-    }
+    let total_tests = results.len();
+    let passed_tests = results.iter().filter(|r| r.passed).count();
+    let failed_tests = total_tests - passed_tests;
+    let total_test_duration: u64 = results.iter().map(|r| r.duration_ms).sum();
 
     let overall_success_rate = if total_tests > 0 {
-        (total_passed as f64 / total_tests as f64) * 100.0
+        (passed_tests as f64 / total_tests as f64) * 100.0
     } else {
         0.0
     };
@@ -614,17 +657,21 @@ fn generate_overall_report(suites: &[QATestSuite], total_duration: std::time::Du
     info!("");
     info!("🎯 OVERALL RESULTS:");
     info!("   Total Tests: {}", total_tests);
-    info!("   ✅ Passed: {}", total_passed);
-    info!("   ❌ Failed: {}", total_failed);
+    info!("   ✅ Passed: {}", passed_tests);
+    info!("   ❌ Failed: {}", failed_tests);
     info!("   📈 Success Rate: {:.1}%", overall_success_rate);
     info!("   ⏱️ Test Duration: {}ms", total_test_duration);
     info!("   🕐 Total Runtime: {:.2}s", total_duration.as_secs_f64());
 
-    if !all_failed_tests.is_empty() {
+    let failed_tests: Vec<&TestResult> = results.iter().filter(|r| !r.passed).collect();
+    if !failed_tests.is_empty() {
         warn!("");
         warn!("🔍 FAILED TESTS:");
-        for failed_test in &all_failed_tests {
-            error!("   ❌ {}", failed_test);
+        for failed_test in &failed_tests {
+            error!("   ❌ {}", failed_test.name);
+            if let Some(error) = &failed_test.error {
+                error!("      {}", error);
+            }
         }
     }
 

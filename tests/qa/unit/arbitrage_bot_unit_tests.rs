@@ -1,7 +1,7 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
-use sniperforge::bots::arbitrage_bot::{ArbitrageStrategy, MarketData, StrategySignal};
+use crate::qa::{QATestSuite, QATestResult};
+use crate::{qa_test, qa_assert, qa_assert_eq};
+use sniperforge::bots::arbitrage_bot::{ArbitrageStrategy, MarketData};
 use anyhow::Result;
-use std::collections::HashMap;
 use std::time::Instant;
 
 /// ArbitrageBot Unit Tests
@@ -225,11 +225,11 @@ impl ArbitrageBotUnitTests {
         let mut details = Vec::new();
 
         // Test position size calculations
-        let liquidity_values = vec![1000.0, 5000.0, 10000.0, 50000.0];
-        let max_position = 10.0; // $10 max for DevNet
+        let liquidity_values: Vec<f64> = vec![1000.0, 5000.0, 10000.0, 50000.0];
+        let max_position: f64 = 10.0; // $10 max for DevNet
 
         for liquidity in liquidity_values {
-            let position_size = liquidity.min(max_position);
+            let position_size: f64 = liquidity.min(max_position);
             qa_assert!(position_size <= max_position, "Position size should not exceed maximum");
             qa_assert!(position_size > 0.0, "Position size should be positive");
 

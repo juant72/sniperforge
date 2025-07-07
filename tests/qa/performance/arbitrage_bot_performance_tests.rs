@@ -1,4 +1,5 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert};
+use crate::qa::{QATestSuite, QATestResult};
+use crate::{qa_test, qa_assert};
 use sniperforge::bots::arbitrage_bot::ArbitrageBot;
 use sniperforge::shared::SharedServices;
 use sniperforge::config::Config;

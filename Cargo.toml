@@ -113,7 +113,7 @@ path = "test_arbitrage_bot_devnet.rs"
 
 [[bin]]
 name = "qa_runner"
-path = "tests/qa_runner_simple.rs"
+path = "tests/qa_runner_final.rs"
 
 [lib]
 name = "sniperforge"
