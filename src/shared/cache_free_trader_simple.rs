@@ -202,7 +202,6 @@ impl CacheFreeTraderSimple {
                         actual_slippage: 0.0,
                         total_fees: 0.0,
                     })
-                    })
                 }
             }
         } else {

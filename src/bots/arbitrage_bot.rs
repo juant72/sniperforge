@@ -2,6 +2,7 @@ use crate::strategies::{TradingStrategy, StrategySignal, StrategyPerformance, St
 use crate::strategies::arbitrage::{ArbitrageStrategy, ArbitrageOpportunity as StrategyArbitrageOpportunity};
 use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
 use crate::shared::jupiter::Jupiter;
+use crate::shared::jupiter_config::JupiterConfig;
 use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
 use crate::config::NetworkConfig;
 use anyhow::{Result, anyhow};
@@ -246,7 +247,7 @@ impl ArbitrageBot {
     /// Get real market data for SOL/USDC from multiple sources
     async fn get_real_market_data(&self) -> Result<MarketData> {
         // Use Jupiter as primary source for market data
-        let jupiter_client = crate::shared::jupiter_api::Jupiter::new(&crate::shared::jupiter_api::JupiterConfig::default()).await?;
+        let jupiter_client = crate::shared::jupiter_api::Jupiter::new(&JupiterConfig::default()).await?;
 
         // Get quote for SOL/USDC to determine current price
         let sol_mint = "So11111111111111111111111111111111111111112";
@@ -273,7 +274,7 @@ impl ArbitrageBot {
 
     /// Get real price from Jupiter
     async fn get_jupiter_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        let jupiter_client = crate::shared::jupiter_api::Jupiter::new(&crate::shared::jupiter_api::JupiterConfig::default()).await?;
+        let jupiter_client = crate::shared::jupiter_api::Jupiter::new(&JupiterConfig::default()).await?;
 
         let (from_mint, to_mint) = self.get_token_mints(from_token, to_token)?;
         let amount = 1_000_000_000; // 1 unit of from_token
