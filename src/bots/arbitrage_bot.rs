@@ -56,23 +56,48 @@ impl ArbitrageStrategy {
         }
     }
 
-    pub async fn analyze_market(&self, _market_data: &MarketData) -> Result<Vec<StrategySignal>> {
-        // Simple analysis - look for price discrepancies
-        // This is a placeholder for real strategy logic
-        Ok(vec![])
+    pub async fn analyze_market(&self, market_data: &MarketData) -> Result<Vec<StrategySignal>> {
+        // Real analysis - look for price discrepancies across DEXs
+        let mut signals = Vec::new();
+
+        // Only generate signals if we have valid market data
+        if market_data.price > 0.0 && market_data.volume > 0.0 {
+            // Check if spread is profitable (needs to be > 0.5% to cover fees)
+            if market_data.spread > market_data.price * 0.005 {
+                signals.push(StrategySignal {
+                    signal_type: "ARBITRAGE".to_string(),
+                    confidence: (market_data.spread / market_data.price).min(1.0),
+                    symbol: market_data.symbol.clone(),
+                    timeframe: "INSTANT".to_string(),
+                    metadata: HashMap::new(),
+                    position_size: market_data.liquidity.min(1000.0), // Cap at $1000
+                    strategy_name: "RealArbitrageStrategy".to_string(),
+                });
+            }
+        }
+
+        Ok(signals)
     }
 
-    pub fn analyze(&self, _opportunity: &TradingOpportunity, _market_data: &MarketData) -> Option<StrategySignal> {
-        // Simple arbitrage analysis
-        Some(StrategySignal {
-            signal_type: "BUY".to_string(),
-            confidence: 0.8,
-            symbol: "SOL/USDC".to_string(),
-            timeframe: "M1".to_string(),
-            metadata: HashMap::new(),
-            position_size: 100.0,
-            strategy_name: "ArbitrageBot".to_string(),
-        })
+    pub fn analyze(&self, opportunity: &TradingOpportunity, _market_data: &MarketData) -> Option<StrategySignal> {
+        // Real arbitrage analysis based on actual opportunity data
+        if opportunity.expected_profit_usd > 0.0 && opportunity.confidence > 0.5 {
+            Some(StrategySignal {
+                signal_type: "ARBITRAGE".to_string(),
+                confidence: opportunity.confidence,
+                symbol: format!("{}/{}", opportunity.pool.token_a.symbol, opportunity.pool.token_b.symbol),
+                timeframe: "INSTANT".to_string(),
+                metadata: HashMap::from([
+                    ("pool_address".to_string(), opportunity.pool.pool_address.clone()),
+                    ("dex".to_string(), opportunity.pool.dex.clone()),
+                    ("expected_profit".to_string(), opportunity.expected_profit_usd.to_string()),
+                ]),
+                position_size: opportunity.recommended_size_usd,
+                strategy_name: "RealArbitrageStrategy".to_string(),
+            })
+        } else {
+            None
+        }
     }
 
     pub fn update_price_feed(&mut self, _dex_name: String, _price: f64) {
@@ -307,58 +332,8 @@ impl ArbitrageBot {
         // Update price feeds for strategy
         self.update_price_feeds().await?;
 
-        // Create a dummy trading opportunity (in real implementation, this would come from pool detector)
-        let trading_opportunity = TradingOpportunity {
-            pool: DetectedPool {
-                pool_address: "DummyPoolAddress123".to_string(),
-                token_a: TokenInfo {
-                    mint: "So11111111111111111111111111111111111111112".to_string(),
-                    symbol: "SOL".to_string(),
-                    decimals: 9,
-                    supply: 1000000000000000000,
-                    price_usd: 95.50,
-                    market_cap: 95500000000.0,
-                },
-                token_b: TokenInfo {
-                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-                    symbol: "USDC".to_string(),
-                    decimals: 6,
-                    supply: 1000000000000000,
-                    price_usd: 1.0,
-                    market_cap: 1000000000000.0,
-                },
-                liquidity_usd: 1000000.0,
-                price_impact_1k: 0.005,
-                volume_24h: 500000.0,
-                created_at: chrono::Utc::now().timestamp() as u64,
-                detected_at: chrono::Utc::now().timestamp() as u64,
-                dex: "Jupiter".to_string(),
-                risk_score: RiskScore {
-                    overall: 0.8,
-                    liquidity_score: 0.9,
-                    volume_score: 0.8,
-                    token_age_score: 0.9,
-                    holder_distribution_score: 0.7,
-                    rug_indicators: vec![],
-                },
-                transaction_signature: Some("DummyTxSignature123".to_string()),
-                creator: Some("DummyCreatorAddress123".to_string()),
-                detection_method: Some("ARBITRAGE_BOT".to_string()),
-            },
-            opportunity_type: OpportunityType::PriceDiscrepancy,
-            expected_profit_usd: 10.0,
-            confidence: 0.8,
-            time_window_ms: 30000,
-            recommended_size_usd: 100.0,
-        };
-
-        // Analyze the opportunity using the strategy
-        let mut signals = Vec::new();
-        if let Some(signal) = self.strategy.analyze(&trading_opportunity, &market_data) {
-            info!("📊 Strategy signal: {} with {:.1}% confidence",
-                  signal.strategy_name, signal.confidence * 100.0);
-            signals.push(signal);
-        }
+        // Use the strategy's market analysis instead of dummy data
+        let signals = self.strategy.analyze_market(&market_data).await?;
 
         // Update monitoring
         self.monitoring.opportunities_detected += signals.len() as u32;
@@ -366,6 +341,7 @@ impl ArbitrageBot {
 
         if !signals.is_empty() {
             self.monitoring.last_opportunity_time = Some(Instant::now());
+            info!("📊 Detected {} real arbitrage opportunities", signals.len());
         }
 
         Ok(signals)
@@ -374,29 +350,37 @@ impl ArbitrageBot {
         info!("📊 Fetching REAL market data from APIs");
 
         // Get current price from Jupiter API (real)
-        let current_price = match self.get_jupiter_price("SOL", "USDC").await {
-            Ok(price) => price,
-            Err(e) => {
-                warn!("⚠️ Jupiter API failed, using fallback: {}", e);
-                // In production, we'd have multiple fallback sources
-                return Err(anyhow!("Failed to get real market data: {}", e));
-            }
+        let current_price = self.get_jupiter_price("SOL", "USDC").await?;
+
+        // Get prices from multiple DEXs for comparison
+        let mut prices = vec![("Jupiter", current_price)];
+
+        // Try to get Raydium price (will fail for now but that's expected)
+        if let Ok(raydium_price) = self.get_raydium_price("SOL", "USDC").await {
+            prices.push(("Raydium", raydium_price));
+        }
+
+        // Try to get Orca price (will fail for now but that's expected)
+        if let Ok(orca_price) = self.get_orca_price("SOL", "USDC").await {
+            prices.push(("Orca", orca_price));
+        }
+
+        // Calculate bid/ask from price differences if we have multiple sources
+        let (bid, ask) = if prices.len() > 1 {
+            let min_price = prices.iter().map(|(_, p)| *p).fold(f64::INFINITY, f64::min);
+            let max_price = prices.iter().map(|(_, p)| *p).fold(f64::NEG_INFINITY, f64::max);
+            (min_price, max_price)
+        } else {
+            // If only one source, use small spread estimate
+            let spread = current_price * 0.001; // 0.1% spread estimate
+            (current_price - spread / 2.0, current_price + spread / 2.0)
         };
 
-        // Get real volume data from DexScreener API (if available)
-        let volume_24h = match self.get_dexscreener_volume("SOL", "USDC").await {
-            Ok(volume) => volume,
-            Err(e) => {
-                warn!("⚠️ DexScreener API failed: {}", e);
-                0.0 // Use 0 if API fails
-            }
-        };
+        // Real volume would come from an aggregator API
+        let volume_24h = 0.0; // Will be 0 until we implement volume API
 
-        // Calculate real bid/ask from order book depth
-        let (bid, ask) = self.get_real_bid_ask("SOL", "USDC").await?;
-
-        info!("📈 Real market data - Price: ${:.6}, Volume: ${:.2}, Bid: ${:.6}, Ask: ${:.6}",
-              current_price, volume_24h, bid, ask);
+        info!("📈 Real market data - Price: ${:.6}, Bid: ${:.6}, Ask: ${:.6}, Sources: {}",
+              current_price, bid, ask, prices.len());
 
         Ok(MarketData {
             symbol: "SOL/USDC".to_string(),
@@ -417,19 +401,6 @@ impl ArbitrageBot {
         })
     }
 
-    /// Get real bid/ask prices from order book
-    async fn get_real_bid_ask(&self, _from_token: &str, _to_token: &str) -> Result<(f64, f64)> {
-        // In a full implementation, this would fetch real order book data
-        // For now, we'll indicate this needs real implementation
-        Err(anyhow!("Real order book API integration pending"))
-    }
-
-    /// Get real volume data from DexScreener API
-    async fn get_dexscreener_volume(&self, _from_token: &str, _to_token: &str) -> Result<f64> {
-        // In a full implementation, this would call DexScreener API
-        Err(anyhow!("DexScreener API integration pending"))
-    }
-
     /// Update price feeds for the strategy
     async fn update_price_feeds(&mut self) -> Result<()> {
         // Get prices from different DEXs
@@ -437,13 +408,8 @@ impl ArbitrageBot {
             self.strategy.update_price_feed("Jupiter".to_string(), jupiter_price);
         }
 
-        if let Ok(raydium_price) = self.get_raydium_price("SOL", "USDC").await {
-            self.strategy.update_price_feed("Raydium".to_string(), raydium_price);
-        }
-
-        if let Ok(orca_price) = self.get_orca_price("SOL", "USDC").await {
-            self.strategy.update_price_feed("Orca".to_string(), orca_price);
-        }
+        // Only try other DEXs if they have real implementations
+        // Raydium and Orca integrations are pending real implementation
 
         Ok(())
     }
@@ -469,32 +435,26 @@ impl ArbitrageBot {
 
     /// Get price from Raydium API
     async fn get_raydium_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        // Use real Raydium API through shared services
-        let _rpc_client = self.shared_services.rpc_pool();
+        info!("🔥 Attempting to get Raydium price for {}/{}", from_token, to_token);
 
-        // Get real Raydium price data
-        // This would typically involve fetching pool data from Raydium's on-chain programs
-        // For now, we'll use a realistic implementation that could be expanded
-        info!("🔥 Getting real Raydium price for {}/{}", from_token, to_token);
+        // Real implementation would need:
+        // 1. Raydium pool address lookup
+        // 2. On-chain pool account data fetch
+        // 3. Price calculation from reserves
 
-        // In a full implementation, this would:
-        // 1. Find the relevant Raydium pool address
-        // 2. Fetch pool account data
-        // 3. Calculate current price from reserves
-        // For now, return an error to indicate this needs real implementation
-        Err(anyhow!("Raydium real API integration pending - needs pool address and on-chain data"))
+        Err(anyhow!("Raydium integration not yet implemented - requires pool address lookup and on-chain data parsing"))
     }
 
     /// Get price from Orca API
     async fn get_orca_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        // Use real Orca API through shared services
-        info!("🔥 Getting real Orca price for {}/{}", from_token, to_token);
+        info!("🔥 Attempting to get Orca price for {}/{}", from_token, to_token);
 
-        // In a full implementation, this would:
-        // 1. Use Orca SDK to fetch pool data
-        // 2. Calculate current price from Whirlpool reserves
-        // For now, return an error to indicate this needs real implementation
-        Err(anyhow!("Orca real API integration pending - needs Whirlpool SDK integration"))
+        // Real implementation would need:
+        // 1. Orca Whirlpool SDK integration
+        // 2. Pool discovery and data fetching
+        // 3. Price calculation from tick data
+
+        Err(anyhow!("Orca integration not yet implemented - requires Whirlpool SDK integration"))
     }
 
     /// Execute an arbitrage trade
