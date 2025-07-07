@@ -26,6 +26,11 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
     let mut all_suites = Vec::new();
 
+    // Initialize counters
+    let mut total_tests = 0;
+    let mut total_passed = 0;
+    let mut total_failed = 0;
+
     // Run Unit Tests
     info!("🔬 Running Unit Tests...");
     let unit_suites = qa::unit::run_all_unit_tests().await;
@@ -93,13 +98,14 @@ async fn main() -> Result<()> {
 
     // Print individual suite reports
     info!("\n📋 Individual Test Suite Reports:");
-    info!("=" .repeat(70));
+    info!("{}", "=".repeat(70));
     for suite in &all_suites {
         suite.print_report();
         info!("");
     }
 
     // Print overall summary
+    let total_duration = start_time.elapsed();
     print_overall_summary(total_tests, total_passed, total_failed, total_duration, &all_suites);
 
     // Exit with appropriate code
@@ -118,7 +124,7 @@ fn print_overall_summary(
     all_suites: &[QATestSuite]
 ) {
     info!("🎯 OVERALL QA TEST SUMMARY");
-    info!("=" .repeat(70));
+    info!("{}", "=".repeat(70));
 
     let overall_success_rate = if total_tests > 0 {
         (total_passed as f64 / total_tests as f64) * 100.0
@@ -192,5 +198,5 @@ fn print_overall_summary(
         info!("   🚀 Proceed with confidence to production testing");
     }
 
-    info!("=" .repeat(70));
+    info!("{}", "=".repeat(70));
 }

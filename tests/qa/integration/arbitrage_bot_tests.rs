@@ -378,10 +378,11 @@ impl ArbitrageBotIntegrationTests {
         let mut details = Vec::new();
 
         // Test if configuration is properly loaded
+        let empty_string = String::new();
         let rpc_url = if self.config.network.environment == "devnet" {
-            self.config.network.devnet_primary_rpc.as_ref().unwrap_or(&"".to_string())
+            self.config.network.devnet_primary_rpc.as_ref().unwrap_or(&empty_string)
         } else {
-            self.config.network.mainnet_primary_rpc.as_ref().unwrap_or(&"".to_string())
+            self.config.network.mainnet_primary_rpc.as_ref().unwrap_or(&empty_string)
         };
         qa_assert!(!rpc_url.is_empty(), "RPC URL should not be empty");
         qa_assert!(!self.config.network.environment.is_empty(), "Environment should not be empty");
