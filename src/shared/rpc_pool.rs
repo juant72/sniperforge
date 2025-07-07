@@ -982,10 +982,10 @@ impl RpcConnectionPool {
                     // Convert to our TransactionDetails format
                     Ok(TransactionDetails {
                         transaction_id: signature.to_string(),
-                        fee: transaction.transaction.message.compute_budget_units.unwrap_or(0) as f64 * 0.000005,
-                        balance_changes: vec![], // TODO: Parse balance changes
-                        success: transaction.meta.as_ref().map(|m| m.err.is_none()).unwrap_or(false),
-                        block_time: transaction.block_time,
+                        fee: 0.000005, // Default fee estimate
+                        balance_changes: vec![], // TODO: Parse balance changes from token accounts
+                        success: transaction.transaction.meta.as_ref().map(|m| m.err.is_none()).unwrap_or(false),
+                        block_time: transaction.block_time.map(|t| t as u64),
                     })
                 },
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
@@ -1307,6 +1307,77 @@ impl RpcConnectionPool {
             }
         } else {
             url.to_string()
+        }
+    }
+
+    /// Get transaction details for profit calculation
+    pub async fn get_transaction_details(&self, transaction_id: &str) -> Result<TransactionDetails> {
+        info!("🔍 Fetching transaction details for: {}", transaction_id);
+
+        let client = self.get_client(Priority::High).await?;
+        let signature = transaction_id.parse::<Signature>()
+            .map_err(|e| anyhow::anyhow!("Invalid transaction signature: {}", e))?;
+
+        // Get transaction with maximum detail using blocking task
+        let client_clone = client.client().clone();
+        match tokio::task::spawn_blocking(move || {
+            client_clone.get_transaction_with_config(
+                &signature,
+                solana_client::rpc_config::RpcTransactionConfig {
+                    encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
+                    commitment: Some(CommitmentConfig::confirmed()),
+                    max_supported_transaction_version: Some(0),
+                }
+            )
+        }).await {
+            Ok(Ok(transaction)) => {
+                let mut balance_changes = Vec::new();
+                let mut fee = 0.000005; // Default fee estimate
+                let success = transaction.transaction.meta.as_ref()
+                    .map(|meta| meta.err.is_none())
+                    .unwrap_or(false);
+
+                // Parse fee from meta if available
+                if let Some(meta) = &transaction.transaction.meta {
+                    fee = meta.fee as f64 / 1_000_000_000.0; // Convert lamports to SOL
+
+                    // Parse balance changes from pre/post balances
+                    if let Some(pre_balances) = &meta.pre_balances {
+                        if let Some(post_balances) = &meta.post_balances {
+                            for (i, (pre, post)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
+                                if pre != post {
+                                    let change = (*post as f64 - *pre as f64) / 1_000_000_000.0; // Convert to SOL
+                                    balance_changes.push(BalanceChange {
+                                        account: format!("account_{}", i),
+                                        mint: "SOL".to_string(), // Default to SOL, would need token account parsing for others
+                                        change,
+                                        pre_balance: *pre as f64 / 1_000_000_000.0,
+                                        post_balance: *post as f64 / 1_000_000_000.0,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                info!("✅ Transaction details parsed - Fee: {} SOL, Changes: {}", fee, balance_changes.len());
+
+                Ok(TransactionDetails {
+                    transaction_id: transaction_id.to_string(),
+                    fee,
+                    balance_changes,
+                    success,
+                    block_time: transaction.block_time.map(|t| t as u64),
+                })
+            },
+            Ok(Err(e)) => {
+                error!("❌ Failed to get transaction details: {}", e);
+                Err(anyhow::anyhow!("Transaction fetch failed: {}", e))
+            },
+            Err(e) => {
+                error!("❌ Task join error: {}", e);
+                Err(anyhow::anyhow!("Task join error: {}", e))
+            }
         }
     }
 }

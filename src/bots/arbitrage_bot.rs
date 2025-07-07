@@ -454,9 +454,9 @@ impl ArbitrageBot {
         let jupiter = self.shared_services.jupiter();
 
         // Get actual quote from Jupiter
-        match jupiter.get_quote(from_token, to_token, 1000000, None).await {
+        match jupiter.get_quote(from_token, to_token, 1.0, 1000000).await {
             Ok(quote) => {
-                let price = quote.out_amount as f64 / quote.in_amount as f64;
+                let price = quote.out_amount() as f64 / quote.in_amount() as f64;
                 info!("🔥 Real Jupiter price for {}/{}: ${:.6}", from_token, to_token, price);
                 Ok(price)
             },
@@ -527,27 +527,29 @@ impl ArbitrageBot {
             signal.confidence,
         ).await {
             Ok(trade_result) => {
-                info!("✅ Real trade executed successfully");
+                info!("✅ Real trade executed successfully");                // Parse actual transaction results from blockchain
+                if let Some(transaction_id) = &trade_result.transaction_id {
+                    let actual_amounts = self.parse_transaction_amounts(transaction_id).await?;
+                    let actual_profit = actual_amounts.total_received - actual_amounts.total_cost;
 
-                // Parse actual transaction results from blockchain
-                let actual_amounts = self.parse_transaction_amounts(&trade_result.transaction_id).await?;
-                let actual_profit = actual_amounts.total_received - actual_amounts.total_cost;
+                    // Update monitoring
+                    self.monitoring.opportunities_executed += 1;
 
-                // Update monitoring
-                self.monitoring.opportunities_executed += 1;
-
-                Ok(ArbitrageTradeResult {
-                    success: true,
-                    opportunity_id: format!("arb_{}", chrono::Utc::now().timestamp_millis()),
-                    executed_amount: actual_amounts.total_cost,
-                    actual_profit_usd: actual_profit,
-                    execution_time_ms: start_time.elapsed().as_millis() as u64,
-                    buy_transaction_id: Some(trade_result.transaction_id.clone()),
-                    sell_transaction_id: Some(trade_result.transaction_id), // Same tx for swap
-                    actual_slippage: trade_result.actual_slippage,
-                    total_fees: trade_result.total_fees,
-                    error_message: None,
-                })
+                    Ok(ArbitrageTradeResult {
+                        success: true,
+                        opportunity_id: format!("arb_{}", chrono::Utc::now().timestamp_millis()),
+                        executed_amount: actual_amounts.total_cost,
+                        actual_profit_usd: actual_profit,
+                        execution_time_ms: start_time.elapsed().as_millis() as u64,
+                        buy_transaction_id: trade_result.transaction_id.clone(),
+                        sell_transaction_id: trade_result.transaction_id, // Same tx for swap
+                        actual_slippage: trade_result.actual_slippage,
+                        total_fees: trade_result.total_fees,
+                        error_message: None,
+                    })
+                } else {
+                    Err(anyhow!("Trade succeeded but no transaction ID returned"))
+                }
             },
             Err(e) => {
                 error!("❌ Real trade execution failed: {}", e);
