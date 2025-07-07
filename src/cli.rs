@@ -1614,8 +1614,8 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
         println!();
         println!("{}", "📋 TRADE DETAILS".bright_yellow().bold());
         for (i, trade) in result.trades_executed.iter().enumerate() {
-            println!("  Trade {}: {} {} → {} {} (${:.4} fees)",
-                i + 1, trade.amount_in, trade.from_token,
+            println!("  Trade {}: {} {} → {} {} (${:.4} fees)", 
+                i + 1, trade.amount_in, trade.from_token, 
                 trade.amount_out, trade.to_token, trade.fees);
         }
     }
@@ -1711,11 +1711,11 @@ async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "========================================".bright_green());
     println!("🆔 Order ID: {}", order_id.bright_cyan());
     println!("📊 Status: Active");
-    println!("🎯 Will trigger when {} price {} ${}",
-        token,
+    println!("🎯 Will trigger when {} price {} ${}", 
+        token, 
         match order_type.as_str() {
             "stop-loss" => "falls below",
-            "take-profit" => "rises above",
+            "take-profit" => "rises above", 
             "trailing-stop" => "triggers trailing condition at",
             _ => "reaches"
         },
@@ -1791,19 +1791,19 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
 
     // Calculate execution costs
     let execution_costs = optimizer.calculate_execution_costs(&trade_params, &best_route).await?;
-
+    
     // Apply MEV protection
     let protected_trade = optimizer.apply_mev_protection(&trade_params).await?;
 
     println!();
     println!("{}", "📊 OPTIMIZATION RESULTS".bright_green().bold());
     println!("{}", "========================================".bright_green());
-
+    
     println!("🎯 Recommended Route: {}", best_route.dex_name.bright_cyan());
     println!("📈 Expected Output: {} {}", best_route.expected_output, target_token);
     println!("⚡ Estimated Time: {} seconds", best_route.estimated_execution_time);
     println!("🎲 Confidence: {:.1}%", best_route.confidence_score * 100.0);
-
+    
     println!();
     println!("{}", "💸 COST BREAKDOWN".bright_yellow().bold());
     println!("  DEX Fee: ${:.4}", execution_costs.dex_fee);
@@ -1811,7 +1811,7 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     println!("  Slippage Cost: ${:.4}", execution_costs.slippage_cost);
     println!("  Price Impact: ${:.4}", execution_costs.price_impact_cost);
     println!("  MEV Risk: ${:.4}", execution_costs.mev_risk_cost);
-    println!("  {} ${:.4} ({:.2}%)", "Total Cost:".bold(),
+    println!("  {} ${:.4} ({:.2}%)", "Total Cost:".bold(), 
         execution_costs.total_cost, execution_costs.cost_percentage * 100.0);
 
     println!();
@@ -1821,15 +1821,15 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
         for strategy in &protected_trade.protection_strategies {
             println!("    ✓ {}", strategy);
         }
-
+        
         if let Some(timing) = &protected_trade.timing_delay {
             println!("  ⏱️  Timing Delay: {} seconds", timing.delay_seconds);
         }
-
+        
         if let Some(splitting) = &protected_trade.split_orders {
             println!("  🔄 Order Splitting: {} parts", splitting.num_splits);
         }
-
+        
         if protected_trade.private_mempool {
             println!("  🔒 Private Mempool: Enabled");
         }
@@ -1849,13 +1849,13 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
 
 async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "[MULTI-STRATEGY] Initializing multiple trading strategies...".bright_green());
-
+    
     let strategies = matches.get_one::<String>("strategies").unwrap().split(',').collect::<Vec<&str>>();
     let duration: u64 = matches.get_one::<String>("duration").unwrap().parse().unwrap_or(300);
     let capital_per_strategy: f64 = matches.get_one::<String>("capital-per-strategy").unwrap().parse().unwrap_or(5000.0);
     let timeframes = matches.get_one::<String>("timeframes").unwrap().split(',').collect::<Vec<&str>>();
     let network = matches.get_one::<String>("network").unwrap();
-
+    
     println!("📊 Configuration:");
     println!("  • Strategies: {}", strategies.join(", "));
     println!("  • Duration: {} seconds", duration);
@@ -1863,7 +1863,7 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
     println!("  • Timeframes: {}", timeframes.join(", "));
     println!("  • Network: {}", network);
     println!();
-
+    
     // Initialize strategy engines
     for strategy in &strategies {
         match *strategy {
@@ -1896,37 +1896,37 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
             }
         }
     }
-
+    
     // Initialize multi-timeframe analyzer
     println!("📈 Initializing Multi-Timeframe Analyzer...");
     let _analyzer = MultiTimeframeAnalyzer::new();
     println!("  ✅ Analyzer ready for timeframes: {}", timeframes.join(", "));
-
+    
     println!();
     println!("🚀 All strategies initialized! Trading session will run for {} seconds.", duration);
     println!("📊 Monitor real-time performance in the output below...");
     println!();
-
+    
     // Simulate trading session
     let start_time = std::time::Instant::now();
     while start_time.elapsed().as_secs() < duration {
         println!("⏱️  Session time: {}s / {}s", start_time.elapsed().as_secs(), duration);
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
-
+    
     println!("✅ Multi-strategy trading session completed!");
     Ok(())
 }
 
 async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "[BACKTEST] Starting strategy backtesting...".bright_cyan());
-
+    
     let strategy = matches.get_one::<String>("strategy").unwrap();
     let period: u32 = matches.get_one::<String>("period").unwrap().parse().unwrap_or(7);
     let initial_capital: f64 = matches.get_one::<String>("initial-capital").unwrap().parse().unwrap_or(10000.0);
     let export_file = matches.get_one::<String>("export");
     let network = matches.get_one::<String>("network").unwrap();
-
+    
     println!("📊 Backtest Configuration:");
     println!("  • Strategy: {}", strategy);
     println!("  • Period: {} days", period);
@@ -1936,15 +1936,15 @@ async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
         println!("  • Export to: {}", file);
     }
     println!();
-
+    
     println!("📈 Running backtest simulation...");
-
+    
     // Simulate backtest results
     let final_capital = initial_capital * 1.15; // 15% return simulation
     let total_trades = 42;
     let winning_trades = 28;
     let win_rate = (winning_trades as f64 / total_trades as f64) * 100.0;
-
+    
     println!("📊 Backtest Results:");
     println!("  • Initial Capital: ${:.2}", initial_capital);
     println!("  • Final Capital: ${:.2}", final_capital);
@@ -1954,26 +1954,26 @@ async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
     println!("  • Win Rate: {:.1}%", win_rate);
     println!("  • Sharpe Ratio: 1.82");
     println!("  • Max Drawdown: -3.2%");
-
+    
     if let Some(file) = export_file {
         println!();
         println!("💾 Exporting results to: {}", file);
         // Here we would implement actual file export
         println!("  ✅ Results exported successfully!");
     }
-
+    
     Ok(())
 }
 
 async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "[PATTERN-ANALYSIS] Starting market pattern analysis...".bright_magenta());
-
+    
     let pattern_type = matches.get_one::<String>("pattern-type").unwrap();
     let timeframe = matches.get_one::<String>("timeframe").unwrap();
     let duration: u64 = matches.get_one::<String>("duration").unwrap().parse().unwrap_or(180);
     let export_file = matches.get_one::<String>("export");
     let network = matches.get_one::<String>("network").unwrap();
-
+    
     println!("🔍 Analysis Configuration:");
     println!("  • Pattern Type: {}", pattern_type);
     println!("  • Timeframe: {}", timeframe);
@@ -1983,14 +1983,14 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
         println!("  • Export to: {}", file);
     }
     println!();
-
+    
     println!("📊 Initializing Pattern Recognizer...");
     let _pattern_recognizer = PatternRecognizer::new();
     println!("  ✅ Pattern recognizer ready");
-
+    
     println!();
     println!("🔍 Analyzing market patterns...");
-
+    
     // Simulate pattern analysis
     let start_time = std::time::Instant::now();
     while start_time.elapsed().as_secs() < duration {
@@ -2000,7 +2000,7 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
-
+    
     println!();
     println!("📊 Pattern Analysis Results:");
     println!("  • Support Levels: 3 detected");
@@ -2008,40 +2008,40 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
     println!("  • Breakout Patterns: 1 confirmed");
     println!("  • Reversal Signals: 2 potential");
     println!("  • Overall Market Trend: Bullish");
-
+    
     if let Some(file) = export_file {
         println!();
         println!("💾 Exporting analysis to: {}", file);
         println!("  ✅ Analysis exported successfully!");
     }
-
+    
     Ok(())
 }
 
 async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
     println!("{}", "[ARBITRAGE-SCAN] Scanning for arbitrage opportunities...".bright_yellow());
-
+    
     let network = matches.get_one::<String>("network").unwrap();
-
+    
     println!("🔍 Scan Configuration:");
     println!("  • Network: {}", network);
     println!("  • Scanning DEXs: Jupiter, Raydium, Orca");
     println!("  • Min Profit Threshold: 0.5%");
     println!();
-
+    
     println!("🔄 Initializing Arbitrage Strategy...");
     let _arbitrage_strategy = ArbitrageStrategy::new();
     println!("  ✅ Arbitrage scanner ready");
-
+    
     println!();
     println!("🔍 Scanning for opportunities...");
-
+    
     // Simulate arbitrage scanning
     println!("📊 Found opportunities:");
     println!("  🔸 SOL/USDC: Jupiter vs Raydium | Profit: 0.73% | Volume: $2,850");
     println!("  🔸 RAY/SOL: Orca vs Jupiter | Profit: 1.21% | Volume: $1,420");
     println!("  🔸 USDT/USDC: Raydium vs Orca | Profit: 0.89% | Volume: $5,670");
-
+    
     println!();
     println!("💡 Best Opportunity:");
     println!("  • Pair: RAY/SOL");
@@ -2049,6 +2049,6 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
     println!("  • Sell on: Jupiter at $2.1710");
     println!("  • Profit: 1.21% (${:.2})", 10000.0 * 0.0121);
     println!("  • Execution time: ~2.3 seconds");
-
+    
     Ok(())
 }

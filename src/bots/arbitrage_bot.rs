@@ -210,9 +210,9 @@ impl ArbitrageBot {
         };
 
         // Use a mock trading opportunity to trigger the strategy
-        let mock_pool = sniperforge::shared::pool_detector::DetectedPool {
+        let mock_pool = crate::shared::pool_detector::DetectedPool {
             pool_address: "So11111111111111111111111111111111111111112".to_string(),
-            token_a: sniperforge::shared::pool_detector::TokenInfo {
+            token_a: crate::shared::pool_detector::TokenInfo {
                 mint: "So11111111111111111111111111111111111111112".to_string(),
                 symbol: "SOL".to_string(),
                 decimals: 9,
@@ -220,7 +220,7 @@ impl ArbitrageBot {
                 price_usd: 100.0,
                 market_cap: 50000000000.0,
             },
-            token_b: sniperforge::shared::pool_detector::TokenInfo {
+            token_b: crate::shared::pool_detector::TokenInfo {
                 mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
                 symbol: "USDC".to_string(),
                 decimals: 6,
@@ -234,7 +234,7 @@ impl ArbitrageBot {
             created_at: chrono::Utc::now().timestamp() as u64,
             detected_at: chrono::Utc::now().timestamp() as u64,
             dex: "Jupiter".to_string(),
-            risk_score: sniperforge::shared::pool_detector::RiskScore {
+            risk_score: crate::shared::pool_detector::RiskScore {
                 overall: 0.8,
                 liquidity_score: 0.9,
                 volume_score: 0.8,
