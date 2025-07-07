@@ -1,11 +1,15 @@
 mod qa;
 
-use qa::{QATestSuite, QASummary};
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::shared::SharedServices;
+use sniperforge::config::Config;
+use qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
 use anyhow::Result;
+use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
-/// Main QA Test Runner
+/// Main QA Test Runner for ArbitrageBot
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
@@ -18,9 +22,6 @@ async fn main() -> Result<()> {
 
     let start_time = Instant::now();
     let mut all_suites = Vec::new();
-    let mut total_tests = 0;
-    let mut total_passed = 0;
-    let mut total_failed = 0;
 
     // Run Unit Tests
     info!("🔬 Running Unit Tests...");

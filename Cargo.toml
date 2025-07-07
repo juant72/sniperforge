@@ -111,6 +111,10 @@ path = "test_arbitrage_quick.rs"
 name = "test_arbitrage_bot_devnet"
 path = "test_arbitrage_bot_devnet.rs"
 
+[[bin]]
+name = "qa_runner"
+path = "tests/qa_runner_simple.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
