@@ -95,6 +95,10 @@ path = "test_basic_connectivity.rs"
 name = "test_arbitrage_devnet"
 path = "test_arbitrage_devnet.rs"
 
+[[bin]]
+name = "test_arbitrage_devnet_simple"
+path = "test_arbitrage_devnet_simple.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

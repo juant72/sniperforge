@@ -231,7 +231,8 @@ impl BotManager {
                                 let arbitrage_bot = ArbitrageBot::new(
                                     wallet_address,
                                     config.initial_capital,
-                                    &self.config.network
+                                    &self.config.network,
+                                    self.shared_services.clone()
                                 ).await?;
 
                                 // Store bot instance and spawn background task
