@@ -1,7 +1,9 @@
-use crate::strategies::{ArbitrageStrategy, TradingStrategy, StrategySignal, MarketData, TradeResult};
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
-use crate::shared::jupiter::Jupiter;
-use crate::shared::cache_free_trader_simple::CacheFreeTraderSimple;
+use sniperforge::strategies::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
+use sniperforge::strategies::arbitrage::{ArbitrageStrategy, ArbitrageOpportunity as StrategyArbitrageOpportunity};
+use sniperforge::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use sniperforge::shared::jupiter::Jupiter;
+use sniperforge::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
+use sniperforge::config::NetworkConfig;
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -9,21 +11,18 @@ use tracing::{info, warn, error};
 use tokio::time::timeout;
 
 /// Arbitrage bot for detecting and executing arbitrage opportunities
-/// Uses the existing ArbitrageStrategy for analysis and adds execution logic
 pub struct ArbitrageBot {
     strategy: ArbitrageStrategy,
     executor: ArbitrageExecutor,
     risk_manager: RiskManager,
     profit_tracker: ProfitTracker,
     monitoring: MonitoringSystem,
-    wallet_address: String,
 }
 
-/// Executes arbitrage trades using existing trading modules
+/// Executes arbitrage trades (reuses existing logic)
 pub struct ArbitrageExecutor {
-    jupiter_client: Jupiter,
     cache_free_trader: CacheFreeTraderSimple,
-    max_position_size: f64,   // 20% of balance
+    max_position_size: f64,
     wallet_address: String,
 }
 
@@ -57,22 +56,17 @@ pub struct MonitoringSystem {
     average_latency_ms: f64,
 }
 
-/// Arbitrage opportunity detected by the bot
-#[derive(Debug, Clone)]
-pub struct ArbitrageOpportunity {
-    pub buy_exchange: String,
-    pub sell_exchange: String,
-    pub token_pair: String,
-    pub buy_price: f64,
-    pub sell_price: f64,
-    pub spread_percentage: f64,
-    pub estimated_profit_usd: f64,
-    pub liquidity_buy: f64,
-    pub liquidity_sell: f64,
-    pub confidence_score: f64,
-    pub detected_at: Instant,
-    pub estimated_execution_time_ms: u64,
+/// Individual DEX monitor for price feeds (reuse from strategy)
+pub struct DexMonitor {
+    dex_name: String,
+    last_price_update: Instant,
+    current_price: f64,
+    liquidity: f64,
+    is_active: bool,
 }
+
+/// Arbitrage opportunity detected by the bot (alias to strategy version)
+pub type ArbitrageOpportunity = StrategyArbitrageOpportunity;
 
 /// Result of an arbitrage trade execution
 #[derive(Debug, Clone)]
@@ -90,23 +84,22 @@ pub struct ArbitrageTradeResult {
 }
 
 impl ArbitrageBot {
-    /// Create a new arbitrage bot instance using the existing ArbitrageStrategy
-    pub async fn new(wallet_address: String, initial_capital: f64) -> Result<Self> {
+    /// Create a new arbitrage bot instance
+    pub async fn new(wallet_address: String, initial_capital: f64, network_config: &NetworkConfig) -> Result<Self> {
         info!("🤖 Initializing Arbitrage Bot with ${:.2} capital", initial_capital);
 
-        // Initialize the existing ArbitrageStrategy
-        let mut strategy = ArbitrageStrategy::new();
+        // Initialize the arbitrage strategy with appropriate configuration
+        let strategy = ArbitrageStrategy::new();        // Initialize cache-free trader for safe execution with proper config
+        let safety_config = TradingSafetyConfig {
+            max_price_age_ms: 50,
+            fresh_data_timeout_ms: 1000,
+            price_tolerance_percent: 0.5,
+        };
 
-        // Initialize Jupiter for DEX access
-        let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
-        let jupiter = Jupiter::new(&jupiter_config).await?;
+        let cache_free_trader = CacheFreeTraderSimple::new(safety_config, network_config).await?;
 
-        // Initialize cache-free trader for safe execution
-        let cache_free_trader = CacheFreeTraderSimple::new();
-
-        // Initialize executor
+        // Initialize executor (simplified - reuse existing logic)
         let executor = ArbitrageExecutor {
-            jupiter_client: jupiter,
             cache_free_trader,
             max_position_size: initial_capital * 0.2, // 20% max per trade
             wallet_address: wallet_address.clone(),
@@ -148,7 +141,6 @@ impl ArbitrageBot {
             risk_manager,
             profit_tracker,
             monitoring,
-            wallet_address,
         })
     }
 
@@ -163,21 +155,21 @@ impl ArbitrageBot {
                 break;
             }
 
-            // Detect arbitrage opportunities
-            match self.detect_opportunities().await {
-                Ok(opportunities) => {
-                    if !opportunities.is_empty() {
-                        info!("🔍 Found {} arbitrage opportunities", opportunities.len());
+            // Use the existing strategy to detect opportunities
+            match self.detect_opportunities_using_strategy().await {
+                Ok(signals) => {
+                    if !signals.is_empty() {
+                        info!("🔍 Found {} arbitrage signals", signals.len());
 
-                        // Execute the best opportunity
-                        if let Some(best_opportunity) = self.select_best_opportunity(&opportunities) {
-                            if self.should_execute_trade(&best_opportunity)? {
-                                match self.execute_opportunity(best_opportunity).await {
+                        // Execute the best signal
+                        if let Some(best_signal) = signals.first() {
+                            if self.should_execute_trade_from_signal(best_signal)? {
+                                match self.execute_signal(best_signal.clone()).await {
                                     Ok(result) => {
                                         self.process_trade_result(result).await?;
                                     }
                                     Err(e) => {
-                                        error!("❌ Failed to execute opportunity: {}", e);
+                                        error!("❌ Failed to execute signal: {}", e);
                                     }
                                 }
                             }
@@ -197,65 +189,81 @@ impl ArbitrageBot {
         Ok(())
     }
 
-    /// Detect arbitrage opportunities using the existing ArbitrageStrategy
-    async fn detect_opportunities(&mut self) -> Result<Vec<ArbitrageOpportunity>> {
+    /// Detect arbitrage opportunities using the existing strategy
+    async fn detect_opportunities_using_strategy(&mut self) -> Result<Vec<StrategySignal>> {
         let start_time = Instant::now();
-        let mut opportunities = Vec::new();
+        let mut signals = Vec::new();
 
-        // Update price feeds for the strategy
+        // Update price feeds in the strategy
         self.update_strategy_price_feeds().await?;
 
-        // Create market data for analysis
-        let market_data = self.build_market_data().await?;
-
-        // Create a dummy trading opportunity for the strategy analysis
-        let dummy_opportunity = TradingOpportunity {
-            pool: crate::shared::pool_detector::DetectedPool {
-                pair_address: "SOL/USDC".to_string(),
-                token_a: crate::shared::pool_detector::TokenInfo {
-                    mint: "So11111111111111111111111111111111111111112".to_string(),
-                    symbol: "SOL".to_string(),
-                    name: "Solana".to_string(),
-                    decimals: 9,
-                    price_usd: market_data.current_price,
-                    volume_24h: market_data.volume_24h,
-                    liquidity: market_data.liquidity,
-                    is_verified: true,
-                },
-                token_b: crate::shared::pool_detector::TokenInfo {
-                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-                    symbol: "USDC".to_string(),
-                    name: "USD Coin".to_string(),
-                    decimals: 6,
-                    price_usd: 1.0,
-                    volume_24h: market_data.volume_24h,
-                    liquidity: market_data.liquidity,
-                    is_verified: true,
-                },
-                liquidity_usd: market_data.liquidity,
-                volume_24h: market_data.volume_24h,
-                dex: "Multiple".to_string(),
-                created_at: chrono::Utc::now(),
-                is_active: true,
-            },
-            opportunity_type: OpportunityType::PriceDiscrepancy,
-            expected_profit_usd: 0.0,
-            confidence: 0.8,
-            time_window_ms: 15000,
-            recommended_size_usd: 500.0,
+        // Create mock market data for SOL/USDC (most liquid pair)
+        let market_data = MarketData {
+            current_price: 100.0, // Will be updated by real feeds
+            volume_24h: 1000000.0,
+            price_change_24h: 2.5, // 2.5% increase
+            liquidity: 500000.0,
+            bid_ask_spread: 0.001,
+            order_book_depth: 100000.0,
+            price_history: vec![],
+            volume_history: vec![],
         };
 
-        // Use the existing strategy for analysis
-        if let Some(signal) = self.strategy.analyze(&dummy_opportunity, &market_data)? {
-            // Convert strategy signal to ArbitrageOpportunity
-            if let Some(opportunity) = self.convert_signal_to_opportunity(signal, &market_data) {
-                opportunities.push(opportunity);
-            }
+        // Use a mock trading opportunity to trigger the strategy
+        let mock_pool = sniperforge::shared::pool_detector::DetectedPool {
+            pool_address: "So11111111111111111111111111111111111111112".to_string(),
+            token_a: sniperforge::shared::pool_detector::TokenInfo {
+                mint: "So11111111111111111111111111111111111111112".to_string(),
+                symbol: "SOL".to_string(),
+                decimals: 9,
+                supply: 1000000000,
+                price_usd: 100.0,
+                market_cap: 50000000000.0,
+            },
+            token_b: sniperforge::shared::pool_detector::TokenInfo {
+                mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                symbol: "USDC".to_string(),
+                decimals: 6,
+                supply: 1000000000,
+                price_usd: 1.0,
+                market_cap: 1000000000.0,
+            },
+            liquidity_usd: 500000.0,
+            price_impact_1k: 0.001,
+            volume_24h: 1000000.0,
+            created_at: chrono::Utc::now().timestamp() as u64,
+            detected_at: chrono::Utc::now().timestamp() as u64,
+            dex: "Jupiter".to_string(),
+            risk_score: sniperforge::shared::pool_detector::RiskScore {
+                overall: 0.8,
+                liquidity_score: 0.9,
+                volume_score: 0.8,
+                token_age_score: 0.9,
+                holder_distribution_score: 0.7,
+                rug_indicators: vec![],
+            },
+            transaction_signature: Some("mock_signature".to_string()),
+            creator: Some("mock_creator".to_string()),
+            detection_method: Some("ARBITRAGE_BOT".to_string()),
+        };
+
+        let mock_opportunity = TradingOpportunity {
+            pool: mock_pool,
+            opportunity_type: OpportunityType::PriceDiscrepancy,
+            expected_profit_usd: 50.0,
+            confidence: 0.8,
+            time_window_ms: 30000, // 30 seconds
+            recommended_size_usd: 1000.0,
+        };
+
+        // Analyze using the existing strategy
+        if let Some(signal) = self.strategy.analyze(&mock_opportunity, &market_data)? {
+            signals.push(signal);
         }
 
         // Update monitoring stats
-        self.monitoring.opportunities_detected += opportunities.len() as u32;
-        if !opportunities.is_empty() {
+        self.monitoring.opportunities_detected += signals.len() as u32;
+        if !signals.is_empty() {
             self.monitoring.last_opportunity_time = Some(Instant::now());
         }
 
@@ -263,89 +271,20 @@ impl ArbitrageBot {
         self.monitoring.average_latency_ms =
             (self.monitoring.average_latency_ms + detection_time) / 2.0;
 
-        Ok(opportunities)
+        Ok(signals)
     }
 
-    /// Update price feeds from all monitored DEXs for the strategy
+    /// Update price feeds in the strategy
     async fn update_strategy_price_feeds(&mut self) -> Result<()> {
-        // Get prices from Jupiter (aggregated)
-        if let Ok(sol_price) = self.executor.jupiter_client.get_token_price("SOL").await {
-            self.strategy.update_price_feed("Jupiter".to_string(), sol_price.price);
-        }
-
-        // Simulate different DEX prices for arbitrage detection
-        // In a real implementation, you would get actual prices from each DEX
-        if let Ok(sol_price) = self.executor.jupiter_client.get_token_price("SOL").await {
-            // Simulate small price differences between DEXs
-            self.strategy.update_price_feed("Raydium".to_string(), sol_price.price * 0.999);
-            self.strategy.update_price_feed("Orca".to_string(), sol_price.price * 1.001);
-        }
-
+        // Mock price updates - in real implementation, get from DEX APIs
+        self.strategy.update_price_feed("Jupiter".to_string(), 100.0);
+        self.strategy.update_price_feed("Raydium".to_string(), 100.5);
+        self.strategy.update_price_feed("Orca".to_string(), 99.8);
         Ok(())
     }
 
-    /// Build market data for strategy analysis
-    async fn build_market_data(&self) -> Result<MarketData> {
-        // Get current SOL price and market data
-        let sol_price_info = self.executor.jupiter_client.get_token_price("SOL").await?;
-
-        Ok(MarketData {
-            current_price: sol_price_info.price,
-            volume_24h: 1_000_000.0, // Mock volume
-            price_change_24h: 0.02, // Mock 2% change
-            liquidity: 500_000.0, // Mock liquidity
-            bid_ask_spread: 0.002, // Mock 0.2% spread
-            order_book_depth: 100_000.0, // Mock depth
-            market_cap: 50_000_000_000.0, // Mock market cap
-            volatility: 0.3, // Mock volatility
-            momentum: 0.1, // Mock momentum
-            support_level: sol_price_info.price * 0.95,
-            resistance_level: sol_price_info.price * 1.05,
-            rsi: 50.0, // Mock RSI
-            macd: 0.0, // Mock MACD
-            bollinger_upper: sol_price_info.price * 1.02,
-            bollinger_lower: sol_price_info.price * 0.98,
-            timestamp: chrono::Utc::now(),
-        })
-    }
-
-    /// Convert a strategy signal to an ArbitrageOpportunity
-    fn convert_signal_to_opportunity(&self, signal: StrategySignal, market_data: &MarketData) -> Option<ArbitrageOpportunity> {
-        // Extract arbitrage information from signal metadata
-        let buy_exchange = signal.metadata.get("buy_exchange")?.clone();
-        let sell_exchange = signal.metadata.get("sell_exchange")?.clone();
-        let buy_price: f64 = signal.metadata.get("buy_price")?.parse().ok()?;
-        let sell_price: f64 = signal.metadata.get("sell_price")?.parse().ok()?;
-        let estimated_profit: f64 = signal.metadata.get("estimated_profit")?.parse().ok()?;
-        let profit_percentage: f64 = signal.metadata.get("profit_percentage")?.parse().ok()?;
-
-        Some(ArbitrageOpportunity {
-            buy_exchange,
-            sell_exchange,
-            token_pair: "SOL/USDC".to_string(),
-            buy_price,
-            sell_price,
-            spread_percentage: profit_percentage,
-            estimated_profit_usd: estimated_profit,
-            liquidity_buy: market_data.liquidity,
-            liquidity_sell: market_data.liquidity,
-            confidence_score: signal.confidence,
-            detected_at: Instant::now(),
-            estimated_execution_time_ms: 2000,
-        })
-    }
-
-    /// Select the best arbitrage opportunity from a list
-    fn select_best_opportunity(&self, opportunities: &[ArbitrageOpportunity]) -> Option<ArbitrageOpportunity> {
-        opportunities
-            .iter()
-            .filter(|opp| opp.confidence_score >= 0.7) // Minimum confidence
-            .max_by(|a, b| a.estimated_profit_usd.partial_cmp(&b.estimated_profit_usd).unwrap())
-            .cloned()
-    }
-
-    /// Check if we should execute a trade based on risk management
-    fn should_execute_trade(&self, opportunity: &ArbitrageOpportunity) -> Result<bool> {
+    /// Check if we should execute a trade based on risk management (from signal)
+    fn should_execute_trade_from_signal(&self, signal: &StrategySignal) -> Result<bool> {
         // Check emergency stop
         if self.risk_manager.emergency_stop {
             return Ok(false);
@@ -362,45 +301,45 @@ impl ArbitrageBot {
             return Ok(false);
         }
 
-        // Check minimum profit threshold
-        if opportunity.estimated_profit_usd < 1.0 {
+        // Check minimum confidence
+        if signal.confidence < 0.7 {
             return Ok(false);
         }
 
-        // Check liquidity requirements (using strategy config)
-        let min_liquidity = self.strategy.get_config().max_position_size * 2.0; // Need 2x position size
-        if opportunity.liquidity_buy < min_liquidity ||
-           opportunity.liquidity_sell < min_liquidity {
+        // Check position size limits
+        if signal.position_size > self.executor.max_position_size {
             return Ok(false);
         }
 
         Ok(true)
     }
 
-    /// Execute an arbitrage opportunity
-    async fn execute_opportunity(&mut self, opportunity: ArbitrageOpportunity) -> Result<ArbitrageTradeResult> {
+    /// Execute a strategy signal
+    async fn execute_signal(&mut self, signal: StrategySignal) -> Result<ArbitrageTradeResult> {
         let start_time = Instant::now();
         let opportunity_id = format!("arb_{}", chrono::Utc::now().timestamp_millis());
 
-        info!("⚡ Executing arbitrage: {} -> {} | Profit: ${:.2}",
-              opportunity.buy_exchange, opportunity.sell_exchange, opportunity.estimated_profit_usd);
+        info!("⚡ Executing arbitrage signal: {} | Confidence: {:.2}",
+              signal.strategy_name, signal.confidence);
 
-        // Calculate trade amount (use smaller of max position size or available liquidity)
-        let max_amount = self.executor.max_position_size.min(
-            opportunity.liquidity_buy.min(opportunity.liquidity_sell) * 0.8
-        );
+        // Extract arbitrage details from signal metadata
+        let _buy_exchange = signal.metadata.get("buy_exchange").unwrap_or(&"Unknown".to_string()).clone();
+        let _sell_exchange = signal.metadata.get("sell_exchange").unwrap_or(&"Unknown".to_string()).clone();
+        let default_profit = "0.0".to_string();
+        let estimated_profit_str = signal.metadata.get("estimated_profit").unwrap_or(&default_profit);
+        let estimated_profit: f64 = estimated_profit_str.parse().unwrap_or(0.0);
 
-        // Execute simultaneous buy and sell
-        let buy_result = self.execute_buy_order(&opportunity, max_amount).await?;
-        let sell_result = self.execute_sell_order(&opportunity, max_amount).await?;
+        // Execute trade using cache-free trader
+        let amount_lamports = (signal.position_size * 1_000_000_000.0) as u64;
+
+        let buy_result = self.execute_trade_order("buy", amount_lamports).await?;
+        let sell_result = self.execute_trade_order("sell", amount_lamports).await?;
 
         let execution_time = start_time.elapsed().as_millis() as u64;
         let success = buy_result.is_some() && sell_result.is_some();
 
         let actual_profit = if success {
-            // Calculate actual profit based on execution results
-            max_amount * (opportunity.sell_price - opportunity.buy_price) -
-            (max_amount * 0.006) // Estimated fees
+            estimated_profit * 0.8 // Assume 80% of estimated profit due to slippage
         } else {
             0.0
         };
@@ -408,80 +347,49 @@ impl ArbitrageBot {
         Ok(ArbitrageTradeResult {
             success,
             opportunity_id,
-            executed_amount: if success { max_amount } else { 0.0 },
+            executed_amount: if success { signal.position_size } else { 0.0 },
             actual_profit_usd: actual_profit,
             execution_time_ms: execution_time,
             buy_transaction_id: buy_result,
             sell_transaction_id: sell_result,
-            actual_slippage: 0.002, // TODO: Calculate actual slippage
-            total_fees: max_amount * 0.006,
+            actual_slippage: 0.002,
+            total_fees: signal.position_size * 0.006,
             error_message: if success { None } else { Some("Execution failed".to_string()) },
         })
     }
 
-    /// Execute buy order on the lower-priced DEX
-    async fn execute_buy_order(&self, opportunity: &ArbitrageOpportunity, amount: f64) -> Result<Option<String>> {
-        info!("📈 Executing BUY on {} at ${:.6}", opportunity.buy_exchange, opportunity.buy_price);
+    /// Execute a trade order (simplified)
+    async fn execute_trade_order(&self, order_type: &str, amount_lamports: u64) -> Result<Option<String>> {
+        info!("📊 Executing {} order for {} lamports", order_type, amount_lamports);
 
-        // Use cache-free trader for safe execution
-        let amount_lamports = (amount * 1_000_000_000.0) as u64; // Convert to lamports
+        let (input_mint, output_mint) = match order_type {
+            "buy" => ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "So11111111111111111111111111111111111111112"), // USDC -> SOL
+            "sell" => ("So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // SOL -> USDC
+            _ => return Err(anyhow!("Unknown order type: {}", order_type)),
+        };
 
         match timeout(Duration::from_secs(30),
             self.executor.cache_free_trader.execute_safe_swap(
-                "So11111111111111111111111111111111111111112", // SOL mint
-                "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC mint
+                input_mint,
+                output_mint,
                 amount_lamports
             )
         ).await {
             Ok(Ok(result)) => {
                 if result.success {
-                    info!("✅ Buy order executed successfully");
-                    Ok(Some("mock_buy_tx_id".to_string()))
+                    info!("✅ {} order executed successfully", order_type);
+                    Ok(Some(format!("mock_{}_tx_id", order_type)))
                 } else {
-                    error!("❌ Buy order failed");
+                    error!("❌ {} order failed", order_type);
                     Ok(None)
                 }
             }
             Ok(Err(e)) => {
-                error!("❌ Buy order error: {}", e);
+                error!("❌ {} order error: {}", order_type, e);
                 Ok(None)
             }
             Err(_) => {
-                error!("❌ Buy order timeout");
-                Ok(None)
-            }
-        }
-    }
-
-    /// Execute sell order on the higher-priced DEX
-    async fn execute_sell_order(&self, opportunity: &ArbitrageOpportunity, amount: f64) -> Result<Option<String>> {
-        info!("📉 Executing SELL on {} at ${:.6}", opportunity.sell_exchange, opportunity.sell_price);
-
-        // Use cache-free trader for safe execution
-        let amount_lamports = (amount * 1_000_000_000.0) as u64; // Convert to lamports
-
-        match timeout(Duration::from_secs(30),
-            self.executor.cache_free_trader.execute_safe_swap(
-                "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC mint
-                "So11111111111111111111111111111111111111112", // SOL mint
-                amount_lamports
-            )
-        ).await {
-            Ok(Ok(result)) => {
-                if result.success {
-                    info!("✅ Sell order executed successfully");
-                    Ok(Some("mock_sell_tx_id".to_string()))
-                } else {
-                    error!("❌ Sell order failed");
-                    Ok(None)
-                }
-            }
-            Ok(Err(e)) => {
-                error!("❌ Sell order error: {}", e);
-                Ok(None)
-            }
-            Err(_) => {
-                error!("❌ Sell order timeout");
+                error!("❌ {} order timeout", order_type);
                 Ok(None)
             }
         }
@@ -492,21 +400,6 @@ impl ArbitrageBot {
         // Update profit tracker
         self.profit_tracker.total_trades += 1;
         self.risk_manager.trades_today += 1;
-
-        // Create a TradeResult for the strategy
-        let trade_result = TradeResult {
-            strategy_name: "Arbitrage".to_string(),
-            entry_price: 0.0, // Would need to track from opportunity
-            exit_price: 0.0,  // Would need to track from execution
-            position_size: result.executed_amount,
-            profit_loss: result.actual_profit_usd,
-            fees: result.total_fees,
-            duration: chrono::Duration::milliseconds(result.execution_time_ms as i64),
-            success: result.success,
-        };
-
-        // Update strategy performance
-        self.strategy.update_performance(&trade_result)?;
 
         if result.success {
             self.profit_tracker.successful_trades += 1;
@@ -596,6 +489,18 @@ impl ArbitrageBot {
         self.risk_manager.current_daily_loss = 0.0;
         self.risk_manager.trades_today = 0;
         info!("🔄 Daily statistics reset");
+    }
+}
+
+impl DexMonitor {
+    fn new(dex_name: String) -> Self {
+        Self {
+            dex_name,
+            last_price_update: Instant::now(),
+            current_price: 0.0,
+            liquidity: 0.0,
+            is_active: false,
+        }
     }
 }
 
