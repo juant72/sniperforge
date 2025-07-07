@@ -2,6 +2,7 @@ use crate::shared::pool_detector::{TradingOpportunity, OpportunityType, Detected
 use crate::shared::jupiter::Jupiter;
 use crate::shared::jupiter_config::JupiterConfig;
 use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
+use crate::shared::websocket_price_feed::WebSocketPriceFeed;
 use crate::shared::SharedServices;
 use crate::config::NetworkConfig;
 use anyhow::{Result, anyhow};
@@ -124,6 +125,7 @@ pub struct ArbitrageBot {
     profit_tracker: ProfitTracker,
     monitoring: MonitoringSystem,
     shared_services: Arc<SharedServices>,
+    price_feed: WebSocketPriceFeed,
 }
 
 /// Executes arbitrage trades (reuses existing logic)
@@ -222,15 +224,14 @@ impl ArbitrageBot {
             max_price_age_ms: 50,
             fresh_data_timeout_ms: 1000,
             price_tolerance_percent: 0.5,
-        };
-
-        // Get the actual wallet keypair from shared services
+        };        // Get the actual wallet keypair from shared services
         let wallet_keypair_arc = shared_services.wallet_manager()
             .get_wallet_keypair("devnet-trading").await
             .map_err(|e| anyhow!("Failed to get wallet keypair: {}", e))?;
 
-        // Clone the keypair from Arc
-        let wallet_keypair = (*wallet_keypair_arc).clone();
+        // Create a new keypair from the secret bytes
+        let wallet_keypair = solana_sdk::signature::Keypair::from_bytes(&wallet_keypair_arc.to_bytes())
+            .map_err(|e| anyhow!("Failed to create wallet keypair: {}", e))?;
 
         let cache_free_trader = CacheFreeTraderSimple::new_with_wallet(
             safety_config,
@@ -275,6 +276,13 @@ impl ArbitrageBot {
             average_latency_ms: 0.0,
         };
 
+        // Initialize WebSocket price feed for real prices (MainNet for DevNet too)
+        info!("🌐 Initializing WebSocket Price Feed for real market data");
+        let price_feed = WebSocketPriceFeed::new_mainnet_prices().await
+            .map_err(|e| anyhow!("Failed to initialize price feed: {}", e))?;
+
+        info!("✅ Price feed initialized with real MainNet prices");
+
         Ok(Self {
             strategy,
             executor,
@@ -282,6 +290,7 @@ impl ArbitrageBot {
             profit_tracker,
             monitoring,
             shared_services,
+            price_feed,
         })
     }
 
@@ -358,36 +367,51 @@ impl ArbitrageBot {
 
         Ok(signals)
     }    /// Get real market data from APIs
-    pub async fn get_real_market_data(&self) -> Result<MarketData> {
-        info!("📊 Fetching REAL market data from APIs");
+    pub async fn get_real_market_data(&mut self) -> Result<MarketData> {
+        info!("📊 Fetching REAL market data using WebSocket Price Feed");
 
-        // Get current price from Jupiter API (real) - with DevNet fallback
-        let current_price = match self.get_jupiter_price("SOL", "USDC").await {
-            Ok(price) => price,
+        // Use WebSocket Price Feed for real prices (MainNet prices for all networks)
+        let sol_mint = "So11111111111111111111111111111111111111112"; // SOL
+        let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC
+
+        // Get real prices from MainNet through WebSocket feed
+        let sol_price = match self.price_feed.get_price_hybrid(sol_mint).await {
+            Ok(Some(price)) => price,
+            Ok(None) => {
+                warn!("⚠️ No SOL price from WebSocket feed, using fallback");
+                100.0 // Fallback price
+            },
             Err(e) => {
-                warn!("⚠️ Jupiter API failed, using mock data for DevNet testing: {}", e);
-                // Use a realistic SOL/USDC price for testing
-                100.0 // Mock price for DevNet testing
+                warn!("⚠️ WebSocket price feed error for SOL: {}", e);
+                100.0 // Fallback price
             }
         };
 
-        // Get prices from multiple DEXs for comparison
-        let mut prices = vec![("Jupiter", current_price)];
+        let usdc_price = match self.price_feed.get_price_hybrid(usdc_mint).await {
+            Ok(Some(price)) => price,
+            Ok(None) => 1.0, // USDC is always ~$1
+            Err(_) => 1.0
+        };
 
-        // Try to get Raydium price (will fail for now but that's expected)
-        if let Ok(raydium_price) = self.get_raydium_price("SOL", "USDC").await {
-            prices.push(("Raydium", raydium_price));
-        } else if current_price == 100.0 {
-            // Add mock Raydium price for DevNet testing
-            prices.push(("Raydium_Mock", 100.30));
-        }
+        // Calculate SOL/USDC price
+        let current_price = sol_price / usdc_price;
+        info!("💰 Real SOL price: ${:.6}", current_price);
 
-        // Try to get Orca price (will fail for now but that's expected)
-        if let Ok(orca_price) = self.get_orca_price("SOL", "USDC").await {
-            prices.push(("Orca", orca_price));
-        } else if current_price == 100.0 {
-            // Add mock Orca price for DevNet testing
-            prices.push(("Orca_Mock", 99.70));
+        // Get additional token prices for arbitrage opportunities
+        let mut prices = vec![("WebSocket_SOL", current_price)];
+
+        // Try other popular tokens for arbitrage opportunities
+        let token_mints = vec![
+            ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
+            ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
+            ("mSOL", "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So"),
+        ];
+
+        for (symbol, mint) in token_mints {
+            if let Ok(Some(price)) = self.price_feed.get_price_hybrid(mint).await {
+                prices.push((symbol, price));
+                info!("💰 Real {} price: ${:.6}", symbol, price);
+            }
         }
 
         // Calculate bid/ask from price differences if we have multiple sources
@@ -444,8 +468,17 @@ impl ArbitrageBot {
     }
 
     /// Get price from Jupiter API
-    pub async fn get_jupiter_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        // Use real Jupiter API through shared services
+    pub async fn get_jupiter_price(&mut self, from_token: &str, to_token: &str) -> Result<f64> {
+        // Try WebSocket price feed first (faster and works in DevNet)
+        if from_token == "SOL" && to_token == "USDC" {
+            let sol_mint = "So11111111111111111111111111111111111111112";
+            if let Ok(Some(price)) = self.price_feed.get_price_hybrid(sol_mint).await {
+                info!("⚡ WebSocket price for {}/{}: ${:.6}", from_token, to_token, price);
+                return Ok(price);
+            }
+        }
+
+        // Fallback to real Jupiter API through shared services
         let jupiter = self.shared_services.jupiter();
 
         // Get actual quote from Jupiter

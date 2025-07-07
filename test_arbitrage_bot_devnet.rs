@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
 
     // Test 1: Create ArbitrageBot instance
     info!("🧪 Test 1: Creating ArbitrageBot instance");
-    let arbitrage_bot = match ArbitrageBot::new(
+    let mut arbitrage_bot = match ArbitrageBot::new(
         wallet_address,
         50.0, // $50 initial capital for DevNet testing (smaller amounts work better)
         &config.network,
@@ -110,8 +110,7 @@ async fn main() -> Result<()> {
 
     // Test 5: Test opportunity detection (should work with mock data if real fails)
     info!("🧪 Test 5: Testing opportunity detection");
-    let mut bot_mut = arbitrage_bot;
-    let detected_signals = match bot_mut.detect_opportunities_using_strategy().await {
+    let detected_signals = match arbitrage_bot.detect_opportunities_using_strategy().await {
         Ok(signals) => {
             if signals.is_empty() {
                 info!("📊 No arbitrage opportunities detected (normal in DevNet)");
@@ -144,7 +143,7 @@ async fn main() -> Result<()> {
         info!("  - Confidence: {:.1}%", signal.confidence * 100.0);
 
         // Execute the trade (this will be a real execution attempt)
-        match bot_mut.execute_arbitrage_trade(signal).await {
+        match arbitrage_bot.execute_arbitrage_trade(signal).await {
             Ok(trade_result) => {
                 if trade_result.success {
                     info!("✅ Trade executed successfully!");
@@ -204,8 +203,8 @@ async fn main() -> Result<()> {
 
     // Test 6: Test emergency stop functionality
     info!("🧪 Test 6: Testing emergency stop functionality");
-    bot_mut.emergency_stop();
-    let status_after_stop = bot_mut.get_status();
+    arbitrage_bot.emergency_stop();
+    let status_after_stop = arbitrage_bot.get_status();
     if !status_after_stop.is_running && status_after_stop.emergency_stop {
         info!("✅ Emergency stop activated successfully");
     } else {
@@ -214,7 +213,7 @@ async fn main() -> Result<()> {
 
     // Test 7: Check final status
     info!("🧪 Test 7: Final status check");
-    let final_status = bot_mut.get_status();
+    let final_status = arbitrage_bot.get_status();
     info!("📊 Final Bot Status:");
     info!("  - Running: {}", final_status.is_running);
     info!("  - Emergency Stop: {}", final_status.emergency_stop);
