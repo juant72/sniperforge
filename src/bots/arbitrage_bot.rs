@@ -1,4 +1,4 @@
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use crate::shared::pool_detector::{TradingOpportunity, OpportunityType, DetectedPool, TokenInfo, RiskScore};
 use crate::shared::jupiter::Jupiter;
 use crate::shared::jupiter_config::JupiterConfig;
 use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
@@ -309,24 +309,47 @@ impl ArbitrageBot {
 
         // Create a dummy trading opportunity (in real implementation, this would come from pool detector)
         let trading_opportunity = TradingOpportunity {
-            opportunity_id: format!("arb_{}", chrono::Utc::now().timestamp_millis()),
-            opportunity_type: OpportunityType::Arbitrage,
-            token_a: "SOL".to_string(),
-            token_b: "USDC".to_string(),
-            dex_a: "Jupiter".to_string(),
-            dex_b: "Raydium".to_string(),
-            price_difference_percent: 0.5,
+            pool: DetectedPool {
+                pool_address: "DummyPoolAddress123".to_string(),
+                token_a: TokenInfo {
+                    mint: "So11111111111111111111111111111111111111112".to_string(),
+                    symbol: "SOL".to_string(),
+                    decimals: 9,
+                    supply: 1000000000000000000,
+                    price_usd: 95.50,
+                    market_cap: 95500000000.0,
+                },
+                token_b: TokenInfo {
+                    mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                    symbol: "USDC".to_string(),
+                    decimals: 6,
+                    supply: 1000000000000000,
+                    price_usd: 1.0,
+                    market_cap: 1000000000000.0,
+                },
+                liquidity_usd: 1000000.0,
+                price_impact_1k: 0.005,
+                volume_24h: 500000.0,
+                created_at: chrono::Utc::now().timestamp() as u64,
+                detected_at: chrono::Utc::now().timestamp() as u64,
+                dex: "Jupiter".to_string(),
+                risk_score: RiskScore {
+                    overall: 0.8,
+                    liquidity_score: 0.9,
+                    volume_score: 0.8,
+                    token_age_score: 0.9,
+                    holder_distribution_score: 0.7,
+                    rug_indicators: vec![],
+                },
+                transaction_signature: Some("DummyTxSignature123".to_string()),
+                creator: Some("DummyCreatorAddress123".to_string()),
+                detection_method: Some("ARBITRAGE_BOT".to_string()),
+            },
+            opportunity_type: OpportunityType::PriceDiscrepancy,
             expected_profit_usd: 10.0,
-            required_amount_a: 10.0,
-            required_amount_b: 100.0,
-            confidence_score: 0.8,
-            detected_at: chrono::Utc::now(),
-            expires_at: chrono::Utc::now() + chrono::Duration::seconds(30),
-            gas_cost_estimate: 0.01,
-            slippage_tolerance: 0.005,
-            pool_liquidity_a: 1000000.0,
-            pool_liquidity_b: 1000000.0,
-            metadata: HashMap::new(),
+            confidence: 0.8,
+            time_window_ms: 30000,
+            recommended_size_usd: 100.0,
         };
 
         // Analyze the opportunity using the strategy

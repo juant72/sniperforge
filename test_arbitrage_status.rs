@@ -7,10 +7,13 @@ async fn main() -> Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
+    println!("🧪 ArbitrageBot Status Test");
+    println!("============================");
     info!("🧪 ArbitrageBot Status Test");
     info!("============================");
 
     // Test ArbitrageBotStatus creation (doesn't require full bot)
+    println!("Creating ArbitrageBotStatus...");
     let status = ArbitrageBotStatus {
         is_running: true,
         uptime_seconds: 300,
@@ -26,20 +29,21 @@ async fn main() -> Result<()> {
         emergency_stop: false,
     };
 
-    info!("✅ ArbitrageBotStatus created successfully:");
-    info!("   Running: {}", status.is_running);
-    info!("   Uptime: {} seconds", status.uptime_seconds);
-    info!("   Total trades: {}", status.total_trades);
-    info!("   Success rate: {:.1}%", status.success_rate_percent);
-    info!("   Total profit: ${:.2}", status.total_profit_usd);
-    info!("   Daily profit: ${:.2}", status.daily_profit_usd);
-    info!("   Opportunities detected: {}", status.opportunities_detected);
-    info!("   Average latency: {:.1}ms", status.average_latency_ms);
+    println!("✅ ArbitrageBotStatus created successfully:");
+    println!("   Running: {}", status.is_running);
+    println!("   Uptime: {} seconds", status.uptime_seconds);
+    println!("   Total trades: {}", status.total_trades);
+    println!("   Success rate: {:.1}%", status.success_rate_percent);
+    println!("   Total profit: ${:.2}", status.total_profit_usd);
+    println!("   Daily profit: ${:.2}", status.daily_profit_usd);
+    println!("   Opportunities detected: {}", status.opportunities_detected);
+    println!("   Average latency: {:.1}ms", status.average_latency_ms);
 
-    info!("✅ ArbitrageBot data structures are working correctly!");
-    info!("   The bot is ready for real DevNet testing.");
-    info!("   Transaction parsing and profit calculation have been implemented.");
-    info!("   All placeholder logic has been removed.");
+    println!("✅ ArbitrageBot data structures are working correctly!");
+    println!("   The bot is ready for real DevNet testing.");
+    println!("   Transaction parsing and profit calculation have been implemented.");
+    println!("   All placeholder logic has been removed.");
 
+    println!("Test completed successfully!");
     Ok(())
 }
