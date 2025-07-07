@@ -143,6 +143,7 @@ impl Default for BotMetrics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BotConfig {
     LpSniper(LpSniperConfig),
+    Arbitrage(ArbitrageConfig),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -181,6 +182,41 @@ impl Default for LpSniperConfig {
             target_pools: vec![],
             max_market_cap: 1000000.0, // $1M max market cap
             slippage_tolerance: 5.0,
+            settings: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArbitrageConfig {
+    pub enabled: bool,
+    pub initial_capital: f64,
+    pub max_position_size: f64, // As percentage of capital (0.0 to 1.0)
+    pub daily_loss_limit: f64, // As percentage of capital (0.0 to 1.0)
+    pub max_concurrent_trades: u32,
+    pub min_profit_threshold: f64, // Minimum profit percentage to execute
+    pub max_slippage_percent: f64, // Maximum acceptable slippage
+    pub devnet_mode: bool, // Whether to use devnet
+    pub monitoring_interval_ms: u64, // How often to check for opportunities
+    pub dex_list: Vec<String>, // DEXs to monitor
+    pub target_pairs: Vec<String>, // Trading pairs to focus on
+    pub settings: HashMap<String, serde_json::Value>,
+}
+
+impl Default for ArbitrageConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            initial_capital: 1000.0,
+            max_position_size: 0.2, // 20%
+            daily_loss_limit: 0.05, // 5%
+            max_concurrent_trades: 3,
+            min_profit_threshold: 0.01, // 1%
+            max_slippage_percent: 0.5, // 0.5%
+            devnet_mode: true,
+            monitoring_interval_ms: 100,
+            dex_list: vec!["Jupiter".to_string(), "Raydium".to_string(), "Orca".to_string()],
+            target_pairs: vec!["SOL/USDC".to_string()],
             settings: HashMap::new(),
         }
     }

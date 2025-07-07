@@ -1,9 +1,9 @@
-use sniperforge::strategies::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
-use sniperforge::strategies::arbitrage::{ArbitrageStrategy, ArbitrageOpportunity as StrategyArbitrageOpportunity};
-use sniperforge::shared::pool_detector::{TradingOpportunity, OpportunityType};
-use sniperforge::shared::jupiter::Jupiter;
-use sniperforge::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
-use sniperforge::config::NetworkConfig;
+use crate::strategies::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
+use crate::strategies::arbitrage::{ArbitrageStrategy, ArbitrageOpportunity as StrategyArbitrageOpportunity};
+use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use crate::shared::jupiter::Jupiter;
+use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
+use crate::config::NetworkConfig;
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
