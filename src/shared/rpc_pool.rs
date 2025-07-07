@@ -8,6 +8,12 @@ use solana_sdk::{
     account::Account,
     slot_history::Slot,
 };
+use solana_transaction_status::{
+    EncodedConfirmedTransactionWithStatusMeta,
+    UiTransactionEncoding,
+    UiAccountsList,
+    UiTransactionTokenBalance,
+};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Semaphore};
@@ -963,7 +969,14 @@ impl RpcConnectionPool {
         }
     }
 
-    /// Get transaction details
+    /// Get transaction details by signature string
+    pub async fn get_transaction_details(&self, signature_str: &str) -> Result<Option<TransactionDetails>> {
+        let signature = signature_str.parse::<Signature>()
+            .map_err(|e| anyhow::anyhow!("Invalid signature format: {}", e))?;
+        self.get_transaction(&signature).await
+    }
+
+    /// Get transaction details with comprehensive parsing
     pub async fn get_transaction(&self, signature: &Signature) -> Result<Option<TransactionDetails>> {
         let signature = *signature;
         match self.execute_with_failover(|client| async move {
@@ -972,21 +985,16 @@ impl RpcConnectionPool {
                 client_clone.get_transaction_with_config(
                     &signature,
                     solana_client::rpc_config::RpcTransactionConfig {
-                        encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
+                        encoding: Some(UiTransactionEncoding::Json),
                         commitment: Some(CommitmentConfig::confirmed()),
                         max_supported_transaction_version: Some(0),
                     }
                 )
             }).await {
                 Ok(Ok(transaction)) => {
-                    // Convert to our TransactionDetails format
-                    Ok(TransactionDetails {
-                        transaction_id: signature.to_string(),
-                        fee: 0.000005, // Default fee estimate
-                        balance_changes: vec![], // TODO: Parse balance changes from token accounts
-                        success: transaction.transaction.meta.as_ref().map(|m| m.err.is_none()).unwrap_or(false),
-                        block_time: transaction.block_time.map(|t| t as u64),
-                    })
+                    // Parse the transaction details comprehensively
+                    let transaction_details = Self::parse_transaction_details(&signature, &transaction)?;
+                    Ok(transaction_details)
                 },
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                 Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
@@ -995,6 +1003,131 @@ impl RpcConnectionPool {
             Ok(transaction) => Ok(Some(transaction)),
             Err(_) => Ok(None),
         }
+    }
+
+    /// Parse transaction details from RPC response
+    fn parse_transaction_details(
+        signature: &Signature,
+        transaction: &EncodedConfirmedTransactionWithStatusMeta,
+    ) -> Result<TransactionDetails> {
+        let meta = transaction.transaction.meta.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Transaction meta not found"))?;
+
+        // Extract actual fee from transaction
+        let fee = meta.fee as f64 / 1_000_000_000.0; // Convert lamports to SOL
+
+        // Parse token balance changes
+        let balance_changes = Self::parse_token_balance_changes(
+            &meta.pre_token_balances.as_ref().map(|v| v.clone()),
+            &meta.post_token_balances.as_ref().map(|v| v.clone()),
+        )?;
+
+        // Check if transaction succeeded
+        let success = meta.err.is_none();
+
+        Ok(TransactionDetails {
+            transaction_id: signature.to_string(),
+            fee,
+            balance_changes,
+            success,
+            block_time: transaction.block_time.map(|t| t as u64),
+        })
+    }
+
+    /// Parse token balance changes from pre/post balances
+    fn parse_token_balance_changes(
+        pre_balances: &Option<Vec<UiTransactionTokenBalance>>,
+        post_balances: &Option<Vec<UiTransactionTokenBalance>>,
+    ) -> Result<Vec<BalanceChange>> {
+        let mut changes = Vec::new();
+
+        // Create maps for efficient lookup
+        let pre_map: HashMap<String, &UiTransactionTokenBalance> = pre_balances
+            .as_ref()
+            .map(|balances| {
+                balances.iter()
+                    .filter_map(|balance| {
+                        balance.owner.as_ref().map(|owner| (owner.clone(), balance))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let post_map: HashMap<String, &UiTransactionTokenBalance> = post_balances
+            .as_ref()
+            .map(|balances| {
+                balances.iter()
+                    .filter_map(|balance| {
+                        balance.owner.as_ref().map(|owner| (owner.clone(), balance))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // Find all accounts that had balance changes
+        let mut all_accounts = std::collections::HashSet::new();
+        all_accounts.extend(pre_map.keys().cloned());
+        all_accounts.extend(post_map.keys().cloned());
+
+        for account in all_accounts {
+            let pre_balance = pre_map.get(&account);
+            let post_balance = post_map.get(&account);
+
+            match (pre_balance, post_balance) {
+                (Some(pre), Some(post)) => {
+                    // Both pre and post exist, calculate change
+                    if let (Some(pre_amount), Some(post_amount)) = (
+                        pre.ui_token_amount.ui_amount,
+                        post.ui_token_amount.ui_amount,
+                    ) {
+                        let change = post_amount - pre_amount;
+                        if change.abs() > 0.0001 { // Filter out negligible changes
+                            changes.push(BalanceChange {
+                                account: account.clone(),
+                                mint: post.mint.clone(),
+                                change,
+                                pre_balance: pre_amount,
+                                post_balance: post_amount,
+                            });
+                        }
+                    }
+                }
+                (None, Some(post)) => {
+                    // New account, all post balance is change
+                    if let Some(post_amount) = post.ui_token_amount.ui_amount {
+                        if post_amount.abs() > 0.0001 {
+                            changes.push(BalanceChange {
+                                account: account.clone(),
+                                mint: post.mint.clone(),
+                                change: post_amount,
+                                pre_balance: 0.0,
+                                post_balance: post_amount,
+                            });
+                        }
+                    }
+                }
+                (Some(pre), None) => {
+                    // Account closed, all pre balance is negative change
+                    if let Some(pre_amount) = pre.ui_token_amount.ui_amount {
+                        if pre_amount.abs() > 0.0001 {
+                            changes.push(BalanceChange {
+                                account: account.clone(),
+                                mint: pre.mint.clone(),
+                                change: -pre_amount,
+                                pre_balance: pre_amount,
+                                post_balance: 0.0,
+                            });
+                        }
+                    }
+                }
+                (None, None) => {
+                    // This shouldn't happen
+                    warn!("Account {} in both pre and post maps but both None", account);
+                }
+            }
+        }
+
+        Ok(changes)
     }
 
     /// Health check for RPC pool
@@ -1307,77 +1440,6 @@ impl RpcConnectionPool {
             }
         } else {
             url.to_string()
-        }
-    }
-
-    /// Get transaction details for profit calculation
-    pub async fn get_transaction_details(&self, transaction_id: &str) -> Result<TransactionDetails> {
-        info!("🔍 Fetching transaction details for: {}", transaction_id);
-
-        let client = self.get_client(Priority::High).await?;
-        let signature = transaction_id.parse::<Signature>()
-            .map_err(|e| anyhow::anyhow!("Invalid transaction signature: {}", e))?;
-
-        // Get transaction with maximum detail using blocking task
-        let client_clone = client.client().clone();
-        match tokio::task::spawn_blocking(move || {
-            client_clone.get_transaction_with_config(
-                &signature,
-                solana_client::rpc_config::RpcTransactionConfig {
-                    encoding: Some(solana_transaction_status::UiTransactionEncoding::Json),
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    max_supported_transaction_version: Some(0),
-                }
-            )
-        }).await {
-            Ok(Ok(transaction)) => {
-                let mut balance_changes = Vec::new();
-                let mut fee = 0.000005; // Default fee estimate
-                let success = transaction.transaction.meta.as_ref()
-                    .map(|meta| meta.err.is_none())
-                    .unwrap_or(false);
-
-                // Parse fee from meta if available
-                if let Some(meta) = &transaction.transaction.meta {
-                    fee = meta.fee as f64 / 1_000_000_000.0; // Convert lamports to SOL
-
-                    // Parse balance changes from pre/post balances
-                    if let Some(pre_balances) = &meta.pre_balances {
-                        if let Some(post_balances) = &meta.post_balances {
-                            for (i, (pre, post)) in pre_balances.iter().zip(post_balances.iter()).enumerate() {
-                                if pre != post {
-                                    let change = (*post as f64 - *pre as f64) / 1_000_000_000.0; // Convert to SOL
-                                    balance_changes.push(BalanceChange {
-                                        account: format!("account_{}", i),
-                                        mint: "SOL".to_string(), // Default to SOL, would need token account parsing for others
-                                        change,
-                                        pre_balance: *pre as f64 / 1_000_000_000.0,
-                                        post_balance: *post as f64 / 1_000_000_000.0,
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                info!("✅ Transaction details parsed - Fee: {} SOL, Changes: {}", fee, balance_changes.len());
-
-                Ok(TransactionDetails {
-                    transaction_id: transaction_id.to_string(),
-                    fee,
-                    balance_changes,
-                    success,
-                    block_time: transaction.block_time.map(|t| t as u64),
-                })
-            },
-            Ok(Err(e)) => {
-                error!("❌ Failed to get transaction details: {}", e);
-                Err(anyhow::anyhow!("Transaction fetch failed: {}", e))
-            },
-            Err(e) => {
-                error!("❌ Task join error: {}", e);
-                Err(anyhow::anyhow!("Task join error: {}", e))
-            }
         }
     }
 }

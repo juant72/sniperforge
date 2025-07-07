@@ -454,7 +454,7 @@ impl ArbitrageBot {
         let jupiter = self.shared_services.jupiter();
 
         // Get actual quote from Jupiter
-        match jupiter.get_quote(from_token, to_token, 1.0, 1000000).await {
+        match jupiter.get_quote(from_token, to_token, 1.0, 10000).await {
             Ok(quote) => {
                 let price = quote.out_amount() as f64 / quote.in_amount() as f64;
                 info!("🔥 Real Jupiter price for {}/{}: ${:.6}", from_token, to_token, price);
@@ -470,7 +470,7 @@ impl ArbitrageBot {
     /// Get price from Raydium API
     async fn get_raydium_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
         // Use real Raydium API through shared services
-        let rpc_client = self.shared_services.rpc_pool();
+        let _rpc_client = self.shared_services.rpc_pool();
 
         // Get real Raydium price data
         // This would typically involve fetching pool data from Raydium's on-chain programs
@@ -579,11 +579,10 @@ impl ArbitrageBot {
 
         // Get transaction details from blockchain
         match rpc_client.get_transaction_details(transaction_id).await {
-            Ok(tx_details) => {
+            Ok(Some(tx_details)) => {
                 // Parse pre and post token balances to calculate actual amounts
                 let mut total_cost = 0.0;
                 let mut total_received = 0.0;
-                let mut fees = 0.0;
 
                 // Calculate from pre/post balances
                 for balance_change in &tx_details.balance_changes {
@@ -595,7 +594,7 @@ impl ArbitrageBot {
                 }
 
                 // Transaction fee
-                fees = tx_details.fee;
+                let fees = tx_details.fee;
 
                 info!("💰 Real transaction amounts - Cost: ${:.6}, Received: ${:.6}, Fees: ${:.6}",
                       total_cost, total_received, fees);
@@ -605,6 +604,10 @@ impl ArbitrageBot {
                     total_received,
                     fees,
                 })
+            },
+            Ok(None) => {
+                error!("❌ Transaction {} not found", transaction_id);
+                Err(anyhow::anyhow!("Transaction {} not found", transaction_id))
             },
             Err(e) => {
                 error!("❌ Failed to parse transaction {}: {}", transaction_id, e);
