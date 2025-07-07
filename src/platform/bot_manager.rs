@@ -222,23 +222,32 @@ impl BotManager {
                     info!("Starting bot: {} ({})", bot.name, bot_id);
 
                     // Actually spawn the bot based on its type
-                    match &bot.bot_type {
-                        BotType::Arbitrage => {
+                    match &bot.bot_type {                        BotType::Arbitrage => {
                             if let BotConfig::Arbitrage(config) = &bot.config {
+                                // Get wallet address from shared services
+                                let wallet_address = self.shared_services.get_wallet_address().await?;
+
                                 // Create and start the arbitrage bot
-                                let wallet_address = "dummy_wallet_address".to_string(); // TODO: Get from config
                                 let arbitrage_bot = ArbitrageBot::new(
                                     wallet_address,
                                     config.initial_capital,
                                     &self.config.network
                                 ).await?;
 
-                                // TODO: Store bot instance and spawn background task
-                                // For now, just mark as running
+                                // Store bot instance and spawn background task
+                                let bot_id = bot.id;
+                                let bot_handle = tokio::spawn(async move {
+                                    let mut bot = arbitrage_bot;
+                                    if let Err(e) = bot.start_trading().await {
+                                        error!("Arbitrage bot {} failed: {}", bot_id, e);
+                                    }
+                                });
+
+                                // TODO: Store bot handle for proper shutdown management
                                 bot.status = BotStatus::Running;
                                 bot.last_activity = chrono::Utc::now();
 
-                                info!("✅ Arbitrage bot started successfully");
+                                info!("✅ Arbitrage bot {} started successfully", bot_id);
                             } else {
                                 return Err(PlatformError::BotManagement("Invalid config for Arbitrage bot".to_string()).into());
                             }

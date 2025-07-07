@@ -71,13 +71,13 @@ pub struct SharedServices {
 impl SharedServices {
     pub async fn new(config: &Config) -> Result<Self> {
         info!("🔧 Initializing shared services");
-        
+
         // Initialize RPC connection pool
         let rpc_pool = Arc::new(RpcConnectionPool::new(config).await?);
-        
+
         // Initialize wallet manager
         let wallet_manager = Arc::new(WalletManager::new(config).await?);
-        
+
         // Initialize market data feeds
         let data_feeds = Arc::new(MarketDataFeeds::new(config, rpc_pool.clone()).await?);
           // Initialize monitoring system
@@ -85,10 +85,10 @@ impl SharedServices {
           // Initialize Jupiter integration
         let jupiter_config = jupiter::JupiterConfig::default();
         let jupiter = Arc::new(Jupiter::new(&jupiter_config).await?);
-        
+
         // Initialize WebSocket manager for real-time updates (with premium RPC pool)
         let websocket_manager = Arc::new(WebSocketManager::new_with_rpc_pool(config, Some(rpc_pool.clone())).await?);
-        
+
         Ok(Self {
             rpc_pool,
             wallet_manager,
@@ -99,57 +99,57 @@ impl SharedServices {
             is_running: Arc::new(RwLock::new(false)),
         })
     }
-    
+
     pub async fn start(&self) -> Result<()> {
         info!("🚀 Starting shared services");
-        
+
         *self.is_running.write().await = true;
-        
+
         // Start RPC pool
         self.rpc_pool.start().await?;
-        
+
         // Start wallet manager
         self.wallet_manager.start().await?;
-        
+
         // Start data feeds
         self.data_feeds.start().await?;
-        
+
         // Start monitoring
         self.monitoring.start().await?;
-        
+
         info!("✅ Shared services started");
         Ok(())
     }
-    
+
     pub async fn stop(&self) -> Result<()> {
         info!("🛑 Stopping shared services");
-        
+
         *self.is_running.write().await = false;
-        
+
         // Stop in reverse order
         if let Err(e) = self.monitoring.stop().await {
             error!("Error stopping monitoring: {}", e);
         }
-        
+
         if let Err(e) = self.data_feeds.stop().await {
             error!("Error stopping data feeds: {}", e);
         }
-        
+
         if let Err(e) = self.wallet_manager.stop().await {
             error!("Error stopping wallet manager: {}", e);
         }
-        
+
         if let Err(e) = self.rpc_pool.stop().await {
             error!("Error stopping RPC pool: {}", e);
         }
-        
+
         info!("✅ Shared services stopped");
         Ok(())
     }
-    
+
     pub async fn health_check(&self) -> Result<HealthStatus> {
         let is_running = *self.is_running.read().await;
-        
+
         if !is_running {
             return Ok(HealthStatus {
                 is_healthy: false,
@@ -159,18 +159,18 @@ impl SharedServices {
                 metrics: std::collections::HashMap::new(),
             });
         }
-        
+
         // Check all components
         let rpc_health = self.rpc_pool.health_check().await?;
         let wallet_health = self.wallet_manager.health_check().await?;
         let data_health = self.data_feeds.health_check().await?;
         let monitoring_health = self.monitoring.health_check().await?;
-        
-        let is_healthy = rpc_health.is_healthy 
-            && wallet_health.is_healthy 
-            && data_health.is_healthy 
+
+        let is_healthy = rpc_health.is_healthy
+            && wallet_health.is_healthy
+            && data_health.is_healthy
             && monitoring_health.is_healthy;
-        
+
         Ok(HealthStatus {
             is_healthy,
             component: "SharedServices".to_string(),
@@ -183,7 +183,7 @@ impl SharedServices {
             metrics: std::collections::HashMap::new(),
         })
     }
-    
+
     /// Get access to the RPC pool
     pub fn rpc_pool(&self) -> Arc<RpcConnectionPool> {
         self.rpc_pool.clone()
@@ -219,14 +219,14 @@ impl SharedServices {
         let wallet_count = self.wallet_manager.list_wallets().await.len();
         let data_stats = self.data_feeds.get_stats().await;
         let _monitoring_stats = self.monitoring.get_stats().await;
-        
+
         // Get system metrics if available
         let (cpu_usage, memory_usage, uptime) = if let Some(system_metrics) = self.monitoring.get_latest_system_metrics().await {
             (system_metrics.cpu_usage_percent, system_metrics.memory_usage_mb, system_metrics.uptime_seconds)
         } else {
             (0.0, 0, 0)
         };
-        
+
         Ok(SharedServicesMetrics {
             rpc_connections: rpc_stats.active_connections,
             active_wallets: wallet_count,
@@ -235,6 +235,11 @@ impl SharedServices {
             memory_usage_mb: memory_usage,
             uptime_seconds: uptime,
         })
+    }
+
+    /// Get wallet address from wallet manager
+    pub async fn get_wallet_address(&self) -> Result<String> {
+        self.wallet_manager.get_main_wallet_address().await
     }
 }
 
