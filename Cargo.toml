@@ -99,6 +99,10 @@ path = "test_arbitrage_devnet.rs"
 name = "test_arbitrage_devnet_simple"
 path = "test_arbitrage_devnet_simple.rs"
 
+[[bin]]
+name = "test_arbitrage_status"
+path = "test_arbitrage_status.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

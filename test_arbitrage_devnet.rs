@@ -1,6 +1,8 @@
 use anyhow::Result;
 use sniperforge::bots::arbitrage_bot::ArbitrageBot;
 use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, error};
 
@@ -19,6 +21,9 @@ async fn main() -> Result<()> {
     // Check wallet balance before starting
     check_wallet_setup().await?;
 
+    // Initialize shared services
+    let shared_services = Arc::new(SharedServices::new(&config).await?);
+
     // Test 1: Create ArbitrageBot instance
     info!("🚀 Test 1: Creating ArbitrageBot instance");
     let wallet_address = get_test_wallet_address().await?;
@@ -27,7 +32,8 @@ async fn main() -> Result<()> {
     let mut arbitrage_bot = ArbitrageBot::new(
         wallet_address,
         initial_capital,
-        &config.network
+        &config.network,
+        shared_services.clone(),
     ).await?;
 
     info!("✅ ArbitrageBot created successfully with ${:.2} capital", initial_capital);
