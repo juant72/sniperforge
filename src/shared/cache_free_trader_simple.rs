@@ -291,6 +291,106 @@ impl CacheFreeTraderSimple {
         })
     }
 
+    /// Execute real trade without cache
+    pub async fn execute_real_trade(&self, symbol: &str, position_size: f64, confidence: f64) -> Result<SwapResult> {
+        info!("⚡ Executing REAL trade: {} with size ${:.2} and confidence {:.1}%",
+              symbol, position_size, confidence * 100.0);
+
+        let start_time = Instant::now();
+
+        // Check if we have a real wallet
+        let wallet_keypair = self.wallet_keypair.as_ref()
+            .ok_or_else(|| anyhow!("No wallet configured for real trading"))?;
+
+        // Get fresh prices before trade
+        let token_a_price = self.get_fresh_price_no_cache("SOL").await?
+            .ok_or_else(|| anyhow!("Could not get fresh price for SOL"))?;
+        let token_b_price = self.get_fresh_price_no_cache("USDC").await?
+            .ok_or_else(|| anyhow!("Could not get fresh price for USDC"))?;
+
+        // Safety check: ensure prices are fresh
+        if !token_a_price.is_safe_for_trading || !token_b_price.is_safe_for_trading {
+            return Err(anyhow!("Prices not safe for trading"));
+        }
+
+        // Calculate amounts in lamports/smallest units
+        let input_amount = (position_size * 1_000_000.0) as u64; // Convert to lamports
+
+        // Execute the actual swap transaction
+        match self.execute_jupiter_swap(
+            &wallet_keypair.pubkey().to_string(),
+            "SOL",
+            "USDC",
+            input_amount,
+            0.005 // 0.5% slippage tolerance
+        ).await {
+            Ok(transaction_id) => {
+                let latency = start_time.elapsed();
+
+                // Get actual output amount from transaction
+                let (output_amount, actual_slippage, total_fees) = self.parse_swap_transaction(&transaction_id).await?;
+
+                info!("✅ Real trade executed successfully in {:.2}ms", latency.as_millis());
+
+                Ok(SwapResult {
+                    success: true,
+                    input_amount,
+                    output_amount,
+                    input_price: token_a_price.price,
+                    output_price: token_b_price.price,
+                    latency,
+                    transaction_id: Some(transaction_id),
+                    actual_slippage,
+                    total_fees,
+                })
+            },
+            Err(e) => {
+                error!("❌ Real trade execution failed: {}", e);
+                Ok(SwapResult {
+                    success: false,
+                    input_amount,
+                    output_amount: 0,
+                    input_price: token_a_price.price,
+                    output_price: token_b_price.price,
+                    latency: start_time.elapsed(),
+                    transaction_id: None,
+                    actual_slippage: 0.0,
+                    total_fees: 0.0,
+                })
+            }
+        }
+    }
+
+    /// Execute Jupiter swap transaction
+    async fn execute_jupiter_swap(
+        &self,
+        _wallet_address: &str,
+        _from_token: &str,
+        _to_token: &str,
+        _amount: u64,
+        _slippage: f64
+    ) -> Result<String> {
+        // In a full implementation, this would:
+        // 1. Get Jupiter swap instructions
+        // 2. Build and sign transaction
+        // 3. Send to blockchain
+        // 4. Wait for confirmation
+        // 5. Return transaction signature
+
+        Err(anyhow!("Jupiter swap integration pending - needs real transaction signing"))
+    }
+
+    /// Parse swap transaction to get actual results
+    async fn parse_swap_transaction(&self, _transaction_id: &str) -> Result<(u64, f64, f64)> {
+        // In a full implementation, this would:
+        // 1. Fetch transaction details from blockchain
+        // 2. Parse pre/post token balances
+        // 3. Calculate actual slippage and fees
+        // 4. Return (output_amount, actual_slippage, total_fees)
+
+        Err(anyhow!("Transaction parsing pending - needs blockchain integration"))
+    }
+
     /// Check if wallet is configured for real trading
     pub fn has_wallet(&self) -> bool {
         self.wallet_keypair.is_some()
