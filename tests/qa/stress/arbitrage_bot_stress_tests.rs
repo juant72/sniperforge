@@ -212,7 +212,7 @@ impl ArbitrageBotStressTests {
         ).await?;
 
         let start_time = Instant::now();
-        let test_duration = Duration::from_secs(5); // Reduced to 5 seconds for testing
+        let test_duration = Duration::from_secs(30); // Set to 30 seconds for proper stress testing
 
         // Use timeout instead of select to avoid borrowing issues
         let result = tokio::time::timeout(
