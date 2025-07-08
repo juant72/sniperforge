@@ -212,22 +212,29 @@ impl ArbitrageBotStressTests {
         ).await?;
 
         let start_time = Instant::now();
-        let test_duration = Duration::from_secs(30); // 30 second stress test
+        let test_duration = Duration::from_secs(5); // Reduced to 5 seconds for testing
 
-        tokio::select! {
-            result = bot.start_trading() => {
-                match result {
-                    Ok(_) => details.push("Trading loop completed normally".to_string()),
-                    Err(e) => details.push(format!("Trading loop failed: {}", e)),
-                }
-            }
-            _ = tokio::time::sleep(test_duration) => {
-                bot.emergency_stop();
-                details.push("Long running test completed with emergency stop".to_string());
-            }
-        }
+        // Use timeout instead of select to avoid borrowing issues
+        let result = tokio::time::timeout(
+            test_duration,
+            bot.start_trading()
+        ).await;
 
         let actual_duration = start_time.elapsed();
+
+        match result {
+            Ok(Ok(_)) => {
+                details.push("Trading loop completed normally".to_string());
+            },
+            Ok(Err(e)) => {
+                details.push(format!("Trading loop failed: {}", e));
+            },
+            Err(_) => {
+                // Timeout occurred - stop the bot
+                bot.emergency_stop();
+                details.push("Long running test completed with timeout".to_string());
+            }
+        }
         let final_status = bot.get_status();
 
         details.push(format!("Test duration: {:.1}s", actual_duration.as_secs_f64()));

@@ -313,6 +313,12 @@ impl ArbitrageBot {
 
                         // Process each signal
                         for signal in signals {
+                            // Check emergency stop between signals
+                            if self.risk_manager.emergency_stop {
+                                warn!("🚨 Emergency stop activated during signal processing");
+                                return Ok(());
+                            }
+
                             match self.execute_arbitrage_trade(&signal).await {
                                 Ok(result) => {
                                     if result.success {
@@ -336,8 +342,20 @@ impl ArbitrageBot {
                 }
             }
 
-            // Sleep before next iteration
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            // Sleep before next iteration, but with cancellation check
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                    // Continue to next iteration
+                }
+                _ = async {
+                    while !self.risk_manager.emergency_stop {
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                } => {
+                    warn!("🚨 Emergency stop detected during sleep");
+                    break;
+                }
+            }
         }
 
         Ok(())

@@ -273,23 +273,49 @@ impl ArbitrageBotIntegrationTests {
             self.shared_services.clone(),
         ).await?;
 
-        // Run trading loop for 2 seconds
+        // Run trading loop for 2 seconds with proper timeout
         let start_time = std::time::Instant::now();
 
-        tokio::select! {
-            result = bot.start_trading() => {
+        // Create a task that will call emergency_stop after timeout
+        let bot_ref = std::sync::Arc::new(std::sync::Mutex::new(bot));
+        let bot_clone = bot_ref.clone();
+
+        // Start the trading in a separate task
+        let trading_task = {
+            let bot_ref = bot_ref.clone();
+            tokio::spawn(async move {
+                let mut bot = bot_ref.lock().unwrap();
+                bot.start_trading().await
+            })
+        };
+
+        // Create timeout task
+        let timeout_task = tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(2)).await;
+            let mut bot = bot_clone.lock().unwrap();
+            bot.emergency_stop();
+        });
+
+        // Wait for either trading to complete or timeout
+        let result = tokio::select! {
+            result = trading_task => {
+                timeout_task.abort();
                 match result {
-                    Ok(_) => details.push("Trading loop completed normally".to_string()),
-                    Err(e) => details.push(format!("Trading loop ended with error: {}", e)),
+                    Ok(Ok(_)) => "Trading loop completed normally".to_string(),
+                    Ok(Err(e)) => format!("Trading loop ended with error: {}", e),
+                    Err(e) => format!("Trading task panicked: {}", e),
                 }
             }
-            _ = tokio::time::sleep(Duration::from_secs(2)) => {
-                bot.emergency_stop();
-                details.push("Trading loop terminated by timeout".to_string());
+            _ = timeout_task => {
+                trading_task.abort();
+                "Trading loop terminated by timeout".to_string()
             }
-        }
+        };
 
         let duration = start_time.elapsed();
+        details.push(result);
+
+        let bot = bot_ref.lock().unwrap();
         let final_status = bot.get_status();
 
         details.push(format!("Loop duration: {}ms", duration.as_millis()));

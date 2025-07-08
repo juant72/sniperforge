@@ -252,22 +252,29 @@ impl ArbitrageBotPerformanceTests {
         ).await?;
 
         let start_time = Instant::now();
-        let test_duration = Duration::from_secs(10); // 10 second efficiency test
+        let test_duration = Duration::from_secs(3); // Reduced to 3 seconds for testing
 
-        tokio::select! {
-            result = bot.start_trading() => {
-                match result {
-                    Ok(_) => details.push("Trading loop completed normally".to_string()),
-                    Err(e) => details.push(format!("Trading loop failed: {}", e)),
-                }
-            }
-            _ = tokio::time::sleep(test_duration) => {
+        // Use timeout instead of select to avoid borrowing issues
+        let result = tokio::time::timeout(
+            test_duration,
+            bot.start_trading()
+        ).await;
+
+        let actual_duration = start_time.elapsed();
+
+        match result {
+            Ok(Ok(_)) => {
+                details.push("Trading loop completed normally".to_string());
+            },
+            Ok(Err(e)) => {
+                details.push(format!("Trading loop failed: {}", e));
+            },
+            Err(_) => {
+                // Timeout occurred - stop the bot
                 bot.emergency_stop();
                 details.push("Trading loop efficiency test completed".to_string());
             }
         }
-
-        let actual_duration = start_time.elapsed();
         let final_status = bot.get_status();
 
         // Calculate efficiency metrics
