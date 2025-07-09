@@ -25,7 +25,7 @@ use super::network_config::NetworkConfig;
 /// Main Jupiter API wrapper with business logic
 #[derive(Debug)]
 pub struct Jupiter {
-    client: JupiterClient,
+    pub client: JupiterClient,
     config: JupiterConfig,
     network_config: NetworkConfig,
 }
