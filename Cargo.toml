@@ -120,6 +120,18 @@ name = "test_arbitrage_real_devnet"
 path = "test_arbitrage_real_devnet.rs"
 
 [[bin]]
+name = "test_arbitrage_production_devnet"
+path = "test_arbitrage_production_devnet.rs"
+
+[[bin]]
+name = "test_arbitrage_real_profits"
+path = "test_arbitrage_real_profits.rs"
+
+[[bin]]
+name = "test_arbitrage_execution_ready"
+path = "test_arbitrage_execution_ready.rs"
+
+[[bin]]
 name = "qa_runner"
 path = "tests/qa_runner.rs"
 
