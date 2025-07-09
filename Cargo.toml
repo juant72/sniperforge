@@ -112,6 +112,10 @@ name = "test_arbitrage_devnet_new"
 path = "test_arbitrage_devnet_new.rs"
 
 [[bin]]
+name = "discover_devnet_tokens"
+path = "discover_devnet_tokens.rs"
+
+[[bin]]
 name = "qa_runner"
 path = "tests/qa_runner.rs"
 
