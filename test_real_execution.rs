@@ -62,38 +62,38 @@ async fn main() -> Result<()> {
     // Execute real swap trades
     info!("\n🎯 === EJECUTANDO SWAPS REALES ===");
     
-    // Test 1: Small SOL -> USDC swap
-    info!("\n📊 Test 1: Swap SOL -> USDC (0.01 SOL)");
+    // Test 1: Small SOL -> BONK swap
+    info!("\n📊 Test 1: Swap SOL -> BONK (0.001 SOL)");
     execute_real_swap(
         &jupiter,
         &wallet_keypair,
         &rpc_client,
         "So11111111111111111111111111111111111111112", // SOL
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
-        0.01,
+        "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+        0.001,
         "SOL",
-        "USDC",
+        "BONK",
         9,
-        6
+        5
     ).await?;
 
     // Wait between trades
     info!("⏱️ Esperando 5 segundos...");
     tokio::time::sleep(Duration::from_secs(5)).await;
 
-    // Test 2: USDC -> SOL swap (return to original)
-    info!("\n📊 Test 2: Swap USDC -> SOL (conversión de vuelta)");
+    // Test 2: SOL -> RAY swap
+    info!("\n📊 Test 2: Swap SOL -> RAY (0.001 SOL)");
     execute_real_swap(
         &jupiter,
         &wallet_keypair,
         &rpc_client,
-        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
         "So11111111111111111111111111111111111111112", // SOL
-        0.05, // Small USDC amount
-        "USDC",
+        "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", // RAY
+        0.001,
         "SOL",
-        6,
-        9
+        "RAY",
+        9,
+        6
     ).await?;
 
     // Final balance check

@@ -143,6 +143,10 @@ path = "test_arbitrage_execution_ready.rs"
 name = "qa_runner"
 path = "tests/qa_runner.rs"
 
+[[bin]]
+name = "test_sol_wrap_unwrap"
+path = "test_sol_wrap_unwrap.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

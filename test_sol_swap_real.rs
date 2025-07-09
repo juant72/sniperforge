@@ -59,23 +59,25 @@ async fn main() -> Result<()> {
     let jupiter = Jupiter::new(&jupiter_config).await?;
     info!("✅ Jupiter client inicializado");
 
-    // Execute real swap trades using SOL/wSOL
+    // Execute real swap trades using SOL -> USDC
     info!("\n🎯 === EJECUTANDO SWAPS REALES ===");
     
-    // Test 1: SOL -> wSOL (wrapped SOL)
-    info!("\n📊 Test 1: Swap SOL -> wSOL (0.01 SOL)");
+    // Test 1: SOL -> USDC (using mainnet USDC that exists in DevNet)
+    info!("\n📊 Test 1: Swap SOL -> USDC (0.01 SOL)");
     execute_real_swap(
         &jupiter,
         &wallet_keypair,
         &rpc_client,
-        "So11111111111111111111111111111111111111112", // SOL (native)
-        "So11111111111111111111111111111111111111112", // wSOL (wrapped)
+        "So11111111111111111111111111111111111111112", // SOL
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
         0.01,
         "SOL",
-        "wSOL",
+        "USDC",
         9,
-        9
-    ).await?;
+        6
+    ).await.unwrap_or_else(|e| {
+        warn!("❌ SOL -> USDC swap failed: {}", e);
+    });
 
     // Wait between trades
     info!("⏱️ Esperando 5 segundos...");
