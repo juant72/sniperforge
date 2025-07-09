@@ -1,8 +1,10 @@
 use anyhow::Result;
 use sniperforge::shared::jupiter_api::Jupiter;
 use sniperforge::shared::jupiter_config::JupiterConfig;
-use sniperforge::shared::config_loader::ConfigLoader;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::env;
+use std::fs;
 use std::time::Duration;
 use tracing::{info, warn, error};
 use solana_sdk::signature::{Keypair, Signer};
@@ -12,6 +14,24 @@ use solana_sdk::transaction::Transaction;
 use solana_transaction_status::UiTransactionEncoding;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ConfigFile {
+    network: String,
+    cluster_url: String,
+    tokens: HashMap<String, TokenInfo>,
+    programs: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TokenInfo {
+    symbol: String,
+    name: String,
+    mint: String,
+    decimals: u8,
+    verified: bool,
+    test_supply: Option<u64>,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -32,20 +52,25 @@ async fn main() -> Result<()> {
     info!("✅ Wallet cargado: {}", wallet_pubkey);
 
     // Load config with custom tokens
-    let config_loader = ConfigLoader::new()?;
-    let config = config_loader.load_config("devnet-automated")?;
+    let config_path = "config/devnet-automated.json";
+    let config_content = fs::read_to_string(config_path)?;
+    let config: ConfigFile = serde_json::from_str(&config_content)?;
     
     info!("📋 Configuración cargada: {}", config.network);
-    info!("🔗 RPC: {}", config.rpc_endpoint);
+    info!("🔗 RPC: {}", config.cluster_url);
     info!("🪙 Tokens disponibles: {}", config.tokens.len());
     
     // List available tokens
     for (symbol, token_info) in &config.tokens {
-        info!("   {} ({}): {}", symbol, token_info.name, token_info.mint);
+        if let Some(supply) = token_info.test_supply {
+            info!("   {} ({}): {} (supply: {})", symbol, token_info.name, token_info.mint, supply);
+        } else {
+            info!("   {} ({}): {}", symbol, token_info.name, token_info.mint);
+        }
     }
 
     // Create RPC client
-    let rpc_client = RpcClient::new_with_commitment(config.rpc_endpoint.clone(), CommitmentConfig::confirmed());
+    let rpc_client = RpcClient::new_with_commitment(config.cluster_url.clone(), CommitmentConfig::confirmed());
     
     // Check wallet balance
     info!("💰 Verificando balance del wallet...");
@@ -64,7 +89,7 @@ async fn main() -> Result<()> {
         api_key: None,
         timeout_seconds: 60,
         max_retries: 3,
-        rpc_endpoint: config.rpc_endpoint.clone(),
+        rpc_endpoint: config.cluster_url.clone(),
         network_name: "devnet".to_string(),
     };
 

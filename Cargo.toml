@@ -151,6 +151,10 @@ path = "test_sol_wrap_unwrap.rs"
 name = "test_custom_tokens_swap"
 path = "test_custom_tokens_swap.rs"
 
+[[bin]]
+name = "test_custom_tokens_verify"
+path = "test_custom_tokens_verify.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
