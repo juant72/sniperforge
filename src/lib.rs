@@ -19,6 +19,7 @@ pub mod trading;  // DEV2 Trading Engine
 pub mod sprint_1_demo;  // Sprint 1 functionality demo
 pub mod dexscreener_testing;  // DexScreener API testing
 pub mod tatum_testing;  // Tatum RPC testing
+pub mod arbitrage;  // Arbitrage detection and execution
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;

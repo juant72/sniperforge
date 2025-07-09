@@ -4,13 +4,25 @@
 use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
+use crate::arbitrage::types::ArbitrageSettings;
 
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
-    pub name: String,
+    pub network: String,
     pub rpc_endpoint: String,
     pub program_ids: ProgramIds,
-    pub token_addresses: TokenAddresses,
+    pub token_addresses: HashMap<String, TokenInfo>,
+    pub arbitrage_settings: Option<ArbitrageSettings>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenInfo {
+    pub address: String,
+    pub symbol: String,
+    pub name: String,
+    pub decimals: u8,
+    pub verified: bool,
+    pub tradeable: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -25,19 +37,37 @@ pub struct ProgramIds {
     pub spl_token_swap_program: Option<Pubkey>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TokenAddresses {
-    pub sol: Pubkey, // Wrapped SOL
-    pub usdc: Option<Pubkey>,
-    pub ray: Option<Pubkey>,
-    pub bonk: Option<Pubkey>,
-}
-
 impl NetworkConfig {
     /// Get DevNet configuration
     pub fn devnet() -> Self {
+        let mut token_addresses = HashMap::new();
+        token_addresses.insert("SOL".to_string(), TokenInfo {
+            address: "So11111111111111111111111111111111111111112".to_string(),
+            symbol: "SOL".to_string(),
+            name: "Wrapped SOL".to_string(),
+            decimals: 9,
+            verified: true,
+            tradeable: true,
+        });
+        token_addresses.insert("USDC".to_string(), TokenInfo {
+            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            symbol: "USDC".to_string(),
+            name: "USD Coin".to_string(),
+            decimals: 6,
+            verified: true,
+            tradeable: true,
+        });
+        token_addresses.insert("RAY".to_string(), TokenInfo {
+            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            symbol: "RAY".to_string(),
+            name: "Raydium".to_string(),
+            decimals: 6,
+            verified: true,
+            tradeable: true,
+        });
+        
         Self {
-            name: "DevNet".to_string(),
+            network: "DevNet".to_string(),
             rpc_endpoint: "https://api.devnet.solana.com".to_string(),
             program_ids: ProgramIds {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
@@ -53,22 +83,49 @@ impl NetworkConfig {
                 // SPL Token Swap básico
                 spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
             },
-            token_addresses: TokenAddresses {
-                sol: Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                // USDC en DevNet - mismo que MainNet pero funciona en DevNet
-                usdc: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(),
-                // RAY token - usar USDC para testing en DevNet
-                ray: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(), // USDC en lugar de RAY para DevNet
-                // BONK en DevNet
-                bonk: None,
-            },
+            token_addresses,
+            arbitrage_settings: None,
         }
     }
 
     /// Get MainNet configuration
     pub fn mainnet() -> Self {
+        let mut token_addresses = HashMap::new();
+        token_addresses.insert("SOL".to_string(), TokenInfo {
+            address: "So11111111111111111111111111111111111111112".to_string(),
+            symbol: "SOL".to_string(),
+            name: "Wrapped SOL".to_string(),
+            decimals: 9,
+            verified: true,
+            tradeable: true,
+        });
+        token_addresses.insert("USDC".to_string(), TokenInfo {
+            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+            symbol: "USDC".to_string(),
+            name: "USD Coin".to_string(),
+            decimals: 6,
+            verified: true,
+            tradeable: true,
+        });
+        token_addresses.insert("RAY".to_string(), TokenInfo {
+            address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R".to_string(),
+            symbol: "RAY".to_string(),
+            name: "Raydium".to_string(),
+            decimals: 6,
+            verified: true,
+            tradeable: true,
+        });
+        token_addresses.insert("BONK".to_string(), TokenInfo {
+            address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string(),
+            symbol: "BONK".to_string(),
+            name: "Bonk".to_string(),
+            decimals: 5,
+            verified: true,
+            tradeable: true,
+        });
+        
         Self {
-            name: "MainNet".to_string(),
+            network: "MainNet".to_string(),
             rpc_endpoint: "https://api.mainnet-beta.solana.com".to_string(),
             program_ids: ProgramIds {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
@@ -84,22 +141,15 @@ impl NetworkConfig {
                 // SPL Token Swap
                 spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
             },
-            token_addresses: TokenAddresses {
-                sol: Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                // USDC en MainNet
-                usdc: Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").ok(),
-                // RAY token en MainNet
-                ray: Pubkey::from_str("4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R").ok(),
-                // BONK en MainNet
-                bonk: Pubkey::from_str("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263").ok(),
-            },
+            token_addresses,
+            arbitrage_settings: None,
         }
     }
 
     /// Get testnet configuration
     pub fn testnet() -> Self {
         let mut config = Self::devnet();
-        config.name = "TestNet".to_string();
+        config.network = "TestNet".to_string();
         config.rpc_endpoint = "https://api.testnet.solana.com".to_string();
         config
     }
@@ -151,7 +201,7 @@ impl NetworkConfig {
 
     /// Get safe test token pair for this network
     pub fn get_test_token_pair(&self) -> (Pubkey, Option<Pubkey>) {
-        (self.token_addresses.sol, self.token_addresses.usdc)
+        (self.token_addresses["SOL"].address.parse().unwrap(), self.token_addresses["USDC"].address.parse().ok())
     }
 
     /// Validate network configuration
@@ -176,7 +226,7 @@ impl NetworkConfigBuilder {
     pub fn new(name: &str, rpc_endpoint: &str) -> Self {
         Self {
             config: NetworkConfig {
-                name: name.to_string(),
+                network: name.to_string(),
                 rpc_endpoint: rpc_endpoint.to_string(),
                 program_ids: ProgramIds {
                     system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
@@ -188,12 +238,8 @@ impl NetworkConfigBuilder {
                     raydium_amm_program: None,
                     spl_token_swap_program: None,
                 },
-                token_addresses: TokenAddresses {
-                    sol: Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap(),
-                    usdc: None,
-                    ray: None,
-                    bonk: None,
-                },
+                token_addresses: HashMap::new(),
+                arbitrage_settings: None,
             },
         }
     }
@@ -213,9 +259,14 @@ impl NetworkConfigBuilder {
     }
     
     pub fn with_usdc(mut self, token_address: &str) -> Result<Self, String> {
-        self.config.token_addresses.usdc = Some(
-            Pubkey::from_str(token_address).map_err(|e| format!("Invalid USDC address: {}", e))?
-        );
+        self.config.token_addresses.insert("USDC".to_string(), TokenInfo {
+            address: token_address.to_string(),
+            symbol: "USDC".to_string(),
+            name: "USD Coin".to_string(),
+            decimals: 6,
+            verified: true,
+            tradeable: true,
+        });
         Ok(self)
     }
     
@@ -231,7 +282,7 @@ mod tests {
     #[test]
     fn test_devnet_config() {
         let config = NetworkConfig::devnet();
-        assert_eq!(config.name, "DevNet");
+        assert_eq!(config.network, "DevNet");
         assert!(config.validate().is_ok());
         assert!(config.available_dexes().contains(&"Native".to_string()));
     }
@@ -239,7 +290,7 @@ mod tests {
     #[test]
     fn test_mainnet_config() {
         let config = NetworkConfig::mainnet();
-        assert_eq!(config.name, "MainNet");
+        assert_eq!(config.network, "MainNet");
         assert!(config.validate().is_ok());
         assert!(config.has_jupiter());
         assert!(config.has_orca());
@@ -252,7 +303,7 @@ mod tests {
             .unwrap()
             .build();
         
-        assert_eq!(config.name, "Custom");
+        assert_eq!(config.network, "Custom");
         assert!(config.has_jupiter());
     }
 }

@@ -1,159 +1,132 @@
 use anyhow::Result;
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::config::Config;
-use sniperforge::shared::SharedServices;
-use std::sync::Arc;
+use sniperforge::arbitrage::detector::ArbitrageDetector;
+use sniperforge::arbitrage::types::ArbitrageOpportunity;
+use sniperforge::shared::config_loader::ConfigLoader;
+use sniperforge::shared::network_config::NetworkConfig;
+use std::env;
 use std::time::Duration;
-use tracing::{info, error};
+use tracing::{info, error, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
 
-    info!("🧪 Starting ArbitrageBot DevNet Testing");
-    info!("===================================");
+    // Load environment variables
+    dotenv::dotenv().ok();
+
+    info!("� === Bot de Arbitraje - DevNet Test ===");
+    info!("==========================================");
 
     // Load DevNet configuration
-    let config = Config::load("config/devnet.toml")?;
-    info!("✅ Loaded DevNet configuration");
+    let config = ConfigLoader::load_network_config("devnet").await?;
+    
+    info!("✅ Configuración cargada:");
+    info!("   Network: {}", config.network);
+    info!("   RPC: {}", config.rpc_endpoint);
+    info!("   Tokens disponibles: {}", config.token_addresses.len());
+    
+    // Get tokens from configuration (no hardcode)
+    let sol_token = config.token_addresses.get("sol")
+        .ok_or_else(|| anyhow::anyhow!("SOL token not found in config"))?;
+    let usdc_token = config.token_addresses.get("usdc")  
+        .ok_or_else(|| anyhow::anyhow!("USDC token not found in config"))?;
+    let ray_token = config.token_addresses.get("ray")
+        .ok_or_else(|| anyhow::anyhow!("RAY token not found in config"))?;
 
-    // Check wallet balance before starting
-    check_wallet_setup().await?;
+    info!("🔧 Tokens configurados:");
+    info!("   SOL: {} ({})", sol_token.address, sol_token.symbol);
+    info!("   USDC: {} ({})", usdc_token.address, usdc_token.symbol);
+    info!("   RAY: {} ({})", ray_token.address, ray_token.symbol);
 
-    // Initialize shared services
-    let shared_services = Arc::new(SharedServices::new(&config).await?);
+    // Verify arbitrage configuration
+    if let Some(arbitrage_settings) = &config.arbitrage_settings {
+        info!("⚙️ Configuración de arbitraje:");
+        info!("   Min profit threshold: {:.2}%", arbitrage_settings.min_profit_threshold * 100.0);
+        info!("   Max slippage: {:.2}%", arbitrage_settings.max_slippage * 100.0);
+        info!("   Detection interval: {}ms", arbitrage_settings.detection_interval_ms);
+        info!("   Enabled: {}", arbitrage_settings.enabled);
+    }
 
-    // Test 1: Create ArbitrageBot instance
-    info!("🚀 Test 1: Creating ArbitrageBot instance");
-    let wallet_address = get_test_wallet_address().await?;
-    let initial_capital = 100.0; // $100 for testing
+    // Create arbitrage detector
+    info!("\n🔍 Inicializando detector de arbitraje...");
+    let detector = ArbitrageDetector::new(config.clone()).await?;
+    info!("✅ Detector inicializado correctamente");
 
-    let mut arbitrage_bot = ArbitrageBot::new(
-        wallet_address,
-        initial_capital,
-        &config.network,
-        shared_services.clone(),
+    // Test arbitrage detection with real tokens
+    info!("\n📊 === Iniciando detección de arbitraje ===");
+    
+    // Test 1: SOL -> USDC
+    info!("\n� Test 1: SOL -> USDC");
+    test_arbitrage_pair(
+        &detector,
+        &sol_token.address,
+        &usdc_token.address,
+        0.001, // 0.001 SOL
+        &sol_token.symbol,
+        &usdc_token.symbol,
+    ).await?;
+    
+    // Test 2: SOL -> RAY
+    info!("\n📊 Test 2: SOL -> RAY");
+    test_arbitrage_pair(
+        &detector,
+        &sol_token.address,
+        &ray_token.address,
+        0.001, // 0.001 SOL
+        &sol_token.symbol,
+        &ray_token.symbol,
+    ).await?;
+    
+    // Test 3: USDC -> RAY
+    info!("\n📊 Test 3: USDC -> RAY");
+    test_arbitrage_pair(
+        &detector,
+        &usdc_token.address,
+        &ray_token.address,
+        1.0, // 1 USDC
+        &usdc_token.symbol,
+        &ray_token.symbol,
     ).await?;
 
-    info!("✅ ArbitrageBot created successfully with ${:.2} capital", initial_capital);
-
-    // Test 2: Check bot status
-    info!("🔍 Test 2: Checking bot status");
-    let status = arbitrage_bot.get_status();
-    info!("   Bot running: {}", status.is_running);
-    info!("   Emergency stop: {}", status.emergency_stop);
-    info!("   Total trades: {}", status.total_trades);
-
-    // Test 3: Test price feeds (without trading)
-    info!("📊 Test 3: Testing price feed updates");
-    test_price_feeds(&mut arbitrage_bot).await?;
-
-    // Test 4: Opportunity detection (dry run)
-    info!("🔍 Test 4: Testing opportunity detection");
-    test_opportunity_detection(&mut arbitrage_bot).await?;
-
-    // Test 5: Run bot for a short period (with small amounts)
-    info!("⚡ Test 5: Running bot for 30 seconds (DevNet trading)");
-    test_limited_trading(&mut arbitrage_bot).await?;
-
-    // Final status check
-    info!("📈 Final Test Results:");
-    let final_status = arbitrage_bot.get_status();
-    info!("   Total opportunities detected: {}", final_status.opportunities_detected);
-    info!("   Total trades executed: {}", final_status.total_trades);
-    info!("   Success rate: {:.1}%", final_status.success_rate_percent);
-    info!("   Total profit/loss: ${:.2}", final_status.total_profit_usd);
-    info!("   Average latency: {:.1}ms", final_status.average_latency_ms);
-
-    info!("🎉 DevNet testing completed successfully!");
+    info!("\n🎯 === Test de arbitraje completado ===");
     Ok(())
 }
 
-async fn check_wallet_setup() -> Result<()> {
-    info!("💳 Checking wallet setup...");
-
-    // The wallet manager will auto-generate wallets for DevNet
-    info!("✅ Using auto-generated DevNet wallet");
-    info!("⚠️  Note: DevNet wallets are automatically funded via airdrop");
-
-    Ok(())
-}
-
-async fn get_test_wallet_address() -> Result<String> {
-    // Load from actual wallet or generate one for testing
-    use sniperforge::shared::wallet_manager::WalletManager;
-    use sniperforge::config::Config;
-
-    let config = Config::load("config/devnet.toml")?;
-    let wallet_manager = WalletManager::new(&config).await?;
-
-    if let Some(wallet_info) = wallet_manager.get_wallets().first() {
-        Ok(wallet_info.address.clone())
-    } else {
-        Ok("F9CMUFGwfCoH6LGaieao2AL8sXXKCUTfLXzwnPmQZ3vr".to_string()) // Default test wallet
-    }
-}
-
-async fn test_price_feeds(bot: &mut ArbitrageBot) -> Result<()> {
-    info!("   Testing Jupiter price feed...");
-    // Test Jupiter price fetching
-    match bot.get_jupiter_price("SOL", "USDC").await {
-        Ok(price) => info!("   ✅ Jupiter SOL/USDC price: ${:.2}", price),
-        Err(e) => error!("   ❌ Jupiter price fetch failed: {}", e),
-    }
-
-    info!("   Testing market data aggregation...");
-    match bot.get_real_market_data().await {
-        Ok(data) => {
-            info!("   ✅ Market data:");
-            info!("      Current price: ${:.2}", data.current_price);
-            info!("      Volume 24h: ${:.0}", data.volume_24h);
-            info!("      Liquidity: ${:.0}", data.liquidity);
-        },
-        Err(e) => error!("   ❌ Market data fetch failed: {}", e),
-    }
-
-    Ok(())
-}
-
-async fn test_opportunity_detection(bot: &mut ArbitrageBot) -> Result<()> {
-    info!("   Scanning for arbitrage opportunities...");
-
-    match bot.detect_opportunities_using_strategy().await {
-        Ok(signals) => {
-            info!("   ✅ Found {} signals", signals.len());
-            for (i, signal) in signals.iter().enumerate() {
-                info!("      Signal {}: {} (confidence: {:.2})",
-                      i + 1, signal.strategy_name, signal.confidence);
+async fn test_arbitrage_pair(
+    detector: &ArbitrageDetector,
+    from_token: &str,
+    to_token: &str,
+    amount: f64,
+    from_symbol: &str,
+    to_symbol: &str,
+) -> Result<()> {
+    info!("   Testing {} {} -> {}", amount, from_symbol, to_symbol);
+    info!("   From: {}", from_token);
+    info!("   To: {}", to_token);
+    
+    match detector.detect_opportunities(from_token, to_token, amount).await {
+        Ok(opportunities) => {
+            if opportunities.is_empty() {
+                warn!("   ❌ No arbitrage opportunities found");
+            } else {
+                info!("   ✅ {} opportunities found:", opportunities.len());
+                for (i, opp) in opportunities.iter().enumerate() {
+                    info!("     [{}] {} -> {}", i+1, opp.buy_dex, opp.sell_dex);
+                    info!("         Profit: {:.6} SOL ({:.2}%)", 
+                          opp.profit_amount, opp.profit_percentage * 100.0);
+                    info!("         Buy Price: {:.6}", opp.buy_price);
+                    info!("         Sell Price: {:.6}", opp.sell_price);
+                    info!("         Spread: {:.4}%", (opp.sell_price - opp.buy_price) / opp.buy_price * 100.0);
+                }
             }
-        },
-        Err(e) => error!("   ❌ Opportunity detection failed: {}", e),
-    }
-
-    Ok(())
-}
-
-async fn test_limited_trading(bot: &mut ArbitrageBot) -> Result<()> {
-    info!("   Starting limited trading session...");
-    info!("   ⚠️  Using DevNet with small amounts for safety");
-
-    // Create a timeout for the trading session
-    let trading_future = bot.start_trading();
-    let timeout_duration = Duration::from_secs(30);
-
-    match tokio::time::timeout(timeout_duration, trading_future).await {
-        Ok(result) => {
-            match result {
-                Ok(_) => info!("   ✅ Trading session completed normally"),
-                Err(e) => error!("   ❌ Trading session failed: {}", e),
-            }
-        },
-        Err(_) => {
-            info!("   ⏰ Trading session timed out (30s limit reached)");
-            bot.emergency_stop();
+        }
+        Err(e) => {
+            error!("   ❌ Error detecting opportunities: {}", e);
         }
     }
-
+    
     Ok(())
 }
