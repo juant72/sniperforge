@@ -9,7 +9,6 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
     native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
 };
 use tracing::{info, error, warn};
 use sniperforge::shared::network_config::NetworkConfig;
@@ -35,7 +34,7 @@ async fn main() -> Result<()> {
 
     // Get network configuration for DevNet
     let network_config = NetworkConfig::devnet();
-    info!("🌐 Network: {}", network_config.name);
+    info!("🌐 Network: {}", network_config.network);
     info!("🔗 RPC: {}", network_config.rpc_endpoint);
     
     // Validate configuration
@@ -74,7 +73,7 @@ async fn main() -> Result<()> {
         info!("🔧 TEST 2: Jupiter Swap Test");
         test_jupiter_swap(&network_config).await?;
     } else {
-        warn!("⚠️ Jupiter not available for {}", network_config.name);
+        warn!("⚠️ Jupiter not available for {}", network_config.network);
     }
     
     // Test 3: Try Orca if available
@@ -82,7 +81,7 @@ async fn main() -> Result<()> {
         info!("🔧 TEST 3: Orca Swap Test");
         test_orca_swap(&network_config).await?;
     } else {
-        warn!("⚠️ Orca not available for {}", network_config.name);
+        warn!("⚠️ Orca not available for {}", network_config.network);
     }
 
     info!("✅ All tests completed!");
