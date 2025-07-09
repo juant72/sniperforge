@@ -15,7 +15,7 @@ async fn main() -> Result<()> {
     // Load environment variables
     dotenv::dotenv().ok();
 
-    info!("� === Bot de Arbitraje - DevNet Test ===");
+    info!("🤖 === Bot de Arbitraje - DevNet Test ===");
     info!("==========================================");
 
     // Create DevNet configuration manually for testing
@@ -41,40 +41,102 @@ async fn main() -> Result<()> {
     info!("\n📊 === Iniciando detección de arbitraje ===");
     
     // Test 1: SOL -> USDC
-    info!("\n� Test 1: SOL -> USDC");
+    info!("\n📊 Test 1: SOL -> USDC");
+    let sol_addr = &config.token_addresses["sol"].address;
+    let usdc_addr = &config.token_addresses["usdc"].address;
     test_arbitrage_pair(
         &detector,
-        &sol_token.address,
-        &usdc_token.address,
+        sol_addr,
+        usdc_addr,
         0.001, // 0.001 SOL
-        &sol_token.symbol,
-        &usdc_token.symbol,
+        "SOL",
+        "USDC",
     ).await?;
     
     // Test 2: SOL -> RAY
     info!("\n📊 Test 2: SOL -> RAY");
+    let ray_addr = &config.token_addresses["ray"].address;
     test_arbitrage_pair(
         &detector,
-        &sol_token.address,
-        &ray_token.address,
+        sol_addr,
+        ray_addr,
         0.001, // 0.001 SOL
-        &sol_token.symbol,
-        &ray_token.symbol,
+        "SOL",
+        "RAY",
     ).await?;
     
     // Test 3: USDC -> RAY
     info!("\n📊 Test 3: USDC -> RAY");
     test_arbitrage_pair(
         &detector,
-        &usdc_token.address,
-        &ray_token.address,
+        usdc_addr,
+        ray_addr,
         1.0, // 1 USDC
-        &usdc_token.symbol,
-        &ray_token.symbol,
+        "USDC",
+        "RAY",
     ).await?;
 
     info!("\n🎯 === Test de arbitraje completado ===");
     Ok(())
+}
+
+fn create_devnet_config() -> NetworkConfig {
+    use sniperforge::shared::network_config::{NetworkConfig, TokenInfo, ProgramIds};
+    use std::str::FromStr;
+    
+    let mut token_addresses = HashMap::new();
+    
+    token_addresses.insert("sol".to_string(), TokenInfo {
+        address: "So11111111111111111111111111111111111111112".to_string(),
+        symbol: "SOL".to_string(),
+        name: "Solana".to_string(),
+        decimals: 9,
+        verified: true,
+        tradeable: true,
+    });
+    
+    token_addresses.insert("usdc".to_string(), TokenInfo {
+        address: "2iEJ8jXQN9xmhA7w9SpVgFGNkCYEsEf8LfEFumKjNRQo".to_string(),
+        symbol: "USDC-Test".to_string(),
+        name: "USD Coin Test".to_string(),
+        decimals: 6,
+        verified: true,
+        tradeable: true,
+    });
+    
+    token_addresses.insert("ray".to_string(), TokenInfo {
+        address: "7QT4DzmTUfE3jTDHcmCPD9AHHRjkLGc9wKNp5JEJiSXW".to_string(),
+        symbol: "RAY-Test".to_string(),
+        name: "Raydium Test".to_string(),
+        decimals: 6,
+        verified: true,
+        tradeable: true,
+    });
+
+    let arbitrage_settings = Some(ArbitrageSettings {
+        min_profit_threshold: 0.005,
+        max_slippage: 0.01,
+        detection_interval_ms: 1000,
+        execution_timeout_ms: 30000,
+        enabled: true,
+    });
+
+    NetworkConfig {
+        network: "devnet".to_string(),
+        rpc_endpoint: "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg".to_string(),
+        program_ids: ProgramIds {
+            system_program: solana_sdk::pubkey::Pubkey::from_str("11111111111111111111111111111111").unwrap(),
+            token_program: solana_sdk::pubkey::Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
+            associated_token_program: solana_sdk::pubkey::Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
+            compute_budget_program: solana_sdk::pubkey::Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
+            jupiter_program: Some(solana_sdk::pubkey::Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").unwrap()),
+            orca_whirlpool_program: Some(solana_sdk::pubkey::Pubkey::from_str("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc").unwrap()),
+            raydium_amm_program: None,
+            spl_token_swap_program: Some(solana_sdk::pubkey::Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").unwrap()),
+        },
+        token_addresses,
+        arbitrage_settings,
+    }
 }
 
 async fn test_arbitrage_pair(

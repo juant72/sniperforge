@@ -108,6 +108,10 @@ name = "test_arbitrage_bot_devnet"
 path = "test_arbitrage_bot_devnet.rs"
 
 [[bin]]
+name = "test_arbitrage_devnet_new"
+path = "test_arbitrage_devnet_new.rs"
+
+[[bin]]
 name = "qa_runner"
 path = "tests/qa_runner.rs"
 
