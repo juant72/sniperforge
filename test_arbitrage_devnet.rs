@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
 
     // Test 3: Test price feeds (without trading)
     info!("📊 Test 3: Testing price feed updates");
-    test_price_feeds(&arbitrage_bot).await?;
+    test_price_feeds(&mut arbitrage_bot).await?;
 
     // Test 4: Opportunity detection (dry run)
     info!("🔍 Test 4: Testing opportunity detection");
@@ -73,28 +73,29 @@ async fn main() -> Result<()> {
 async fn check_wallet_setup() -> Result<()> {
     info!("💳 Checking wallet setup...");
 
-    // Check if test wallet exists
-    if std::path::Path::new("test-wallet.json").exists() {
-        info!("✅ Test wallet found: test-wallet.json");
-    } else {
-        error!("❌ Test wallet not found. Please run: cargo run --bin create_test_wallet");
-        return Err(anyhow::anyhow!("Test wallet not found"));
-    }
-
-    // TODO: Check SOL balance
-    info!("⚠️  Note: Ensure your test wallet has sufficient DevNet SOL");
-    info!("   Run: cargo run --bin request_devnet_airdrop if needed");
+    // The wallet manager will auto-generate wallets for DevNet
+    info!("✅ Using auto-generated DevNet wallet");
+    info!("⚠️  Note: DevNet wallets are automatically funded via airdrop");
 
     Ok(())
 }
 
 async fn get_test_wallet_address() -> Result<String> {
-    // In a real implementation, this would load from test-wallet.json
-    // For now, return a placeholder
-    Ok("dummy_test_wallet_address".to_string())
+    // Load from actual wallet or generate one for testing
+    use sniperforge::shared::wallet_manager::WalletManager;
+    use sniperforge::config::Config;
+
+    let config = Config::load("config/devnet.toml")?;
+    let wallet_manager = WalletManager::new(&config).await?;
+
+    if let Some(wallet_info) = wallet_manager.get_wallets().first() {
+        Ok(wallet_info.address.clone())
+    } else {
+        Ok("F9CMUFGwfCoH6LGaieao2AL8sXXKCUTfLXzwnPmQZ3vr".to_string()) // Default test wallet
+    }
 }
 
-async fn test_price_feeds(bot: &ArbitrageBot) -> Result<()> {
+async fn test_price_feeds(bot: &mut ArbitrageBot) -> Result<()> {
     info!("   Testing Jupiter price feed...");
     // Test Jupiter price fetching
     match bot.get_jupiter_price("SOL", "USDC").await {
