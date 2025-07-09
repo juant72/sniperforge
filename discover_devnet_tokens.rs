@@ -1,8 +1,8 @@
 use anyhow::Result;
 use sniperforge::shared::jupiter_client::JupiterClient;
 use sniperforge::shared::jupiter_config::JupiterConfig;
+use sniperforge::shared::jupiter_types::QuoteRequest;
 use tracing::info;
-use serde_json::Value;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -26,81 +26,9 @@ async fn main() -> Result<()> {
 
     let client = JupiterClient::new(&config).await?;
 
-    // Get available tokens on DevNet
-    info!("📡 Consultando tokens disponibles en DevNet...");
-
-    match client.get_tokens().await {
-        Ok(tokens_response) => {
-            info!("✅ Lista de tokens obtenida exitosamente");
-            
-            // Parse the response to get token information
-            if let Value::Array(tokens) = tokens_response {
-                info!("📊 Total de tokens encontrados: {}", tokens.len());
-                
-                let mut devnet_tokens = Vec::new();
-                
-                for (i, token) in tokens.iter().enumerate() {
-                    if i >= 20 { // Limit to first 20 tokens for display
-                        break;
-                    }
-                    
-                    if let Value::Object(token_obj) = token {
-                        let address = token_obj.get("address")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let symbol = token_obj.get("symbol")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let name = token_obj.get("name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("unknown");
-                        let decimals = token_obj.get("decimals")
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(0);
-                        
-                        devnet_tokens.push((address, symbol, name, decimals));
-                        
-                        info!("  [{}] {} ({}) - {} decimals", 
-                              i + 1, symbol, name, decimals);
-                        info!("      Address: {}", address);
-                    }
-                }
-                
-                info!("\n🎯 === TOKENS RECOMENDADOS PARA ARBITRAJE ===");
-                
-                // Look for common tokens that might have liquidity
-                let recommended_tokens: Vec<(&str, &str, &str, u64)> = devnet_tokens.iter()
-                    .filter(|(_, symbol, _, _)| {
-                        let s = symbol.to_lowercase();
-                        s.contains("sol") || s.contains("usdc") || s.contains("usdt") || 
-                        s.contains("ray") || s.contains("bonk") || s.contains("test")
-                    })
-                    .cloned()
-                    .collect();
-                
-                if recommended_tokens.is_empty() {
-                    info!("⚠️  No se encontraron tokens comunes en DevNet");
-                    info!("💡 Sugerencia: Usar SOL para wrapping/unwrapping como test básico");
-                } else {
-                    for (address, symbol, name, decimals) in recommended_tokens {
-                        info!("✅ {}: {} ({} decimals)", symbol, name, decimals);
-                        info!("   Address: {}", address);
-                    }
-                }
-                
-            } else {
-                info!("⚠️  Formato de respuesta inesperado");
-            }
-        }
-        Err(e) => {
-            info!("❌ Error obteniendo tokens: {}", e);
-            info!("💡 Esto puede ser normal en DevNet - Jupiter puede tener tokens limitados");
-            
-            // Let's try to test with known DevNet tokens
-            info!("\n🔄 Probando con tokens conocidos de DevNet...");
-            test_known_devnet_tokens(&client).await?;
-        }
-    }
+    // Test known tokens directly
+    info!("� Probando tokens conocidos en DevNet...");
+    test_known_devnet_tokens(&client).await?;
 
     Ok(())
 }
@@ -122,18 +50,42 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
         info!("  🔍 Probando {}: {}", name, address);
         
         // Try to get a quote for 0.001 SOL -> this token
-        match client.get_quote(
-            "So11111111111111111111111111111111111111112", // SOL
-            address,
-            0.001,
-            100 // 1% slippage
-        ).await {
-            Ok(_) => {
+        let quote_request = QuoteRequest {
+            inputMint: "So11111111111111111111111111111111111111112".to_string(),
+            outputMint: address.to_string(),
+            amount: 1_000_000, // 0.001 SOL (9 decimals)
+            slippageBps: 100,  // 1% slippage
+        };
+        
+        match client.get_quote(quote_request).await {
+            Ok(quote) => {
                 info!("    ✅ Token disponible para trading");
+                info!("       Output: {} units", quote.outAmount);
             }
             Err(e) => {
                 info!("    ❌ Token no disponible: {}", e);
             }
+        }
+    }
+    
+    // Test SOL wrapping/unwrapping specifically
+    info!("\n🔄 Probando SOL wrapping/unwrapping específicamente:");
+    
+    // SOL -> wSOL (should work)
+    let wrap_request = QuoteRequest {
+        inputMint: "So11111111111111111111111111111111111111112".to_string(),
+        outputMint: "So11111111111111111111111111111111111111112".to_string(),
+        amount: 1_000_000, // 0.001 SOL
+        slippageBps: 0,    // No slippage for wrapping
+    };
+    
+    match client.get_quote(wrap_request).await {
+        Ok(quote) => {
+            info!("  ✅ SOL wrapping disponible");
+            info!("     Output: {} units", quote.outAmount);
+        }
+        Err(e) => {
+            info!("  ❌ SOL wrapping falló: {}", e);
         }
     }
     
@@ -142,6 +94,10 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
     info!("2. Buscar pools de Orca DevNet que tengan liquidez real");
     info!("3. Crear pools propios con tokens SPL custom");
     info!("4. Usar simulación para testing mientras se encuentra liquidez real");
+    info!("\n🎯 === PRÓXIMOS PASOS ===");
+    info!("1. Si SOL wrapping funciona, usar como base para arbitraje");
+    info!("2. Integrar con Orca para encontrar pools con liquidez");
+    info!("3. Crear test de arbitraje real con tokens que funcionan");
     
     Ok(())
 }
