@@ -49,10 +49,10 @@ impl Jupiter {
         
         // Validate that Jupiter is available for this network
         if !network_config.has_jupiter() {
-            return Err(anyhow!("Jupiter is not available for network: {}", network_config.name));
+            return Err(anyhow!("Jupiter is not available for network: {}", network_config.network));
         }
         
-        info!("🌐 Jupiter initialized for {} network", network_config.name);
+        info!("🌐 Jupiter initialized for {} network", network_config.network);
         info!("🔧 Jupiter Program ID: {:?}", network_config.program_ids.jupiter_program);
         
         Ok(Self { 
@@ -68,14 +68,14 @@ impl Jupiter {
         
         // Validate that Jupiter is available for this network
         if !network_config.has_jupiter() {
-            return Err(anyhow!("Jupiter is not available for network: {}", network_config.name));
+            return Err(anyhow!("Jupiter is not available for network: {}", network_config.network));
         }
         
         // Validate network config
         network_config.validate()
             .map_err(|e| anyhow!("Invalid network configuration: {}", e))?;
         
-        info!("🌐 Jupiter initialized for {} network (explicit config)", network_config.name);
+        info!("🌐 Jupiter initialized for {} network (explicit config)", network_config.network);
         info!("🔧 Jupiter Program ID: {:?}", network_config.program_ids.jupiter_program);
         
         Ok(Self { 
@@ -174,10 +174,10 @@ impl Jupiter {
         let swap_amount_sol = quote.in_amount();
         
         // Safety Check 1: Maximum swap amount protection
-        let max_allowed_swap = if self.network_config.name == "MainNet" { 0.1 } else { 1.0 }; // 0.1 SOL max on MainNet, 1.0 SOL on DevNet
+        let max_allowed_swap = if self.network_config.network == "MainNet" { 0.1 } else { 1.0 }; // 0.1 SOL max on MainNet, 1.0 SOL on DevNet
         if swap_amount_sol > max_allowed_swap {
             error!("🚨 SAFETY ABORT: Swap amount ({} SOL) exceeds maximum allowed ({} SOL) for {}", 
-                   swap_amount_sol, max_allowed_swap, self.network_config.name);
+                   swap_amount_sol, max_allowed_swap, self.network_config.network);
             return Ok(SwapExecutionResult {
                 success: false,
                 transaction_signature: format!("SAFETY_ABORT_MAX_AMOUNT_{}", chrono::Utc::now().timestamp()),
@@ -187,7 +187,7 @@ impl Jupiter {
                 block_height: 0,
                 logs: vec![
                     format!("🚨 SAFETY ABORT: Swap amount ({} SOL) exceeds maximum allowed ({} SOL)", swap_amount_sol, max_allowed_swap),
-                    format!("Maximum swap limit for {} is {} SOL", self.network_config.name, max_allowed_swap),
+                    format!("Maximum swap limit for {} is {} SOL", self.network_config.network, max_allowed_swap),
                     "Transaction blocked to prevent potential wallet draining".to_string(),
                 ],
             });
@@ -222,7 +222,7 @@ impl Jupiter {
                     }
                     
                     // Additional safety for MainNet
-                    if self.network_config.name == "MainNet" && swap_amount_sol > (balance_sol * 0.5) {
+                    if self.network_config.network == "MainNet" && swap_amount_sol > (balance_sol * 0.5) {
                         error!("🚨 MAINNET SAFETY: Attempting to swap >50% of wallet balance");
                         return Ok(SwapExecutionResult {
                             success: false,
@@ -302,14 +302,14 @@ impl Jupiter {
         info!("   Swap amount: {} SOL", quote.in_amount());
         info!("   Expected output: {} tokens", quote.out_amount());
         info!("   Price impact: {}%", quote.price_impact_pct());
-        info!("   Network: {}", self.network_config.name);
+        info!("   Network: {}", self.network_config.network);
         info!("   Jupiter Program ID: {:?}", self.network_config.program_ids.jupiter_program);
         
         // Additional safety check for MainNet
-        if self.network_config.name == "MainNet" {
+        if self.network_config.network == "MainNet" {
             error!("🚨 MAINNET EXECUTION DISABLED FOR SAFETY");
             warn!("   This is a safety measure to prevent accidental MainNet trades");
-            warn!("   Network: {}", self.network_config.name);
+            warn!("   Network: {}", self.network_config.network);
             warn!("   Amount: {} SOL", quote.in_amount());
             
             return Ok(SwapExecutionResult {
@@ -347,7 +347,7 @@ impl Jupiter {
         };
         
         // CRITICAL: Validate Program IDs in the transaction
-        info!("� Validating transaction Program IDs for {} network...", self.network_config.name);
+        info!("� Validating transaction Program IDs for {} network...", self.network_config.network);
         let jupiter_program_id = self.network_config.program_ids.jupiter_program.unwrap();
         let system_program_id = self.network_config.program_ids.system_program;
         let token_program_id = self.network_config.program_ids.token_program;
@@ -383,7 +383,7 @@ impl Jupiter {
         }
         
         if !jupiter_found {
-            error!("❌ Jupiter Program ID not found in transaction for {}", self.network_config.name);
+            error!("❌ Jupiter Program ID not found in transaction for {}", self.network_config.network);
             return Ok(SwapExecutionResult {
                 success: false,
                 transaction_signature: format!("INVALID_JUPITER_PROGRAM_{}", chrono::Utc::now().timestamp()),
@@ -393,7 +393,7 @@ impl Jupiter {
                 block_height: 0,
                 logs: vec![
                     format!("Jupiter Program ID {} not found in transaction", jupiter_program_id),
-                    format!("This transaction may be for a different network than {}", self.network_config.name),
+                    format!("This transaction may be for a different network than {}", self.network_config.network),
                 ],
             });
         }
@@ -405,9 +405,9 @@ impl Jupiter {
             }
         }
         
-        info!("✅ Program ID validation completed for {}", self.network_config.name);
+        info!("✅ Program ID validation completed for {}", self.network_config.network);
         
-        info!("📝 Transaction validated for {} network", self.network_config.name);
+        info!("📝 Transaction validated for {} network", self.network_config.network);
         
         // Get recent blockhash for the transaction
         match rpc_client.get_latest_blockhash() {
@@ -429,7 +429,7 @@ impl Jupiter {
             }
         }
         
-        info!("🚀 SPRINT 1: Sending legacy transaction to {} blockchain...", self.network_config.name);
+        info!("🚀 SPRINT 1: Sending legacy transaction to {} blockchain...", self.network_config.network);
         
         // Sign the transaction
         match transaction.try_sign(&[keypair], transaction.message.recent_blockhash) {
@@ -438,7 +438,7 @@ impl Jupiter {
             }
             Err(e) => {
                 error!("❌ Failed to sign transaction on {}: {} (data len: {})", 
-                       self.network_config.name, e, transaction_data.len());
+                       self.network_config.network, e, transaction_data.len());
                 return Ok(SwapExecutionResult {
                     success: false,
                     transaction_signature: format!("SIGNING_ERROR_{}", chrono::Utc::now().timestamp()),
@@ -452,11 +452,11 @@ impl Jupiter {
         }
         
         // Send the transaction
-        info!("📡 Sending legacy transaction to {} blockchain...", self.network_config.name);
+        info!("📡 Sending legacy transaction to {} blockchain...", self.network_config.network);
         
         match rpc_client.send_and_confirm_transaction(&transaction) {
             Ok(signature) => {
-                info!("✅ SPRINT 1: Real swap executed successfully on {}!", self.network_config.name);
+                info!("✅ SPRINT 1: Real swap executed successfully on {}!", self.network_config.network);
                 info!("🎯 Transaction signature: {}", signature);
                 info!("💰 Expected output: {} tokens", quote.out_amount());
                 info!("📊 Price impact: {}%", quote.price_impact_pct());
@@ -475,9 +475,9 @@ impl Jupiter {
                     fee_amount: 0.001, // Estimated from priority fee
                     block_height: slot,
                     logs: vec![
-                        format!("Real swap executed on {}", self.network_config.name),
+                        format!("Real swap executed on {}", self.network_config.network),
                         format!("Signature: {}", signature),
-                        format!("✅ REAL SWAP COMPLETED ON {} (Legacy)", self.network_config.name.to_uppercase()),
+                        format!("✅ REAL SWAP COMPLETED ON {} (Legacy)", self.network_config.network.to_uppercase()),
                     ],
                 })
             }

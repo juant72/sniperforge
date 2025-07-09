@@ -5,7 +5,8 @@ use tracing::{info, debug, error};
 
 use crate::shared::network_config::NetworkConfig;
 use crate::shared::jupiter_api::Jupiter;
-use crate::strategies::arbitrage::{ArbitrageStrategy, ArbitrageOpportunity};
+use crate::shared::jupiter_config::JupiterConfig;
+use crate::arbitrage::types::{ArbitrageOpportunity, ArbitrageSettings};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArbitrageDetectorConfig {
@@ -32,7 +33,6 @@ pub struct ArbitrageDetector {
     config: NetworkConfig,
     detector_config: ArbitrageDetectorConfig,
     jupiter: Jupiter,
-    arbitrage_strategy: ArbitrageStrategy,
 }
 
 impl ArbitrageDetector {
@@ -50,14 +50,22 @@ impl ArbitrageDetector {
             })
             .unwrap_or_default();
 
-        let jupiter = Jupiter::new(config.clone()).await?;
-        let arbitrage_strategy = ArbitrageStrategy::new();
+        // Create Jupiter config from network config
+        let jupiter_config = JupiterConfig {
+            base_url: "https://quote-api.jup.ag".to_string(),
+            api_key: None,
+            timeout_seconds: 30,
+            max_retries: 3,
+            rpc_endpoint: config.rpc_endpoint.clone(),
+            network_name: config.network.clone(),
+        };
+
+        let jupiter = Jupiter::new(&jupiter_config).await?;
 
         Ok(Self {
             config,
             detector_config,
             jupiter,
-            arbitrage_strategy,
         })
     }
 
@@ -78,13 +86,13 @@ impl ArbitrageDetector {
         let mut opportunities = Vec::new();
 
         // Get Jupiter quote
-        match self.jupiter.get_quote(from_token, to_token, amount).await {
+        match self.jupiter.get_quote(from_token, to_token, amount, 100).await {
             Ok(jupiter_quote) => {
-                debug!("Jupiter quote received: {:.6} tokens out", jupiter_quote.out_amount);
+                debug!("Jupiter quote received: {:.6} tokens out", jupiter_quote.out_amount());
                 
                 // For now, simulate other DEX prices (in a real implementation, 
                 // you'd query actual DEX APIs like Orca, Raydium, etc.)
-                let jupiter_price = jupiter_quote.out_amount / amount;
+                let jupiter_price = jupiter_quote.out_amount() / amount;
                 
                 // Simulate price variations to detect arbitrage opportunities
                 let price_variations = vec![
@@ -103,15 +111,17 @@ impl ArbitrageDetector {
                                 let profit_amount = amount * profit_percentage;
                                 
                                 let opportunity = ArbitrageOpportunity {
-                                    buy_exchange: buy_dex.to_string(),
-                                    sell_exchange: sell_dex.to_string(),
+                                    buy_dex: buy_dex.to_string(),
+                                    sell_dex: sell_dex.to_string(),
                                     buy_price: *buy_price,
                                     sell_price: *sell_price,
                                     profit_percentage,
+                                    profit_amount,
                                     estimated_profit: profit_amount,
-                                    liquidity_buy: jupiter_quote.out_amount, // Use Jupiter liquidity as estimate
-                                    liquidity_sell: jupiter_quote.out_amount,
+                                    liquidity_buy: jupiter_quote.out_amount(), // Use Jupiter liquidity as estimate
+                                    liquidity_sell: jupiter_quote.out_amount(),
                                     confidence: if profit_percentage > 0.01 { 0.9 } else { 0.7 },
+                                    timestamp: chrono::Utc::now(),
                                 };
 
                                 opportunities.push(opportunity);
@@ -132,7 +142,7 @@ impl ArbitrageDetector {
         info!("Found {} arbitrage opportunities", opportunities.len());
         for (i, opp) in opportunities.iter().enumerate() {
             debug!("Opportunity {}: {} -> {} (profit: {:.2}%)", 
-                   i + 1, opp.buy_exchange, opp.sell_exchange, opp.profit_percentage * 100.0);
+                   i + 1, opp.buy_dex, opp.sell_dex, opp.profit_percentage * 100.0);
         }
 
         Ok(opportunities)

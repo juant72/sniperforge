@@ -10,6 +10,9 @@ pub struct ArbitrageOpportunity {
     pub profit_percentage: f64,
     pub confidence: f64,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+    pub liquidity_buy: f64,
+    pub liquidity_sell: f64,
+    pub estimated_profit: f64,
 }
 
 impl ArbitrageOpportunity {
@@ -21,6 +24,9 @@ impl ArbitrageOpportunity {
         profit_amount: f64,
         profit_percentage: f64,
         confidence: f64,
+        liquidity_buy: f64,
+        liquidity_sell: f64,
+        estimated_profit: f64,
     ) -> Self {
         Self {
             buy_dex,
@@ -31,6 +37,9 @@ impl ArbitrageOpportunity {
             profit_percentage,
             confidence,
             timestamp: chrono::Utc::now(),
+            liquidity_buy,
+            liquidity_sell,
+            estimated_profit,
         }
     }
 }
