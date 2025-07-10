@@ -140,6 +140,10 @@ name = "test_arbitrage_execution_ready"
 path = "test_arbitrage_execution_ready.rs"
 
 [[bin]]
+name = "test_enhanced_arbitrage_monitor"
+path = "test_enhanced_arbitrage_monitor.rs"
+
+[[bin]]
 name = "qa_runner"
 path = "tests/qa_runner.rs"
 

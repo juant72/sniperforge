@@ -236,7 +236,7 @@ impl RealTimeArbitrageMonitor {
             
             for dex_name in &dex_names {
                 // Each DEX has slightly different prices (realistic spreads)
-                let base_spread = match dex_name.as_str() {
+                let base_spread = match dex_name.as_ref() {
                     "Jupiter" => 0.001,  // 0.1% spread (aggregator)
                     "Orca" => 0.003,     // 0.3% spread
                     "Raydium" => 0.0025, // 0.25% spread
@@ -322,7 +322,7 @@ impl RealTimeArbitrageMonitor {
         }
         
         // Triangular arbitrage (SOL -> USDC -> RAY -> SOL)
-        if let (Some(sol_data), Some(usdc_data), Some(ray_data)) = (
+        if let (Some(_sol_data), Some(_usdc_data), Some(_ray_data)) = (
             self.market_data.get("SOL"),
             self.market_data.get("USDC"),
             self.market_data.get("RAY")
@@ -431,7 +431,7 @@ impl RealTimeArbitrageMonitor {
             0.3
         };
         
-        let weighted_score = (profit_factor * 0.4 + liquidity_factor * 0.35 + impact_factor * 0.25);
+        let weighted_score: f64 = profit_factor * 0.4 + liquidity_factor * 0.35 + impact_factor * 0.25;
         weighted_score.min(1.0_f64)
     }
 }
@@ -621,8 +621,8 @@ async fn check_token_balances(
 }
 
 async fn execute_arbitrage_simulation(
-    rpc_client: &RpcClient,
-    wallet_keypair: &Keypair,
+    _rpc_client: &RpcClient,
+    _wallet_keypair: &Keypair,
     opportunity: &ArbitrageOpportunity,
 ) -> Result<f64> {
     info!("     🚀 Ejecutando simulación de arbitraje...");
