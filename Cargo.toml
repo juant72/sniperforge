@@ -171,6 +171,10 @@ path = "test_spl_token_swap.rs"
 name = "test_real_amm_arbitrage"
 path = "test_real_amm_arbitrage.rs"
 
+[[bin]]
+name = "test_real_data_arbitrage"
+path = "test_real_data_arbitrage.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
