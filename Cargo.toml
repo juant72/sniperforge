@@ -179,6 +179,10 @@ path = "test_real_data_arbitrage.rs"
 name = "test_market_data_arbitrage"
 path = "test_market_data_arbitrage.rs"
 
+[[bin]]
+name = "test_realtime_arbitrage_monitor"
+path = "test_realtime_arbitrage_monitor.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
