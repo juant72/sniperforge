@@ -2,13 +2,10 @@ use anyhow::Result;
 use solana_sdk::signature::{Keypair, Signer};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::instruction::Instruction;
 use solana_sdk::transaction::Transaction;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_instruction;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use spl_token::instruction as token_instruction;
-use spl_associated_token_account::instruction as ata_instruction;
+use spl_associated_token_account;
 use std::env;
 use std::str::FromStr;
 use tracing::{info, error, warn};
@@ -37,7 +34,7 @@ struct TokenInfo {
 }
 
 // Jupiter API structures
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct JupiterQuote {
     #[serde(rename = "inAmount")]
     in_amount: String,
@@ -49,7 +46,7 @@ struct JupiterQuote {
     market_infos: Vec<MarketInfo>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct MarketInfo {
     id: String,
     label: String,
@@ -66,7 +63,7 @@ struct MarketInfo {
 }
 
 // Orca API structures
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct OrcaPool {
     address: String,
     #[serde(rename = "tokenAMint")]
@@ -232,7 +229,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn fetch_real_orca_pools(http_client: &reqwest::Client) -> Result<Vec<OrcaPool>> {
+async fn fetch_real_orca_pools(_http_client: &reqwest::Client) -> Result<Vec<OrcaPool>> {
     info!("🌊 Obteniendo pools reales de Orca...");
     
     // Note: This is a placeholder URL - you'll need to use the actual Orca API
@@ -399,7 +396,7 @@ async fn get_real_jupiter_quote(
     }
 }
 
-fn find_orca_pool(pools: &[OrcaPool], token_a: &str, token_b: &str) -> Option<&OrcaPool> {
+fn find_orca_pool<'a>(pools: &'a [OrcaPool], token_a: &str, token_b: &str) -> Option<&'a OrcaPool> {
     pools.iter().find(|pool| {
         (pool.token_a_mint == token_a && pool.token_b_mint == token_b) ||
         (pool.token_a_mint == token_b && pool.token_b_mint == token_a)
@@ -510,7 +507,8 @@ async fn execute_jupiter_swap(
                 
                 if let Some(swap_transaction) = swap_response["swapTransaction"].as_str() {
                     // Decode and execute transaction
-                    let transaction_bytes = base64::decode(swap_transaction)?;
+                    use base64::Engine;
+                    let transaction_bytes = base64::engine::general_purpose::STANDARD.decode(swap_transaction)?;
                     let mut transaction: Transaction = bincode::deserialize(&transaction_bytes)?;
                     
                     // Sign transaction
@@ -546,8 +544,8 @@ async fn execute_jupiter_swap(
 }
 
 async fn execute_orca_swap(
-    rpc_client: &RpcClient,
-    wallet_keypair: &Keypair,
+    _rpc_client: &RpcClient,
+    _wallet_keypair: &Keypair,
     pool: &OrcaPool,
     amount_in: u64,
 ) -> Result<bool> {
