@@ -191,6 +191,10 @@ path = "test_market_data_arbitrage.rs"
 name = "test_realtime_arbitrage_monitor"
 path = "test_realtime_arbitrage_monitor.rs"
 
+[[bin]]
+name = "check_devnet_balance"
+path = "check_devnet_balance.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
