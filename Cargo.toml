@@ -155,6 +155,22 @@ path = "test_custom_tokens_swap.rs"
 name = "test_custom_tokens_verify"
 path = "test_custom_tokens_verify.rs"
 
+[[bin]]
+name = "discover_jupiter_tokens"
+path = "discover_jupiter_tokens.rs"
+
+[[bin]]
+name = "test_orca_direct_amm"
+path = "test_orca_direct_amm.rs"
+
+[[bin]]
+name = "test_spl_token_swap"
+path = "test_spl_token_swap.rs"
+
+[[bin]]
+name = "test_arbitrage_simulator"
+path = "test_arbitrage_simulator.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
@@ -173,6 +189,7 @@ solana-account-decoder = { version = "=2.2.1", default-features = false, feature
 solana-transaction-status = { version = "=2.2.1", default-features = false, features = [] }
 spl-token = { version = "=6.0.0", default-features = false }
 spl-associated-token-account = { version = "=4.0.0", default-features = false }
+spl-token-swap = "4.0.0"
 
 # Serde for serialization - minimal pero funcional
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
@@ -204,7 +221,7 @@ rustls = { version = "0.23", features = ["ring"] }
 openssl = { version = "0.10", features = ["vendored"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
 
-# Random number generation for pool detection
+# Random number generation
 rand = "0.8"
 
 # Additional dependencies for trading engine
