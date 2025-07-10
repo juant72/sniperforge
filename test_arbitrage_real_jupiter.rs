@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::sync::Arc;
 use solana_sdk::{
     signature::{Keypair, Signer},
     transaction::Transaction,
@@ -8,11 +9,7 @@ use solana_sdk::{
     system_instruction,
 };
 use solana_client::rpc_client::RpcClient;
-use spl_token::instruction as token_instruction;
-use spl_associated_token_account::{
-    get_associated_token_address,
-    instruction::create_associated_token_account,
-};
+use spl_associated_token_account::get_associated_token_address;
 use std::env;
 use std::str::FromStr;
 use tracing::{info, error, warn};
@@ -280,7 +277,7 @@ impl RealArbitrageBot {
                                     if net_profit > 0 && profit_percentage > 0.1 {
                                         return Ok(Some(RealArbitrageOpportunity {
                                             id: format!("JUPITER-{}-{}-{}", token_from, token_to, chrono::Utc::now().timestamp()),
-                                            path: vec![token_from, token_to.clone(), token_from.clone()],
+                                            path: vec![token_from.clone(), token_to.clone(), token_from.clone()],
                                             amount_in,
                                             estimated_amount_out: amount_final,
                                             profit_lamports: profit,

@@ -279,7 +279,7 @@ crossterm = { version = "0.29.0", default-features = false, features = ["windows
 # Utilities - already defined above
 # anyhow = "1.0"
 thiserror = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
+# chrono = { version = "0.4", features = ["serde"] } # already defined above
 
 # Configuration
 config = "0.15.11"
