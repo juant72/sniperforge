@@ -57,9 +57,10 @@ async fn main() -> Result<()> {
                 if !token_accounts.is_empty() {
                     for account in token_accounts {
                         // Usar get_token_account_balance para obtener el balance directamente
-                        if let Ok(balance_info) = client.get_token_account_balance(&account.pubkey) {
-                            let balance = balance_info.ui_amount.unwrap_or(0.0);
-                            println!("💰 {} Balance: {:.6} {}", symbol, balance, symbol);
+                        if let Ok(pubkey) = account.pubkey.parse::<Pubkey>() {                            if let Ok(balance_info) = client.get_token_account_balance(&pubkey) {
+                                let balance = balance_info.ui_amount.unwrap_or(0.0);
+                                println!("💰 {} Balance: {:.6} {}", symbol, balance, symbol);
+                            }
                         }
                     }
                 } else {
