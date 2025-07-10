@@ -195,6 +195,10 @@ path = "test_realtime_arbitrage_monitor.rs"
 name = "check_devnet_balance"
 path = "check_devnet_balance.rs"
 
+[[bin]]
+name = "test_simple_arbitrage_real"
+path = "test_simple_arbitrage_real.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
