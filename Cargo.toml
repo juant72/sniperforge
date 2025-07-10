@@ -168,8 +168,8 @@ name = "test_spl_token_swap"
 path = "test_spl_token_swap.rs"
 
 [[bin]]
-name = "test_arbitrage_simulator"
-path = "test_arbitrage_simulator.rs"
+name = "test_real_amm_arbitrage"
+path = "test_real_amm_arbitrage.rs"
 
 [lib]
 name = "sniperforge"
@@ -189,7 +189,6 @@ solana-account-decoder = { version = "=2.2.1", default-features = false, feature
 solana-transaction-status = { version = "=2.2.1", default-features = false, features = [] }
 spl-token = { version = "=6.0.0", default-features = false }
 spl-associated-token-account = { version = "=4.0.0", default-features = false }
-spl-token-swap = "4.0.0"
 
 # Serde for serialization - minimal pero funcional
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }

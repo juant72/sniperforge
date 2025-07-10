@@ -9,8 +9,6 @@ use solana_sdk::system_instruction;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use spl_token::instruction as token_instruction;
 use spl_associated_token_account::instruction as ata_instruction;
-use spl_token_swap::instruction as swap_instruction;
-use spl_token_swap::state::{SwapVersion, SwapV1};
 use std::env;
 use std::str::FromStr;
 use tracing::{info, error, warn};
