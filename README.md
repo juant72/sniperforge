@@ -51,6 +51,39 @@ cargo run --release --bin test_arbitrage_real_jupiter
 cargo run --release --bin check_devnet_balance
 ```
 
+## 🎯 Direct CLI Commands (From Validation Report)
+
+### Main Command - Cache-Free Trading Engine
+```powershell
+# MAIN COMMAND for real arbitrage on DevNet
+cargo run --bin sniperforge test cache-free-trading --network devnet
+
+# MAIN COMMAND for real arbitrage on MainNet (REAL MONEY!)
+cargo run --bin sniperforge test cache-free-trading --network mainnet
+```
+
+### Complete CLI Workflow
+```powershell
+# Step-by-step CLI execution:
+cargo build --release
+cargo run --bin sniperforge wallet balance --network devnet    # check initial
+cargo run --bin sniperforge wallet airdrop --network devnet    # get SOL if needed
+cargo run --bin sniperforge test cache-free-trading --network devnet  # EXECUTE
+cargo run --bin sniperforge wallet balance --network devnet    # verify profits!
+```
+
+### Essential Commands Only
+```powershell
+# ⚠️ IMPORTANT: --network parameter is REQUIRED
+# ❌ FAILS: cargo run --bin sniperforge test cache-free-trading
+# ✅ WORKS: cargo run --bin sniperforge test cache-free-trading --network devnet
+
+# Core 3-command workflow:
+cargo run --bin sniperforge wallet balance --network devnet    # before
+cargo run --bin sniperforge test cache-free-trading --network devnet  # execute
+cargo run --bin sniperforge wallet balance --network devnet    # after (see profits!)
+```
+
 ## 🎯 Available Arbitrage Bots
 
 ### 1. Jupiter Real Arbitrage Bot (Recommended)

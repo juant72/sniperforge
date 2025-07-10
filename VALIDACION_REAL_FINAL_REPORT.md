@@ -218,19 +218,170 @@ El sistema ejecuta transacciones reales, paga fees reales, actualiza balances re
 
 ---
 
+## � **COMANDOS CLI PARA EJECUTAR EL BOT**
+
+### **🎯 INICIO RÁPIDO (30 segundos)**
+
+```powershell
+# 1. Script de inicio automático (RECOMENDADO)
+.\quick-start-arbitrage.ps1
+
+# 2. Demo completa con transacciones reales
+.\demo-arbitrage-bot.ps1
+
+# 3. Verificar setup inicial
+cargo run --bin get_wallet_address
+cargo run --bin check_devnet_balance
+```
+
+### **💰 BOTS DE ARBITRAJE REAL**
+
+```powershell
+# Bot Jupiter (RECOMENDADO - Producción)
+cargo run --release --bin test_arbitrage_real_jupiter
+
+# Bot Custom DEX (Avanzado)
+cargo run --release --bin test_real_arbitrage_devnet
+
+# Bot Simple Transfer (Testing)
+cargo run --release --bin test_simple_arbitrage_real
+```
+
+### **📊 MONITOREO Y VERIFICACIÓN**
+
+```powershell
+# Verificar balances antes del arbitraje
+cargo run --bin check_devnet_balance
+
+# Ejecutar arbitraje real
+cargo run --release --bin test_arbitrage_real_jupiter
+
+# Verificar ganancias reales después del arbitraje
+cargo run --bin check_devnet_balance
+```
+
+### **🔧 HERRAMIENTAS ADICIONALES**
+
+```powershell
+# Solicitar SOL en DevNet
+cargo run --bin request_devnet_airdrop
+
+# Descubrir tokens disponibles
+cargo run --bin discover_devnet_tokens
+cargo run --bin discover_jupiter_tokens
+
+# Crear tokens de prueba
+cargo run --bin create_devnet_tokens_automated
+
+# Verificar conectividad RPC
+cargo run --bin test_all_rpc_methods
+```
+
+### **📋 WORKFLOW COMPLETO PASO A PASO**
+
+```powershell
+# Paso 1: Construir el proyecto
+cargo build --release
+
+# Paso 2: Verificar wallet y balances iniciales
+cargo run --bin get_wallet_address
+cargo run --bin check_devnet_balance
+
+# Paso 3: Solicitar SOL si es necesario
+cargo run --bin request_devnet_airdrop
+
+# Paso 4: Ejecutar arbitraje real con Jupiter (RECOMENDADO)
+cargo run --release --bin test_arbitrage_real_jupiter
+
+# Paso 5: Verificar ganancias reales
+cargo run --bin check_devnet_balance
+
+# Paso 6: Ver transacciones en Solana Explorer
+# https://explorer.solana.com/?cluster=devnet
+```
+
+### **🎯 COMANDOS POR TIPO DE BOT**
+
+#### **Jupiter Bot (Mejor para Producción)**
+```powershell
+# Ejecución directa
+cargo run --release --bin test_arbitrage_real_jupiter
+
+# Con demo interactiva
+.\demo-arbitrage-bot.ps1 -BotType jupiter
+```
+
+#### **Custom DEX Bot (Avanzado)**
+```powershell
+# Ejecución directa
+cargo run --release --bin test_real_arbitrage_devnet
+
+# Con demo interactiva
+.\demo-arbitrage-bot.ps1 -BotType custom
+```
+
+#### **Simple Transfer Bot (Testing)**
+```powershell
+# Ejecución directa
+cargo run --release --bin test_simple_arbitrage_real
+
+# Con demo interactiva
+.\demo-arbitrage-bot.ps1 -BotType simple
+```
+
+### **🔍 VALIDACIÓN DE RESULTADOS**
+
+```powershell
+# Verificar que las transacciones son reales
+# Los siguientes comandos deben mostrar:
+# ✅ Transaction signatures reales
+# ✅ Balances cambiados
+# ✅ Fees pagados en SOL
+
+cargo run --bin check_devnet_balance
+```
+
+### **⚡ COMANDOS DE DESARROLLO**
+
+```powershell
+# Build rápido
+.\fast-build.ps1
+
+# Setup completo DevNet
+.\setup-arbitrage-devnet.ps1
+
+# Setup RPC premium
+.\setup-premium-rpc.ps1
+```
+
+---
+
 ## 📋 **SIGUIENTES PASOS RECOMENDADOS**
 
-1. **Para MainNet**: Cambiar `cluster_url` a endpoint de MainNet
-2. **Liquidez**: Integrar Jupiter SDK para swaps en pools reales
-3. **Tokens**: Agregar USDC, USDT, RAY oficiales de MainNet
-4. **Seguridad**: Implementar protección MEV y slippage
-5. **Monitoreo**: Dashboard en tiempo real de profits/losses
+### **🚀 Para Empezar Inmediatamente:**
+```powershell
+# Ejecutar este comando para empezar:
+.\quick-start-arbitrage.ps1
+```
+
+### **🎯 Para Producción:**
+1. **MainNet**: Cambiar `SOLANA_RPC_URL` en `.env` a endpoint de MainNet
+2. **Liquidez**: El bot ya integra Jupiter SDK para swaps en pools reales
+3. **Tokens**: Agregar USDC, USDT, RAY oficiales de MainNet en configuración
+4. **Seguridad**: Implementar protección MEV y slippage (ya incluido básico)
+5. **Monitoreo**: Usar `cargo run --bin check_devnet_balance` para tracking
+
+### **📖 Documentación CLI Completa:**
+- **Guía Completa**: `CLI_ARBITRAGE_BOT_GUIDE.md`
+- **Scripts**: `quick-start-arbitrage.ps1` y `demo-arbitrage-bot.ps1`
 
 ---
 
 **¡MISIÓN CUMPLIDA AL 100%!** 🏆
 
 *El bot de arbitraje está ahora completamente real, probado en DevNet con transacciones confirmadas, y listo para trading en MainNet.*
+
+**🎯 Para ejecutar inmediatamente: `.\quick-start-arbitrage.ps1`**
 
 ---
 
