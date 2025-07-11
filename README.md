@@ -39,15 +39,36 @@ ALCHEMY_API_KEY=your_alchemy_api_key
 
 ### 3. Run Real Arbitrage Bot
 ```powershell
-# Quick start script (recommended)
-.\quick-start-arbitrage.ps1
+# Generate wallet (first time only)
+cargo run --bin sniperforge -- wallet generate --output test-wallet.json
 
-# Or run directly
-cargo run --release --bin test_arbitrage_real_jupiter
+# Fund DevNet wallet
+cargo run --bin sniperforge -- wallet airdrop
+
+# Test simulation (safe)
+cargo run --bin sniperforge -- test swap-real --network devnet
+
+# Execute REAL arbitrage (DevNet)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 ```
 
 ### 4. Verify Real Profits
 ```powershell
+# Check wallet balance
+cargo run --bin sniperforge -- wallet balance test-wallet.json
+
+# Monitor real-time execution
+cargo run --bin sniperforge -- status
+```
+
+## 📖 Production CLI Guide
+
+**👉 See [CLI_PRODUCTION_GUIDE.md](CLI_PRODUCTION_GUIDE.md) for complete production-ready workflow**
+
+Key commands:
+- **Simulation**: `cargo run --bin sniperforge -- test swap-real --network devnet` 
+- **Real Trading**: `cargo run --bin sniperforge -- test swap-real --network devnet --confirm`
+- **Mainnet**: `cargo run --bin sniperforge -- test swap-real --network mainnet --confirm` (REAL MONEY!)
 cargo run --release --bin check_devnet_balance
 ```
 
