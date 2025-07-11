@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
-use crate::arbitrage::types::ArbitrageSettings;
+// use crate::arbitrage::types::ArbitrageSettings; // Comentado temporalmente
 
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
@@ -12,7 +12,7 @@ pub struct NetworkConfig {
     pub rpc_endpoint: String,
     pub program_ids: ProgramIds,
     pub token_addresses: HashMap<String, TokenInfo>,
-    pub arbitrage_settings: Option<ArbitrageSettings>,
+    // pub arbitrage_settings: Option<ArbitrageSettings>, // Comentado temporalmente
 }
 
 #[derive(Debug, Clone)]
@@ -84,7 +84,7 @@ impl NetworkConfig {
                 spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
             },
             token_addresses,
-            arbitrage_settings: None,
+            // arbitrage_settings: None, // Comentado temporalmente
         }
     }
 
@@ -142,7 +142,7 @@ impl NetworkConfig {
                 spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
             },
             token_addresses,
-            arbitrage_settings: None,
+            // arbitrage_settings: None, // Comentado temporalmente
         }
     }
 
@@ -239,7 +239,7 @@ impl NetworkConfigBuilder {
                     spl_token_swap_program: None,
                 },
                 token_addresses: HashMap::new(),
-                arbitrage_settings: None,
+                // arbitrage_settings: None, // Comentado temporalmente
             },
         }
     }

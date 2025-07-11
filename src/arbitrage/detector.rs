@@ -39,6 +39,16 @@ impl ArbitrageDetector {
     pub async fn new(config: NetworkConfig) -> Result<Self> {
         debug!("Initializing ArbitrageDetector with config: {}", config.network);
         
+        // Temporalmente usar configuración por defecto
+        let detector_config = ArbitrageDetectorConfig {
+            min_profit_threshold: 5.0,
+            max_slippage: 0.5,
+            detection_interval_ms: 1000,
+            execution_timeout_ms: 30000,
+            enabled: true,
+        };
+        
+        /*
         let detector_config = config.arbitrage_settings
             .as_ref()
             .map(|settings| ArbitrageDetectorConfig {
@@ -49,6 +59,7 @@ impl ArbitrageDetector {
                 enabled: settings.enabled,
             })
             .unwrap_or_default();
+        */
 
         // Create Jupiter config from network config
         let jupiter_config = JupiterConfig {

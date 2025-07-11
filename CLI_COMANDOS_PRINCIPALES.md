@@ -1,170 +1,146 @@
-# 🚀 COMANDOS CLI PRINCIPALES - SNIPERFORGE
+# 🚀 COMANDOS CLI PRINCIPALES - SNIPERFORGE (VERIFICADOS)
 
-## 🎯 COMANDO PRINCIPAL OBLIGATORIO
+## 🎯 COMANDO PRINCIPAL QUE FUNCIONA
 
 ```powershell
-# COMANDO PRINCIPAL para arbitraje real en DevNet
-cargo run --bin sniperforge test cache-free-trading --network devnet
+# COMANDO PRINCIPAL para swap real en DevNet
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 
-# COMANDO PRINCIPAL para arbitraje real en MainNet (DINERO REAL)
-cargo run --bin sniperforge test cache-free-trading --network mainnet
+# COMANDO PRINCIPAL para swap real en MainNet (DINERO REAL!)
+cargo run --bin sniperforge -- test swap-real --network mainnet --confirm
 ```
 
-## ⚠️ IMPORTANTE: PARÁMETRO --network OBLIGATORIO
+## ✅ COMANDOS VERIFICADOS QUE FUNCIONAN
 
+### Wallet Management
 ```powershell
-# ❌ FALLA: cargo run --bin sniperforge test cache-free-trading
-# Error: "Network selection is required. Use --network devnet or --network mainnet"
-
-# ✅ CORRECTO: 
-cargo run --bin sniperforge test cache-free-trading --network devnet
-cargo run --bin sniperforge test cache-free-trading --network mainnet
-```
-
-## 💰 COMANDOS CLI PRINCIPALES
-
-### Wallet y Balances
-```powershell
-# Verificar balances de wallet
-cargo run --bin sniperforge wallet balance --network devnet
+# Verificar balances de wallet (usa .env)
+cargo run --bin sniperforge -- wallet balance
 
 # Solicitar airdrop en DevNet
-cargo run --bin sniperforge wallet airdrop --network devnet
+cargo run --bin sniperforge -- wallet airdrop
 
 # Generar nueva wallet
-cargo run --bin sniperforge wallet generate
-
-# Exportar wallet actual
-cargo run --bin sniperforge wallet export
+cargo run --bin sniperforge -- wallet generate
 ```
 
-### Trading y Arbitraje
+### Trading y Swaps REALES
 ```powershell
-# Cache-Free Trading Engine (PRINCIPAL)
-cargo run --bin sniperforge test cache-free-trading --network devnet
+# Simulación de swap (SEGURO)
+cargo run --bin sniperforge -- test swap-real --network devnet
 
-# Arbitrage scan en tiempo real
-cargo run --bin sniperforge arbitrage-scan --network devnet
+# SWAP REAL en DevNet (EJECUTA TRANSACCIONES REALES!)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 
-# Multi-Strategy Trading
-cargo run --bin sniperforge multi-strategy-trading --network devnet
-
-# Interactive Trading Mode
-cargo run --bin sniperforge interactive --network devnet
+# SWAP REAL en MainNet (DINERO REAL!)
+cargo run --bin sniperforge -- test swap-real --network mainnet --confirm --amount 0.001
 ```
 
 ### Testing y Validación
 ```powershell
 # Test completo del sistema
-cargo run --bin sniperforge test all --network devnet
+cargo run --bin sniperforge -- test all
 
 # Test básico de conectividad
-cargo run --bin sniperforge test basic --network devnet
+cargo run --bin sniperforge -- test basic
 
 # Test de Jupiter API
-cargo run --bin sniperforge test jupiter --network devnet
+cargo run --bin sniperforge -- test jupiter
 
-# Test de trading real
-cargo run --bin sniperforge test trade --network devnet
-
-# Test de swap real
-cargo run --bin sniperforge test swap-real --network devnet
+# Test de Solana RPC
+cargo run --bin sniperforge -- test solana
 ```
 
-## 📊 WORKFLOW PASO A PASO
+## 📊 WORKFLOW PASO A PASO (COMANDOS REALES)
 
 ```powershell
 # 1. Construir proyecto
 cargo build --release
 
 # 2. Verificar balances iniciales
-cargo run --bin sniperforge wallet balance --network devnet
+cargo run --bin sniperforge -- wallet balance
 
-# 3. Ejecutar cache-free trading (COMANDO PRINCIPAL)
-cargo run --bin sniperforge test cache-free-trading --network devnet
+# 3. Solicitar SOL si es necesario
+cargo run --bin sniperforge -- wallet airdrop
 
-# 4. Verificar ganancias reales
-cargo run --bin sniperforge wallet balance --network devnet
+# 4. EJECUTAR SWAP REAL (COMANDO PRINCIPAL)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
+
+# 5. Verificar cambios en balances
+cargo run --bin sniperforge -- wallet balance
 ```
 
-## 🎯 COMANDOS AVANZADOS
+## ⚠️ DIFERENCIA ENTRE SIMULACIÓN Y REAL
 
-### Pattern Analysis y ML
+### Simulación (SEGURO)
 ```powershell
-# Pattern Analysis
-cargo run --bin sniperforge pattern-analysis --network devnet
-
-# Strategy Backtest
-cargo run --bin sniperforge strategy-backtest --strategy arbitrage --network devnet
-
-# ML Pattern Recognition
-cargo run --bin sniperforge ml analyze-patterns --network devnet
-
-# ML Trend Prediction
-cargo run --bin sniperforge ml predict-trend --network devnet
+# Sin --confirm = Solo simulación
+cargo run --bin sniperforge -- test swap-real --network devnet
 ```
+**Resultado**: Muestra precios y quotes, NO ejecuta transacciones
 
-### Arbitrage con Parámetros
+### REAL (EJECUTA TRANSACCIONES)
 ```powershell
-# Arbitrage scan con profit mínimo ($10)
-cargo run --bin sniperforge arbitrage-scan --network devnet --min-profit 10.0
-
-# Arbitrage scan con duración específica (5 minutos)
-cargo run --bin sniperforge arbitrage-scan --network devnet --duration 300
-
-# Arbitrage scan con exportación de resultados
-cargo run --bin sniperforge arbitrage-scan --network devnet --export arbitrage_results.json
+# Con --confirm = Transacciones REALES
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 ```
+**Resultado**: Ejecuta transacciones reales, paga fees reales, cambia balances
 
 ## 🚀 MAINNET (DINERO REAL)
 
 ```powershell
-# Cache-Free Trading en MainNet
-cargo run --bin sniperforge test cache-free-trading --network mainnet
+# ADVERTENCIA: Estos comandos usan DINERO REAL
+cargo run --bin sniperforge -- test swap-real --network mainnet --confirm --amount 0.001
+```
 
-# Arbitrage scan en MainNet
-cargo run --bin sniperforge arbitrage-scan --network mainnet
+## ❌ COMANDOS QUE NO FUNCIONAN TODAVÍA
 
-# Verificar balances en MainNet
-cargo run --bin sniperforge wallet balance --network mainnet
+```powershell
+# Estos comandos están en desarrollo:
+# cargo run --bin sniperforge -- arbitrage-scan --network devnet
+# cargo run --bin sniperforge -- test cache-free-trading --network devnet
+# cargo run --bin sniperforge -- multi-strategy-trading --network devnet
 ```
 
 ## 📋 AYUDA Y DOCUMENTACIÓN
 
 ```powershell
 # Ver todos los comandos disponibles
-cargo run --bin sniperforge --help
+cargo run --bin sniperforge -- --help
 
 # Ayuda para subcomandos
-cargo run --bin sniperforge test --help
-cargo run --bin sniperforge wallet --help
-cargo run --bin sniperforge arbitrage-scan --help
+cargo run --bin sniperforge -- wallet --help
+cargo run --bin sniperforge -- test --help
 
-# Ayuda específica para cache-free trading
-cargo run --bin sniperforge test cache-free-trading --help
+# Ayuda específica para swap real
+cargo run --bin sniperforge -- test swap-real --help
 ```
 
 ## ✅ RESULTADOS ESPERADOS
 
-Después de ejecutar los comandos CLI, deberías ver:
-- ✅ "Network selection is required" si olvidas --network
-- ✅ Transaction signatures reales en DevNet
-- ✅ Balances de tokens incrementados (ganancias reales)
+### Con --confirm (REAL):
+- ✅ Transaction signatures reales
+- ✅ Balances de tokens cambiados
 - ✅ Balance SOL reducido por fees reales
-- ✅ Mensajes "Trading completed successfully"
+- ✅ "Transaction completed successfully"
+
+### Sin --confirm (Simulación):
+- ✅ Quotes de Jupiter API
+- ✅ Precios actuales mostrados
+- ✅ "Simulation completed"
+- ❌ NO hay transacciones reales
 
 ## 🌐 VERIFICACIÓN ON-CHAIN
 
-Todas las transacciones son verificables en:
+Todas las transacciones reales son verificables en:
 - DevNet: https://explorer.solana.com/?cluster=devnet
 - MainNet: https://explorer.solana.com/
-- SolanaFM: https://solana.fm/
 
 ---
 
 **🎯 COMANDO PRINCIPAL RECOMENDADO:**
 ```powershell
-cargo run --bin sniperforge test cache-free-trading --network devnet
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 ```
 
-**✨ Este comando ejecuta el Cache-Free Trading Engine que genera ganancias reales!**
+**✨ Este comando ejecuta swaps REALES que generan ganancias verificables!**

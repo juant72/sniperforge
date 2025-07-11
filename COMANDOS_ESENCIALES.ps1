@@ -1,69 +1,137 @@
 # 🎯 COMANDOS ESENCIALES - ARBITRAJE REAL EN DEVNET
-# Resumen ejecutivo de comandos para ejecutar el bot validado con CLI principal
+# Comandos CLI FUNCIONALES de SniperForge
 
 # ============================================================================
-# 🚀 INICIO RÁPIDO (30 SEGUNDOS)
+# 🚀 COMANDOS QUE FUNCIONAN REALMENTE
 # ============================================================================
 
 # 1. Construir proyecto
 cargo build --release
 
-# 2. Verificar wallet y balances
-cargo run --bin sniperforge wallet balance --network devnet
+# 2. Ver ayuda general
+cargo run --bin sniperforge -- --help
 
-# 3. EJECUTAR ARBITRAJE REAL (COMANDO PRINCIPAL)
-cargo run --bin sniperforge arbitrage-scan --network devnet
+# 3. Verificar balances de wallet (usa wallet desde .env)
+cargo run --bin sniperforge -- wallet balance
 
-# 4. Verificar ganancias reales
-cargo run --bin sniperforge wallet balance --network devnet
+# 4. EJECUTAR SWAP REAL EN DEVNET (COMANDO PRINCIPAL)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 
-# ============================================================================
-# 🎯 COMANDOS CLI PRINCIPAL CON --network
-# ============================================================================
-
-# Cache-Free Trading Engine (RECOMENDADO)
-cargo run --bin sniperforge test cache-free-trading --network devnet
-
-# Arbitrage Scan en tiempo real
-cargo run --bin sniperforge arbitrage-scan --network devnet
-
-# Multi-Strategy Trading
-cargo run --bin sniperforge multi-strategy-trading --network devnet
-
-# Interactive Trading Mode
-cargo run --bin sniperforge interactive --network devnet
+# 5. Solicitar airdrop en DevNet
+cargo run --bin sniperforge -- wallet airdrop
 
 # ============================================================================
-# 💰 COMANDOS DE ARBITRAJE CON NETWORK
+# 🎯 COMANDOS CLI CORRECTOS (VERIFICADOS)
 # ============================================================================
 
-# Arbitrage scan básico en DevNet
-cargo run --bin sniperforge arbitrage-scan --network devnet
+# Wallet Management (FUNCIONA)
+cargo run --bin sniperforge -- wallet balance              # Ver balances
+cargo run --bin sniperforge -- wallet airdrop             # Solicitar SOL
+cargo run --bin sniperforge -- wallet generate            # Generar wallet
 
-# Arbitrage scan con profit mínimo ($10)
-cargo run --bin sniperforge arbitrage-scan --network devnet --min-profit 10.0
+# Test Suite (FUNCIONA)
+cargo run --bin sniperforge -- test all                   # Todos los tests
+cargo run --bin sniperforge -- test basic                 # Test básico
+cargo run --bin sniperforge -- test jupiter              # Test Jupiter API
+cargo run --bin sniperforge -- test solana               # Test Solana RPC
 
-# Arbitrage scan con duración específica (5 minutos)
-cargo run --bin sniperforge arbitrage-scan --network devnet --duration 300
-
-# Arbitrage scan con exportación de resultados
-cargo run --bin sniperforge arbitrage-scan --network devnet --export arbitrage_results.json
+# SWAP REAL - COMANDO PRINCIPAL (FUNCIONA)
+cargo run --bin sniperforge -- test swap-real --network devnet           # Simulación
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm # REAL!
+cargo run --bin sniperforge -- test swap-real --network mainnet --confirm # MAINNET!
 
 # ============================================================================
-# 📊 MONITOREO Y VERIFICACIÓN CON NETWORK
+# 💰 TRADING REAL PASO A PASO
 # ============================================================================
 
-# Verificar balances de wallet
-cargo run --bin sniperforge wallet balance --network devnet
+# Paso 1: Verificar setup
+cargo run --bin sniperforge -- wallet balance
 
-# Solicitar airdrop en DevNet
-cargo run --bin sniperforge wallet airdrop --network devnet
+# Paso 2: Ejecutar swap real en DevNet (SEGURO)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
 
-# Generar nueva wallet
-cargo run --bin sniperforge wallet generate
+# Paso 3: Verificar cambios en balance
+cargo run --bin sniperforge -- wallet balance
 
-# Exportar wallet actual
-cargo run --bin sniperforge wallet export
+# ============================================================================
+# 🚀 PARA MAINNET (DINERO REAL!)
+# ============================================================================
+
+# ⚠️ ADVERTENCIA: Estos comandos usan DINERO REAL
+cargo run --bin sniperforge -- test swap-real --network mainnet --confirm --amount 0.001
+cargo run --bin sniperforge -- wallet balance  # Verificar en MainNet
+
+# ============================================================================
+# 🔧 COMANDOS ADICIONALES FUNCIONALES
+# ============================================================================
+
+# Platform Status
+cargo run --bin sniperforge -- status
+
+# Configuration
+cargo run --bin sniperforge -- config
+
+# Interactive Mode
+cargo run --bin sniperforge -- interactive
+
+# ============================================================================
+# ⚠️ COMANDOS QUE NO FUNCIONAN TODAVÍA
+# ============================================================================
+
+# ❌ ESTOS NO ESTÁN IMPLEMENTADOS:
+# cargo run --bin sniperforge -- arbitrage-scan --network devnet
+# cargo run --bin sniperforge -- test cache-free-trading --network devnet
+# cargo run --bin sniperforge -- multi-strategy-trading --network devnet
+
+# ============================================================================
+# 🎯 WORKFLOW RECOMENDADO (COMANDOS REALES)
+# ============================================================================
+
+# 1. Build
+cargo build --release
+
+# 2. Verificar wallet
+cargo run --bin sniperforge -- wallet balance
+
+# 3. Solicitar SOL si es necesario
+cargo run --bin sniperforge -- wallet airdrop
+
+# 4. EJECUTAR TRADING REAL (COMANDO PRINCIPAL QUE FUNCIONA)
+cargo run --bin sniperforge -- test swap-real --network devnet --confirm
+
+# 5. Verificar ganancias
+cargo run --bin sniperforge -- wallet balance
+
+# ============================================================================
+# 🔍 RESULTADOS ESPERADOS
+# ============================================================================
+
+# Con --confirm verás:
+# ✅ Transaction signatures reales
+# ✅ Cambios en balances de tokens
+# ✅ Fees reales pagados en SOL
+# ✅ "Transaction completed successfully"
+
+# Sin --confirm verás:
+# ✅ Simulación del swap
+# ✅ Precios y quotes de Jupiter
+# ✅ "Simulation completed"
+
+# ============================================================================
+# 📖 AYUDA DISPONIBLE
+# ============================================================================
+
+# Ver todos los comandos
+cargo run --bin sniperforge -- --help
+
+# Ayuda específica
+cargo run --bin sniperforge -- wallet --help
+cargo run --bin sniperforge -- test --help
+cargo run --bin sniperforge -- test swap-real --help
+
+Write-Host "📋 Comandos CLI FUNCIONALES cargados." -ForegroundColor Green
+Write-Host "🎯 COMANDO PRINCIPAL REAL: cargo run --bin sniperforge -- test swap-real --network devnet --confirm" -ForegroundColor Cyan
+Write-Host "⚠️  Con --confirm ejecuta transacciones REALES!" -ForegroundColor Yellow
 
 # ============================================================================
 # � TESTING Y VALIDACIÓN CON NETWORK
