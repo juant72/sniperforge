@@ -6,11 +6,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
-/// Jupiter price response structure for V3 API
+/// Jupiter price response structure for V3 API - CORREGIDO para respuesta real
 #[derive(Debug, Deserialize)]
 pub struct JupiterPriceResponse {
-    #[serde(flatten)]
     pub data: HashMap<String, PriceDataV3>,
+    #[serde(rename = "timeTaken")]
+    pub time_taken: f64,
 }
 
 /// Price data structure for V3 API - ACTUALIZADO para coincidir con respuesta real
