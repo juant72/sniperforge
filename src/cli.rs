@@ -3011,11 +3011,11 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
                     estimated_profit_sol: profit_percentage * 0.01 / 100.0, // Para 0.01 SOL
                     confidence_score,
                 };
-                opportunities.push(opportunity);
-                
                 println!("🎯 Oportunidad SOL encontrada: {:.3}% profit ({} ${:.4} → {} ${:.4})", 
                          profit_percentage, min_price.0, min_price.1, max_price.0, max_price.1);
                 println!("💰 Ganancia estimada para 0.01 SOL: +{:.8} SOL", opportunity.estimated_profit_sol);
+                
+                opportunities.push(opportunity);
             } else {
                 println!("� Spread SOL actual: {:.3}% (mínimo requerido: {:.1}%)", 
                          profit_percentage, min_profit);
