@@ -13,18 +13,28 @@ pub struct JupiterPriceResponse {
     pub data: HashMap<String, PriceDataV3>,
 }
 
-/// Price data structure for V3 API
+/// Price data structure for V3 API - ACTUALIZADO para coincidir con respuesta real
 #[derive(Debug, Deserialize)]
 #[allow(non_snake_case)]
 pub struct PriceDataV3 {
     pub id: String,
+    #[serde(rename = "type")]
+    pub price_type: String,
+    pub price: String, // Cambiado a String porque Jupiter devuelve "160.659570000"
+    // Campos opcionales que pueden no estar presentes
     #[serde(rename = "mintSymbol")]
-    pub mintSymbol: String,
+    pub mintSymbol: Option<String>,
     #[serde(rename = "vsToken")]
-    pub vsToken: String,
+    pub vsToken: Option<String>,
     #[serde(rename = "vsTokenSymbol")]
-    pub vsTokenSymbol: String,
-    pub price: f64,
+    pub vsTokenSymbol: Option<String>,
+}
+
+impl PriceDataV3 {
+    /// Convierte el precio de String a f64
+    pub fn price_as_f64(&self) -> f64 {
+        self.price.parse().unwrap_or(0.0)
+    }
 }
 
 /// Jupiter V6 Quote Request

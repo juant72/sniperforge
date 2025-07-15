@@ -522,6 +522,14 @@ pub async fn run_cli() -> Result<()> {
                         .action(ArgAction::SetTrue)
                         .help("Run continuous scanning (press Ctrl+C to stop)")
                 )
+                .arg(
+                    Arg::new("interval")
+                        .long("interval")
+                        .value_name("MILLISECONDS")
+                        .help("Interval between scans in milliseconds (default: 5000ms)")
+                        .default_value("5000")
+                        .value_parser(clap::value_parser!(u64))
+                )
         )
         .subcommand(
             Command::new("arbitrage-execute")
@@ -562,6 +570,14 @@ pub async fn run_cli() -> Result<()> {
                         .long("auto")
                         .value_name("MINUTES")
                         .help("Run automatic arbitrage for specified minutes")
+                )
+                .arg(
+                    Arg::new("interval")
+                        .long("interval")
+                        .value_name("MILLISECONDS")
+                        .help("Interval between arbitrage attempts in milliseconds (default: 8000ms)")
+                        .default_value("8000")
+                        .value_parser(clap::value_parser!(u64))
                 )
         )
         .subcommand(Command::new("interactive")
@@ -2603,6 +2619,7 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
     let min_profit: f64 = matches.get_one::<String>("min-profit").unwrap().parse()
         .map_err(|_| anyhow::anyhow!("Invalid min-profit value"))?;
     let continuous = matches.get_flag("continuous");
+    let interval_ms: u64 = *matches.get_one::<u64>("interval").unwrap();
     
     println!("🌐 Network: {}", network);
     println!("📈 Min profit required: {:.2}%", min_profit);
@@ -2614,14 +2631,18 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
     
     if continuous {
         println!("🔄 Modo continuo activado (Ctrl+C para detener)");
+        println!("⏱️  Intervalo de escaneo: {}ms", interval_ms);
         
         loop {
+            let start_time = std::time::Instant::now();
+            
             match scan_arbitrage_opportunities(min_profit).await {
                 Ok(opportunities) => {
                     if opportunities.is_empty() {
                         println!("📭 No hay oportunidades encontradas (min: {:.2}%)", min_profit);
                     } else {
-                        println!("\n💰 {} oportunidades encontradas:", opportunities.len());
+                        let timestamp = chrono::Utc::now().format("%H:%M:%S%.3f");
+                        println!("\n[{}] 💰 {} oportunidades encontradas:", timestamp, opportunities.len());
                         for (i, opp) in opportunities.iter().take(5).enumerate() {
                             println!("{}. {} → {} | {:.2}% profit | Confianza: {:.0}%", 
                                      i + 1, opp.dex_buy, opp.dex_sell, opp.profit_percentage, opp.confidence_score);
@@ -2633,7 +2654,16 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
                 }
             }
             
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+            let elapsed = start_time.elapsed();
+            let sleep_duration = if elapsed.as_millis() < interval_ms as u128 {
+                interval_ms - elapsed.as_millis() as u64
+            } else {
+                0
+            };
+            
+            if sleep_duration > 0 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(sleep_duration)).await;
+            }
         }
     } else {
         match scan_arbitrage_opportunities(min_profit).await {
@@ -2682,6 +2712,7 @@ async fn handle_arbitrage_execute_command(matches: &ArgMatches) -> Result<()> {
     let network = matches.get_one::<String>("network").unwrap();
     let confirm = matches.get_flag("confirm");
     let auto_minutes = matches.get_one::<String>("auto").and_then(|s| s.parse::<u64>().ok());
+    let interval_ms: u64 = *matches.get_one::<u64>("interval").unwrap();
     
     if !confirm {
         println!("⚠️  Debes confirmar la ejecución con --confirm");
@@ -2697,6 +2728,9 @@ async fn handle_arbitrage_execute_command(matches: &ArgMatches) -> Result<()> {
     println!("💼 Wallet: {}", wallet_file);
     println!("💰 Amount: {:.6} SOL", amount);
     println!("🌐 Network: {}", network);
+    if auto_minutes.is_some() {
+        println!("⏱️  Intervalo de ejecución: {}ms", interval_ms);
+    }
     
     // Cargar wallet
     match load_wallet_from_file(wallet_file) {
@@ -2718,7 +2752,7 @@ async fn handle_arbitrage_execute_command(matches: &ArgMatches) -> Result<()> {
                     
                     if let Some(minutes) = auto_minutes {
                         println!("🤖 Modo automático por {} minutos", minutes);
-                        execute_auto_arbitrage(wallet, amount, minutes).await?;
+                        execute_auto_arbitrage(wallet, amount, minutes, interval_ms).await?;
                     } else {
                         execute_single_arbitrage(wallet, amount).await?;
                     }
@@ -2818,47 +2852,54 @@ async fn execute_single_arbitrage(wallet: Keypair, amount: f64) -> Result<()> {
 }
 
 /// Ejecuta arbitraje automático por un período de tiempo
-async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64) -> Result<()> {
+async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64, interval_ms: u64) -> Result<()> {
     use std::time::{Duration, Instant};
     
     println!("🤖 Arbitraje automático iniciado por {} minutos", minutes);
+    println!("⏱️  Intervalo entre intentos: {}ms", interval_ms);
     
     let start_time = Instant::now();
     let max_duration = Duration::from_secs(minutes * 60);
+    let interval_duration = Duration::from_millis(interval_ms);
     
     let mut total_profit = 0.0;
     let mut successful_trades = 0;
     let mut total_trades = 0;
     
     while start_time.elapsed() < max_duration {
+        let cycle_start = Instant::now();
         total_trades += 1;
         
-        println!("\n📊 Trade #{} - Tiempo restante: {:.0} min", 
-                 total_trades, 
-                 (max_duration.as_secs() - start_time.elapsed().as_secs()) as f64 / 60.0);
+        let remaining_minutes = (max_duration.as_secs() - start_time.elapsed().as_secs()) as f64 / 60.0;
+        let timestamp = chrono::Utc::now().format("%H:%M:%S%.3f");
+        
+        println!("\n[{}] 📊 Trade #{} - Tiempo restante: {:.1} min", 
+                 timestamp, total_trades, remaining_minutes);
         
         match scan_arbitrage_opportunities(0.2).await {
             Ok(opportunities) => {
                 if let Some(best_opportunity) = opportunities.first() {
                     if best_opportunity.confidence_score > 70.0 {
-                        println!("🎯 Oportunidad detectada: {:.2}% ganancia", best_opportunity.profit_percentage);
+                        println!("🎯 Oportunidad detectada: {:.2}% ganancia (confianza: {:.0}%)", 
+                                best_opportunity.profit_percentage, best_opportunity.confidence_score);
                         
                         match execute_single_arbitrage(wallet.insecure_clone(), amount).await {
                             Ok(_) => {
                                 total_profit += best_opportunity.estimated_profit_sol * amount / 0.01;
                                 successful_trades += 1;
-                                println!("✅ Trade #{} exitoso", successful_trades);
+                                println!("✅ Trade #{} exitoso - Ganancia estimada: +{:.6} SOL", 
+                                        successful_trades, best_opportunity.estimated_profit_sol * amount / 0.01);
                             }
                             Err(e) => {
                                 println!("❌ Error en trade: {}", e);
                             }
                         }
                     } else {
-                        println!("⚠️  Oportunidad con baja confianza ({:.0}%), esperando...", 
+                        println!("⚠️  Oportunidad con baja confianza ({:.0}%), esperando mejor momento...", 
                                  best_opportunity.confidence_score);
                     }
                 } else {
-                    println!("📭 No hay oportunidades, esperando...");
+                    println!("📭 No hay oportunidades rentables, esperando...");
                 }
             }
             Err(e) => {
@@ -2866,7 +2907,15 @@ async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64) -> R
             }
         }
         
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        // Calcular tiempo de sleep considerando el tiempo de ejecución
+        let cycle_elapsed = cycle_start.elapsed();
+        let sleep_duration = if cycle_elapsed < interval_duration {
+            interval_duration - cycle_elapsed
+        } else {
+            Duration::from_millis(100) // Mínimo 100ms de pausa
+        };
+        
+        tokio::time::sleep(sleep_duration).await;
     }
     
     println!("\n📊 Resumen de arbitraje automático:");
@@ -2899,6 +2948,7 @@ pub struct ArbitrageOpportunity {
 async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOpportunity>> {
     use std::collections::HashMap;
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, tokens};
+    use std::time::Duration;
     
     println!("🔍 Conectando a Jupiter API para datos reales...");
     
@@ -2908,27 +2958,41 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
     
     let mut opportunities = Vec::new();
     
-    // Tokens principales para análisis en DevNet
+    // Tokens principales para análisis en DevNet - REDUCIDO para evitar rate limiting
     let trading_pairs = vec![
         (tokens::SOL, "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), // SOL/USDC
-        (tokens::SOL, "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"), // SOL/USDT (si está disponible en DevNet)
     ];
     
-    println!("📊 Analizando precios reales en múltiples DEXs...");
+    println!("📊 Analizando precios reales con rate limiting...");
     
-    for (token_a_mint, token_b_mint) in trading_pairs {
-        // Obtener precios reales de Jupiter
-        match jupiter_client.get_price(token_a_mint).await {
+    for (i, (token_a_mint, token_b_mint)) in trading_pairs.iter().enumerate() {
+        // RATE LIMITING: Esperar entre llamadas API
+        if i > 0 {
+            println!("⏳ Rate limiting: esperando 2 segundos...");
+            tokio::time::sleep(Duration::from_secs(2)).await;
+        }
+        
+        // Obtener precios reales de Jupiter con manejo de errores mejorado
+        let price_a_result = retry_api_call(|| jupiter_client.get_price(token_a_mint), 3).await;
+        
+        match price_a_result {
             Ok(Some(price_a)) => {
-                match jupiter_client.get_price(token_b_mint).await {
+                // Esperar antes de la segunda llamada API
+                tokio::time::sleep(Duration::from_millis(1500)).await;
+                
+                let price_b_result = retry_api_call(|| jupiter_client.get_price(token_b_mint), 3).await;
+                
+                match price_b_result {
                     Ok(Some(price_b)) => {
-                        println!("💰 Precio real obtenido - Token A: {:.6}, Token B: {:.6}", price_a, price_b);
+                        println!("💰 Precio real obtenido - SOL: ${:.6}, USDC: ${:.6}", price_a, price_b);
                         
                         // Simular diferencias de precio entre DEXs (en implementación completa, 
                         // consultaríamos APIs de Raydium y Orca directamente)
+                        use rand::Rng;
+                        let mut rng = rand::thread_rng();
                         let jupiter_price = price_a;
-                        let raydium_price = price_a * (1.0 + (rand::random::<f64>() - 0.3) * 0.02); // ±2% variación
-                        let orca_price = price_a * (1.0 + (rand::random::<f64>() - 0.3) * 0.015); // ±1.5% variación
+                        let raydium_price = price_a * (1.0 + (rng.gen::<f64>() - 0.3) * 0.02); // ±2% variación
+                        let orca_price = price_a * (1.0 + (rng.gen::<f64>() - 0.3) * 0.015); // ±1.5% variación
                         
                         // Encontrar la mejor oportunidad de arbitraje
                         let prices = vec![
@@ -2952,7 +3016,7 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
                             
                             let opportunity = ArbitrageOpportunity {
                                 token_a: "SOL".to_string(),
-                                token_b: if token_b_mint.contains("4zMMC9") { "USDC" } else { "USDT" }.to_string(),
+                                token_b: "USDC".to_string(),
                                 dex_buy: min_price.0.to_string(),
                                 dex_sell: max_price.0.to_string(),
                                 price_buy: min_price.1,
@@ -2961,25 +3025,37 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
                                 estimated_profit_sol: profit_percentage * 0.01 / 100.0, // Para 0.01 SOL
                                 confidence_score,
                             };
-                            
                             opportunities.push(opportunity);
-                            println!("✅ Oportunidad real encontrada: {:.2}% profit entre {} y {}", 
+                            
+                            println!("✅ Oportunidad encontrada: {:.2}% profit ({} → {})", 
                                      profit_percentage, min_price.0, max_price.0);
                         }
                     }
                     Ok(None) => {
-                        println!("⚠️ No se pudo obtener precio para token B");
+                        println!("⚠️ No se pudo obtener precio para USDC");
                     }
                     Err(e) => {
-                        println!("❌ Error obteniendo precio token B: {}", e);
+                        if e.to_string().contains("429") {
+                            println!("🚫 Rate limit detectado para USDC - esperando 10 segundos...");
+                            tokio::time::sleep(Duration::from_secs(10)).await;
+                        } else {
+                            println!("❌ Error obteniendo precio USDC: {}", e);
+                        }
                     }
                 }
             }
             Ok(None) => {
-                println!("⚠️ No se pudo obtener precio para token A");
+                println!("⚠️ No se pudo obtener precio para SOL");
             }
             Err(e) => {
-                println!("❌ Error obteniendo precio token A: {}", e);
+                if e.to_string().contains("429") {
+                    println!("🚫 Rate limit detectado para SOL - esperando 10 segundos...");
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                } else {
+                    println!("❌ Error obteniendo precio SOL: {}", e);
+                    println!("🔍 Debug: Error decodificando respuesta - estructura de datos actualizada");
+                    println!("💡 Verificando si el API de Jupiter cambió su formato de respuesta...");
+                }
             }
         }
     }
@@ -2993,6 +3069,32 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
     opportunities.sort_by(|a, b| b.profit_percentage.partial_cmp(&a.profit_percentage).unwrap());
     
     Ok(opportunities)
+}
+
+/// Función auxiliar para reintentar llamadas API con backoff exponencial
+async fn retry_api_call<F, Fut, T>(mut api_call: F, max_retries: u32) -> Result<T> 
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T>>,
+{
+    use std::time::Duration;
+    
+    for attempt in 1..=max_retries {
+        match api_call().await {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                if e.to_string().contains("429") && attempt < max_retries {
+                    let wait_time = 2_u64.pow(attempt) * 1000; // Backoff exponencial: 2s, 4s, 8s
+                    println!("🔄 Intento {}/{} falló (429) - esperando {}ms...", attempt, max_retries, wait_time);
+                    tokio::time::sleep(Duration::from_millis(wait_time)).await;
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    }
+    
+    Err(anyhow::anyhow!("API call failed after {} retries", max_retries))
 }
 
 /// Carga una wallet desde archivo JSON

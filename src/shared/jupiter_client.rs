@@ -33,7 +33,7 @@ impl JupiterClient {
         })
     }
     
-    /// Get token price using Jupiter V3 API
+    /// Get token price using Jupiter V3 API - ACTUALIZADO para respuesta real
     pub async fn get_price(&self, mint: &str) -> Result<Option<f64>> {
         let url = format!("{}/price/v2?ids={}", self.base_url, mint);
         debug!("🌐 Fetching price from: {}", url);
@@ -49,13 +49,23 @@ impl JupiterClient {
         let response = request.send().await?;
         
         if !response.status().is_success() {
-            return Err(anyhow!("Price API request failed: {}", response.status()));
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Price API request failed: {} - {}", status, error_text));
         }
         
-        let price_response: JupiterPriceResponse = response.json().await?;
+        // Obtener el texto de respuesta para debugging
+        let response_text = response.text().await?;
+        debug!("🔍 Raw response: {}", response_text);
+        
+        // Parsear la respuesta JSON
+        let price_response: JupiterPriceResponse = serde_json::from_str(&response_text)
+            .map_err(|e| anyhow!("Failed to parse price response: {} - Response: {}", e, response_text))?;
         
         if let Some(price_data) = price_response.data.get(mint) {
-            Ok(Some(price_data.price))
+            let price = price_data.price_as_f64();
+            debug!("✅ Price for {}: ${}", mint, price);
+            Ok(Some(price))
         } else {
             warn!("No price data found for mint: {}", mint);
             Ok(None)
