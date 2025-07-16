@@ -299,6 +299,22 @@ path = "phase2h_precise_risk.rs"
 name = "phase2i_optimized_params"
 path = "phase2i_optimized_params.rs"
 
+[[bin]]
+name = "phase2j_test_series"
+path = "phase2j_test_series.rs"
+
+[[bin]]
+name = "phase2k_diagnosis"
+path = "phase2k_diagnosis.rs"
+
+[[bin]]
+name = "phase3_mainnet_preparation"
+path = "phase3_mainnet_preparation.rs"
+
+[[bin]]
+name = "phase2l_extensive_devnet_testing"
+path = "phase2l_extensive_devnet_testing.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
