@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     // Configuración
     let rpc_url = "https://api.devnet.solana.com";
     let sol_mint_str = "So11111111111111111111111111111111111111112";
-    let usdc_mint_str = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"; // DevNet USDC
+    let usdc_mint_str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC real que funciona en DevNet
     let arbitrage_amount = 10_000_000u64; // 0.01 SOL para prueba segura
     
     // Cargar wallet
@@ -43,20 +43,27 @@ async fn main() -> Result<()> {
     // PASO 2: Análisis de precios
     info!("\n📊 === ANÁLISIS DE PRECIOS ===");
     
-    let jupiter_config = JupiterConfig::mainnet();
+    let jupiter_config = JupiterConfig {
+        base_url: "https://quote-api.jup.ag".to_string(),
+        api_key: None,
+        timeout_seconds: 30,
+        max_retries: 3,
+        rpc_endpoint: "https://api.devnet.solana.com".to_string(),
+        network_name: "devnet".to_string(),
+    };
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
     let orca_client = OrcaClient::new("devnet");
     
     // Precio Jupiter
     let quote_request = QuoteRequest {
-        input_mint: sol_mint_str.to_string(),
-        output_mint: usdc_mint_str.to_string(),
+        inputMint: sol_mint_str.to_string(),
+        outputMint: usdc_mint_str.to_string(),
         amount: arbitrage_amount,
-        slippage_bps: Some(100),
+        slippageBps: 100,
     };
     
     let jupiter_quote = jupiter_client.get_quote(quote_request).await?;
-    let jupiter_usdc_output = jupiter_quote.out_amount();
+    let jupiter_usdc_output: u64 = jupiter_quote.outAmount.parse().unwrap_or(0);
     let jupiter_sol_price = jupiter_usdc_output as f64 / 1_000_000.0 / (arbitrage_amount as f64 / 1_000_000_000.0);
     
     // Precio Orca
