@@ -263,6 +263,18 @@ path = "orca_swap_phase1.rs"
 name = "phase1b_working_tokens"
 path = "phase1b_working_tokens.rs"
 
+[[bin]]
+name = "phase2_complete_arbitrage"
+path = "phase2_complete_arbitrage.rs"
+
+[[bin]]
+name = "phase2b_optimized_arbitrage"
+path = "phase2b_optimized_arbitrage.rs"
+
+[[bin]]
+name = "phase2c_real_arbitrage"
+path = "phase2c_real_arbitrage.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
