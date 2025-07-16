@@ -19,8 +19,17 @@ cargo run --bin check_devnet_balance
 
 ### Operaciones Diarias
 ```bash
-# Verificar oportunidades
-cargo run --bin test_arbitrage_real_devnet
+# Verificar oportunidades CROSS-DEX (NUEVO)
+cargo run --bin test_arbitrage_cross_dex
+
+# Verificar balance
+cargo run --bin check_devnet_balance
+
+# Monitor automático de arbitraje (NUEVO)
+.\arbitrage-simple.ps1 -IntervalSeconds 30
+
+# Monitor con ejecución real (AVANZADO)
+.\arbitrage-simple.ps1 -IntervalSeconds 30 -ExecuteReal
 
 # Verificar balance y ganancias potenciales
 cargo run --bin sniperforge -- wallet balance test-arbitrage-wallet.json --network devnet

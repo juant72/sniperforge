@@ -55,23 +55,38 @@ function Get-SOLBalance {
 # Función para verificar oportunidades
 function Test-ArbitrageOpportunity {
     try {
-        $output = cargo run --bin test_arbitrage_cross_dex 2>&1 | Out-String
+        Write-Host "🔍 Ejecutando test_arbitrage_cross_dex..." -ForegroundColor Gray
+        $output = & cargo run --bin test_arbitrage_cross_dex 2>&1
+        $outputString = $output -join "`n"
         
         $spread = $null
         $profitPerSol = $null
         
-        if ($output -match "Spread:\s+([\d.]+)%") {
+        # Buscar spread
+        if ($outputString -match "Spread:\s+([\d.]+)%") {
             $spread = [decimal]$matches[1]
+            Write-Host "✅ Spread detectado: $spread%" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️ No se pudo extraer spread" -ForegroundColor Yellow
         }
         
-        if ($output -match "Profit por SOL:\s+\$?([\d.]+)") {
+        # Buscar profit por SOL
+        if ($outputString -match "Profit por SOL:\s*\$([0-9.]+)") {
             $profitPerSol = [decimal]$matches[1]
+            Write-Host "✅ Profit por SOL detectado: $$$profitPerSol" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️ No se pudo extraer profit por SOL" -ForegroundColor Yellow
+            # Intentar patrón alternativo más simple
+            if ($outputString -match "\$([0-9.]+)") {
+                $profitPerSol = [decimal]$matches[1]
+                Write-Host "✅ Profit extraído (patrón alternativo): $$$profitPerSol" -ForegroundColor Green
+            }
         }
         
         return @{
             Spread = $spread
             ProfitPerSol = $profitPerSol
-            Output = $output
+            Output = $outputString
         }
     }
     catch {
