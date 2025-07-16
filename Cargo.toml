@@ -227,6 +227,18 @@ path = "arbitrage_real_test.rs"
 name = "arbitrage_real_working"
 path = "arbitrage_real_working.rs"
 
+[[bin]]
+name = "real_arbitrage_devnet_working"
+path = "real_arbitrage_devnet_working.rs"
+
+[[bin]]
+name = "convert_cli_wallet"
+path = "convert_cli_wallet.rs"
+
+[[bin]]
+name = "simple_arbitrage_proof"
+path = "simple_arbitrage_proof.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
