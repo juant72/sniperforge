@@ -283,6 +283,22 @@ path = "phase2d_optimized_multi.rs"
 name = "phase2e_multi_cycle_clean"
 path = "phase2e_multi_cycle_clean.rs"
 
+[[bin]]
+name = "phase2f_hybrid_final"
+path = "phase2f_hybrid_final.rs"
+
+[[bin]]
+name = "phase2g_risk_management"
+path = "phase2g_risk_management.rs"
+
+[[bin]]
+name = "phase2h_precise_risk"
+path = "phase2h_precise_risk.rs"
+
+[[bin]]
+name = "phase2i_optimized_params"
+path = "phase2i_optimized_params.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
