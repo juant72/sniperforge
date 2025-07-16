@@ -65,6 +65,6 @@ while ($true) {
         Write-Host "❌ Error monitoreando: $($_.Exception.Message)" -ForegroundColor Red
     }
     
-    Write-Host "$("`" " * 50)" -ForegroundColor DarkGray
+    Write-Host $("-" * 50) -ForegroundColor DarkGray
     Start-Sleep -Seconds $IntervalSeconds
 }
