@@ -1,6 +1,33 @@
 # ⚡ ARBITRAJE - REFERENCIA RÁPIDA
 
 **Fecha**: Julio 16, 2025  
+**Estado**: ⚠️ EN DESARROLLO - CLI incompleto, usar comandos binarios directos
+
+## ⚠️ REALIDAD DEL SISTEMA
+
+### ✅ COMANDOS QUE SÍ FUNCIONAN
+```bash
+# Configurar wallet y obtener SOL de prueba
+cargo run --bin create_test_wallet
+cargo run --bin request_devnet_airdrop
+cargo run --bin check_devnet_balance
+
+# Verificar arbitraje cross-DEX (solo análisis)
+cargo run --bin test_arbitrage_cross_dex
+
+# Simulaciones de arbitraje (NO ejecutan transacciones reales)
+cargo run --bin test_arbitrage_real_devnet
+```
+
+### ❌ COMANDOS CLI NO IMPLEMENTADOS
+```bash
+# ESTOS COMANDOS FALLAN - CLI incompleto:
+cargo run --bin sniperforge -- wallet generate
+cargo run --bin sniperforge -- wallet airdrop  
+cargo run --bin sniperforge -- test swap-real --wallet test-arbitrage-wallet.json
+``` REFERENCIA RÁPIDA
+
+**Fecha**: Julio 16, 2025  
 **Estado**: ❌ NO FUNCIONAL - Solo simulaciones, NO arbitraje real
 
 ## ❌ PROBLEMA IDENTIFICADO
@@ -18,38 +45,29 @@
 
 ### Configuración Inicial (Una vez)
 ```bash
-# 1. Crear wallet de prueba
-cargo run --bin create_test_wallet
+# 1. Generar wallet de prueba
+cargo run --bin sniperforge -- wallet generate --output test-arbitrage-wallet.json
 
-# 2. Solicitar airdrop
-cargo run --bin request_devnet_airdrop
+# 2. Solicitar airdrop DevNet
+cargo run --bin sniperforge -- wallet airdrop
 
 # 3. Verificar balance
-cargo run --bin check_devnet_balance
+cargo run --bin sniperforge -- wallet balance test-arbitrage-wallet.json
 ```
 
-### Operaciones Diarias
+### ✅ ARBITRAJE REAL - COMANDOS CORRECTOS
 ```bash
-# ARBITRAJE COMPROBADO - Ejecutar para ganancias reales
-cargo run --bin test_arbitrage_real_devnet
+# SIMULACIÓN (seguro - no ejecuta transacciones)
+cargo run --bin sniperforge -- test swap-real --wallet test-arbitrage-wallet.json
 
-# Verificar oportunidades CROSS-DEX (NUEVO)
-cargo run --bin test_arbitrage_cross_dex
+# SWAP REAL EN DEVNET (ejecuta transacción real con SOL de prueba)
+cargo run --bin sniperforge -- test swap-real --wallet test-arbitrage-wallet.json --confirm
 
-# Verificar balance
-cargo run --bin check_devnet_balance
+# SWAP REAL CON CANTIDAD ESPECÍFICA
+cargo run --bin sniperforge -- test swap-real --wallet test-arbitrage-wallet.json --amount 0.01 --confirm
 
-# Monitor automático de arbitraje (NUEVO)
-.\monitor-simple.ps1 -Interval 30
-
-# Monitor con ejecución real (AVANZADO)
-.\monitor-simple.ps1 -Interval 30 -RealMode
-
-# Verificar balance y ganancias potenciales
-cargo run --bin sniperforge -- wallet balance test-arbitrage-wallet.json --network devnet
-
-# Ejecutar arbitraje con 0.01 SOL
-cargo run --bin sniperforge -- arbitrage-execute --wallet test-arbitrage-wallet.json --network devnet --amount 0.01 --confirm
+# Verificar balance después
+cargo run --bin sniperforge -- wallet balance test-arbitrage-wallet.json
 ```
 
 ## 📊 DATOS REALES ACTUALES
@@ -149,17 +167,19 @@ cargo run --bin discover_jupiter_tokens
 cargo run --bin find_real_devnet_tokens
 ```
 
-## 🎯 PARA MAINNET (DINERO REAL)
+## 🎯 PARA HACER ARBITRAJE REAL
 
-⚠️ **SOLO PARA USUARIOS EXPERIMENTADOS**
+**NECESITAMOS CREAR UN EJECUTOR REAL DESDE CERO**
 
-```bash
-# Verificar balance primero
-cargo run --bin sniperforge -- wallet balance production-wallet.json --network mainnet
+Los archivos existentes que hacen swaps reales tienen errores de compilación:
+- `execute_arbitrage_real_proof.rs` - Error de wallet keypair  
+- `execute_cross_dex_arbitrage.rs` - Necesita revisión
+- CLI `sniperforge test swap-real` - Argumentos requeridos no implementados
 
-# Ejecutar con cantidad MUY pequeña
-cargo run --bin sniperforge -- arbitrage-execute --wallet production-wallet.json --network mainnet --amount 0.001 --confirm
-```
+**PROPUESTA:**
+1. Arreglar `execute_arbitrage_real_proof.rs` 
+2. O crear nuevo archivo `arbitrage_real_working.rs`
+3. O completar implementación del CLI
 
 ---
 
