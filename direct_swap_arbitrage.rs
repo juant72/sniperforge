@@ -1,18 +1,12 @@
-use anyhow::{Result, anyhow};
-use solana_client::rpc_client::RpcClient;
+use anyhow::Result;
+use solana_client::{rpc_client::RpcClient, rpc_request::TokenAccountsFilter};
 use solana_sdk::{
     commitment_config::CommitmentConfig,
-    instruction::{AccountMeta, Instruction},
-    message::Message,
     pubkey::Pubkey,
-    signature::{Keypair, Signature},
+    signature::Keypair,
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-};
-use spl_token::{
-    instruction as token_instruction,
-    state::Account as TokenAccount,
 };
 use std::str::FromStr;
 use tracing::{info, warn, error};
@@ -301,7 +295,7 @@ async fn check_token_balances(client: &RpcClient, user_pubkey: &Pubkey) -> Resul
     // Obtener todas las cuentas de tokens del usuario
     let token_accounts = client.get_token_accounts_by_owner(
         user_pubkey,
-        solana_client::rpc_client::TokenAccountsFilter::ProgramId(spl_token::id()),
+        TokenAccountsFilter::ProgramId(spl_token::id()),
     )?;
 
     if token_accounts.is_empty() {
@@ -310,16 +304,17 @@ async fn check_token_balances(client: &RpcClient, user_pubkey: &Pubkey) -> Resul
     }
 
     for account in token_accounts {
-        match client.get_token_account_balance(&account.pubkey) {
+        let account_pubkey = Pubkey::from_str(&account.pubkey)?;
+        match client.get_token_account_balance(&account_pubkey) {
             Ok(balance) => {
                 if let Some(amount) = balance.ui_amount {
                     if amount > 0.0 {
-                        info!("💎 Token encontrado: {} tokens en {}", amount, account.pubkey);
+                        info!("💎 Token encontrado: {} tokens en {}", amount, account_pubkey);
                     }
                 }
             }
             Err(e) => {
-                warn!("⚠️ Error verificando cuenta {}: {}", account.pubkey, e);
+                warn!("⚠️ Error verificando cuenta {}: {}", account_pubkey, e);
             }
         }
     }

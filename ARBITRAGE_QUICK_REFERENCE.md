@@ -254,12 +254,28 @@ cargo run --bin simple_arbitrage_proof
 - **DevNet liquidez limitada** para algunos tokens
 - **PERO: Sistema base funciona perfectamente**
 
-### 🎯 PRÓXIMOS PASOS PARA ARBITRAJE COMPLETO:
-1. **✅ DEMOSTRADO**: Transacciones reales funcionan en DevNet
-2. **🔧 Implementar**: Swaps directos con contratos Orca/Raydium
-3. **💰 Usar**: Tokens que funcionan en DevNet (BONK, RAY)
-4. **🚀 MainNet**: Jupiter tiene liquidez real completa
+### 🎯 PLAN CONSOLIDADO (Ver: ARBITRAGE_SOLID_PLAN.md):
+
+**FASE 1 - PRIORIDAD INMEDIATA**: 
+```bash
+# CREAR: Orca Real Swap que cambie balance de tokens
+cargo run --bin orca_real_swap_arbitrage
+# ✅ Objetivo: SOL → BONK con balance verificable
+```
+
+**FASE 2 - ARBITRAJE COMPLETO**:
+```bash
+# CREAR: Ciclo completo con ganancia neta
+cargo run --bin complete_arbitrage_cycle  
+# ✅ Objetivo: SOL → Token → SOL con profit > 0
+```
+
+**FASE 3 - MAINNET PRODUCTION**:
+```bash
+# MIGRAR: A MainNet con liquidez real
+# ✅ Objetivo: Arbitraje sistemático rentable
+```
 
 ---
 
-**💡 TIP**: Siempre practica en DevNet antes de usar MainNet. Los spreads en DevNet son artificialmente altos para testing.
+**💡 PRÓXIMO PASO**: Implementar `orca_real_swap_arbitrage.rs` usando Orca client que sabemos funciona.

@@ -124,8 +124,7 @@ async fn get_jupiter_quote(
         inputMint: input_mint.to_string(),
         outputMint: output_mint.to_string(),
         amount,
-        slippageBps: Some(100), // 1% slippage
-        ..Default::default()
+        slippageBps: 100, // 1% slippage
     };
 
     match client.get_quote(request).await {

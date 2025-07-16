@@ -255,6 +255,14 @@ path = "orca_vs_jupiter_arbitrage.rs"
 name = "direct_swap_arbitrage"
 path = "direct_swap_arbitrage.rs"
 
+[[bin]]
+name = "orca_swap_phase1"
+path = "orca_swap_phase1.rs"
+
+[[bin]]
+name = "phase1b_working_tokens"
+path = "phase1b_working_tokens.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
