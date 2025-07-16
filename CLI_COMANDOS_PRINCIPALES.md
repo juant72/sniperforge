@@ -1,6 +1,25 @@
 # 🚀 COMANDOS CLI PRINCIPALES - SNIPERFORGE (VERIFICADOS)
 
-## 🎯 COMANDO PRINCIPAL QUE FUNCIONA
+## 🎯 NUEVOS COMANDOS DE ARBITRAJE (JULIO 2025)
+
+```powershell
+# 🎯 ARBITRAJE REAL - COMANDO PRINCIPAL
+cargo run --bin sniperforge -- arbitrage-execute --wallet test-arbitrage-wallet.json --network devnet --amount 0.01 --confirm
+
+# 🔍 VERIFICAR OPORTUNIDADES DE ARBITRAJE
+cargo run --bin test_arbitrage_real_devnet
+
+# 💰 VERIFICAR BALANCE CON ANÁLISIS DE PROFIT
+cargo run --bin sniperforge -- wallet balance test-arbitrage-wallet.json --network devnet
+
+# 🔧 CREAR WALLET DE PRUEBA PARA ARBITRAJE
+cargo run --bin create_test_wallet
+
+# 💸 SOLICITAR AIRDROP PARA ARBITRAJE
+cargo run --bin request_devnet_airdrop
+```
+
+## 🎯 COMANDO PRINCIPAL QUE FUNCIONA (SWAPS)
 
 ```powershell
 # COMANDO PRINCIPAL para swap real en DevNet

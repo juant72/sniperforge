@@ -22,10 +22,11 @@
 5. **[✅ Real Data Validation Report](project-status/real-data-validation-report.md)** - Validación de datos reales
 
 ### **👤 PARA USUARIOS**
-1. **[🛡️ Cache-Free Trading Commands](user-guides/cache-free-trading-guide.md)** - ⭐ **NUEVO** - Comandos de trading sin caché
-2. **[Command Guide](user-guides/command-guide.md)** - Todos los comandos CLI
-3. **[Mainnet Guide](user-guides/mainnet-guide.md)** - Uso en Mainnet
-4. **[Wallet Safety](user-guides/wallet-safety.md)** - Seguridad de wallets
+1. **[🎯 Arbitrage Quick Start](user-guides/arbitrage-quick-start.md)** - ⭐ **NUEVO** - Guía rápida de arbitraje real
+2. **[🛡️ Cache-Free Trading Commands](user-guides/cache-free-trading-guide.md)** - ⭐ **NUEVO** - Comandos de trading sin caché
+3. **[Command Guide](user-guides/command-guide.md)** - Todos los comandos CLI (actualizado con arbitrage-execute)
+4. **[Mainnet Guide](user-guides/mainnet-guide.md)** - Uso en Mainnet
+5. **[Wallet Safety](user-guides/wallet-safety.md)** - Seguridad de wallets
 
 ### **⚙️ PARA DESARROLLADORES**
 1. **[🛡️ Cache-Free Trading Engine](technical/cache-free-trading-engine.md)** - ⭐ **NUEVO** - Arquitectura del motor sin caché

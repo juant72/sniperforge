@@ -2477,13 +2477,75 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
     let balance_sol = balance as f64 / LAMPORTS_PER_SOL as f64;
     
     println!("✅ Balance check complete!");
-    println!("💰 Balance: {:.9} SOL ({} lamports)", balance_sol, balance);
+    println!("💰 Current Balance: {:.9} SOL ({} lamports)", balance_sol, balance);
     
     if balance == 0 {
         println!("⚠️  Wallet has no SOL balance");
         if network == "devnet" {
             println!("💡 Use 'sniperforge wallet airdrop' to get test SOL");
         }
+        return Ok(());
+    }
+    
+    // Calculate arbitrage potential with current balance
+    println!("\n📈 Calculating arbitrage potential with current balance...");
+    
+    // Get current arbitrage opportunities
+    let opportunities = scan_arbitrage_opportunities(0.1).await?;
+    
+    if !opportunities.is_empty() {
+        let best_opportunity = &opportunities[0];
+        
+        println!("\n🎯 Best Arbitrage Opportunity:");
+        println!("   📊 Profit: {:.3}%", best_opportunity.profit_percentage);
+        println!("   🏪 Buy from: {}", best_opportunity.dex_buy);
+        println!("   💰 Sell to: {}", best_opportunity.dex_sell);
+        println!("   🔥 Confidence: {:.1}%", best_opportunity.confidence_score);
+        
+        // Calculate potential profits for different amounts
+        let amounts_to_test = [0.01, 0.1, 0.5, 1.0, balance_sol * 0.25, balance_sol * 0.5, balance_sol * 0.9];
+        
+        println!("\n💹 Potential Profits by Investment Amount:");
+        println!("   Investment  →  Estimated Profit  →  New Balance");
+        println!("   ─────────────────────────────────────────────");
+        
+        for &amount in &amounts_to_test {
+            if amount > 0.0 && amount <= balance_sol {
+                let profit_sol = amount * (best_opportunity.profit_percentage / 100.0);
+                let new_balance = balance_sol - amount + amount + profit_sol;
+                let profit_usd = profit_sol * best_opportunity.price_buy; // Approximate USD value
+                
+                println!("   {:.3} SOL     →  +{:.6} SOL    →  {:.6} SOL (≈${:.2})", 
+                         amount, profit_sol, new_balance, profit_usd);
+            }
+        }
+        
+        // Risk analysis
+        println!("\n⚠️  Risk Analysis:");
+        println!("   • DevNet prices may not reflect real market conditions");
+        println!("   • Arbitrage requires two transactions (buy + sell)");
+        println!("   • Price can change between transactions");
+        println!("   • Consider transaction fees (~0.000005 SOL per tx)");
+        
+        // Recommendations
+        println!("\n💡 Recommendations:");
+        if balance_sol < 0.01 {
+            println!("   • Balance too low for arbitrage - consider airdrop first");
+        } else if balance_sol < 0.1 {
+            println!("   • Start with small amounts (0.01-0.05 SOL) to test");
+        } else if balance_sol < 1.0 {
+            println!("   • Use 10-25% of balance for single arbitrage");
+        } else {
+            println!("   • Consider using 5-15% of balance per arbitrage");
+            println!("   • Multiple small arbitrages may be safer than one large");
+        }
+        
+        println!("\n🚀 Ready to execute arbitrage:");
+        println!("   cargo run --bin sniperforge -- arbitrage-execute --wallet <wallet-file> --network {} --amount 0.01", network);
+        
+    } else {
+        println!("📭 No arbitrage opportunities currently available");
+        println!("💡 Try running: cargo run --bin sniperforge -- arbitrage-scan --network {} --min-profit 0.05 --continuous", network);
     }
     
     Ok(())
