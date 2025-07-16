@@ -14,7 +14,7 @@ use tracing::{info, error, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ExtensiveTestResult {
     test_id: String,
     scenario: String,
@@ -85,7 +85,6 @@ async fn main() -> Result<()> {
         match execute_test_scenario(&client, &wallet, &scenario).await {
             Ok(result) => {
                 display_test_result(&result);
-                all_results.push(result);
                 
                 // Si encontramos profit, explorar alrededor
                 if result.success {
@@ -102,6 +101,8 @@ async fn main() -> Result<()> {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
                 }
+                
+                all_results.push(result);
             }
             Err(e) => error!("❌ Error en timing {}: {}", scenario.test_id, e),
         }
@@ -180,7 +181,7 @@ fn get_success_recreation_scenarios() -> Vec<TestScenario> {
 
 fn get_micro_timing_scenarios() -> Vec<TestScenario> {
     let timings = vec![750, 775, 800, 825, 850, 875, 900, 950, 1000];
-    timings.into_iter().enumerate().map(|(i, timing)| {
+    timings.into_iter().enumerate().map(|(_i, timing)| {
         TestScenario {
             test_id: format!("TIMING_{}", timing),
             scenario: format!("Micro-timing {}ms", timing),
@@ -211,7 +212,7 @@ fn get_scenarios_around_winner(base: &TestScenario) -> Vec<TestScenario> {
 
 fn get_precise_amount_scenarios() -> Vec<TestScenario> {
     let amounts = vec![0.008, 0.009, 0.0095, 0.01, 0.0105, 0.011, 0.012, 0.013, 0.015];
-    amounts.into_iter().enumerate().map(|(i, amount)| {
+    amounts.into_iter().enumerate().map(|(_i, amount)| {
         TestScenario {
             test_id: format!("AMOUNT_{:.4}", amount),
             scenario: format!("Cantidad precisa {:.4} SOL", amount),
@@ -344,7 +345,7 @@ async fn execute_with_multiple_confirmations(
     let (wrap_sig, unwrap_sig) = execute_standard_test(client, wallet, scenario).await?;
     
     // Múltiples confirmaciones
-    for i in 0..3 {
+    for _i in 0..3 {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         let _ = client.confirm_transaction(&wrap_sig);
         let _ = client.confirm_transaction(&unwrap_sig);

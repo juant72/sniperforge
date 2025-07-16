@@ -312,8 +312,20 @@ name = "phase3_mainnet_preparation"
 path = "phase3_mainnet_preparation.rs"
 
 [[bin]]
+name = "phase3_mainnet_ultra_conservative"
+path = "phase3_mainnet_ultra_conservative.rs"
+
+[[bin]]
+name = "phase3_mainnet_simple"
+path = "phase3_mainnet_simple.rs"
+
+[[bin]]
 name = "phase2l_extensive_devnet_testing"
 path = "phase2l_extensive_devnet_testing.rs"
+
+[[bin]]
+name = "phase2m_rapid_testing"
+path = "phase2m_rapid_testing.rs"
 
 [lib]
 name = "sniperforge"
@@ -431,6 +443,14 @@ opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[[bin]]
+name = "setup_mainnet_wallet"
+path = "setup_mainnet_wallet.rs"
+
+[[bin]]
+name = "check_mainnet_balance"
+path = "check_mainnet_balance.rs"
 
 # Force no OpenSSL dependencies
 [features]
