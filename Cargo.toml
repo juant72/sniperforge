@@ -328,6 +328,18 @@ name = "phase3_mainnet_2c_direct"
 path = "phase3_mainnet_2c_direct.rs"
 
 [[bin]]
+name = "phase3b_mainnet_scaled"
+path = "phase3b_mainnet_scaled.rs"
+
+[[bin]]
+name = "phase3c_mainnet_bigscale"
+path = "phase3c_mainnet_bigscale.rs"
+
+[[bin]]
+name = "phase3d_mainnet_optimal"
+path = "phase3d_mainnet_optimal.rs"
+
+[[bin]]
 name = "phase2l_extensive_devnet_testing"
 path = "phase2l_extensive_devnet_testing.rs"
 
