@@ -320,6 +320,14 @@ name = "phase3_mainnet_simple"
 path = "phase3_mainnet_simple.rs"
 
 [[bin]]
+name = "phase3_mainnet_premium"
+path = "phase3_mainnet_premium.rs"
+
+[[bin]]
+name = "phase3_mainnet_2c_direct"
+path = "phase3_mainnet_2c_direct.rs"
+
+[[bin]]
 name = "phase2l_extensive_devnet_testing"
 path = "phase2l_extensive_devnet_testing.rs"
 
@@ -451,6 +459,10 @@ path = "setup_mainnet_wallet.rs"
 [[bin]]
 name = "check_mainnet_balance"
 path = "check_mainnet_balance.rs"
+
+[[bin]]
+name = "test_mainnet_connectivity"
+path = "test_mainnet_connectivity.rs"
 
 # Force no OpenSSL dependencies
 [features]
