@@ -207,6 +207,10 @@ path = "test_arbitrage_real_jupiter.rs"
 name = "test_arbitrage_cross_dex"
 path = "test_arbitrage_cross_dex.rs"
 
+[[bin]]
+name = "execute_cross_dex_arbitrage"
+path = "execute_cross_dex_arbitrage.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
@@ -250,6 +254,10 @@ bs58 = { version = "0.5", default-features = false }
 bip39 = { version = "2.0", default-features = false, features = ["std"] }
 hex = { version = "0.4", default-features = false }
 
+# HTTP client ultra-optimizado
+reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
+url = "2.4"
+urlencoding = "2.1"
 
 # TLS/SSL support
 rustls = { version = "0.23", features = ["ring"] }
