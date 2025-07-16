@@ -2944,104 +2944,132 @@ pub struct ArbitrageOpportunity {
     pub confidence_score: f64,
 }
 
-/// Escanea oportunidades de arbitraje REALES usando Jupiter API - SOLO SOL
+/// Escanea oportunidades de arbitraje REALES usando múltiples DEXs - SOL real prices
 async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOpportunity>> {
     use std::collections::HashMap;
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, tokens};
+    use sniperforge::shared::orca_client::OrcaClient;
     use std::time::Duration;
     
-    println!("🔍 Conectando a Jupiter API para datos reales (solo SOL)...");
+    println!("🔍 Conectando a múltiples DEXs para precios reales de SOL...");
     
-    // Configurar cliente Jupiter real
+    // Configurar clientes para múltiples DEXs
     let jupiter_config = JupiterConfig::devnet();
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
+    let orca_client = OrcaClient::new("devnet");
     
     let mut opportunities = Vec::new();
     
-    println!("📊 Analizando precio real de SOL con simulación de spreads entre DEXs...");
+    println!("📊 Obteniendo precios reales de SOL desde múltiples DEXs...");
     
-    // Obtener precio real de SOL únicamente
-    let price_result = retry_api_call(|| jupiter_client.get_price(tokens::SOL), 3).await;
+    // Obtener precios reales de múltiples DEXs en paralelo
+    let sol_mint = tokens::SOL;
     
-    match price_result {
-        Ok(Some(sol_price)) => {
-            println!("✅ Precio SOL real obtenido de Jupiter: ${:.6}", sol_price);
-            
-            // Simular diferencias de precio entre DEXs usando el precio real de SOL como base
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
-            
-            // Crear variaciones realistas del precio de SOL en diferentes DEXs
-            // Basado en datos históricos, los spreads típicos entre DEXs son 0.1% - 0.5%
-            let jupiter_price = sol_price;
-            let raydium_price = sol_price * (1.0 + (rng.gen::<f64>() - 0.5) * 0.01); // ±0.5% variación
-            let orca_price = sol_price * (1.0 + (rng.gen::<f64>() - 0.5) * 0.008); // ±0.4% variación
-            
-            // Encontrar la mejor oportunidad de arbitraje SOL
-            let dex_prices = vec![
-                ("Jupiter", jupiter_price),
-                ("Raydium", raydium_price),
-                ("Orca", orca_price),
-            ];
-            
-            let min_price = dex_prices.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-            let max_price = dex_prices.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-            
-            let profit_percentage = ((max_price.1 - min_price.1) / min_price.1) * 100.0;
-            
-            println!("📈 Spread análisis: {} ${:.4} → {} ${:.4} = {:.3}% diferencia", 
-                     min_price.0, min_price.1, max_price.0, max_price.1, profit_percentage);
-            
-            if profit_percentage >= min_profit {
-                // Muy alta confianza porque usamos precio real de SOL
-                let confidence_score = if profit_percentage < 1.0 { 
-                    92.0 + (profit_percentage * 3.0) 
-                } else { 
-                    88.0 
-                }.min(98.0);
-                
-                let opportunity = ArbitrageOpportunity {
-                    token_a: "SOL".to_string(),
-                    token_b: "SOL".to_string(), // Mismo token, diferentes DEXs
-                    dex_buy: min_price.0.to_string(),
-                    dex_sell: max_price.0.to_string(),
-                    price_buy: min_price.1,
-                    price_sell: max_price.1,
-                    profit_percentage,
-                    estimated_profit_sol: profit_percentage * 0.01 / 100.0, // Para 0.01 SOL
-                    confidence_score,
-                };
-                println!("🎯 Oportunidad SOL encontrada: {:.3}% profit ({} ${:.4} → {} ${:.4})", 
-                         profit_percentage, min_price.0, min_price.1, max_price.0, max_price.1);
-                println!("💰 Ganancia estimada para 0.01 SOL: +{:.8} SOL", opportunity.estimated_profit_sol);
-                
-                opportunities.push(opportunity);
-            } else {
-                println!("� Spread SOL actual: {:.3}% (mínimo requerido: {:.1}%)", 
-                         profit_percentage, min_profit);
-                println!("📊 Mercado: Spreads normales entre DEXs");
-            }
+    // Jupiter price (ya funciona perfectamente)
+    let jupiter_price_future = retry_api_call(|| jupiter_client.get_price(sol_mint), 3);
+    
+    // Orca price (usando el nuevo método get_price)
+    let orca_price_future = orca_client.get_price(sol_mint);
+    
+    // Ejecutar ambas consultas en paralelo
+    let (jupiter_result, orca_result) = tokio::join!(jupiter_price_future, orca_price_future);
+    
+    // Recopilar precios reales obtenidos
+    let mut dex_prices = Vec::new();
+    let mut jupiter_available = false;
+    
+    // Procesar resultado de Jupiter
+    match jupiter_result {
+        Ok(Some(price)) => {
+            println!("✅ Jupiter SOL: ${:.6}", price);
+            dex_prices.push(("Jupiter", price));
+            jupiter_available = true;
         }
         Ok(None) => {
-            println!("⚠️ No se pudo obtener precio para SOL - API temporalmente indisponible");
-            println!("💡 Jupiter API puede estar en mantenimiento o con alta carga");
+            println!("⚠️ Jupiter: precio no disponible");
         }
         Err(e) => {
-            if e.to_string().contains("429") {
-                println!("🚫 Rate limit detectado - esperando 10 segundos...");
-                tokio::time::sleep(Duration::from_secs(10)).await;
-            } else {
-                println!("❌ Error obteniendo precio SOL: {}", e);
-                println!("🔍 Debug: Verificando conectividad con Jupiter API...");
-                println!("💡 Esto puede deberse a problemas de red o cambios en el API");
-            }
+            println!("❌ Jupiter error: {}", e);
         }
     }
     
+    // Procesar resultado de Orca
+    match orca_result {
+        Ok(Some(price)) => {
+            println!("✅ Orca SOL: ${:.6}", price);
+            dex_prices.push(("Orca", price));
+        }
+        Ok(None) => {
+            println!("⚠️ Orca: precio no disponible (sin pools activos en DevNet)");
+        }
+        Err(e) => {
+            println!("❌ Orca error: {}", e);
+        }
+    }
+    
+    // Para completar, usar Jupiter como proxy para "Raydium" (Jupiter agrega múltiples DEXs)
+    // En una implementación completa, aquí habría un cliente Raydium dedicado
+    if jupiter_available {
+        // Nota: Esto es temporal - en producción habría un cliente Raydium real
+        println!("📝 Nota: Usando Jupiter como referencia (agrega múltiples DEXs incluyendo Raydium)");
+    }
+    
+    // Analizar oportunidades de arbitraje solo si tenemos múltiples precios
+    if dex_prices.len() >= 2 {
+        let min_price = dex_prices.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
+        let max_price = dex_prices.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
+        
+        let profit_percentage = ((max_price.1 - min_price.1) / min_price.1) * 100.0;
+        
+        println!("📈 Spread REAL: {} ${:.4} → {} ${:.4} = {:.3}% diferencia", 
+                 min_price.0, min_price.1, max_price.0, max_price.1, profit_percentage);
+        
+        if profit_percentage >= min_profit {
+            // Confianza alta porque son precios reales de DEXs
+            let confidence_score = if profit_percentage < 0.5 { 
+                95.0 + (profit_percentage * 2.0) 
+            } else if profit_percentage < 1.0 {
+                90.0 + (profit_percentage * 5.0)
+            } else { 
+                85.0 
+            }.min(98.0);
+            
+            let opportunity = ArbitrageOpportunity {
+                token_a: "SOL".to_string(),
+                token_b: "SOL".to_string(), // Mismo token, diferentes DEXs
+                dex_buy: min_price.0.to_string(),
+                dex_sell: max_price.0.to_string(),
+                price_buy: min_price.1,
+                price_sell: max_price.1,
+                profit_percentage,
+                estimated_profit_sol: profit_percentage * 0.01 / 100.0, // Para 0.01 SOL
+                confidence_score,
+            };
+            println!("🎯 Oportunidad REAL encontrada: {:.3}% profit ({} ${:.4} → {} ${:.4})", 
+                     profit_percentage, min_price.0, min_price.1, max_price.0, max_price.1);
+            println!("💰 Ganancia estimada para 0.01 SOL: +{:.8} SOL", opportunity.estimated_profit_sol);
+            println!("🔥 ARBITRAJE 100% REAL - No simulación");
+            
+            opportunities.push(opportunity);
+        } else {
+            println!("📊 Spread REAL actual: {:.3}% (mínimo requerido: {:.1}%)", 
+                     profit_percentage, min_profit);
+            println!("� Mercado eficiente: Spreads pequeños entre DEXs reales");
+        }
+    } else if dex_prices.len() == 1 {
+        println!("⚠️ Solo se obtuvo precio de un DEX: {}", dex_prices[0].0);
+        println!("💡 Se necesitan al menos 2 DEXs para arbitraje");
+        println!("� Orca puede no tener pools activos en DevNet");
+    } else {
+        println!("❌ No se pudieron obtener precios de ningún DEX");
+        println!("🔍 Verificar conectividad de red y estado de APIs");
+    }
+    
     if opportunities.is_empty() {
-        println!("📭 No hay oportunidades reales disponibles en este momento");
-        println!("💡 El arbitraje real requiere condiciones específicas del mercado");
-        println!("🔄 Tip: Intenta con --min-profit más bajo (ej: 0.05)");
+        println!("📭 No hay oportunidades de arbitraje reales disponibles");
+        println!("💡 El arbitraje real depende de ineficiencias temporales del mercado");
+        println!("🔄 Tip: Intenta con --min-profit más bajo (ej: 0.05) o en modo continuo");
+        println!("🎯 Los spreads reales son típicamente 0.1-0.3% en condiciones normales");
     }
     
     // Ordenar por mayor ganancia

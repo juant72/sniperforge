@@ -243,6 +243,71 @@ impl OrcaClient {
     pub fn get_network(&self) -> &str {
         &self.network
     }
+    
+    /// Get token price from Orca using quotes
+    /// This method gets the price by requesting a quote for a small amount and calculating the rate
+    pub async fn get_price(&self, token_mint: &str) -> Result<Option<f64>> {
+        info!("🌊 Getting price for token {} from Orca", token_mint);
+        
+        // Use SOL as reference token if the requested token is not SOL
+        let (input_mint, output_mint, amount) = if token_mint == "So11111111111111111111111111111111111111112" {
+            // For SOL, we'll quote SOL -> USDC to get SOL price in USD
+            (
+                "So11111111111111111111111111111111111111112", // SOL
+                "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // USDC-Dev
+                "1000000" // 0.001 SOL (1M lamports)
+            )
+        } else {
+            // For other tokens, quote token -> SOL
+            (
+                token_mint,
+                "So11111111111111111111111111111111111111112", // SOL
+                "1000000" // Small amount
+            )
+        };
+        
+        let quote_request = OrcaQuoteRequest {
+            input_mint: input_mint.to_string(),
+            output_mint: output_mint.to_string(),
+            amount: amount.to_string(),
+            slippage_bps: 100, // 1% slippage for price quotes
+        };
+        
+        match self.get_quote(&quote_request).await {
+            Ok(quote) => {
+                let input_amount = quote.input_amount.parse::<f64>().unwrap_or(0.0);
+                let output_amount = quote.output_amount.parse::<f64>().unwrap_or(0.0);
+                
+                if input_amount > 0.0 && output_amount > 0.0 {
+                    if token_mint == "So11111111111111111111111111111111111111112" {
+                        // SOL -> USDC quote, so price is output/input (USDC per SOL)
+                        // Convert from lamports to SOL: divide by 1e9
+                        // Convert from USDC micro-units to USDC: divide by 1e6  
+                        let sol_amount = input_amount / 1e9;
+                        let usdc_amount = output_amount / 1e6;
+                        let price = usdc_amount / sol_amount;
+                        info!("✅ SOL price from Orca: ${:.6}", price);
+                        Ok(Some(price))
+                    } else {
+                        // Token -> SOL quote, calculate token price in USD
+                        // We'd need SOL price in USD to calculate this properly
+                        // For now, return the exchange rate
+                        let rate = output_amount / input_amount;
+                        info!("✅ Token exchange rate from Orca: {:.6} SOL per token", rate);
+                        Ok(Some(rate))
+                    }
+                } else {
+                    warn!("⚠️ Invalid quote amounts from Orca: input={}, output={}", input_amount, output_amount);
+                    Ok(None)
+                }
+            }
+            Err(e) => {
+                warn!("⚠️ Failed to get price from Orca: {}", e);
+                // Don't return error, just return None to indicate price unavailable
+                Ok(None)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
