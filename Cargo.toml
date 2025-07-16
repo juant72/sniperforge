@@ -215,6 +215,14 @@ path = "execute_cross_dex_arbitrage.rs"
 name = "execute_cross_dex_arbitrage_v2"
 path = "execute_cross_dex_arbitrage_v2.rs"
 
+[[bin]]
+name = "execute_arbitrage_real_proof"
+path = "execute_arbitrage_real_proof.rs"
+
+[[bin]]
+name = "arbitrage_real_test"
+path = "arbitrage_real_test.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
