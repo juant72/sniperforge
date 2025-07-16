@@ -275,6 +275,14 @@ path = "phase2b_optimized_arbitrage.rs"
 name = "phase2c_real_arbitrage"
 path = "phase2c_real_arbitrage.rs"
 
+[[bin]]
+name = "phase2d_optimized_multi"
+path = "phase2d_optimized_multi.rs"
+
+[[bin]]
+name = "phase2e_multi_cycle_clean"
+path = "phase2e_multi_cycle_clean.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
