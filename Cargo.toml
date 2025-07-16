@@ -239,6 +239,22 @@ path = "convert_cli_wallet.rs"
 name = "simple_arbitrage_proof"
 path = "simple_arbitrage_proof.rs"
 
+[[bin]]
+name = "real_arbitrage_quotes_test"
+path = "real_arbitrage_quotes_test.rs"
+
+[[bin]]
+name = "multi_dex_arbitrage_real"
+path = "multi_dex_arbitrage_real.rs"
+
+[[bin]]
+name = "orca_vs_jupiter_arbitrage"
+path = "orca_vs_jupiter_arbitrage.rs"
+
+[[bin]]
+name = "direct_swap_arbitrage"
+path = "direct_swap_arbitrage.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"
