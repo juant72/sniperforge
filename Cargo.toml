@@ -223,6 +223,10 @@ path = "execute_arbitrage_real_proof.rs"
 name = "arbitrage_real_test"
 path = "arbitrage_real_test.rs"
 
+[[bin]]
+name = "arbitrage_real_working"
+path = "arbitrage_real_working.rs"
+
 [lib]
 name = "sniperforge"
 path = "src/lib.rs"

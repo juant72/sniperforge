@@ -2873,7 +2873,7 @@ async fn execute_single_arbitrage(wallet: Keypair, amount: f64) -> Result<()> {
     
     let quote_request = QuoteRequest {
         inputMint: tokens::SOL.to_string(),
-        outputMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU".to_string(), // USDC DevNet
+        outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC que SÍ funciona
         amount: amount_lamports,
         slippageBps: 50, // 0.5% slippage
     };

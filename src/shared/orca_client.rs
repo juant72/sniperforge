@@ -226,7 +226,7 @@ impl OrcaClient {
     pub fn get_devnet_token_mint(symbol: &str) -> Option<&'static str> {
         match symbol {
             "SOL" => Some("So11111111111111111111111111111111111111112"),
-            "USDC-Dev" => Some("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"),
+            "USDC-Dev" => Some("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
             "USDT-Dev" => Some("Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
             "WSOL" => Some("So11111111111111111111111111111111111111112"),
             _ => None,
@@ -254,7 +254,7 @@ impl OrcaClient {
             // For SOL, we'll quote SOL -> USDC to get SOL price in USD
             (
                 "So11111111111111111111111111111111111111112", // SOL
-                "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // USDC-Dev
+                "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC-Dev
                 "1000000" // 0.001 SOL (1M lamports)
             )
         } else {
@@ -336,7 +336,7 @@ mod tests {
         );
         assert_eq!(
             OrcaClient::get_devnet_token_mint("USDC-Dev"),
-            Some("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")
+            Some("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
         );
         assert_eq!(OrcaClient::get_devnet_token_mint("INVALID"), None);
     }
@@ -352,7 +352,7 @@ mod tests {
         let client = OrcaClient::new("devnet");
         let request = OrcaQuoteRequest {
             input_mint: "So11111111111111111111111111111111111111112".to_string(),
-            output_mint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU".to_string(),
+            output_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
             amount: "1000000".to_string(),
             slippage_bps: 100,
         };
