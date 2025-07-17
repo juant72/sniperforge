@@ -348,12 +348,21 @@ name = "phase4b_jupiter_scanner"
 path = "phase4b_jupiter_scanner.rs"
 
 [[bin]]
-name = "phase2l_extensive_devnet_testing"
-path = "phase2l_extensive_devnet_testing.rs"
+name = "safe_arbitrage_test"
+path = "safe_arbitrage_test.rs"
 
 [[bin]]
-name = "phase2m_rapid_testing"
-path = "phase2m_rapid_testing.rs"
+name = "arbitrage_monitor"
+path = "arbitrage_monitor.rs"
+
+[[bin]]
+name = "fast_arbitrage_hunter"
+path = "fast_arbitrage_hunter.rs"
+
+# Force no OpenSSL dependencies
+[features]
+default = []
+native-tls = []
 
 [lib]
 name = "sniperforge"
@@ -471,20 +480,3 @@ opt-level = 3
 lto = true
 codegen-units = 1
 panic = "abort"
-
-[[bin]]
-name = "setup_mainnet_wallet"
-path = "setup_mainnet_wallet.rs"
-
-[[bin]]
-name = "check_mainnet_balance"
-path = "check_mainnet_balance.rs"
-
-[[bin]]
-name = "test_mainnet_connectivity"
-path = "test_mainnet_connectivity.rs"
-
-# Force no OpenSSL dependencies
-[features]
-default = []
-native-tls = []
