@@ -372,6 +372,10 @@ name = "mega_token_hunter"
 path = "mega_token_hunter.rs"
 
 [[bin]]
+name = "multi_dex_hunter"
+path = "multi_dex_hunter.rs"
+
+[[bin]]
 name = "analyze_opportunities"
 path = "analyze_opportunities.rs"
 

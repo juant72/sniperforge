@@ -112,7 +112,7 @@ impl MegaTokenHunter {
     async fn start_mega_hunting(&self) -> Result<()> {
         info!("🚀 Starting AGGRESSIVE arbitrage hunting...");
         info!("   🌟 Scanning {} token pairs with REAL EXECUTION", self.get_all_token_pairs().len());
-        info!("   ⚡ 30-second intervals for PROFESSIONAL rate limiting");
+        info!("   ⚡ 60-second intervals for JUPITER API respect");
         info!("   💰 Executes opportunities > 0.5x fees (ULTRA aggressive)");
         info!("   🎯 Maximum 3 simultaneous executions for more profit");
 
@@ -234,8 +234,8 @@ impl MegaTokenHunter {
                 }
             }
 
-            // Wait 30 seconds for PROFESSIONAL rate limiting
-            sleep(Duration::from_secs(30)).await;
+            // Wait 60 seconds for ULTIMATE Jupiter API respect
+            sleep(Duration::from_secs(60)).await;
         }
     }
 
@@ -351,8 +351,8 @@ impl MegaTokenHunter {
         let token_pairs = self.get_all_token_pairs();
         info!("   🔍 Scanning {} token pairs in parallel...", token_pairs.len());
         
-        // Split into smaller chunks for PROFESSIONAL rate limiting
-        let chunk_size = 3; // Process only 3 pairs at a time (vs 8 before)
+        // Split into ULTRA CONSERVATIVE chunks for Jupiter API rate limiting
+        let chunk_size = 1; // Process only 1 pair at a time for Jupiter API
         let mut all_opportunities = Vec::new();
         
         for chunk in token_pairs.chunks(chunk_size) {
@@ -370,8 +370,8 @@ impl MegaTokenHunter {
                 }
             }
             
-            // Longer delay between chunks to avoid rate limiting
-            sleep(Duration::from_millis(500)).await;
+            // MUCH longer delay between chunks for Jupiter API respect
+            sleep(Duration::from_millis(2000)).await;
         }
         
         Ok(all_opportunities)
@@ -435,9 +435,9 @@ impl MegaTokenHunter {
         static REQUEST_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let count = REQUEST_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         
-        // Add jitter (randomness) to avoid thundering herd
-        let jitter = (count % 100) as u64;
-        tokio::time::sleep(Duration::from_millis(50 + jitter)).await;
+        // Add jitter (randomness) to avoid thundering herd - LONGER DELAYS
+        let jitter = (count % 300) as u64; // Increased jitter range
+        tokio::time::sleep(Duration::from_millis(300 + jitter)).await;
         
         // Try with conservative settings first
         let url = format!(
@@ -448,9 +448,9 @@ impl MegaTokenHunter {
         match self.http_client.get(&url).send().await {
             Ok(response) => {
                 if response.status() == 429 {
-                    // PROFESSIONAL: Exponential backoff on 429
-                    let backoff_ms = std::cmp::min(2000, 100 * (count % 10));
-                    warn!("   ⏱️ Rate limited, backing off {}ms", backoff_ms);
+                    // PROFESSIONAL: Exponential backoff on 429 - MUCH LONGER
+                    let backoff_ms = std::cmp::min(10000, 1000 * (count % 5)); // Up to 10 seconds
+                    warn!("   ⏱️ Jupiter rate limited, backing off {}ms", backoff_ms);
                     tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
                     
                     // Retry with even more conservative settings
