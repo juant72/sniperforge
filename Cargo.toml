@@ -399,6 +399,18 @@ path = "analyze_opportunities.rs"
 name = "professional_arbitrage"
 path = "professional_arbitrage.rs"
 
+[[bin]]
+name = "real_arbitrage_system"
+path = "real_arbitrage_system.rs"
+
+[[bin]]
+name = "check_balance_simple"
+path = "check_balance_simple.rs"
+
+[[bin]]
+name = "safe_professional_arbitrage"
+path = "safe_professional_arbitrage.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
