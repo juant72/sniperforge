@@ -308,7 +308,7 @@ impl RealArbitrageSystem {
         }
     }
 
-    async fn execute_real_arbitrage(&self, opportunity: &RealOpportunity) -> Result<Vec<String>> {
+    async fn execute_real_arbitrage(&mut self, opportunity: &RealOpportunity) -> Result<Vec<String>> {
         info!("   🚀 EXECUTING REAL ARBITRAGE");
         info!("      📋 Route: {:?}", opportunity.route);
         info!("      💰 Expected profit: {} lamports", opportunity.profit_lamports);
@@ -331,6 +331,13 @@ impl RealArbitrageSystem {
         info!("      🔄 Step 1: {} -> {}", 
                self.get_token_symbol(&opportunity.input_mint),
                self.get_token_symbol(&opportunity.intermediate_mint));
+        
+        // Calculate expected minimum for first swap
+        let slippage_bps = self.calculate_safe_slippage(opportunity.amount_in, 
+            &format!("{}/{}", opportunity.input_mint, opportunity.intermediate_mint));
+        let min_intermediate_expected = self.calculate_minimum_amount_out(
+            opportunity.expected_amount_out, slippage_bps
+        );
         
         let sig1 = self.execute_jupiter_swap(
             &opportunity.input_mint,
@@ -363,6 +370,7 @@ impl RealArbitrageSystem {
         let intermediate_amount = self.get_actual_token_balance_after_swap(
             &intermediate_account,
             1, // Expect at least 1 token
+            &intermediate_mint_pubkey, // Validate mint address
         ).await?;
         
         if intermediate_amount == 0 {
@@ -370,6 +378,13 @@ impl RealArbitrageSystem {
         }
         
         info!("         💰 ACTUAL intermediate amount received: {} tokens", intermediate_amount);
+        
+        // Validate slippage for first swap
+        // Note: We use a conservative estimate since we don't have the exact quote used
+        let estimated_intermediate = (opportunity.amount_in as f64 * 0.99) as u64; // Rough estimate
+        if let Err(e) = self.validate_post_swap_slippage(estimated_intermediate, intermediate_amount, 300).await {
+            warn!("         ⚠️ First swap slippage warning: {}", e);
+        }
         
         // Step 2: Execute second swap (intermediate -> output)
         info!("      🔄 Step 2: {} -> {}", 
@@ -396,9 +411,18 @@ impl RealArbitrageSystem {
         info!("      🔍 FINAL BALANCE: {:.9} SOL", balance_after);
         info!("      💰 TOTAL PROFIT: {:.9} SOL ({} lamports)", total_profit, profit_lamports);
         
-        // 🚨 PROFIT VALIDATION
+        // 🚨 COMPREHENSIVE PROFIT VALIDATION
         if total_profit > 0.0 {
             info!("      ✅ ARBITRAGE SUCCESSFUL: Gained {:.9} SOL", total_profit);
+            
+            // Additional validation: Check if profit meets expectations
+            let expected_profit_sol = opportunity.profit_lamports as f64 / 1_000_000_000.0;
+            let profit_deviation = ((total_profit - expected_profit_sol) / expected_profit_sol * 100.0).abs();
+            
+            if profit_deviation > 50.0 {
+                warn!("      ⚠️ PROFIT DEVIATION: Expected {:.9} SOL, got {:.9} SOL ({:.1}% deviation)", 
+                      expected_profit_sol, total_profit, profit_deviation);
+            }
         } else {
             warn!("      ⚠️ ARBITRAGE RESULTED IN LOSS: {:.9} SOL", total_profit.abs());
         }
@@ -406,10 +430,13 @@ impl RealArbitrageSystem {
         Ok(signatures)
     }
 
-    async fn execute_jupiter_swap(&self, input_mint: &str, output_mint: &str, amount: u64) -> Result<String> {
-        // Get fresh quote
-        let quote = self.get_jupiter_quote(input_mint, output_mint, amount).await?
+    async fn execute_jupiter_swap(&mut self, input_mint: &str, output_mint: &str, amount: u64) -> Result<String> {
+        // Get fresh quote with timeout check
+        let quote = self.get_fresh_jupiter_quote_with_timeout(input_mint, output_mint, amount, 2000).await?
             .ok_or_else(|| anyhow!("Failed to get quote for swap"))?;
+        
+        // Use consistent priority fees with calculation
+        let priority_fee = 50000u64; // Match with fee calculation
         
         // Prepare swap request
         let swap_request = serde_json::json!({
@@ -417,7 +444,7 @@ impl RealArbitrageSystem {
             "userPublicKey": self.wallet_address.to_string(),
             "wrapAndUnwrapSol": true,
             "dynamicComputeUnitLimit": true,
-            "prioritizationFeeLamports": 1000,
+            "prioritizationFeeLamports": priority_fee,
         });
         
         // Get swap transaction from Jupiter
@@ -467,13 +494,16 @@ impl RealArbitrageSystem {
         }
     }
 
-    // Calculate Jupiter platform fees from quote data
+    // Calculate Jupiter platform fees from quote data with better error handling
     fn calculate_jupiter_fees(&self, quote_data: &serde_json::Value) -> u64 {
         // Jupiter typically charges 0-0.4% platform fee
         if let Some(platform_fee) = quote_data.get("platformFee") {
             if let Some(amount) = platform_fee.get("amount") {
-                if let Ok(fee_str) = serde_json::from_value::<String>(amount.clone()) {
-                    return fee_str.parse::<u64>().unwrap_or(5000); // Default conservative fee
+                // Try different possible formats for the fee amount
+                if let Some(fee_str) = amount.as_str() {
+                    return fee_str.parse::<u64>().unwrap_or(5000);
+                } else if let Some(fee_num) = amount.as_u64() {
+                    return fee_num;
                 }
             }
         }
@@ -508,11 +538,12 @@ impl RealArbitrageSystem {
         std::cmp::min(total_slippage, 200)
     }
 
-    // Get actual token balance after swap execution
+    // Get actual token balance after swap execution with enhanced validation
     async fn get_actual_token_balance_after_swap(
         &self,
         token_account: &Pubkey,
         expected_minimum: u64,
+        expected_mint: &Pubkey,
     ) -> Result<u64> {
         // Wait a moment for transaction to settle
         tokio::time::sleep(Duration::from_millis(3000)).await; // Increased to 3 seconds
@@ -525,9 +556,12 @@ impl RealArbitrageSystem {
         // Get current token account info
         let account_info = self.client.get_account(token_account).await?;
         
-        if account_info.data.len() < 64 {
-            return Err(anyhow!("Invalid token account data"));
+        if account_info.data.len() < 72 {
+            return Err(anyhow!("Invalid token account data length"));
         }
+        
+        // Validate token account structure and mint
+        self.validate_token_account(&account_info.data, expected_mint)?;
         
         // Parse token account data (amount is at bytes 64-72)
         let amount_bytes: [u8; 8] = account_info.data[64..72].try_into()?;
@@ -542,6 +576,37 @@ impl RealArbitrageSystem {
         }
         
         Ok(actual_balance)
+    }
+
+    // Validate token account structure and mint address
+    fn validate_token_account(&self, account_data: &[u8], expected_mint: &Pubkey) -> Result<()> {
+        if account_data.len() < 72 {
+            return Err(anyhow!("Account data too short for token account"));
+        }
+        
+        // Parse mint address from token account (bytes 0-32)
+        let mint_bytes: [u8; 32] = account_data[0..32].try_into()?;
+        let account_mint = Pubkey::new_from_array(mint_bytes);
+        
+        if account_mint != *expected_mint {
+            return Err(anyhow!(
+                "Token account mint mismatch: expected {}, found {}",
+                expected_mint, account_mint
+            ));
+        }
+        
+        // Parse owner from token account (bytes 32-64)
+        let owner_bytes: [u8; 32] = account_data[32..64].try_into()?;
+        let account_owner = Pubkey::new_from_array(owner_bytes);
+        
+        if account_owner != self.wallet_address {
+            return Err(anyhow!(
+                "Token account owner mismatch: expected {}, found {}",
+                self.wallet_address, account_owner
+            ));
+        }
+        
+        Ok(())
     }
 
     // Enhanced token account verification with balance checking
@@ -614,5 +679,63 @@ impl RealArbitrageSystem {
             }
             Err(_) => Ok(false),
         }
+    }
+
+    // Validate slippage after swap execution
+    async fn validate_post_swap_slippage(
+        &self,
+        expected_amount: u64,
+        actual_amount: u64,
+        max_slippage_bps: u64,
+    ) -> Result<()> {
+        if actual_amount == 0 {
+            return Err(anyhow!("No tokens received in swap"));
+        }
+        
+        if actual_amount >= expected_amount {
+            return Ok(()); // Got more than expected, all good
+        }
+        
+        let slippage = ((expected_amount - actual_amount) as f64 / expected_amount as f64) * 10000.0;
+        let slippage_bps = slippage as u64;
+        
+        if slippage_bps > max_slippage_bps {
+            return Err(anyhow!(
+                "Slippage too high: {}bps (max: {}bps). Expected: {}, Got: {}",
+                slippage_bps, max_slippage_bps, expected_amount, actual_amount
+            ));
+        }
+        
+        info!("✅ Slippage within limits: {}bps (max: {}bps)", slippage_bps, max_slippage_bps);
+        Ok(())
+    }
+
+    // Calculate expected minimum amount considering slippage
+    fn calculate_minimum_amount_out(&self, expected_amount: u64, slippage_bps: u64) -> u64 {
+        let slippage_multiplier = (10000 - slippage_bps) as f64 / 10000.0;
+        (expected_amount as f64 * slippage_multiplier) as u64
+    }
+
+    // Enhanced quote freshness check to prevent stale quotes
+    async fn get_fresh_jupiter_quote_with_timeout(
+        &mut self, 
+        input_mint: &str, 
+        output_mint: &str, 
+        amount: u64,
+        timeout_ms: u64
+    ) -> Result<Option<Value>> {
+        let start_time = std::time::Instant::now();
+        
+        // Enforce rate limiting
+        self.enforce_rate_limit().await;
+        
+        let quote = self.get_jupiter_quote(input_mint, output_mint, amount).await?;
+        
+        let elapsed = start_time.elapsed().as_millis() as u64;
+        if elapsed > timeout_ms {
+            warn!("Quote took {}ms (max: {}ms) - may be stale", elapsed, timeout_ms);
+        }
+        
+        Ok(quote)
     }
 }

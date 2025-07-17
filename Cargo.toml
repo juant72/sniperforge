@@ -408,12 +408,8 @@ name = "real_arbitrage_system"
 path = "real_arbitrage_system.rs"
 
 [[bin]]
-name = "check_balance_simple"
-path = "check_balance_simple.rs"
-
-[[bin]]
-name = "safe_professional_arbitrage"
-path = "safe_professional_arbitrage.rs"
+name = "test_arbitrage_calculations"
+path = "test_arbitrage_calculations.rs"
 
 # Force no OpenSSL dependencies
 [features]
