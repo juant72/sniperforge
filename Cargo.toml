@@ -48,6 +48,14 @@ name = "test_real_trading"
 path = "test_real_trading.rs"
 
 [[bin]]
+name = "test_military_real_data"
+path = "test_military_real_data.rs"
+
+[[bin]]
+name = "test_real_pool_discovery"
+path = "test_real_pool_discovery.rs"
+
+[[bin]]
 name = "test_real_execution"
 path = "test_real_execution.rs"
 
