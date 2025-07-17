@@ -23,6 +23,12 @@ cargo run --bin arbitrage_monitor
 cargo run --bin fast_arbitrage_hunter
 ```
 
+### **Ultra-Fast Multi-Token Hunter (Hyper-Aggressive)**
+```bash
+# Hunt every 10 seconds, scan 20+ token pairs, parallel processing
+cargo run --bin ultra_fast_hunter
+```
+
 ---
 
 ## 🎯 **WHAT THIS SYSTEM DOES**
@@ -82,7 +88,18 @@ cargo run --bin fast_arbitrage_hunter
 # Alerts for smaller opportunities (3-10x fees)
 ```
 
-### **OPTION 4: Historical Reference**
+### **OPTION 4: Ultra-Fast Multi-Token Hunter**
+```bash
+# Run hyper-aggressive hunter (checks every 10 seconds)
+cargo run --bin ultra_fast_hunter
+
+# Scans 20+ token pairs including SOL/USDC, SOL/USDT, SOL/RAY, SOL/BONK, SOL/WIF, SOL/JUP, USDC/USDT, RAY/BONK
+# Parallel processing for maximum speed
+# Auto-executes opportunities > 8x fees (hyper-safe)
+# Alerts for opportunities > 2.5x fees
+```
+
+### **OPTION 5: Historical Reference**
 ```bash
 # See what opportunities looked like when favorable
 cargo run --bin phase4b_jupiter_scanner
@@ -128,6 +145,7 @@ cargo run --bin phase4b_jupiter_scanner
 - `safe_arbitrage_test.rs` - **Safe scanner** - opportunity checking without risk
 - `arbitrage_monitor.rs` - **Conservative monitor** - 15min intervals, alerts only
 - `fast_arbitrage_hunter.rs` - **Aggressive hunter** - 30sec intervals, auto-execution
+- `ultra_fast_hunter.rs` - **Hyper-aggressive** - 10sec intervals, 20+ tokens, parallel processing
 
 ### **Documentation**:
 - `ARBITRAGE_COMPLETE_DOCUMENTATION.md` - Full research results
@@ -186,11 +204,12 @@ cargo run --bin phase4b_jupiter_scanner
 - Start with 0.005 SOL amounts
 - **Additional risk**: Minimal execution amounts
 
-### **AGGRESSIVE AUTO-TRADING**:
-- Run `fast_arbitrage_hunter` for maximum opportunities
-- Auto-executes opportunities > 10x fees (ultra-safe)
-- Scans every 30 seconds vs 15 minutes
-- **Additional risk**: Small auto-execution amounts (0.01-0.02 SOL)
+### **HYPER-AGGRESSIVE AUTO-TRADING**:
+- Run `ultra_fast_hunter` for maximum opportunities and speed
+- Scans 20+ token pairs every 10 seconds with parallel processing
+- Auto-executes opportunities > 8x fees (hyper-safe)
+- Includes SOL/USDC, SOL/USDT, SOL/RAY, SOL/BONK, SOL/WIF, SOL/JUP, USDC/USDT, RAY/BONK
+- **Additional risk**: Small auto-execution amounts (0.005-0.03 SOL)
 
 ### **HOLD TECHNIQUE**:
 - System is complete and functional

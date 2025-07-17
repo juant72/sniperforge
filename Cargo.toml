@@ -359,6 +359,10 @@ path = "arbitrage_monitor.rs"
 name = "fast_arbitrage_hunter"
 path = "fast_arbitrage_hunter.rs"
 
+[[bin]]
+name = "ultra_fast_hunter"
+path = "ultra_fast_hunter.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []

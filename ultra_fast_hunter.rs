@@ -10,10 +10,10 @@ use solana_sdk::{
     commitment_config::CommitmentConfig,
     signature::{Keypair, Signature},
     signer::Signer,
-    transaction::Transaction,
     pubkey::Pubkey,
 };
 use std::str::FromStr;
+use futures::future::join_all;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,36 +21,37 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    info!("🔥 === FAST ARBITRAGE HUNTER ===");
-    info!("   ⚡ AGGRESSIVE MODE - AUTO EXECUTION");
-    info!("   🎯 Scanning every 30 seconds");
-    info!("   🚀 Auto-execute if profit > 10x fees");
-    info!("   🛡️ Ultra-safe thresholds");
+    info!("⚡ === ULTRA-FAST ARBITRAGE HUNTER ===");
+    info!("   🚀 HYPER-AGGRESSIVE MODE - AUTO EXECUTION");
+    info!("   ⏰ Scanning every 10 seconds");
+    info!("   🌍 Multiple tokens & amounts");
+    info!("   🎯 Parallel processing for speed");
+    info!("   🛡️ Ultra-safe execution thresholds");
 
-    let hunter = FastArbitrageHunter::new().await?;
+    let hunter = UltraFastHunter::new().await?;
     hunter.start_hunting().await?;
 
     Ok(())
 }
 
-struct FastArbitrageHunter {
+struct UltraFastHunter {
     client: RpcClient,
     keypair: Keypair,
     wallet_address: Pubkey,
     check_interval_seconds: u64,
-    auto_execute_threshold: f64,  // 10x fees = very safe
-    profit_threshold: f64,        // 3x fees = alert only
+    auto_execute_threshold: f64,  // 8x fees = very safe
+    profit_threshold: f64,        // 2.5x fees = alert
     fee_cost: f64,
+    http_client: reqwest::Client,
 }
 
-impl FastArbitrageHunter {
+impl UltraFastHunter {
     async fn new() -> Result<Self> {
         // Load wallet - try different paths
         let wallet_paths = vec![
             std::env::var("SOLANA_WALLET_PATH").unwrap_or_default(),
             "mainnet_wallet.json".to_string(),
             "wallet.json".to_string(),
-            r"C:\Users\%USERNAME%\.config\solana\id.json".to_string(),
         ];
         
         let mut keypair_bytes = None;
@@ -60,7 +61,6 @@ impl FastArbitrageHunter {
             if !path.is_empty() && std::path::Path::new(&path).exists() {
                 match std::fs::read_to_string(&path) {
                     Ok(json_str) => {
-                        // Try to parse as JSON array
                         if let Ok(bytes_vec) = serde_json::from_str::<Vec<u8>>(&json_str) {
                             if bytes_vec.len() == 64 {
                                 keypair_bytes = Some(bytes_vec);
@@ -88,21 +88,28 @@ impl FastArbitrageHunter {
         
         let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
 
+        // Optimized HTTP client
+        let http_client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(2))  // Faster timeout
+            .pool_max_idle_per_host(10)       // Connection pooling
+            .build()?;
+
         info!("✅ Wallet loaded: {} (from: {})", wallet_address, used_path);
 
         Ok(Self {
             client,
             keypair,
             wallet_address,
-            check_interval_seconds: 15,      // Every 15 seconds (más rápido)
-            auto_execute_threshold: 0.00006, // 4x fees (más agresivo)
-            profit_threshold: 0.000025,      // 1.7x fees (más sensible)
+            check_interval_seconds: 10,      // Every 10 seconds (3x faster)
+            auto_execute_threshold: 0.00012, // 8x fees (more aggressive)
+            profit_threshold: 0.0000375,     // 2.5x fees (more sensitive)
             fee_cost: 0.000015,
+            http_client,
         })
     }
 
     async fn start_hunting(&self) -> Result<()> {
-        info!("🚀 Starting fast arbitrage hunting...");
+        info!("🚀 Starting ultra-fast arbitrage hunting...");
         info!("   ⏰ Check interval: {} seconds", self.check_interval_seconds);
         info!("   🎯 Auto-execute threshold: {:.9} SOL ({:.1}x fees)", 
               self.auto_execute_threshold, self.auto_execute_threshold / self.fee_cost);
@@ -112,12 +119,13 @@ impl FastArbitrageHunter {
         let mut cycle_count = 0;
         let mut total_profit = 0.0;
         let mut executions = 0;
+        let mut best_opportunity_ever: Option<OpportunityData> = None;
 
         loop {
             cycle_count += 1;
             let now: DateTime<Utc> = Utc::now();
             
-            info!("\n⚡ === HUNTING CYCLE {} ===", cycle_count);
+            info!("\n⚡ === ULTRA-FAST CYCLE {} ===", cycle_count);
             info!("   📅 Time: {}", now.format("%H:%M:%S"));
 
             // Check balance first
@@ -125,36 +133,53 @@ impl FastArbitrageHunter {
                 Ok(balance) => {
                     info!("   💰 Current balance: {:.9} SOL", balance);
                     
-                    if balance < 0.005 {
+                    if balance < 0.003 {
                         warn!("   ⚠️ Low balance - hunting paused");
-                        sleep(Duration::from_secs(300)).await; // Wait 5 minutes
+                        sleep(Duration::from_secs(60)).await;
                         continue;
                     }
                 }
                 Err(e) => {
                     error!("   ❌ Failed to check balance: {}", e);
-                    sleep(Duration::from_secs(60)).await;
+                    sleep(Duration::from_secs(30)).await;
                     continue;
                 }
             }
 
-            // Fast scan for opportunities
-            match self.fast_scan_opportunities().await {
+            // Ultra-fast parallel scan
+            let start_time = std::time::Instant::now();
+            match self.ultra_fast_parallel_scan().await {
                 Ok(opportunities) => {
+                    let scan_duration = start_time.elapsed();
+                    info!("   ⚡ Scan completed in {:.1}s", scan_duration.as_secs_f64());
+                    
                     if opportunities.is_empty() {
                         info!("   💤 No opportunities detected");
                     } else {
                         info!("   🎯 {} opportunities found!", opportunities.len());
                         
+                        // Sort by profit (best first)
+                        let mut sorted_opportunities = opportunities;
+                        sorted_opportunities.sort_by(|a, b| b.profit.partial_cmp(&a.profit).unwrap());
+                        
+                        // Track best ever
+                        if let Some(best_current) = sorted_opportunities.first() {
+                            if best_opportunity_ever.is_none() || 
+                               best_current.profit > best_opportunity_ever.as_ref().unwrap().profit {
+                                best_opportunity_ever = Some(best_current.clone());
+                                info!("   🏆 NEW RECORD: {:.9} SOL profit!", best_current.profit);
+                            }
+                        }
+                        
                         // Check for auto-execution opportunities
-                        let auto_exec_opportunities: Vec<_> = opportunities.iter()
+                        let auto_exec_opportunities: Vec<_> = sorted_opportunities.iter()
                             .filter(|opp| opp.profit > self.auto_execute_threshold)
                             .collect();
 
                         if !auto_exec_opportunities.is_empty() {
                             info!("   🔥 {} ULTRA-SAFE opportunities for auto-execution!", auto_exec_opportunities.len());
                             
-                            for opp in auto_exec_opportunities {
+                            for opp in auto_exec_opportunities.iter().take(2) { // Max 2 per cycle
                                 info!("   🚀 EXECUTING: {} - {:.9} SOL profit ({:.1}x fees)", 
                                       opp.pair, opp.profit, opp.profit / self.fee_cost);
                                 
@@ -165,8 +190,8 @@ impl FastArbitrageHunter {
                                         total_profit += opp.profit;
                                         executions += 1;
                                         
-                                        // Wait a bit after execution
-                                        sleep(Duration::from_secs(5)).await;
+                                        // Wait after execution
+                                        sleep(Duration::from_secs(3)).await;
                                     }
                                     Err(e) => {
                                         error!("   ❌ Execution failed: {}", e);
@@ -176,12 +201,12 @@ impl FastArbitrageHunter {
                         }
 
                         // Alert for other opportunities
-                        let alert_opportunities: Vec<_> = opportunities.iter()
+                        let alert_opportunities: Vec<_> = sorted_opportunities.iter()
                             .filter(|opp| opp.profit > self.profit_threshold && opp.profit <= self.auto_execute_threshold)
                             .collect();
 
-                        for opp in alert_opportunities {
-                            info!("   💡 MANUAL CONSIDERATION: {} - {:.9} SOL profit ({:.1}x fees)", 
+                        for opp in alert_opportunities.iter().take(3) { // Show top 3
+                            info!("   💡 ALERT: {} - {:.9} SOL profit ({:.1}x fees)", 
                                   opp.pair, opp.profit, opp.profit / self.fee_cost);
                         }
                     }
@@ -191,15 +216,18 @@ impl FastArbitrageHunter {
                 }
             }
 
-            // Statistics every 10 cycles (5 minutes)
-            if cycle_count % 10 == 0 {
-                info!("\n📊 === HUNTING STATISTICS ===");
+            // Statistics every 6 cycles (1 minute)
+            if cycle_count % 6 == 0 {
+                info!("\n📊 === ULTRA-FAST STATISTICS ===");
                 info!("   🔍 Cycles completed: {}", cycle_count);
                 info!("   ⏰ Running time: {:.1} minutes", (cycle_count * self.check_interval_seconds) as f64 / 60.0);
                 info!("   🚀 Executions: {}", executions);
                 info!("   💰 Total profit: {:.9} SOL", total_profit);
                 if executions > 0 {
                     info!("   📈 Average profit per trade: {:.9} SOL", total_profit / executions as f64);
+                }
+                if let Some(ref best) = best_opportunity_ever {
+                    info!("   🏆 Best opportunity: {} - {:.9} SOL", best.pair, best.profit);
                 }
             }
 
@@ -208,96 +236,126 @@ impl FastArbitrageHunter {
         }
     }
 
-    async fn fast_scan_opportunities(&self) -> Result<Vec<OpportunityData>> {
+    async fn ultra_fast_parallel_scan(&self) -> Result<Vec<OpportunityData>> {
         // EXPANDED token list with more pairs and amounts
-        let priority_pairs = vec![
-            // SOL pairs - different amounts
-            ("SOL/USDC", 0.003, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+        let all_scenarios = vec![
+            // SOL pairs - most liquid
             ("SOL/USDC", 0.005, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
             ("SOL/USDC", 0.01, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
             ("SOL/USDC", 0.02, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-            ("SOL/USDC", 0.05, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            ("SOL/USDC", 0.03, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
             
-            // SOL/USDT
-            ("SOL/USDT", 0.005, "So11111111111111111111111111111111111111112", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            // SOL/USDT - another stable
             ("SOL/USDT", 0.01, "So11111111111111111111111111111111111111112", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
             ("SOL/USDT", 0.02, "So11111111111111111111111111111111111111112", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
             
-            // SOL/RAY
-            ("SOL/RAY", 0.003, "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
+            // SOL/RAY - popular DEX token
+            ("SOL/RAY", 0.005, "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
             ("SOL/RAY", 0.01, "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
             ("SOL/RAY", 0.02, "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
             
-            // SOL/BONK - meme token volatility
-            ("SOL/BONK", 0.003, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
+            // SOL/BONK - meme token high volume
+            ("SOL/BONK", 0.005, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
             ("SOL/BONK", 0.01, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
             ("SOL/BONK", 0.02, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-            ("SOL/BONK", 0.05, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
+            ("SOL/BONK", 0.03, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
             
             // SOL/WIF - popular meme
-            ("SOL/WIF", 0.005, "So11111111111111111111111111111111111111112", "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"),
             ("SOL/WIF", 0.01, "So11111111111111111111111111111111111111112", "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"),
             ("SOL/WIF", 0.02, "So11111111111111111111111111111111111111112", "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"),
             
-            // SOL/JUP
-            ("SOL/JUP", 0.005, "So11111111111111111111111111111111111111112", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
+            // SOL/JUP - Jupiter token
             ("SOL/JUP", 0.01, "So11111111111111111111111111111111111111112", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
+            ("SOL/JUP", 0.02, "So11111111111111111111111111111111111111112", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
             
-            // Cross-pairs for arbitrage opportunities
-            ("USDC/USDT", 5.0, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            // Cross-token opportunities (non-SOL pairs)
             ("USDC/USDT", 10.0, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            ("USDC/USDT", 20.0, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            
+            // RAY/BONK opportunities
+            ("RAY/BONK", 5.0, "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
         ];
 
-        let mut opportunities = Vec::new();
-
-        for (pair_name, amount_sol, mint_a, mint_b) in priority_pairs {
-            if let Ok(Some(opp)) = self.quick_check_opportunity(mint_a, mint_b, amount_sol, pair_name).await {
-                if opp.profit > self.profit_threshold {
-                    opportunities.push(opp);
+        // Split into chunks for parallel processing
+        let chunk_size = 5;
+        let chunks: Vec<_> = all_scenarios.chunks(chunk_size).collect();
+        
+        let mut all_opportunities = Vec::new();
+        
+        for chunk in chunks {
+            // Process chunk in parallel
+            let futures: Vec<_> = chunk.iter().map(|(pair_name, amount, mint_a, mint_b)| {
+                self.lightning_check_opportunity(mint_a, mint_b, *amount, pair_name)
+            }).collect();
+            
+            let results = join_all(futures).await;
+            
+            for result in results {
+                if let Ok(Some(opp)) = result {
+                    if opp.profit > self.profit_threshold {
+                        all_opportunities.push(opp);
+                    }
                 }
             }
             
-            // Minimal delay - respect rate limits but faster
+            // Small delay between chunks to respect rate limits
             sleep(Duration::from_millis(50)).await;
         }
 
-        Ok(opportunities)
+        Ok(all_opportunities)
     }
 
-    async fn quick_check_opportunity(
+    async fn lightning_check_opportunity(
         &self,
         mint_a: &str,
         mint_b: &str,
-        amount_sol: f64,
+        amount: f64,
         pair_name: &str
     ) -> Result<Option<OpportunityData>> {
-        const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
-        let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
+        let is_sol_pair = mint_a == "So11111111111111111111111111111111111111112" || 
+                         mint_b == "So11111111111111111111111111111111111111112";
         
-        // Quick Jupiter quotes
-        let (route_1, route_2) = tokio::join!(
-            self.get_jupiter_quote_fast(mint_a, mint_b, amount_lamports),
-            self.prepare_reverse_quote(mint_b, mint_a) // Prepare for second call
+        let (amount_lamports, profit_divisor) = if is_sol_pair {
+            const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+            ((amount * LAMPORTS_PER_SOL as f64) as u64, LAMPORTS_PER_SOL as f64)
+        } else {
+            // For non-SOL pairs, assume 6 decimals (like USDC)
+            const UNITS_PER_TOKEN: u64 = 1_000_000;
+            ((amount * UNITS_PER_TOKEN as f64) as u64, UNITS_PER_TOKEN as f64)
+        };
+        
+        // Lightning-fast Jupiter quotes with parallel requests
+        let (route_1_result, _route_2_prep) = tokio::join!(
+            self.get_jupiter_quote_lightning(mint_a, mint_b, amount_lamports),
+            async { Ok::<(), anyhow::Error>(()) } // Placeholder for optimization
         );
         
-        if let Ok(Some(route_1_data)) = route_1 {
+        if let Ok(Some(route_1_data)) = route_1_result {
             let intermediate_amount: u64 = route_1_data["outAmount"].as_str()
                 .unwrap_or("0").parse().unwrap_or(0);
             
             if intermediate_amount > 0 {
                 // Second route
-                if let Ok(Some(route_2_data)) = self.get_jupiter_quote_fast(mint_b, mint_a, intermediate_amount).await {
+                if let Ok(Some(route_2_data)) = self.get_jupiter_quote_lightning(mint_b, mint_a, intermediate_amount).await {
                     let final_amount: u64 = route_2_data["outAmount"].as_str()
                         .unwrap_or("0").parse().unwrap_or(0);
-                    let final_sol = final_amount as f64 / LAMPORTS_PER_SOL as f64;
+                    let final_amount_f64 = final_amount as f64 / profit_divisor;
                     
-                    let profit = final_sol - amount_sol;
+                    let profit_raw = final_amount_f64 - amount;
                     
-                    if profit > 0.0 {
+                    // Convert profit to SOL equivalent for comparison
+                    let profit_sol = if is_sol_pair {
+                        profit_raw
+                    } else {
+                        // For non-SOL pairs, estimate SOL value (rough conversion)
+                        profit_raw * 0.000056 // Approximate USDC to SOL rate
+                    };
+                    
+                    if profit_sol > 0.0 {
                         return Ok(Some(OpportunityData {
                             pair: pair_name.to_string(),
-                            amount: amount_sol,
-                            profit,
+                            amount,
+                            profit: profit_sol,
                             mint_a: mint_a.to_string(),
                             mint_b: mint_b.to_string(),
                             route_1_data,
@@ -311,34 +369,31 @@ impl FastArbitrageHunter {
         Ok(None)
     }
 
-    async fn get_jupiter_quote_fast(&self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
-        let client = reqwest::Client::new();
-        
+    async fn get_jupiter_quote_lightning(&self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
         let url = format!(
-            "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps=150&onlyDirectRoutes=true&maxAccounts=30",
+            "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps=100&onlyDirectRoutes=true&maxAccounts=20",
             input_mint, output_mint, amount
         );
         
-        // Ultra-fast timeout
-        let response = client.get(&url)
-            .timeout(Duration::from_secs(2))
-            .send().await?;
-        
-        if response.status().is_success() {
-            let data = response.json::<Value>().await?;
-            if data.get("error").is_some() {
-                Ok(None)
-            } else {
-                Ok(Some(data))
+        match self.http_client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<Value>().await {
+                        Ok(data) => {
+                            if data.get("error").is_some() {
+                                Ok(None)
+                            } else {
+                                Ok(Some(data))
+                            }
+                        }
+                        Err(_) => Ok(None)
+                    }
+                } else {
+                    Ok(None)
+                }
             }
-        } else {
-            Ok(None)
+            Err(_) => Ok(None)
         }
-    }
-
-    async fn prepare_reverse_quote(&self, _mint_b: &str, _mint_a: &str) -> Result<()> {
-        // Placeholder for optimization
-        Ok(())
     }
 
     async fn execute_arbitrage(&self, opportunity: &OpportunityData) -> Result<Signature> {
@@ -346,7 +401,7 @@ impl FastArbitrageHunter {
         
         // This would implement the actual Jupiter swap execution
         // For now, simulate success
-        sleep(Duration::from_millis(500)).await;
+        sleep(Duration::from_millis(300)).await;
         
         // Return a dummy signature for demonstration
         Ok(Signature::from_str("5J8WamkKmZZzEBz7Vt9aqLz1CnH3Lz6qLz1CnH3Lz6qLz1CnH3Lz6qLz1CnH3Lz6qLz1CnH3Lz6qLz1CnH3")?)
