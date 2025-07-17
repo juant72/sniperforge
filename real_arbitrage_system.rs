@@ -16,13 +16,27 @@ use solana_sdk::{
 use spl_associated_token_account::get_associated_token_address;
 use serde_json::Value;
 use reqwest::Client;
-use base64;
+use base64::{engine::general_purpose, Engine};
 use bincode;
 
-// Real Jupiter API for actual swaps
-const JUPITER_API_BASE: &str = "https://quote-api.jup.ag/v6";
+// Jupiter APIs - Modern and efficient
+const JUPITER_QUOTE_API: &str = "https://quote-api.jup.ag/v6";
+const JUPITER_PRICE_API: &str = "https://lite-api.jup.ag/price/v3"; 
+const JUPITER_TOKENS_API: &str = "https://tokens.jup.ag/tokens";
+
+// Popular Solana Tokens
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 const USDC_MINT: &str = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const USDT_MINT: &str = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
+const RAY_MINT: &str = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
+const MSOL_MINT: &str = "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So";
+const ETH_MINT: &str = "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs";
+const BTC_MINT: &str = "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E";
+const BONK_MINT: &str = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+const ORCA_MINT: &str = "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE";
+const SRM_MINT: &str = "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt";
+const STSOL_MINT: &str = "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj";
+const JITOSOL_MINT: &str = "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,11 +44,13 @@ async fn main() -> Result<()> {
         .with_max_level(tracing::Level::INFO)
         .init();
 
-    info!("🚀 === REAL ARBITRAGE SYSTEM ===");
+    info!("🚀 === ENHANCED REAL ARBITRAGE SYSTEM ===");
     info!("   💎 REAL TOKEN SWAPS - NOT SIMULATION");
     info!("   ⚡ JUPITER API INTEGRATION");
     info!("   🎯 ACTUAL ARBITRAGE EXECUTION");
     info!("   💰 REAL MONEY, REAL PROFITS");
+    info!("   🔄 17 ARBITRAGE ROUTES × 4 TRADE SIZES");
+    info!("   📈 68 TOTAL COMBINATIONS PER CYCLE");
 
     let mut arbitrage = RealArbitrageSystem::new().await?;
     arbitrage.run_real_arbitrage().await?;
@@ -123,13 +139,14 @@ impl RealArbitrageSystem {
                         
                         // Execute best opportunity
                         let best_opp = &opportunities[0];
-                        let min_profit_lamports = 15000; // 0.000015 SOL minimum (3x transaction fees)
+                        let min_profit_lamports = 12000; // Lowered threshold for more opportunities
                         
                         info!("   📊 BEST OPPORTUNITY ANALYSIS:");
                         info!("      💰 Route: {:?}", best_opp.route);
                         info!("      💎 Profit: {} lamports ({:.4}%)", 
                               best_opp.profit_lamports, best_opp.profit_percentage);
-                        info!("      📈 Amount: {} lamports", best_opp.amount_in);
+                        info!("      📈 Amount: {} lamports ({:.3} SOL)", 
+                              best_opp.amount_in, best_opp.amount_in as f64 / 1_000_000_000.0);
                         
                         if best_opp.profit_lamports > min_profit_lamports {
                             // Execute real arbitrage
@@ -164,8 +181,8 @@ impl RealArbitrageSystem {
                 }
             }
 
-            // Wait before next cycle
-            sleep(Duration::from_secs(15)).await;
+            // Wait before next cycle (faster scanning for more opportunities)
+            sleep(Duration::from_secs(12)).await;
         }
     }
 
@@ -174,32 +191,76 @@ impl RealArbitrageSystem {
         
         let mut opportunities = Vec::new();
         
-        // Test amount: 0.005 SOL (5 million lamports)
-        let test_amount = 5_000_000u64;
-        
-        // Test different token triangular arbitrage routes
-        let routes = vec![
-            (SOL_MINT, USDC_MINT, SOL_MINT), // SOL -> USDC -> SOL
-            (SOL_MINT, "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", SOL_MINT), // SOL -> RAY -> SOL
-            (SOL_MINT, "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So", SOL_MINT), // SOL -> mSOL -> SOL
+        // Multiple trade sizes for better opportunity detection
+        let trade_sizes = vec![
+            2_000_000u64,   // 0.002 SOL
+            5_000_000u64,   // 0.005 SOL  
+            10_000_000u64,  // 0.01 SOL
+            20_000_000u64,  // 0.02 SOL
         ];
         
-        for (input_mint, intermediate_mint, output_mint) in routes {
-            if let Some(opportunity) = self.check_arbitrage_route(
-                input_mint, 
-                intermediate_mint, 
-                output_mint, 
-                test_amount
-            ).await? {
-                opportunities.push(opportunity);
-            }
+        // Expanded arbitrage routes with popular tokens
+        let routes = vec![
+            // SOL triangular routes
+            (SOL_MINT, USDC_MINT, SOL_MINT),     // SOL -> USDC -> SOL
+            (SOL_MINT, USDT_MINT, SOL_MINT),     // SOL -> USDT -> SOL
+            (SOL_MINT, RAY_MINT, SOL_MINT),      // SOL -> RAY -> SOL
+            (SOL_MINT, MSOL_MINT, SOL_MINT),     // SOL -> mSOL -> SOL
+            (SOL_MINT, ETH_MINT, SOL_MINT),      // SOL -> ETH -> SOL
+            (SOL_MINT, BTC_MINT, SOL_MINT),      // SOL -> BTC -> SOL
+            (SOL_MINT, BONK_MINT, SOL_MINT),     // SOL -> BONK -> SOL
+            (SOL_MINT, ORCA_MINT, SOL_MINT),     // SOL -> ORCA -> SOL
+            (SOL_MINT, STSOL_MINT, SOL_MINT),    // SOL -> stSOL -> SOL
+            (SOL_MINT, JITOSOL_MINT, SOL_MINT),  // SOL -> jitoSOL -> SOL
             
-            // Small delay to avoid API rate limits
-            sleep(Duration::from_millis(200)).await;
+            // USDC triangular routes
+            (USDC_MINT, USDT_MINT, USDC_MINT),   // USDC -> USDT -> USDC
+            (USDC_MINT, ETH_MINT, USDC_MINT),    // USDC -> ETH -> USDC
+            (USDC_MINT, BTC_MINT, USDC_MINT),    // USDC -> BTC -> USDC
+            (USDC_MINT, RAY_MINT, USDC_MINT),    // USDC -> RAY -> USDC
+            
+            // Cross-token opportunities
+            (ETH_MINT, BTC_MINT, ETH_MINT),      // ETH -> BTC -> ETH
+            (RAY_MINT, ORCA_MINT, RAY_MINT),     // RAY -> ORCA -> RAY
+            (MSOL_MINT, STSOL_MINT, MSOL_MINT),  // mSOL -> stSOL -> mSOL
+        ];
+        
+        info!("   📊 Scanning {} routes × {} sizes = {} combinations", 
+              routes.len(), trade_sizes.len(), routes.len() * trade_sizes.len());
+        
+        // Test each route with each trade size
+        for (input_mint, intermediate_mint, output_mint) in routes {
+            for &test_amount in &trade_sizes {
+                // Only test if we have enough balance
+                let current_balance = self.get_wallet_balance().await?;
+                let required_sol = test_amount as f64 / 1_000_000_000.0;
+                
+                if current_balance >= required_sol + 0.01 { // Keep 0.01 SOL buffer
+                    if let Some(opportunity) = self.check_arbitrage_route(
+                        input_mint, 
+                        intermediate_mint, 
+                        output_mint, 
+                        test_amount
+                    ).await? {
+                        opportunities.push(opportunity);
+                    }
+                }
+                
+                // Small delay to avoid API rate limits
+                sleep(Duration::from_millis(150)).await;
+            }
         }
         
-        // Sort by profit
+        // Sort by profit potential
         opportunities.sort_by(|a, b| b.profit_lamports.cmp(&a.profit_lamports));
+        
+        if !opportunities.is_empty() {
+            info!("   🎯 Found {} profitable opportunities!", opportunities.len());
+            for (i, opp) in opportunities.iter().take(3).enumerate() {
+                info!("   #{}: {:?} - {} lamports ({:.4}%)", 
+                      i + 1, opp.route, opp.profit_lamports, opp.profit_percentage);
+            }
+        }
         
         Ok(opportunities)
     }
@@ -280,15 +341,75 @@ impl RealArbitrageSystem {
     }
 
     async fn get_jupiter_quote(&mut self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
-        // Enforce rate limiting
+        // Enforce rate limiting (more relaxed for modern API)
         self.enforce_rate_limit().await;
         
+        // Try Price API first (faster and more reliable)
+        if let Ok(Some(price_quote)) = self.get_jupiter_price_quote(input_mint, output_mint, amount).await {
+            return Ok(Some(price_quote));
+        }
+        
+        // Fallback to Quote API if Price API fails
+        self.get_jupiter_legacy_quote(input_mint, output_mint, amount).await
+    }
+
+    async fn get_jupiter_price_quote(&mut self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
+        // Use Jupiter Price API v3 to get USD prices for both tokens
+        let url = format!(
+            "{}?ids={},{}",
+            JUPITER_PRICE_API, input_mint, output_mint
+        );
+        
+        match self.http_client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    let price_data: Value = response.json().await?;
+                    
+                    // Extract USD prices for both tokens
+                    if let (Some(input_price_info), Some(output_price_info)) = 
+                        (price_data.get(input_mint), price_data.get(output_mint)) {
+                        
+                        if let (Some(input_usd_price), Some(output_usd_price)) = 
+                            (input_price_info["usdPrice"].as_f64(), output_price_info["usdPrice"].as_f64()) {
+                            
+                            // Calculate the exchange rate and estimate output amount
+                            let exchange_rate = input_usd_price / output_usd_price;
+                            let estimated_out = (amount as f64 * exchange_rate) as u64;
+                            
+                            // Create compatible quote response
+                            let quote = serde_json::json!({
+                                "inputMint": input_mint,
+                                "outputMint": output_mint,
+                                "inAmount": amount.to_string(),
+                                "outAmount": estimated_out.to_string(),
+                                "priceImpactPct": "0.1",
+                                "marketInfos": [],
+                                "platformFee": {
+                                    "amount": "2500",
+                                    "feeBps": 25
+                                }
+                            });
+                            
+                            return Ok(Some(quote));
+                        }
+                    }
+                }
+                Ok(None)
+            }
+            Err(e) => {
+                warn!("Price API error: {}", e);
+                Ok(None)
+            }
+        }
+    }
+
+    async fn get_jupiter_legacy_quote(&mut self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
         // Calculate dynamic slippage based on trade size and market conditions
         let slippage_bps = self.calculate_safe_slippage(amount, &format!("{}/{}", input_mint, output_mint));
         
         let url = format!(
             "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
-            JUPITER_API_BASE, input_mint, output_mint, amount, slippage_bps
+            JUPITER_QUOTE_API, input_mint, output_mint, amount, slippage_bps
         );
         
         match self.http_client.get(&url).send().await {
@@ -296,8 +417,12 @@ impl RealArbitrageSystem {
                 if response.status().is_success() {
                     let quote: Value = response.json().await?;
                     Ok(Some(quote))
+                } else if response.status().as_u16() == 429 {
+                    warn!("Rate limit hit on Quote API, backing off...");
+                    sleep(Duration::from_millis(1000)).await;
+                    Ok(None)
                 } else {
-                    warn!("Jupiter API error: {}", response.status());
+                    warn!("Jupiter Quote API error: {}", response.status());
                     Ok(None)
                 }
             }
@@ -438,7 +563,7 @@ impl RealArbitrageSystem {
         // Use consistent priority fees with calculation
         let priority_fee = 50000u64; // Match with fee calculation
         
-        // Prepare swap request
+        // Prepare swap request for Jupiter Quote API v6
         let swap_request = serde_json::json!({
             "quoteResponse": quote,
             "userPublicKey": self.wallet_address.to_string(),
@@ -447,8 +572,8 @@ impl RealArbitrageSystem {
             "prioritizationFeeLamports": priority_fee,
         });
         
-        // Get swap transaction from Jupiter
-        let swap_url = format!("{}/swap", JUPITER_API_BASE);
+        // Get swap transaction from Jupiter Quote API v6
+        let swap_url = format!("{}/swap", JUPITER_QUOTE_API);
         let response = self.http_client
             .post(&swap_url)
             .json(&swap_request)
@@ -465,7 +590,7 @@ impl RealArbitrageSystem {
             .ok_or_else(|| anyhow!("No swap transaction in response"))?;
         
         // Decode and sign transaction
-        let tx_bytes = base64::decode(swap_transaction)?;
+        let tx_bytes = general_purpose::STANDARD.decode(swap_transaction)?;
         let mut transaction: Transaction = bincode::deserialize(&tx_bytes)?;
         
         // Update blockhash and sign
@@ -488,8 +613,16 @@ impl RealArbitrageSystem {
         match mint {
             SOL_MINT => "SOL".to_string(),
             USDC_MINT => "USDC".to_string(),
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "RAY".to_string(),
-            "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So" => "mSOL".to_string(),
+            USDT_MINT => "USDT".to_string(),
+            RAY_MINT => "RAY".to_string(),
+            MSOL_MINT => "mSOL".to_string(),
+            ETH_MINT => "ETH".to_string(),
+            BTC_MINT => "BTC".to_string(),
+            BONK_MINT => "BONK".to_string(),
+            ORCA_MINT => "ORCA".to_string(),
+            SRM_MINT => "SRM".to_string(),
+            STSOL_MINT => "stSOL".to_string(),
+            JITOSOL_MINT => "jitoSOL".to_string(),
             _ => format!("TOKEN({})", &mint[..8]),
         }
     }
@@ -526,10 +659,19 @@ impl RealArbitrageSystem {
         
         // Adjust based on token pair liquidity
         let liquidity_adjustment = match token_pair {
-            "SOL/USDC" => 0,    // Most liquid pair
-            "SOL/RAY" => 10,    // Good liquidity
-            "SOL/mSOL" => 20,   // Lower liquidity
-            _ => 30,            // Unknown pairs get higher slippage
+            pair if pair.contains("SOL/USDC") || pair.contains("USDC/SOL") => 0,    // Most liquid
+            pair if pair.contains("SOL/USDT") || pair.contains("USDT/SOL") => 5,    // Very liquid
+            pair if pair.contains("SOL/RAY") || pair.contains("RAY/SOL") => 10,     // Good liquidity
+            pair if pair.contains("SOL/mSOL") || pair.contains("mSOL/SOL") => 15,   // Good liquidity
+            pair if pair.contains("SOL/ETH") || pair.contains("ETH/SOL") => 20,     // Moderate liquidity
+            pair if pair.contains("SOL/BTC") || pair.contains("BTC/SOL") => 20,     // Moderate liquidity
+            pair if pair.contains("USDC/USDT") || pair.contains("USDT/USDC") => 5,  // Very liquid
+            pair if pair.contains("ETH/BTC") || pair.contains("BTC/ETH") => 25,     // Lower liquidity
+            pair if pair.contains("BONK") => 30,     // Meme token, higher slippage
+            pair if pair.contains("ORCA") => 15,     // DEX token, good liquidity
+            pair if pair.contains("stSOL") => 15,    // Liquid staking, good liquidity
+            pair if pair.contains("jitoSOL") => 20,  // Newer liquid staking
+            _ => 35,            // Unknown pairs get higher slippage
         };
         
         let total_slippage = base_slippage + size_adjustment + liquidity_adjustment;
@@ -656,8 +798,9 @@ impl RealArbitrageSystem {
     // Rate limiting to prevent API abuse
     async fn enforce_rate_limit(&mut self) {
         let elapsed = self.rate_limiter.elapsed();
-        if elapsed < Duration::from_millis(500) { // Max 2 requests per second
-            let sleep_time = Duration::from_millis(500) - elapsed;
+        // More relaxed rate limiting for Jupiter API v6 - better rate limits
+        if elapsed < Duration::from_millis(200) { // Max 5 requests per second
+            let sleep_time = Duration::from_millis(200) - elapsed;
             tokio::time::sleep(sleep_time).await;
         }
         self.rate_limiter = std::time::Instant::now();

@@ -411,6 +411,10 @@ path = "real_arbitrage_system.rs"
 name = "test_arbitrage_calculations"
 path = "test_arbitrage_calculations.rs"
 
+[[bin]]
+name = "enhanced_arbitrage_system"
+path = "enhanced_arbitrage_system.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
