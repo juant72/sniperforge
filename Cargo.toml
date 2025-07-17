@@ -363,6 +363,10 @@ path = "fast_arbitrage_hunter.rs"
 name = "ultra_fast_hunter"
 path = "ultra_fast_hunter.rs"
 
+[[bin]]
+name = "volatility_hunter"
+path = "volatility_hunter.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []

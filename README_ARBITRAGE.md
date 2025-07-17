@@ -29,6 +29,14 @@ cargo run --bin fast_arbitrage_hunter
 cargo run --bin ultra_fast_hunter
 ```
 
+### **Volatility-Aware Hunter (AI-Adaptive) 🧠**
+```bash
+# INTELLIGENT MODE: Detects market volatility and adapts automatically
+# ⚡ Activates ultra-aggressive mode during high volatility periods
+# 🛡️ Conservative during stable markets - FULLY ADAPTIVE
+cargo run --bin volatility_hunter
+```
+
 ---
 
 ## 🎯 **WHAT THIS SYSTEM DOES**
@@ -99,7 +107,23 @@ cargo run --bin ultra_fast_hunter
 # Alerts for opportunities > 2.5x fees
 ```
 
-### **OPTION 5: Historical Reference**
+### **OPTION 5: Volatility-Aware Hunter (AI-ADAPTIVE) 🧠**
+```bash
+# Run intelligent adaptive hunter
+cargo run --bin volatility_hunter
+
+# 📊 MONITORS market volatility in real-time (SOL price movements)
+# ⚡ ADAPTIVE MODES:
+#    - Stable: 45sec intervals, conservative thresholds
+#    - Active: 20sec intervals, moderate thresholds  
+#    - Volatile: 10sec intervals, aggressive thresholds
+#    - Explosive: 5sec intervals, ultra-aggressive thresholds
+# 🧠 AUTOMATICALLY switches between modes based on market conditions
+# 🚀 Executes 1-5 opportunities simultaneously during high volatility
+# 🛡️ Conservative during calm periods, aggressive during opportunities
+```
+
+### **OPTION 6: Historical Reference**
 ```bash
 # See what opportunities looked like when favorable
 cargo run --bin phase4b_jupiter_scanner
@@ -146,6 +170,7 @@ cargo run --bin phase4b_jupiter_scanner
 - `arbitrage_monitor.rs` - **Conservative monitor** - 15min intervals, alerts only
 - `fast_arbitrage_hunter.rs` - **Aggressive hunter** - 30sec intervals, auto-execution
 - `ultra_fast_hunter.rs` - **Hyper-aggressive** - 10sec intervals, 20+ tokens, parallel processing
+- `volatility_hunter.rs` - **🧠 AI-ADAPTIVE** - Intelligent volatility detection, auto-adjusts parameters
 
 ### **Documentation**:
 - `ARBITRAGE_COMPLETE_DOCUMENTATION.md` - Full research results
@@ -210,6 +235,15 @@ cargo run --bin phase4b_jupiter_scanner
 - Auto-executes opportunities > 8x fees (hyper-safe)
 - Includes SOL/USDC, SOL/USDT, SOL/RAY, SOL/BONK, SOL/WIF, SOL/JUP, USDC/USDT, RAY/BONK
 - **Additional risk**: Small auto-execution amounts (0.005-0.03 SOL)
+
+### **AI-ADAPTIVE VOLATILITY TRADING** 🧠:
+- Run `volatility_hunter` for intelligent adaptive execution
+- **AUTOMATICALLY detects market volatility** and adjusts parameters in real-time
+- **4 ADAPTIVE MODES**: Stable (45s) → Active (20s) → Volatile (10s) → Explosive (5s)
+- **SMART EXECUTION**: 1-5 simultaneous trades during high volatility periods  
+- **CONSERVATIVE**: Slower and safer during stable markets
+- **AGGRESSIVE**: Ultra-fast during opportunities (5-second scanning!)
+- **Additional risk**: Dynamic amounts based on market conditions (0.005-0.05 SOL)
 
 ### **HOLD TECHNIQUE**:
 - System is complete and functional
