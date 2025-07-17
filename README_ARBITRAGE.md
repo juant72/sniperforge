@@ -37,6 +37,15 @@ cargo run --bin ultra_fast_hunter
 cargo run --bin volatility_hunter
 ```
 
+### **Mega Token Hunter (MAXIMUM COVERAGE) 🌟**
+```bash
+# ULTIMATE TOKEN SCANNER: 50+ token pairs including ALL major Solana tokens
+# 🚀 AI, Gaming, DeFi, Meme, Infrastructure tokens
+# ⚡ 8-second intervals with parallel processing
+# 💰 Auto-executes opportunities > 5x fees
+cargo run --bin mega_token_hunter
+```
+
 ---
 
 ## 🎯 **WHAT THIS SYSTEM DOES**
@@ -123,7 +132,24 @@ cargo run --bin volatility_hunter
 # 🛡️ Conservative during calm periods, aggressive during opportunities
 ```
 
-### **OPTION 6: Historical Reference**
+### **OPTION 6: Mega Token Hunter (MAXIMUM COVERAGE) 🌟**
+```bash
+# Run ultimate token coverage scanner
+cargo run --bin mega_token_hunter
+
+# 🌟 SCANS 50+ TOKEN PAIRS including:
+#    - Major DeFi: RAY, JUP, ORCA, SRM, FIDA
+#    - AI Tokens: RENDER, FET, OCEAN
+#    - Gaming: GMT, GST, ATLAS
+#    - Memes: BONK, WIF, PEPE, SAMO
+#    - Staking: mSOL, stSOL, jitoSOL
+#    - Cross-pairs: BONK/WIF, RAY/JUP, USDC/USDT
+# ⚡ 8-second intervals with parallel chunk processing
+# 🚀 Auto-executes opportunities > 5x fees (0.000075 SOL)
+# 💰 Maximum opportunity detection across entire Solana ecosystem
+```
+
+### **OPTION 7: Historical Reference**
 ```bash
 # See what opportunities looked like when favorable
 cargo run --bin phase4b_jupiter_scanner
@@ -171,6 +197,7 @@ cargo run --bin phase4b_jupiter_scanner
 - `fast_arbitrage_hunter.rs` - **Aggressive hunter** - 30sec intervals, auto-execution
 - `ultra_fast_hunter.rs` - **Hyper-aggressive** - 10sec intervals, 20+ tokens, parallel processing
 - `volatility_hunter.rs` - **🧠 AI-ADAPTIVE** - Intelligent volatility detection, auto-adjusts parameters
+- `mega_token_hunter.rs` - **🌟 MEGA COVERAGE** - 50+ token pairs, maximum ecosystem coverage
 
 ### **Documentation**:
 - `ARBITRAGE_COMPLETE_DOCUMENTATION.md` - Full research results
@@ -244,6 +271,15 @@ cargo run --bin phase4b_jupiter_scanner
 - **CONSERVATIVE**: Slower and safer during stable markets
 - **AGGRESSIVE**: Ultra-fast during opportunities (5-second scanning!)
 - **Additional risk**: Dynamic amounts based on market conditions (0.005-0.05 SOL)
+
+### **MEGA TOKEN COVERAGE** 🌟:
+- Run `mega_token_hunter` for maximum token ecosystem coverage
+- **50+ TOKEN PAIRS**: All major Solana tokens across categories
+- **COMPREHENSIVE SCAN**: DeFi, AI, Gaming, Memes, Infrastructure, Staking
+- **CROSS-PAIR ARBITRAGE**: BONK/WIF, RAY/JUP, USDC/USDT, and more
+- **PARALLEL PROCESSING**: 8-second intervals with chunk-based scanning
+- **AGGRESSIVE EXECUTION**: Auto-executes opportunities > 5x fees
+- **Additional risk**: Medium amounts across diverse token pairs (0.005-0.02 SOL)
 
 ### **HOLD TECHNIQUE**:
 - System is complete and functional

@@ -367,6 +367,14 @@ path = "ultra_fast_hunter.rs"
 name = "volatility_hunter"
 path = "volatility_hunter.rs"
 
+[[bin]]
+name = "mega_token_hunter"
+path = "mega_token_hunter.rs"
+
+[[bin]]
+name = "analyze_opportunities"
+path = "analyze_opportunities.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
