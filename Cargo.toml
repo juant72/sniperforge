@@ -60,6 +60,10 @@ name = "test_real_execution"
 path = "test_real_execution.rs"
 
 [[bin]]
+name = "test_pool_apis"
+path = "test_pool_apis.rs"
+
+[[bin]]
 name = "test_sol_swap_real"
 path = "test_sol_swap_real.rs"
 
