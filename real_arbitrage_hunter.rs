@@ -221,8 +221,8 @@ impl RealArbitrageHunter {
                 }
             }
 
-            // Wait 15 seconds between scans (longer for more accurate data)
-            sleep(Duration::from_secs(15)).await;
+            // Wait 30 seconds between scans (gentler on CoinGecko API rate limits)
+            sleep(Duration::from_secs(30)).await;
         }
 
         Ok(())

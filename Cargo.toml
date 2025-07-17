@@ -388,8 +388,16 @@ name = "real_arbitrage_hunter"
 path = "real_arbitrage_hunter.rs"
 
 [[bin]]
+name = "real_arbitrage_hunter_offline"
+path = "real_arbitrage_hunter_offline.rs"
+
+[[bin]]
 name = "analyze_opportunities"
 path = "analyze_opportunities.rs"
+
+[[bin]]
+name = "professional_arbitrage"
+path = "professional_arbitrage.rs"
 
 # Force no OpenSSL dependencies
 [features]
