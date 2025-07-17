@@ -419,6 +419,22 @@ path = "enhanced_arbitrage_system.rs"
 name = "military_arbitrage_system"
 path = "military_arbitrage_system.rs"
 
+[[bin]]
+name = "military_arbitrage_system_fixed"
+path = "military_arbitrage_system_fixed.rs"
+
+[[bin]]
+name = "militar_v2"
+path = "militar_v2.rs"
+
+[[bin]]
+name = "discover_real_pools"
+path = "discover_real_pools.rs"
+
+[[bin]]
+name = "analyze_pool_structure"
+path = "analyze_pool_structure.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
