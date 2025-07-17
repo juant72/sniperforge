@@ -340,6 +340,14 @@ name = "phase3d_mainnet_optimal"
 path = "phase3d_mainnet_optimal.rs"
 
 [[bin]]
+name = "phase4_jupiter_mainnet_real"
+path = "phase4_jupiter_mainnet_real.rs"
+
+[[bin]]
+name = "phase4b_jupiter_scanner"
+path = "phase4b_jupiter_scanner.rs"
+
+[[bin]]
 name = "phase2l_extensive_devnet_testing"
 path = "phase2l_extensive_devnet_testing.rs"
 
