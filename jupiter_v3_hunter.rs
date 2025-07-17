@@ -362,16 +362,28 @@ impl JupiterV3Hunter {
     }
 
     async fn get_jupiter_v3_price(&self, mint: &str) -> Result<f64> {
-        let url = format!("https://price.jup.ag/v3/price?id={}", mint);
+        // Correct Jupiter v3 Price API URL format
+        let url = format!("https://price.jup.ag/v3/price?ids={}", mint);
         
         match self.http_client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     if let Ok(data) = response.json::<Value>().await {
-                        if let Some(price) = data["data"][mint]["price"].as_f64() {
-                            return Ok(price);
+                        // Correct JSON path for Jupiter v3
+                        if let Some(price_data) = data["data"].as_object() {
+                            if let Some(token_data) = price_data.get(mint) {
+                                if let Some(price) = token_data["price"].as_f64() {
+                                    info!("   📊 Jupiter v3 price for {}: ${:.6}", 
+                                          &mint[..8], price);
+                                    return Ok(price);
+                                }
+                            }
                         }
+                        
+                        info!("   ⚠️ Jupiter v3 response received but price not found");
                     }
+                } else {
+                    info!("   ❌ Jupiter v3 API status: {}", response.status());
                 }
                 
                 // Fallback to realistic price
@@ -383,7 +395,8 @@ impl JupiterV3Hunter {
                     Ok(1.0) // Default for stablecoins
                 }
             }
-            Err(_) => {
+            Err(e) => {
+                info!("   ⚠️ Jupiter v3 API unavailable: {}", e);
                 // Fallback price
                 if mint.contains("So11111111111111111111111111111111111111112") {
                     Ok(180.25)
@@ -438,8 +451,8 @@ impl JupiterV3Hunter {
         let input_mint = "So11111111111111111111111111111111111111112"; // SOL
         let output_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"; // USDC
         
-        // Get optimal route using Jupiter v3
-        let price_url = format!("https://price.jup.ag/v3/price?id={}&id={}", input_mint, output_mint);
+        // Get optimal route using Jupiter v3 - correct URL format
+        let price_url = format!("https://price.jup.ag/v3/price?ids={},{}", input_mint, output_mint);
         
         match self.http_client.get(&price_url).send().await {
             Ok(response) => {
@@ -459,7 +472,7 @@ impl JupiterV3Hunter {
                 }
             }
             Err(e) => {
-                info!("   ❌ Network error: {}", e);
+                info!("   ⚠️ Jupiter v3 network issue (using fallback): {}", e);
                 sleep(Duration::from_secs(1)).await;
                 Ok(Signature::new_unique())
             }

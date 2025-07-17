@@ -380,6 +380,14 @@ name = "jupiter_v3_hunter"
 path = "jupiter_v3_hunter.rs"
 
 [[bin]]
+name = "pure_dex_hunter"
+path = "pure_dex_hunter.rs"
+
+[[bin]]
+name = "real_arbitrage_hunter"
+path = "real_arbitrage_hunter.rs"
+
+[[bin]]
 name = "analyze_opportunities"
 path = "analyze_opportunities.rs"
 
