@@ -400,6 +400,10 @@ name = "professional_arbitrage"
 path = "professional_arbitrage.rs"
 
 [[bin]]
+name = "secure_arbitrage_system"
+path = "secure_arbitrage_system.rs"
+
+[[bin]]
 name = "real_arbitrage_system"
 path = "real_arbitrage_system.rs"
 
