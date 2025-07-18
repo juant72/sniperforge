@@ -68,6 +68,10 @@ name = "test_raydium_api"
 path = "test_raydium_api.rs"
 
 [[bin]]
+name = "diagnose_system"
+path = "diagnose_system.rs"
+
+[[bin]]
 name = "test_sol_swap_real"
 path = "test_sol_swap_real.rs"
 
