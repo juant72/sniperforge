@@ -21,6 +21,14 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
+name = "test_military_system"
+path = "test_military_system.rs"
+
+[[bin]]
+name = "test_real_arbitrage"
+path = "test_real_arbitrage.rs"
+
+[[bin]]
 name = "request_devnet_airdrop"
 path = "request_devnet_airdrop.rs"
 
