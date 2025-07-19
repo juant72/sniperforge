@@ -3,6 +3,23 @@ name = "sniperforge"
 version = "0.1.0"
 edition = "2021"
 
+# OPTIMIZACIÓN BUILD: Configuración para compilación súper rápida
+[profile.dev]
+opt-level = 0        # Sin optimización en dev
+debug = true         # Debug info
+incremental = true   # Compilación incremental CRÍTICO
+codegen-units = 256  # Máximo paralelismo
+
+[profile.dev.package."*"]
+opt-level = 0        # Sin optimización para dependencias
+debug = false        # Sin debug para deps = MÁS RÁPIDO
+
+[profile.release]
+opt-level = 3
+lto = "thin"         # LTO más rápido que "fat"
+codegen-units = 1
+panic = "abort"
+
 [[bin]]
 name = "request_devnet_airdrop"
 path = "request_devnet_airdrop.rs"
@@ -565,14 +582,5 @@ ureq = { version = "3.0.12", features = ["json"] }
 assert_matches = "1.5"
 mockall = "0.13.1"
 
-[profile.dev]
-opt-level = 0
-debug = true
-incremental = true
-codegen-units = 256
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-panic = "abort"
+# PROFILES ELIMINADOS - YA ESTÁN EN LA PARTE SUPERIOR
+# (duplicados removidos para evitar errores de compilación)
