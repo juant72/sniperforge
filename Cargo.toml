@@ -29,6 +29,14 @@ name = "test_real_arbitrage"
 path = "test_real_arbitrage.rs"
 
 [[bin]]
+name = "test_military_blockchain_live"
+path = "test_military_blockchain_live.rs"
+
+[[bin]]
+name = "military_arbitrage_simple"
+path = "military_arbitrage_simple.rs"
+
+[[bin]]
 name = "request_devnet_airdrop"
 path = "request_devnet_airdrop.rs"
 
