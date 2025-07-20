@@ -46,23 +46,24 @@ const MILITARY_MAX_SLIPPAGE_BPS: u64 = 50; // Max 0.5% slippage
 const MILITARY_PRICE_WATCH_INTERVAL: u64 = 500; // 500ms price monitoring (ULTRA FAST)
 const MILITARY_RETRY_ATTEMPTS: u8 = 3; // Reduced retry logic to avoid rate limits
 const MILITARY_MIN_LIQUIDITY: u64 = 5_000_000; // 0.005 SOL minimum (ULTRA LOW)
-const MILITARY_MAX_PARALLEL_POOLS: usize = 10; // Reduced parallel processing to avoid overload
+const MILITARY_MAX_PARALLEL_POOLS: usize = 5; // Ultra-reduced to avoid overload
 const MILITARY_POOL_REFRESH_INTERVAL: u64 = 30; // 30s pool data refresh
-const MILITARY_RATE_LIMIT_DELAY: u64 = 150; // 150ms delay between requests
-const MILITARY_BATCH_SIZE: usize = 5; // Process pools in smaller batches
-const MILITARY_TIMEOUT_SECONDS: u64 = 10; // 10 second timeout for operations
+const MILITARY_RATE_LIMIT_DELAY: u64 = 300; // Increased to 300ms delay between requests
+const MILITARY_BATCH_SIZE: usize = 2; // Ultra-small batches for stability
+const MILITARY_TIMEOUT_SECONDS: u64 = 8; // Reduced timeout to fail faster
 
-// PASO 1: Enhanced rate limiting and micro-batch processing constants
-const MILITARY_MICRO_BATCH_SIZE: usize = 2; // Process only 2 DEXes at a time
-const MILITARY_INTER_BATCH_DELAY: u64 = 500; // 500ms delay between micro-batches
-const MILITARY_MAX_POOLS_PER_DEX: usize = 10; // Limit pools per DEX for efficiency
+// 🔍 ENHANCED DISCOVERY PARAMETERS
+const MILITARY_MICRO_BATCH_SIZE: usize = 2; // Process only 2 pools at a time
+const MILITARY_INTER_BATCH_DELAY: u64 = 500; // 500ms between micro-batches
+const MILITARY_MAX_POOLS_PER_DEX: usize = 10; // Limit pools per DEX to avoid overload
+const MILITARY_VALIDATION_TIMEOUT: u64 = 3; // Quick validation timeout
 
-// DEX-specific data sizes for precise filtering
-const RAYDIUM_POOL_SIZE: usize = 752;
-const ORCA_POOL_SIZE: usize = 324;
-const WHIRLPOOL_SIZE: usize = 653;
-const SERUM_MARKET_SIZE: usize = 3228;
-const METEORA_POOL_SIZE: usize = 1200;
+// 🎯 DEX-SPECIFIC DATA SIZES (for precise filtering)
+const RAYDIUM_POOL_SIZE: usize = 752; // Exact Raydium AMM pool account size
+const ORCA_POOL_SIZE: usize = 324; // Exact Orca pool account size  
+const WHIRLPOOL_SIZE: usize = 653; // Exact Whirlpool account size
+const SERUM_MARKET_SIZE: usize = 3228; // Exact Serum market account size
+const METEORA_POOL_SIZE: usize = 1200; // Meteora DLMM pool size
 
 // 🔐 PREMIUM RPC ENDPOINTS (Helius Premium - Fastest Available)
 const HELIUS_PREMIUM_RPC: &str = "https://mainnet.helius-rpc.com/?api-key=YOUR_API_KEY";
@@ -2561,51 +2562,118 @@ impl MilitaryArbitrageSystem {
         Ok(validated_pools)
     }
     
-    /// HELIUS PREMIUM: Get active pools with real-time data
+    /// HELIUS PREMIUM: Get active pools with enhanced micro-batch processing
     async fn fetch_helius_active_pools(&self) -> Result<Vec<String>> {
         let helius_key = std::env::var("HELIUS_API_KEY")
             .map_err(|_| anyhow!("HELIUS_API_KEY not found - set your premium API key"))?;
         
-        info!("🔥 Helius Premium: Fetching active pools...");
+        info!("🔥 Helius Premium: Initiating Enhanced Multi-DEX Discovery...");
         
         let helius_url = format!("https://mainnet.helius-rpc.com/?api-key={}", helius_key);
         
-        // Use Helius getProgramAccounts for real-time pool discovery
+        // 15-DEX configuration with smart prioritization
+        let dex_configs = vec![
+            ("Raydium", RAYDIUM_AMM_PROGRAM, 1), // Tier 1: High volume DEXes
+            ("Orca", ORCA_SWAP_PROGRAM, 1),
+            ("OrcaWhirlpool", ORCA_WHIRLPOOL_PROGRAM, 1),
+            ("Jupiter", JUPITER_PROGRAM, 2), // Tier 2: Medium volume DEXes
+            ("Meteora", METEORA_DLMM_PROGRAM, 2),
+            ("Serum", SERUM_DEX_PROGRAM, 2),
+            ("SolFi", SOLFI_PROGRAM, 3), // Tier 3: Smaller DEXes
+            ("Lifinity", LIFINITY_PROGRAM, 3),
+            ("Aldrin", ALDRIN_PROGRAM, 3),
+            ("Saber", SABER_PROGRAM, 3),
+            ("Mercurial", MERCURIAL_PROGRAM, 3),
+            ("Cropper", CROPPER_PROGRAM, 3),
+            ("GoonDex", GOON_DEX_PROGRAM, 3),
+            ("SwapNyd", SWAP_NYD_PROGRAM, 3),
+            ("Unknown9H6", UNKNOWN_9H6_PROGRAM, 3),
+        ];
+        
         let mut active_pools = Vec::new();
+        let mut successful_dexes = 0;
+        let total_dexes = dex_configs.len();
         
-        // 1. Get active Raydium pools
-        let raydium_pools = self.fetch_helius_program_accounts(
-            &helius_url,
-            RAYDIUM_AMM_PROGRAM,
-            "Raydium"
-        ).await?;
-        active_pools.extend(raydium_pools);
+        info!("╔══════════════════════════════════════╗");
+        info!("║     15-DEX MICRO-BATCH DISCOVERY    ║");
+        info!("╚══════════════════════════════════════╝");
         
-        // 2. Get active Orca pools
-        let orca_pools = self.fetch_helius_program_accounts(
-            &helius_url,
-            ORCA_SWAP_PROGRAM,
-            "Orca"
-        ).await?;
-        active_pools.extend(orca_pools);
+        // Process in priority tiers for optimal resource usage
+        for tier in 1..=3 {
+            let tier_dexes: Vec<_> = dex_configs.iter()
+                .filter(|(_, _, priority)| *priority == tier)
+                .collect();
+                
+            if tier_dexes.is_empty() {
+                continue;
+            }
+            
+            info!("🚀 Processing Tier {} DEXes ({} DEXes)...", tier, tier_dexes.len());
+            
+            // Process tier in micro-batches
+            for batch in tier_dexes.chunks(MILITARY_MICRO_BATCH_SIZE) {
+                let mut batch_futures = Vec::new();
+                
+                for (dex_name, program_id, _) in batch {
+                    let future = self.fetch_helius_program_accounts(
+                        &helius_url,
+                        program_id,
+                        dex_name
+                    );
+                    batch_futures.push(future);
+                }
+                
+                // Execute micro-batch concurrently
+                let batch_results = futures_util::future::join_all(batch_futures).await;
+                
+                for (result, (dex_name, _, _)) in batch_results.iter().zip(batch.iter()) {
+                    match result {
+                        Ok(pools) => {
+                            if !pools.is_empty() {
+                                successful_dexes += 1;
+                                active_pools.extend(pools.clone());
+                                info!("✅ {}: {} pools added", dex_name, pools.len());
+                            } else {
+                                warn!("⚠️ {}: No active pools found", dex_name);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("❌ {}: Discovery failed - {}", dex_name, e);
+                        }
+                    }
+                }
+                
+                // Micro-batch delay to prevent rate limiting
+                tokio::time::sleep(std::time::Duration::from_millis(MILITARY_INTER_BATCH_DELAY)).await;
+            }
+            
+            // Tier completion delay for stability
+            if tier < 3 {
+                tokio::time::sleep(std::time::Duration::from_millis(MILITARY_INTER_BATCH_DELAY * 2)).await;
+            }
+        }
         
-        // 3. Get active Orca Whirlpools
-        let whirlpool_pools = self.fetch_helius_program_accounts(
-            &helius_url,
-            ORCA_WHIRLPOOL_PROGRAM,
-            "Whirlpool"
-        ).await?;
-        active_pools.extend(whirlpool_pools);
+        let success_rate = (successful_dexes as f64 / total_dexes as f64) * 100.0;
         
-        // 4. Get active Serum/OpenBook pools
-        let serum_pools = self.fetch_helius_program_accounts(
-            &helius_url,
-            SERUM_DEX_PROGRAM,
-            "Serum"
-        ).await?;
-        active_pools.extend(serum_pools);
+        info!("╔══════════════════════════════════════╗");
+        info!("║      ENHANCED DISCOVERY COMPLETE    ║");
+        info!("╠══════════════════════════════════════╣");
+        info!("║ Total Pools:       {:>15}    ║", active_pools.len());
+        info!("║ Successful DEXes:  {:>15}    ║", successful_dexes);
+        info!("║ Success Rate:      {:>11.1}%    ║", success_rate);
+        info!("║ Target Rate:       {:>11}%    ║", "85.0");
+        info!("╚══════════════════════════════════════╝");
         
-        info!("🎯 Helius Premium: {} active pools found", active_pools.len());
+        if success_rate >= 85.0 {
+            info!("🎯 SUCCESS: Target discovery rate achieved!");
+        } else if success_rate >= 60.0 {
+            warn!("⚠️ MODERATE: Discovery rate acceptable but below target");
+        } else {
+            warn!("🚨 LOW: Discovery rate critically low - check RPC settings");
+        }
+        
+        Ok(active_pools)
+    }
         
         Ok(active_pools)
     }
@@ -2617,8 +2685,20 @@ impl MilitaryArbitrageSystem {
         program_id: &str,
         program_name: &str
     ) -> Result<Vec<String>> {
-        // Add rate limiting delay to avoid overloading RPC
+        // Add significant delay to avoid rate limiting
         tokio::time::sleep(std::time::Duration::from_millis(MILITARY_RATE_LIMIT_DELAY)).await;
+        
+        info!("🔍 {} Discovery: Using precise filters...", program_name);
+        
+        // Get DEX-specific data size for precise filtering
+        let data_size = match program_name {
+            "Raydium" => RAYDIUM_POOL_SIZE,
+            "Orca" => ORCA_POOL_SIZE,
+            "OrcaWhirlpool" => WHIRLPOOL_SIZE,
+            "Serum" => SERUM_MARKET_SIZE,
+            "Meteora" => METEORA_POOL_SIZE,
+            _ => 300 // Conservative default for unknown DEXes
+        };
         
         let request_body = serde_json::json!({
             "jsonrpc": "2.0",
@@ -2631,32 +2711,16 @@ impl MilitaryArbitrageSystem {
                     "commitment": "confirmed",
                     "filters": [
                         {
-                            "dataSize": match program_name {
-                                "Raydium" => 752,
-                                "Orca" => 324,
-                                "OrcaWhirlpool" => 653,
-                                "Serum" => 3228,
-                                _ => 300 // Default smaller size for unknown programs
-                            }
-                        },
-                        {
-                            "memcmp": {
-                                "offset": 0,
-                                "bytes": match program_name {
-                                    "Raydium" => "raydium",
-                                    "Orca" => "orca",
-                                    _ => ""
-                                }
-                            }
+                            "dataSize": data_size
                         }
                     ]
                 }
             ]
         });
         
-        // Create client with timeout
+        // Create client with reduced timeout for faster failure detection
         let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(MILITARY_TIMEOUT_SECONDS))
+            .timeout(std::time::Duration::from_secs(MILITARY_VALIDATION_TIMEOUT))
             .build()?;
         
         let response = client
@@ -2693,13 +2757,16 @@ impl MilitaryArbitrageSystem {
         let accounts = accounts.unwrap_or(&empty_vec);
         
         let mut pools = Vec::new();
-        for account in accounts.iter().take(20) { // Reduced to 20 for faster processing
+        
+        // Process in micro-batches to avoid overwhelming the system
+        for account in accounts.iter().take(MILITARY_MAX_POOLS_PER_DEX) {
             if let Some(pubkey) = account["pubkey"].as_str() {
                 pools.push(pubkey.to_string());
             }
         }
         
-        info!("🔍 Helius {}: {} pools found", program_name, pools.len());
+        info!("🎯 {} Filtered Discovery: {} pools found (limit: {})", 
+            program_name, pools.len(), MILITARY_MAX_POOLS_PER_DEX);
         
         Ok(pools)
     }
