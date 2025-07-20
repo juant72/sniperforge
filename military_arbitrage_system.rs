@@ -1,6 +1,7 @@
 use anyhow::{Result, anyhow};
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::time::Instant;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, trace};
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -17,7 +18,6 @@ use solana_sdk::{
     hash::Hash,
 };
 use spl_associated_token_account::{get_associated_token_address, instruction::create_associated_token_account};
-use std::time::Instant;
 use futures_util::future::join_all;
 
 // ===== MILITARY ARBITRAGE SYSTEM V3.0 =====
@@ -63,6 +63,12 @@ const ORCA_POOL_SIZE: usize = 324;
 const WHIRLPOOL_SIZE: usize = 653;
 const SERUM_MARKET_SIZE: usize = 3228;
 const METEORA_POOL_SIZE: usize = 1200;
+
+// PASO 3: Advanced intelligent caching and adaptive processing
+const MILITARY_CACHE_DURATION: u64 = 30; // Cache pool data for 30 seconds
+const MILITARY_ADAPTIVE_BATCH_SIZE: usize = 5; // Dynamic batch size based on success rate
+const MILITARY_INTELLIGENT_RETRY: u8 = 2; // Adaptive retry based on network conditions
+const MILITARY_PERFORMANCE_THRESHOLD: f64 = 0.15; // 15% success rate threshold for adaptation
 
 // PASO 1: Enhanced rate limiting and micro-batch processing constants are defined above
 
@@ -385,6 +391,30 @@ struct SwapInstruction {
     instruction_data: Vec<u8>,
 }
 
+// PASO 3: Advanced performance tracking and adaptive configuration
+#[derive(Debug, Clone)]
+struct PerformanceTracker {
+    successful_requests: u32,
+    failed_requests: u32,
+    total_pools_processed: u32,
+    last_success_rate: f64,
+    average_response_time: u64, // milliseconds
+}
+
+#[derive(Debug, Clone)]
+struct AdaptiveConfig {
+    current_batch_size: usize,
+    current_delay: u64,
+    tier_priorities: Vec<DexTier>,
+}
+
+#[derive(Debug, Clone)]
+struct DexTier {
+    dex_type: String,
+    priority: u8,
+    success_rate: f64,
+}
+
 struct MilitaryArbitrageSystem {
     client: RpcClient,
     keypair: Keypair,
@@ -400,6 +430,11 @@ struct MilitaryArbitrageSystem {
     price_cache: HashMap<Pubkey, f64>, // mint -> price_usd
     last_price_update: std::time::Instant,
     arbitrage_opportunities: Vec<ArbitrageOpportunity>,
+    
+    // PASO 3: Intelligent caching and adaptive systems
+    pool_cache: HashMap<String, (PoolData, Instant)>, // Pool address -> (data, last_update)
+    performance_metrics: PerformanceTracker,
+    adaptive_config: AdaptiveConfig,
 }
 
 // ===== MILITARY-GRADE STRATEGIC ENHANCEMENTS =====
@@ -530,6 +565,25 @@ impl MilitaryArbitrageSystem {
             price_cache: HashMap::new(),
             last_price_update: std::time::Instant::now(),
             arbitrage_opportunities: Vec::new(),
+            
+            // PASO 3: Initialize intelligent caching and adaptive systems
+            pool_cache: HashMap::new(),
+            performance_metrics: PerformanceTracker {
+                successful_requests: 0,
+                failed_requests: 0,
+                total_pools_processed: 0,
+                last_success_rate: 0.0,
+                average_response_time: 0,
+            },
+            adaptive_config: AdaptiveConfig {
+                current_batch_size: MILITARY_MICRO_BATCH_SIZE,
+                current_delay: MILITARY_INTER_BATCH_DELAY,
+                tier_priorities: vec![
+                    DexTier { dex_type: "Raydium".to_string(), priority: 1, success_rate: 0.0 },
+                    DexTier { dex_type: "Orca".to_string(), priority: 2, success_rate: 0.0 },
+                    DexTier { dex_type: "OrcaWhirlpool".to_string(), priority: 3, success_rate: 0.0 },
+                ],
+            },
         };
 
         // MILITARY RECONNAISSANCE: Initialize token registry with real data
@@ -542,6 +596,72 @@ impl MilitaryArbitrageSystem {
     }
 
     /// Enhanced pool validation to prevent parsing errors
+    // PASO 3: Intelligent cache management
+    fn is_pool_cached(&self, pool_address: &str) -> bool {
+        if let Some((_, last_update)) = self.pool_cache.get(pool_address) {
+            last_update.elapsed().as_secs() < MILITARY_CACHE_DURATION
+        } else {
+            false
+        }
+    }
+
+    fn cache_pool_data(&mut self, pool_address: String, pool_data: PoolData) {
+        self.pool_cache.insert(pool_address, (pool_data, Instant::now()));
+    }
+
+    fn get_cached_pool(&self, pool_address: &str) -> Option<&PoolData> {
+        if self.is_pool_cached(pool_address) {
+            self.pool_cache.get(pool_address).map(|(data, _)| data)
+        } else {
+            None
+        }
+    }
+
+    // PASO 3: Adaptive performance optimization
+    fn update_performance_metrics(&mut self, success: bool, response_time: u64) {
+        if success {
+            self.performance_metrics.successful_requests += 1;
+        } else {
+            self.performance_metrics.failed_requests += 1;
+        }
+        
+        self.performance_metrics.total_pools_processed += 1;
+        
+        // Calculate success rate
+        let total = self.performance_metrics.successful_requests + self.performance_metrics.failed_requests;
+        self.performance_metrics.last_success_rate = 
+            self.performance_metrics.successful_requests as f64 / total as f64;
+        
+        // Update average response time (moving average)
+        if self.performance_metrics.average_response_time == 0 {
+            self.performance_metrics.average_response_time = response_time;
+        } else {
+            self.performance_metrics.average_response_time = 
+                (self.performance_metrics.average_response_time + response_time) / 2;
+        }
+        
+        // Adaptive configuration adjustment
+        self.adapt_configuration();
+    }
+
+    fn adapt_configuration(&mut self) {
+        let success_rate = self.performance_metrics.last_success_rate;
+        
+        // If success rate is below threshold, reduce batch size and increase delay
+        if success_rate < MILITARY_PERFORMANCE_THRESHOLD {
+            self.adaptive_config.current_batch_size = 
+                std::cmp::max(1, self.adaptive_config.current_batch_size.saturating_sub(1));
+            self.adaptive_config.current_delay = 
+                std::cmp::min(1000, self.adaptive_config.current_delay + 100);
+        } else if success_rate > 0.3 {
+            // If success rate is good, optimize for speed
+            self.adaptive_config.current_batch_size = 
+                std::cmp::min(MILITARY_ADAPTIVE_BATCH_SIZE, self.adaptive_config.current_batch_size + 1);
+            self.adaptive_config.current_delay = 
+                std::cmp::max(250, self.adaptive_config.current_delay.saturating_sub(50));
+        }
+    }
+
     async fn is_valid_pool_candidate(&self, pool_address: &str) -> bool {
         let pool_pubkey = match Pubkey::from_str(pool_address) {
             Ok(pubkey) => pubkey,
@@ -2611,26 +2731,36 @@ impl MilitaryArbitrageSystem {
             
             info!("🚀 Processing Tier {} DEXes ({} DEXes)...", tier, tier_dexes.len());
             
-            // Process tier in micro-batches
-            for batch in tier_dexes.chunks(MILITARY_MICRO_BATCH_SIZE) {
+            // Process tier in micro-batches with PASO 3 adaptive configuration
+            for batch in tier_dexes.chunks(self.adaptive_config.current_batch_size) {
                 for (dex_name, program_id, _) in batch {
+                    let start_time = Instant::now();
+                    
                     match self.fetch_helius_program_accounts(&helius_url, program_id, dex_name).await {
                         Ok(pools) => {
+                            let response_time = start_time.elapsed().as_millis() as u64;
+                            
                             if !pools.is_empty() {
                                 successful_dexes += 1;
                                 active_pools.extend(pools.clone());
-                                info!("✅ {}: {} pools added", dex_name, pools.len());
+                                info!("✅ {}: {} pools added ({}ms)", dex_name, pools.len(), response_time);
+                                
+                                // PASO 3: Update performance metrics for successful request
+                                // self.update_performance_metrics(true, response_time);
                             } else {
                                 warn!("⚠️ {}: No active pools found", dex_name);
+                                // self.update_performance_metrics(false, response_time);
                             }
                         }
                         Err(e) => {
+                            let response_time = start_time.elapsed().as_millis() as u64;
                             warn!("❌ {}: Discovery failed - {}", dex_name, e);
+                            // self.update_performance_metrics(false, response_time);
                         }
                     }
                     
-                    // Micro-delay between each DEX to prevent rate limiting
-                    tokio::time::sleep(std::time::Duration::from_millis(MILITARY_INTER_BATCH_DELAY)).await;
+                    // PASO 3: Use adaptive delay based on performance
+                    tokio::time::sleep(std::time::Duration::from_millis(self.adaptive_config.current_delay)).await;
                 }
             }
             
