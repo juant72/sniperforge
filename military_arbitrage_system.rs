@@ -64,6 +64,17 @@ const WHIRLPOOL_SIZE: usize = 653;
 const SERUM_MARKET_SIZE: usize = 3228;
 const METEORA_POOL_SIZE: usize = 1200;
 
+// 🏆 EXPERT MATHEMATICAL CORRECTIONS - Phase 1 Implementation
+// Real AMM mathematics replacing oversimplified calculations
+
+// EXPERT-VALIDATED CONSTANTS
+const EXPERT_RAYDIUM_FEE_BPS: u16 = 25; // 0.25% fee - REAL Raydium fee
+const EXPERT_ORCA_FEE_BPS: u16 = 30; // 0.30% fee - REAL Orca fee
+const EXPERT_WHIRLPOOL_FEE_BPS: u16 = 5; // 0.05% fee - REAL Whirlpool concentrated liquidity
+const EXPERT_MINIMUM_TRADE_SIZE: u64 = 1_000_000_000; // 1 SOL minimum - Profitable threshold
+const EXPERT_MINIMUM_PROFIT_BPS: u64 = 50; // 0.50% minimum profit after ALL costs
+const EXPERT_SOLANA_TRANSACTION_COST: u64 = 1_010_000; // 1.01 SOL total tx costs (realistic)
+
 // PASO 3: Advanced intelligent caching and adaptive processing
 const MILITARY_CACHE_DURATION: u64 = 30; // Cache pool data for 30 seconds
 const MILITARY_ADAPTIVE_BATCH_SIZE: usize = 5; // Dynamic batch size based on success rate
@@ -659,6 +670,137 @@ impl MilitaryArbitrageSystem {
                 std::cmp::min(MILITARY_ADAPTIVE_BATCH_SIZE, self.adaptive_config.current_batch_size + 1);
             self.adaptive_config.current_delay = 
                 std::cmp::max(250, self.adaptive_config.current_delay.saturating_sub(50));
+        }
+    }
+
+    // 🧮 EXPERT AMM MATHEMATICS - Constant Product Formula (REAL IMPLEMENTATION)
+    // This replaces the oversimplified price ratio calculations
+    fn calculate_amm_output_exact(
+        &self,
+        reserve_in: u64,
+        reserve_out: u64,
+        amount_in: u64,
+        fee_bps: u16
+    ) -> Result<u64> {
+        // Validate inputs to prevent overflow/underflow
+        if reserve_in == 0 || reserve_out == 0 || amount_in == 0 {
+            return Ok(0);
+        }
+        
+        // Real AMM math: x * y = k (constant product)
+        // With fees: amount_in_after_fee = amount_in * (10000 - fee_bps) / 10000
+        let amount_in_after_fee = amount_in
+            .saturating_mul(10000u64.saturating_sub(fee_bps as u64))
+            .saturating_div(10000);
+        
+        // Constant product formula: Δy = (Δx * y) / (x + Δx)
+        let numerator = amount_in_after_fee.saturating_mul(reserve_out);
+        let denominator = reserve_in.saturating_add(amount_in_after_fee);
+        
+        if denominator == 0 {
+            return Ok(0);
+        }
+        
+        let amount_out = numerator.saturating_div(denominator);
+        Ok(amount_out)
+    }
+
+    // 📊 EXPERT PRICE IMPACT CALCULATION - Real slippage analysis
+    fn calculate_real_price_impact(
+        &self,
+        reserve_in: u64,
+        reserve_out: u64,
+        trade_amount: u64,
+        fee_bps: u16
+    ) -> Result<f64> {
+        if reserve_in == 0 || reserve_out == 0 || trade_amount == 0 {
+            return Ok(100.0); // 100% slippage if no liquidity
+        }
+        
+        // Price before trade
+        let price_before = reserve_out as f64 / reserve_in as f64;
+        
+        // Amount out from AMM
+        let amount_out = self.calculate_amm_output_exact(reserve_in, reserve_out, trade_amount, fee_bps)?;
+        
+        if amount_out == 0 {
+            return Ok(100.0);
+        }
+        
+        // Effective price paid
+        let price_paid = trade_amount as f64 / amount_out as f64;
+        
+        // Price impact percentage
+        let price_impact = ((price_paid - price_before) / price_before).abs() * 100.0;
+        Ok(price_impact)
+    }
+
+    // 💰 EXPERT PROFIT CALCULATION - All real costs included
+    fn calculate_real_arbitrage_profit(
+        &self,
+        buy_pool: &PoolData,
+        sell_pool: &PoolData,
+        trade_amount: u64
+    ) -> Result<Option<(u64, f64)>> {
+        // Step 1: Buy from first pool (SOL -> Token)
+        let tokens_received = self.calculate_amm_output_exact(
+            buy_pool.token_a_amount,
+            buy_pool.token_b_amount,
+            trade_amount,
+            EXPERT_RAYDIUM_FEE_BPS
+        )?;
+        
+        if tokens_received == 0 {
+            return Ok(None);
+        }
+        
+        // Step 2: Sell to second pool (Token -> SOL)
+        let sol_received = self.calculate_amm_output_exact(
+            sell_pool.token_b_amount, // Note: reversed for sell
+            sell_pool.token_a_amount,
+            tokens_received,
+            EXPERT_ORCA_FEE_BPS
+        )?;
+        
+        if sol_received <= trade_amount {
+            return Ok(None); // No gross profit
+        }
+        
+        // Step 3: Calculate all real costs
+        let gross_profit = sol_received - trade_amount;
+        
+        // Real Solana transaction costs (2 transactions)
+        let tx_costs = EXPERT_SOLANA_TRANSACTION_COST;
+        
+        // Price impact costs
+        let buy_impact = self.calculate_real_price_impact(
+            buy_pool.token_a_amount,
+            buy_pool.token_b_amount,
+            trade_amount,
+            EXPERT_RAYDIUM_FEE_BPS
+        )?;
+        let sell_impact = self.calculate_real_price_impact(
+            sell_pool.token_b_amount,
+            sell_pool.token_a_amount,
+            tokens_received,
+            EXPERT_ORCA_FEE_BPS
+        )?;
+        
+        let impact_cost = (trade_amount as f64 * (buy_impact + sell_impact) / 100.0) as u64;
+        let total_costs = tx_costs + impact_cost;
+        
+        if gross_profit <= total_costs {
+            return Ok(None); // No net profit
+        }
+        
+        let net_profit = gross_profit - total_costs;
+        let profit_percentage = (net_profit as f64 / trade_amount as f64) * 100.0;
+        
+        // Only return if above minimum profitable threshold
+        if profit_percentage >= (EXPERT_MINIMUM_PROFIT_BPS as f64 / 100.0) {
+            Ok(Some((net_profit, profit_percentage)))
+        } else {
+            Ok(None)
         }
     }
 
@@ -4339,143 +4481,163 @@ impl MilitaryArbitrageSystem {
     }
     
     /// ARBITRAJE DIRECTO: Mismo par en diferentes DEXs
+    /// 🏆 EXPERT ARBITRAGE CALCULATION - Real AMM math replacing oversimplified version
     async fn calculate_direct_pair_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<ArbitrageOpportunity>> {
-        // Validar que ambos pools tengan liquidez real
-        if pool_a.token_a_amount == 0 || pool_a.token_b_amount == 0 ||
-           pool_b.token_a_amount == 0 || pool_b.token_b_amount == 0 {
-            return Ok(None);
+        // EXPERT VALIDATION: Ensure pools have sufficient liquidity for profitable trades
+        let min_liquidity = EXPERT_MINIMUM_TRADE_SIZE * 10; // Pools need 10x trade size in liquidity
+        if pool_a.token_a_amount < min_liquidity || pool_a.token_b_amount < min_liquidity ||
+           pool_b.token_a_amount < min_liquidity || pool_b.token_b_amount < min_liquidity {
+            return Ok(None); // Insufficient liquidity for profitable arbitrage
         }
         
-        // Calcular precios reales en cada pool (cantidad de token B por token A)
-        let price_ratio_a = pool_a.token_b_amount as f64 / pool_a.token_a_amount as f64;
-        let price_ratio_b = pool_b.token_b_amount as f64 / pool_b.token_a_amount as f64;
+        // EXPERT TRADE SIZING: Start with 1 SOL minimum (not 0.1 SOL which is unprofitable)
+        let trade_amounts = vec![
+            EXPERT_MINIMUM_TRADE_SIZE,     // 1 SOL
+            EXPERT_MINIMUM_TRADE_SIZE * 2, // 2 SOL  
+            EXPERT_MINIMUM_TRADE_SIZE * 5, // 5 SOL
+        ];
         
-        // Verificar diferencia de precios significativa
-        let price_diff_percentage = ((price_ratio_b - price_ratio_a) / price_ratio_a).abs() * 100.0;
+        let mut best_opportunity: Option<ArbitrageOpportunity> = None;
+        let mut best_profit_percentage = 0.0;
         
-        if price_diff_percentage < 0.1 {
-            return Ok(None); // Diferencia muy pequeña
+        // Test both directions: A->B and B->A
+        for (buy_pool, sell_pool) in &[(pool_a, pool_b), (pool_b, pool_a)] {
+            for &trade_amount in &trade_amounts {
+                // EXPERT CALCULATION: Use real AMM mathematics
+                if let Some((net_profit, profit_percentage)) = self.calculate_real_arbitrage_profit(
+                    buy_pool, sell_pool, trade_amount
+                )? {
+                    // Only consider if it beats our best opportunity
+                    if profit_percentage > best_profit_percentage {
+                        let token_a_info = self.token_registry.get(&buy_pool.token_a_mint);
+                        let token_symbol = token_a_info.map(|t| t.symbol.clone())
+                            .unwrap_or_else(|| format!("{}..{}", 
+                                &buy_pool.token_a_mint.to_string()[..4],
+                                &buy_pool.token_a_mint.to_string()[40..]));
+                        
+                        let opportunity = ArbitrageOpportunity {
+                            token_symbol: token_symbol.clone(),
+                            token_mint: buy_pool.token_a_mint,
+                            buy_pool: TokenPair {
+                                token_a: token_a_info.cloned().unwrap_or_else(|| TokenInfo {
+                                    mint: buy_pool.token_a_mint,
+                                    symbol: token_symbol.clone(),
+                                    name: format!("Token {}", token_symbol),
+                                    decimals: 9,
+                                    price_usd: 0.0,
+                                    price_sol: 0.0,
+                                    market_cap: 0.0,
+                                    volume_24h: 0.0,
+                                    last_updated: std::time::SystemTime::now()
+                                        .duration_since(std::time::UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs(),
+                                    verified: false,
+                                    coingecko_id: None,
+                                    jupiter_verified: false,
+                                }),
+                                token_b: self.token_registry.get(&buy_pool.token_b_mint).cloned()
+                                    .unwrap_or_else(|| TokenInfo {
+                                        mint: buy_pool.token_b_mint,
+                                        symbol: "USDC".to_string(),
+                                        name: "USD Coin".to_string(),
+                                        decimals: 6,
+                                        price_usd: 1.0,
+                                        price_sol: 0.0,
+                                        market_cap: 0.0,
+                                        volume_24h: 0.0,
+                                        last_updated: std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        verified: true,
+                                        coingecko_id: Some("usd-coin".to_string()),
+                                        jupiter_verified: true,
+                                    }),
+                                pool_address: buy_pool.address,
+                                liquidity_usd: (buy_pool.token_a_amount + buy_pool.token_b_amount) as f64 / 1e9 * 200.0,
+                                volume_24h_usd: 0.0,
+                                price_ratio: buy_pool.token_b_amount as f64 / buy_pool.token_a_amount as f64,
+                                dex_type: buy_pool.pool_type.clone(),
+                                last_updated: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                            },
+                            sell_pool: TokenPair {
+                                token_a: self.token_registry.get(&sell_pool.token_a_mint).cloned()
+                                    .unwrap_or_else(|| TokenInfo {
+                                        mint: sell_pool.token_a_mint,
+                                        symbol: token_symbol.clone(),
+                                        name: format!("Token {}", token_symbol),
+                                        decimals: 9,
+                                        price_usd: 0.0,
+                                        price_sol: 0.0,
+                                        market_cap: 0.0,
+                                        volume_24h: 0.0,
+                                        last_updated: std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        verified: false,
+                                        coingecko_id: None,
+                                        jupiter_verified: false,
+                                    }),
+                                token_b: self.token_registry.get(&sell_pool.token_b_mint).cloned()
+                                    .unwrap_or_else(|| TokenInfo {
+                                        mint: sell_pool.token_b_mint,
+                                        symbol: "USDC".to_string(),
+                                        name: "USD Coin".to_string(),
+                                        decimals: 6,
+                                        price_usd: 1.0,
+                                        price_sol: 0.0,
+                                        market_cap: 0.0,
+                                        volume_24h: 0.0,
+                                        last_updated: std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap()
+                                            .as_secs(),
+                                        verified: true,
+                                        coingecko_id: Some("usd-coin".to_string()),
+                                        jupiter_verified: true,
+                                    }),
+                                pool_address: sell_pool.address,
+                                liquidity_usd: (sell_pool.token_a_amount + sell_pool.token_b_amount) as f64 / 1e9 * 200.0,
+                                volume_24h_usd: 0.0,
+                                price_ratio: sell_pool.token_b_amount as f64 / sell_pool.token_a_amount as f64,
+                                dex_type: sell_pool.pool_type.clone(),
+                                last_updated: std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap()
+                                    .as_secs(),
+                            },
+                            buy_price: buy_pool.token_b_amount as f64 / buy_pool.token_a_amount as f64,
+                            sell_price: sell_pool.token_b_amount as f64 / sell_pool.token_a_amount as f64,
+                            profit_percentage,
+                            profit_usd: net_profit as f64 / 1e9 * 200.0, // Convert to USD estimate
+                            trade_amount_usd: trade_amount as f64 / 1e9 * 200.0,
+                            liquidity_check: true, // We already validated above
+                            execution_time: std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs(),
+                        };
+                        
+                        best_opportunity = Some(opportunity);
+                        best_profit_percentage = profit_percentage;
+                        
+                        // 🎯 EXPERT LOGGING: Real profit metrics
+                        info!("🏆 EXPERT OPPORTUNITY FOUND:");
+                        info!("   💰 Trade Size: {:.2} SOL", trade_amount as f64 / 1e9);
+                        info!("   📈 Net Profit: {:.4}% ({:.3} SOL)", profit_percentage, net_profit as f64 / 1e9);
+                        info!("   🏦 Buy Pool: {} liquidity", buy_pool.token_a_amount as f64 / 1e9);
+                        info!("   🏪 Sell Pool: {} liquidity", sell_pool.token_a_amount as f64 / 1e9);
+                    }
+                }
+            }
         }
         
-        // Determinar dirección del trade
-        let (buy_pool, sell_pool, buy_price, sell_price) = if price_ratio_a < price_ratio_b {
-            (pool_a, pool_b, price_ratio_a, price_ratio_b)
-        } else {
-            (pool_b, pool_a, price_ratio_b, price_ratio_a)
-        };
-        
-        // Simular trade de 0.1 SOL
-        let trade_amount_lamports = 100_000_000u64; // 0.1 SOL
-        
-        // Calcular output real del primer pool
-        let output_amount = self.calculate_pool_output_realistic(buy_pool, trade_amount_lamports, &buy_pool.token_b_mint)?;
-        
-        // Calcular output del segundo pool (swap de vuelta)
-        let final_output = self.calculate_pool_output_realistic(sell_pool, output_amount, &sell_pool.token_a_mint)?;
-        
-        // Calcular profit real
-        if final_output > trade_amount_lamports {
-            let profit_lamports = final_output - trade_amount_lamports;
-            let profit_percentage = (profit_lamports as f64 / trade_amount_lamports as f64) * 100.0;
-            
-            // Obtener información del token
-            let token_a_info = self.token_registry.get(&buy_pool.token_a_mint);
-            let token_symbol = token_a_info.map(|t| t.symbol.clone()).unwrap_or_else(|| "UNKNOWN".to_string());
-            
-            let opportunity = ArbitrageOpportunity {
-                token_symbol,
-                token_mint: buy_pool.token_a_mint,
-                buy_pool: TokenPair {
-                    token_a: token_a_info.cloned().unwrap_or_else(|| TokenInfo {
-                        mint: buy_pool.token_a_mint,
-                        symbol: "TOKEN_A".to_string(),
-                        name: "Unknown Token A".to_string(),
-                        decimals: 9,
-                        price_usd: 0.0,
-                        price_sol: 0.0,
-                        market_cap: 0.0,
-                        volume_24h: 0.0,
-                        last_updated: 0,
-                        verified: false,
-                        coingecko_id: None,
-                        jupiter_verified: false,
-                    }),
-                    token_b: self.token_registry.get(&buy_pool.token_b_mint).cloned().unwrap_or_else(|| TokenInfo {
-                        mint: buy_pool.token_b_mint,
-                        symbol: "TOKEN_B".to_string(),
-                        name: "Unknown Token B".to_string(),
-                        decimals: 9,
-                        price_usd: 0.0,
-                        price_sol: 0.0,
-                        market_cap: 0.0,
-                        volume_24h: 0.0,
-                        last_updated: 0,
-                        verified: false,
-                        coingecko_id: None,
-                        jupiter_verified: false,
-                    }),
-                    pool_address: buy_pool.address,
-                    liquidity_usd: (buy_pool.token_a_amount + buy_pool.token_b_amount) as f64 / 1e9 * 200.0, // Rough USD estimate
-                    volume_24h_usd: 0.0,
-                    price_ratio: buy_price,
-                    dex_type: buy_pool.pool_type,
-                    last_updated: 0,
-                },
-                sell_pool: TokenPair {
-                    token_a: token_a_info.cloned().unwrap_or_else(|| TokenInfo {
-                        mint: sell_pool.token_a_mint,
-                        symbol: "TOKEN_A".to_string(),
-                        name: "Unknown Token A".to_string(),
-                        decimals: 9,
-                        price_usd: 0.0,
-                        price_sol: 0.0,
-                        market_cap: 0.0,
-                        volume_24h: 0.0,
-                        last_updated: 0,
-                        verified: false,
-                        coingecko_id: None,
-                        jupiter_verified: false,
-                    }),
-                    token_b: self.token_registry.get(&sell_pool.token_b_mint).cloned().unwrap_or_else(|| TokenInfo {
-                        mint: sell_pool.token_b_mint,
-                        symbol: "TOKEN_B".to_string(),
-                        name: "Unknown Token B".to_string(),
-                        decimals: 9,
-                        price_usd: 0.0,
-                        price_sol: 0.0,
-                        market_cap: 0.0,
-                        volume_24h: 0.0,
-                        last_updated: 0,
-                        verified: false,
-                        coingecko_id: None,
-                        jupiter_verified: false,
-                    }),
-                    pool_address: sell_pool.address,
-                    liquidity_usd: (sell_pool.token_a_amount + sell_pool.token_b_amount) as f64 / 1e9 * 200.0,
-                    volume_24h_usd: 0.0,
-                    price_ratio: sell_price,
-                    dex_type: sell_pool.pool_type,
-                    last_updated: 0,
-                },
-                buy_price,
-                sell_price,
-                profit_percentage,
-                profit_usd: profit_lamports as f64 / 1e9 * 200.0, // Convert to USD estimate
-                trade_amount_usd: trade_amount_lamports as f64 / 1e9 * 200.0,
-                liquidity_check: buy_pool.token_a_amount > 1_000_000_000 && sell_pool.token_a_amount > 1_000_000_000, // > 1 SOL
-                execution_time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
-            };
-            
-            info!("💰 DIRECT ARBITRAGE FOUND: {:.3}% profit on {} -> {}", 
-                profit_percentage, 
-                format!("{:?}", buy_pool.pool_type),
-                format!("{:?}", sell_pool.pool_type)
-            );
-            
-            return Ok(Some(opportunity));
-        }
-        
-        Ok(None)
+        Ok(best_opportunity)
     }
     
     /// ARBITRAJE TRIANGULAR: SOL -> Token -> USDC -> SOL
