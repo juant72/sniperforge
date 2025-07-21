@@ -37,6 +37,10 @@ name = "arbiter_clean"
 path = "arbiter_clean.rs"
 
 [[bin]]
+name = "arbitrage_mainnet_real"
+path = "arbitrage_mainnet_real.rs"
+
+[[bin]]
 name = "arbiter_dynamic"
 path = "arbiter_dynamic.rs"
 
@@ -578,13 +582,13 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Orca Whirlpool SDK
 orca_whirlpools = { version = "3.1.0", default-features = false }
-base64 = { version = "0.22.1", default-features = false }
+
+# HTTP client for Jupiter API calls and base64 encoding for mainnet
+reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
+base64 = { version = "0.22", default-features = false, features = ["std"] }
 bs58 = { version = "0.5", default-features = false }
 bip39 = { version = "2.0", default-features = false, features = ["std"] }
 hex = { version = "0.4", default-features = false }
-
-# HTTP client ultra-optimizado
-reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
 url = "2.4"
 urlencoding = "2.1"
 

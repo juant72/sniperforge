@@ -275,8 +275,7 @@ mod jupiter_integration {
                 .ok_or_else(|| anyhow!("Missing swapTransaction in response"))?;
             
             // Decode base64 transaction
-            use base64::Engine;
-            let transaction_bytes = base64::engine::general_purpose::STANDARD.decode(transaction_b64)?;
+            let transaction_bytes = base64::decode(transaction_b64)?;
             let transaction: Transaction = bincode::deserialize(&transaction_bytes)?;
             
             Ok(transaction)
@@ -308,7 +307,6 @@ mod transaction_executor {
             let signature = engine.client
                 .send_and_confirm_transaction_with_spinner_and_config(
                     &transaction,
-                    solana_sdk::commitment_config::CommitmentConfig::confirmed(),
                     RpcSendTransactionConfig {
                         skip_preflight: false,
                         preflight_commitment: Some(solana_sdk::commitment_config::CommitmentLevel::Processed),
@@ -329,6 +327,8 @@ use jupiter_integration::*;
 use transaction_executor::*;
 
 // ===== ENTERPRISE ARBITRAGE ENGINE IMPLEMENTATION =====
+// Sistema de nivel institucional con gestión de riesgo militar
+
 impl ProfessionalArbitrageEngine {
     /// ENTERPRISE INITIALIZATION - Military-grade setup with institutional safeguards
     pub async fn new_enterprise_professional(rpc_url: String, wallet_keypair_path: String) -> Result<Self> {
@@ -432,16 +432,14 @@ impl ProfessionalArbitrageEngine {
         Ok(engine)
     }
     
-    /// ACTIVATE REAL TRADING MODE - Mainnet production execution
-    pub async fn enable_real_trading_mainnet(&mut self) -> Result<()> {
+    /// ACTIVATE REAL TRADING MODE - Mainnet production execution (SIMPLIFIED)
+    pub async fn enable_real_trading_mainnet(&mut self, wallet_keypair_path: &str) -> Result<()> {
         info!("🚀 ACTIVATING REAL TRADING MODE - MAINNET PRODUCTION");
         warn!("⚠️  SWITCHING FROM SIMULATION TO REAL MONEY EXECUTION");
         
-        // Load wallet keypair from environment or default path
-        let wallet_path = std::env::var("WALLET_PATH").unwrap_or_else(|_| "mainnet-wallet.json".to_string());
-        
-        let wallet_keypair = read_keypair_file(&wallet_path)
-            .map_err(|e| anyhow!("Failed to load wallet keypair from {}: {}", wallet_path, e))?;
+        // Load wallet keypair
+        let wallet_keypair = read_keypair_file(wallet_keypair_path)
+            .map_err(|e| anyhow!("Failed to load wallet keypair: {}", e))?;
         
         warn!("💰 WALLET: {}", wallet_keypair.pubkey());
         
@@ -535,7 +533,7 @@ impl ProfessionalArbitrageEngine {
         Ok(())
     }
     
-    // ===== ENTERPRISE SUPPORT METHODS =====
+    // ===== ENTERPRISE RISK MANAGEMENT PROTOCOLS =====
     
     fn execute_institutional_risk_checks(&self) -> Result<()> {
         info!("🛡️  EXECUTING INSTITUTIONAL RISK PROTOCOLS");
@@ -583,61 +581,43 @@ impl ProfessionalArbitrageEngine {
     }
     
     async fn execute_enterprise_pool_discovery(&mut self) -> Result<()> {
-        info!("🔍 ENTERPRISE POOL RECONNAISSANCE: Dynamic institutional liquidity discovery");
+        info!("🔍 ENTERPRISE POOL RECONNAISSANCE: Scanning institutional liquidity sources");
         
         self.operational_pools.clear();
         
-        // DYNAMIC POOL DISCOVERY: Query Jupiter API for real active pools
-        info!("📡 QUERYING JUPITER API FOR LIVE POOL DATA");
-        let jupiter_api = JupiterAPI::new();
+        // Military-grade pool selection - highest TVL and proven reliability
+        let institutional_pools = vec![
+            ("58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2", PoolType::Raydium, "SOL", "USDC"),
+            ("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ", PoolType::OrcaWhirlpool, "SOL", "USDC"),
+            ("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", PoolType::Orca, "SOL", "USDC"),
+        ];
         
-        // Get SOL/USDC pools from Jupiter's active routing
-        let sol_mint = "So11111111111111111111111111111111111111112";
-        let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-        
-        // Test amount for pool discovery (1 SOL)
-        let test_amount = 1_000_000_000u64;
-        
-        let discovered_pools = match jupiter_api.get_real_quote(sol_mint, usdc_mint, test_amount).await {
-            Ok(quote) => {
-                info!("✅ JUPITER API RESPONSIVE: Discovered {} route segments", quote.route_plan.len());
-                // Use Jupiter's routing to identify active pools dynamically
-                self.extract_pools_from_jupiter_route(&quote.route_plan).await?
-            },
-            Err(e) => {
-                warn!("⚠️  JUPITER API UNAVAILABLE: Falling back to pool validator discovery - {}", e);
-                // Fallback: Use pool validator to scan known high-TVL pool types
-                self.discover_pools_via_validator().await?
-            }
-        };
-        
-        for discovered_pool in discovered_pools {
-            info!("🎯 VALIDATING DISCOVERED POOL: {:?}", discovered_pool.pool_type);
-            match self.pool_validator.validate_real_pool_comprehensive(
-                &discovered_pool.address, 
-                discovered_pool.pool_type.clone(), 
-                &discovered_pool.token_a_symbol, 
-                &discovered_pool.token_b_symbol
-            ).await {
-                Ok(pool_data) => {
-                    info!("✅ INSTITUTIONAL POOL VALIDATED: {:?}", discovered_pool.pool_type);
-                    info!("   💎 ENTERPRISE TVL: ${:.0}", pool_data.tvl_usd);
-                    info!("   🎖️  MILITARY STATUS: Cleared for operations");
-                    
-                    let performance = PoolPerformanceData {
-                        total_volume: 0.0,
-                        average_spread: (pool_data.fee_rate as f64 / 100.0),
-                        success_rate: 1.0,
-                        last_profitable_trade: None,
-                        volatility_score: 0.0,
-                    };
-                    
-                    self.pool_performance.insert(discovered_pool.address, performance);
-                    self.operational_pools.insert(discovered_pool.address, pool_data);
-                }
-                Err(e) => {
-                    warn!("⚠️  INSTITUTIONAL POOL REJECTED: {}", discovered_pool.address);
-                    warn!("   🚨 MILITARY ALERT: Pool failed enterprise validation - {}", e);
+        for (address_str, dex_type, token_a, token_b) in institutional_pools {
+            if let Ok(pool_address) = Pubkey::from_str(address_str) {
+                info!("🎯 SCANNING INSTITUTIONAL POOL: {:?} - {}", dex_type, address_str);
+                match self.pool_validator.validate_real_pool_comprehensive(
+                    &pool_address, dex_type.clone(), token_a, token_b
+                ).await {
+                    Ok(pool_data) => {
+                        info!("✅ INSTITUTIONAL POOL VALIDATED: {:?}", dex_type);
+                        info!("   💎 ENTERPRISE TVL: ${:.0}", pool_data.tvl_usd);
+                        info!("   🎖️  MILITARY STATUS: Cleared for operations");
+                        
+                        let performance = PoolPerformanceData {
+                            total_volume: 0.0,
+                            average_spread: (pool_data.fee_rate as f64 / 100.0),
+                            success_rate: 1.0,
+                            last_profitable_trade: None,
+                            volatility_score: 0.0,
+                        };
+                        
+                        self.pool_performance.insert(pool_address, performance);
+                        self.operational_pools.insert(pool_address, pool_data);
+                    }
+                    Err(e) => {
+                        warn!("⚠️  INSTITUTIONAL POOL REJECTED: {}", address_str);
+                        warn!("   🚨 MILITARY ALERT: Pool failed enterprise validation - {}", e);
+                    }
                 }
             }
         }
@@ -652,41 +632,7 @@ impl ProfessionalArbitrageEngine {
         Ok(())
     }
     
-    /// EXTRACT POOLS FROM JUPITER ROUTING DATA
-    async fn extract_pools_from_jupiter_route(&self, route_plan: &[String]) -> Result<Vec<DiscoveredPool>> {
-        info!("🔍 EXTRACTING POOL DATA FROM JUPITER ROUTING");
-        
-        // For now, return empty vec - Jupiter API routing doesn't expose pool addresses directly
-        // This would require additional Jupiter route parsing logic
-        warn!("⚠️  JUPITER ROUTE EXTRACTION NOT IMPLEMENTED - Using validator fallback");
-        self.discover_pools_via_validator().await
-    }
-    
-    /// DISCOVER POOLS VIA VALIDATOR SCANNING
-    async fn discover_pools_via_validator(&self) -> Result<Vec<DiscoveredPool>> {
-        info!("🔍 SCANNING FOR HIGH-TVL POOLS VIA VALIDATOR");
-        
-        // This would scan popular program IDs for pools
-        // For now, return empty to trigger error handling
-        warn!("⚠️  DYNAMIC POOL DISCOVERY NOT FULLY IMPLEMENTED");
-        warn!("🔧 SYSTEM WILL USE FALLBACK TO KNOWN STABLE POOLS");
-        
-        // Temporary fallback with verified mainnet pools (these are real, active pools)
-        Ok(vec![
-            DiscoveredPool {
-                address: Pubkey::from_str("58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2")?,
-                pool_type: PoolType::Raydium,
-                token_a_symbol: "SOL".to_string(),
-                token_b_symbol: "USDC".to_string(),
-            },
-            DiscoveredPool {
-                address: Pubkey::from_str("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ")?,
-                pool_type: PoolType::OrcaWhirlpool,
-                token_a_symbol: "SOL".to_string(),
-                token_b_symbol: "USDC".to_string(),
-            },
-        ])
-    }
+    // ===== ENTERPRISE OPPORTUNITY ANALYSIS =====
     
     async fn discover_institutional_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
         info!("🧮 ENTERPRISE OPPORTUNITY ANALYSIS: Military-grade market scanning");
@@ -865,6 +811,49 @@ impl ProfessionalArbitrageEngine {
             }
         }
     }
+
+    
+    async fn calculate_enterprise_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
+        let intermediate_token = if pool_a.token_a_mint == pool_b.token_a_mint || pool_a.token_a_mint == pool_b.token_b_mint {
+            pool_a.token_a_mint
+        } else if pool_a.token_b_mint == pool_b.token_a_mint || pool_a.token_b_mint == pool_b.token_b_mint {
+            pool_a.token_b_mint
+        } else {
+            return Ok(None);
+        };
+        
+        let current_balance = self.get_wallet_balance().await?;
+            warn!("⚠️  THIS WILL USE REAL MONEY - PROCEED WITH CAUTION");
+            
+            print!("Type 'CONFIRM' to proceed with real trading: ");
+            io::stdout().flush().unwrap();
+            
+            let mut confirm = String::new();
+            io::stdin().read_line(&mut confirm).unwrap();
+            
+            if confirm.trim() == "CONFIRM" {
+                match engine.enable_real_trading_mainnet(wallet_path).await {
+                    Ok(()) => {
+                        info!("🎯 REAL TRADING MODE ACTIVATED");
+                        match engine.run_enterprise_arbitrage().await {
+                            Ok(()) => info!("✅ Real trading session completed"),
+                            Err(e) => warn!("⚠️  Real trading ended: {}", e),
+                        }
+                    },
+                    Err(e) => error!("❌ Failed to activate real trading: {}", e),
+                }
+            } else {
+                info!("� Real trading cancelled for safety");
+            }
+        },
+        "C" | _ => {
+            info!("👋 Exiting arbitrage system");
+        }
+    }
+    
+    info!("🏁 Session completed");
+    Ok(())
+}
     
     async fn calculate_enterprise_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
         let intermediate_token = if pool_a.token_a_mint == pool_b.token_a_mint || pool_a.token_a_mint == pool_b.token_b_mint {
@@ -885,17 +874,16 @@ impl ProfessionalArbitrageEngine {
             return Ok(None);
         }
         
-        // Try Jupiter API first for real market data
+        // Try Jupiter API first
         let jupiter_api = JupiterAPI::new();
         
-        // Use actual token mints instead of hardcoded strings
         let (input_mint_a, output_mint_a) = if pool_a.token_a_mint == intermediate_token {
-            (pool_a.token_b_mint.to_string(), pool_a.token_a_mint.to_string())
+            ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "So11111111111111111111111111111111111111112")
         } else {
-            (pool_a.token_a_mint.to_string(), pool_a.token_b_mint.to_string())
+            ("So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
         };
         
-        let quote_a = match jupiter_api.get_real_quote(&input_mint_a, &output_mint_a, optimal_amount).await {
+        let quote_a = match jupiter_api.get_real_quote(input_mint_a, output_mint_a, optimal_amount).await {
             Ok(quote) => quote,
             Err(_) => {
                 // Fallback to AMM calculation
@@ -915,12 +903,12 @@ impl ProfessionalArbitrageEngine {
         };
         
         let (input_mint_b, output_mint_b) = if pool_b.token_a_mint == intermediate_token {
-            (pool_b.token_a_mint.to_string(), pool_b.token_b_mint.to_string())
+            ("So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
         } else {
-            (pool_b.token_b_mint.to_string(), pool_b.token_a_mint.to_string())
+            ("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "So11111111111111111111111111111111111111112")
         };
         
-        let quote_b = match jupiter_api.get_real_quote(&input_mint_b, &output_mint_b, quote_a.out_amount).await {
+        let quote_b = match jupiter_api.get_real_quote(input_mint_b, output_mint_b, quote_a.out_amount).await {
             Ok(quote) => quote,
             Err(_) => {
                 let (pool_b_in, pool_b_out) = if pool_b.token_a_mint == intermediate_token {
@@ -966,8 +954,8 @@ impl ProfessionalArbitrageEngine {
             pool_a: pool_a.clone(),
             pool_b: pool_b.clone(),
             intermediate_token,
-            token_in: pool_a.token_a_mint,
-            token_out: pool_b.token_b_mint,
+            token_in: pool_a.token_a_mint, // Assuming we start with token A
+            token_out: pool_b.token_b_mint, // And end with token B
             amount_in: optimal_amount,
             expected_amount_out: final_amount,
             profit_lamports: net_profit as i64,
@@ -1040,102 +1028,40 @@ async fn main() -> Result<()> {
     info!("⚔️  MILITARY-GRADE INITIALIZATION PROTOCOL");
     info!("🎯 INSTITUTIONAL OVERSIGHT: ACTIVE");
     
-    // Configuration
-    let mainnet_rpc = "https://api.mainnet-beta.solana.com";
-    let wallet_path = "mainnet-wallet.json";
+    let rpc_url = std::env::var("SOLANA_RPC_URL")
+        .unwrap_or_else(|_| {
+            info!("🌐 Using default enterprise RPC endpoint");
+            "https://api.mainnet-beta.solana.com".to_string()
+        });
+    let wallet_path = std::env::var("WALLET_PATH")
+        .unwrap_or_else(|_| {
+            info!("🔐 Using default enterprise wallet configuration");
+            "wallet.json".to_string()
+        });
     
-    println!("\n🎯 EXECUTION MODE SELECTION:");
-    println!("A) Simulation mode (SAFE - no real money)");
-    println!("B) Real trading mode (RISK - uses real SOL)");
-    println!("C) Exit");
+    info!("🏗️  ENTERPRISE SYSTEM INITIALIZATION");
+    let mut enterprise_system = ProfessionalArbitrageEngine::new_enterprise_professional(rpc_url, wallet_path).await?;
     
-    print!("Select option (A/B/C): ");
-    use std::io::{self, Write};
-    io::stdout().flush().unwrap();
+    info!("🎖️  ENTERPRISE ARBITRAGE SYSTEM: FULLY OPERATIONAL");
+    info!("⚡ INITIATING CONTINUOUS MILITARY PROTOCOL");
     
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let choice = input.trim().to_uppercase();
-    
-    let mut enterprise_system = ProfessionalArbitrageEngine::new_enterprise_professional(
-        mainnet_rpc.to_string(),
-        wallet_path.to_string(),
-    ).await?;
-    
-    match choice.as_str() {
-        "A" => {
-            info!("🔒 Running in SIMULATION mode");
-            loop {
-                match enterprise_system.run_enterprise_arbitrage().await {
-                    Ok(_) => {
-                        info!("✅ ENTERPRISE ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
-                        info!("🎯 MILITARY STATUS: Mission accomplished with institutional precision");
-                    }
-                    Err(e) => {
-                        error!("❌ ENTERPRISE ARBITRAGE MISSION: UNSUCCESSFUL");
-                        error!("🚨 MILITARY ALERT: Mission failed - {}", e);
-                        error!("🛡️  INSTITUTIONAL PROTOCOLS: Engaging recovery procedures");
-                    }
-                }
-                
-                println!("{}", enterprise_system.get_enterprise_statistics());
-                
-                info!("⏳ ENTERPRISE PROTOCOL: Initiating 30-second tactical pause...");
-                info!("🎖️  MILITARY STATUS: Awaiting next mission authorization");
-                tokio::time::sleep(Duration::from_secs(30)).await;
+    loop {
+        match enterprise_system.run_enterprise_arbitrage().await {
+            Ok(_) => {
+                info!("✅ ENTERPRISE ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
+                info!("🎯 MILITARY STATUS: Mission accomplished with institutional precision");
             }
-        },
-        "B" => {
-            info!("⚠️  ENABLING REAL TRADING MODE");
-            warn!("🚨 THIS WILL USE REAL MONEY - PROCEED WITH CAUTION");
-            
-            print!("Type 'CONFIRM' to proceed with real trading: ");
-            io::stdout().flush().unwrap();
-            
-            let mut confirm = String::new();
-            io::stdin().read_line(&mut confirm).unwrap();
-            
-            if confirm.trim() == "CONFIRM" {
-                match enterprise_system.enable_real_trading_mainnet().await {
-                    Ok(()) => {
-                        info!("🎯 REAL TRADING MODE ACTIVATED");
-                        loop {
-                            match enterprise_system.run_enterprise_arbitrage().await {
-                                Ok(_) => {
-                                    info!("✅ ENTERPRISE ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
-                                    info!("🎯 MILITARY STATUS: Mission accomplished with institutional precision");
-                                }
-                                Err(e) => {
-                                    error!("❌ ENTERPRISE ARBITRAGE MISSION: UNSUCCESSFUL");
-                                    error!("🚨 MILITARY ALERT: Mission failed - {}", e);
-                                    error!("🛡️  INSTITUTIONAL PROTOCOLS: Engaging recovery procedures");
-                                }
-                            }
-                            
-                            println!("{}", enterprise_system.get_enterprise_statistics());
-                            
-                            info!("⏳ ENTERPRISE PROTOCOL: Initiating 30-second tactical pause...");
-                            info!("🎖️  MILITARY STATUS: Awaiting next mission authorization");
-                            tokio::time::sleep(Duration::from_secs(30)).await;
-                        }
-                    },
-                    Err(e) => {
-                        error!("❌ Failed to activate real trading: {}", e);
-                        info!("🛡️  Falling back to simulation mode for safety");
-                        enterprise_system.run_enterprise_arbitrage().await?;
-                    }
-                }
-            } else {
-                info!("🔒 Real trading cancelled for safety");
-                info!("🎭 Running in simulation mode instead");
-                enterprise_system.run_enterprise_arbitrage().await?;
+            Err(e) => {
+                error!("❌ ENTERPRISE ARBITRAGE MISSION: UNSUCCESSFUL");
+                error!("🚨 MILITARY ALERT: Mission failed - {}", e);
+                error!("🛡️  INSTITUTIONAL PROTOCOLS: Engaging recovery procedures");
             }
-        },
-        "C" | _ => {
-            info!("👋 Exiting arbitrage system");
-            return Ok(());
         }
+        
+        println!("{}", enterprise_system.get_enterprise_statistics());
+        
+        info!("⏳ ENTERPRISE PROTOCOL: Initiating 30-second tactical pause...");
+        info!("🎖️  MILITARY STATUS: Awaiting next mission authorization");
+        tokio::time::sleep(Duration::from_secs(30)).await;
     }
-    
-    Ok(())
 }

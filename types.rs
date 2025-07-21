@@ -49,6 +49,15 @@ pub struct PoolData {
     pub last_updated: SystemTime,
 }
 
+// ===== DISCOVERED POOL STRUCTURE =====
+#[derive(Debug, Clone)]
+pub struct DiscoveredPool {
+    pub address: Pubkey,
+    pub pool_type: PoolType,
+    pub token_a_symbol: String,
+    pub token_b_symbol: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct RealPoolData {
     pub token_a_reserve: u64,
@@ -83,9 +92,12 @@ pub struct DirectOpportunity {
     pub pool_a: PoolData,
     pub pool_b: PoolData,
     pub intermediate_token: Pubkey,
+    pub token_in: Pubkey,
+    pub token_out: Pubkey,
     pub amount_in: u64,
     pub expected_amount_out: u64,
     pub profit_lamports: i64,
+    pub profit_percentage: f64,
     pub fees_lamports: u64,
     pub route_type: String,
 }
@@ -148,6 +160,13 @@ pub struct AdaptiveConfig {
     pub latency_compensation: f64,
 }
 
+// ===== EXECUTION MODE ENUM =====
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExecutionMode {
+    Simulation,
+    RealTrading,
+}
+
 // ===== MAIN ENGINE STRUCTURE =====
 pub struct ProfessionalArbitrageEngine {
     // Core infrastructure
@@ -184,4 +203,9 @@ pub struct ProfessionalArbitrageEngine {
     pub successful_trades: AtomicU64,
     pub total_profit_lamports: AtomicU64,
     pub risk_events: AtomicU64,
+    
+    // NEW: Real execution components (simplified)
+    pub execution_mode: ExecutionMode,
+    pub wallet_keypair: Option<solana_sdk::signature::Keypair>,
+    pub real_executor: Option<()>, // Placeholder - functionality is in internal modules
 }
