@@ -20,6 +20,12 @@ use solana_sdk::{
 use spl_associated_token_account::{get_associated_token_address, instruction::create_associated_token_account};
 use futures_util::future::join_all;
 
+// 🚀 EXPERT MODULE INTEGRATIONS - Local imports
+mod expert_speed_engine;
+mod expert_price_feeds;
+use expert_speed_engine::{ExpertSpeedEngine, FastOpportunity};
+use expert_price_feeds::{ExpertPriceFeedManager, RealTimePrice};
+
 // ===== MILITARY ARBITRAGE SYSTEM V3.0 =====
 // 
 // 🚫 STRICT RULE: NO FAKE DATA ALLOWED - ONLY REAL BLOCKCHAIN DATA
@@ -399,7 +405,7 @@ struct DexTier {
     success_rate: f64,
 }
 
-struct MilitaryArbitrageSystem {
+pub struct MilitaryArbitrageSystem {
     client: RpcClient,
     keypair: Keypair,
     wallet_address: Pubkey,
@@ -419,6 +425,10 @@ struct MilitaryArbitrageSystem {
     pool_cache: HashMap<String, (PoolData, Instant)>, // Pool address -> (data, last_update)
     performance_metrics: PerformanceTracker,
     adaptive_config: AdaptiveConfig,
+    
+    // 🚀 EXPERT MODULE INTEGRATIONS
+    expert_speed_engine: ExpertSpeedEngine,
+    expert_price_feeds: ExpertPriceFeedManager,
 }
 
 // ===== MILITARY-GRADE STRATEGIC ENHANCEMENTS =====
@@ -504,7 +514,7 @@ struct PoolInfo {
 }
 
 impl MilitaryArbitrageSystem {
-    async fn new() -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         // Load wallet
         let wallet_path = "mainnet_wallet.json";
         let json_str = std::fs::read_to_string(wallet_path)?;
@@ -568,10 +578,19 @@ impl MilitaryArbitrageSystem {
                     DexTier { dex_type: "OrcaWhirlpool".to_string(), priority: 3, success_rate: 0.0 },
                 ],
             },
+            
+            // 🚀 EXPERT MODULE INITIALIZATION
+            expert_speed_engine: ExpertSpeedEngine::new_expert().await?,
+            expert_price_feeds: ExpertPriceFeedManager::new_expert().await?,
         };
 
         // MILITARY RECONNAISSANCE: Initialize token registry with real data
         system.initialize_token_registry().await?;
+        
+        // 🚀 EXPERT SYSTEM INITIALIZATION
+        // Start real-time price feeds for <400ms data refresh
+        system.expert_price_feeds.start_all_feeds().await?;
+        info!("✅ EXPERT: Real-time price feeds established");
         
         // MILITARY RECONNAISSANCE: Test all pool candidates
         system.discover_operational_pools().await?;
@@ -961,6 +980,126 @@ impl MilitaryArbitrageSystem {
             
             cycle += 1;
             sleep(Duration::from_millis(MILITARY_PRICE_WATCH_INTERVAL)).await;
+        }
+    }
+
+    // 🚀 EXPERT ULTRA-FAST ARBITRAGE EXECUTION
+    pub async fn run_expert_arbitrage(&mut self) -> Result<()> {
+        println!();
+        println!("╔═══════════════════════════════════════════════════════════════════════════════╗");
+        println!("║                    🚀 EXPERT ULTRA-FAST ARBITRAGE MODE 🚀                   ║");
+        println!("║                  Target: <200ms execution • 25x speed boost                  ║");
+        println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
+        
+        let initial_balance = self.get_wallet_balance().await?;
+        println!();
+        println!("┌─────────────────────────────────────────────────────────────────────────────┐");
+        println!("│                           🚀 EXPERT SYSTEM STATUS                          │");
+        println!("├─────────────────────────────────────────────────────────────────────────────┤");
+        println!("│  Speed Engine:      ✅ ACTIVE (Target <200ms execution)                   │");
+        println!("│  Price Feeds:       ✅ REAL-TIME (<400ms refresh)                         │");
+        println!("│  Initial Balance:   {:.9} SOL                                              │", initial_balance);
+        println!("│  Expert Profit Req: {:.3}% ({} BPS)                                        │", 
+                 EXPERT_MINIMUM_PROFIT_BPS as f64 / 100.0, EXPERT_MINIMUM_PROFIT_BPS);
+        println!("│  Parallel Pools:    {} pools simultaneously                               │", 
+                 self.expert_speed_engine.get_parallel_limit().await);
+        println!("└─────────────────────────────────────────────────────────────────────────────┘");
+
+        let mut cycle = 1;
+        let mut total_profit = 0.0;
+        let mut total_fast_opportunities = 0;
+        let mut ultra_fast_executions = 0;
+
+        loop {
+            println!();
+            println!("╔═══════════════════════════════════════════════════════════════════════════════╗");
+            println!("║              ⚡ EXPERT SPEED CYCLE {} - ULTRA-FAST SCANNING ⚡              ║", cycle);
+            println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
+            
+            let cycle_start = Instant::now();
+            let balance_before = self.get_wallet_balance().await?;
+            
+            // 🚀 EXPERT ULTRA-FAST OPPORTUNITY SCANNING
+            println!();
+            println!("⚡ EXPERT SCANNING: Using parallel processing for maximum speed...");
+            let fast_opportunities = self.expert_speed_engine
+                .scan_fast_opportunities(self.monitoring_pools.clone())
+                .await?;
+
+            total_fast_opportunities += fast_opportunities.len();
+            
+            if !fast_opportunities.is_empty() {
+                println!("┌─────────────────────────────────────────────────────────────────────────────┐");
+                println!("│                        ⚡ EXPERT OPPORTUNITIES FOUND ⚡                    │");
+                println!("├─────────────────────────────────────────────────────────────────────────────┤");
+                
+                for (i, opportunity) in fast_opportunities.iter().enumerate().take(3) {
+                    println!("│  #{} | Profit: {:.6} SOL | Speed: {}ms | Confidence: {:.1}%        │", 
+                             i + 1, 
+                             opportunity.expected_profit_sol,
+                             opportunity.execution_time_ms,
+                             opportunity.confidence_score * 100.0);
+                }
+                
+                if fast_opportunities.len() > 3 {
+                    println!("│  ... and {} more opportunities detected                                    │", 
+                             fast_opportunities.len() - 3);
+                }
+                println!("└─────────────────────────────────────────────────────────────────────────────┘");
+
+                // 🔥 EXECUTE BEST OPPORTUNITY WITH EXPERT SPEED
+                let best_opportunity = &fast_opportunities[0];
+                
+                println!();
+                println!("🔥 EXECUTING EXPERT ARBITRAGE:");
+                println!("   Target Profit: {:.6} SOL", best_opportunity.expected_profit_sol);
+                println!("   Execution Time: {}ms", best_opportunity.execution_time_ms);
+                println!("   Route: {} → {}", best_opportunity.pool_a_type, best_opportunity.pool_b_type);
+                
+                let execution_result = self.expert_speed_engine
+                    .execute_opportunity_fast(best_opportunity, &self.keypair)
+                    .await;
+
+                match execution_result {
+                    Ok(profit) => {
+                        ultra_fast_executions += 1;
+                        total_profit += profit;
+                        println!("✅ EXPERT SUCCESS: Profit {:.6} SOL in {}ms", 
+                                profit, best_opportunity.execution_time_ms);
+                    }
+                    Err(e) => {
+                        println!("❌ EXPERT EXECUTION FAILED: {}", e);
+                    }
+                }
+            } else {
+                println!("⏳ No profitable opportunities detected in this ultra-fast scan");
+            }
+
+            // 📊 EXPERT PERFORMANCE METRICS
+            let cycle_duration = cycle_start.elapsed().as_millis();
+            let speed_metrics = self.expert_speed_engine.get_performance_metrics().await;
+            let feed_metrics = self.expert_price_feeds.get_performance_metrics().await;
+            
+            println!();
+            println!("┌─────────────────────────────────────────────────────────────────────────────┐");
+            println!("│                           📊 EXPERT PERFORMANCE                            │");
+            println!("├─────────────────────────────────────────────────────────────────────────────┤");
+            println!("│  Cycle Time:        {}ms (Target: <200ms)                                  │", cycle_duration);
+            println!("│  Speed Score:       {:.1}/10.0                                             │", speed_metrics.speed_score);
+            println!("│  Price Freshness:   {:.1}% (Target: >90%)                                 │", feed_metrics.data_freshness_score * 100.0);
+            println!("│  Fast Opportunities: {:<3}                                                 │", total_fast_opportunities);
+            println!("│  Ultra Executions:  {:<3}                                                 │", ultra_fast_executions);
+            println!("│  Session Profit:    {:.9} SOL                                              │", total_profit);
+            println!("│  Success Rate:      {:.1}%                                                 │", 
+                     if total_fast_opportunities > 0 { 
+                         (ultra_fast_executions as f64 / total_fast_opportunities as f64) * 100.0 
+                     } else { 0.0 });
+            println!("└─────────────────────────────────────────────────────────────────────────────┘");
+
+            cycle += 1;
+            
+            // 🚀 Expert ultra-fast cycle - shorter sleep for maximum opportunity capture
+            sleep(Duration::from_millis(150)).await; // 150ms cycles for expert speed
         }
     }
 

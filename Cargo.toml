@@ -153,6 +153,18 @@ name = "test_arbitrage_devnet"
 path = "test_arbitrage_devnet.rs"
 
 [[bin]]
+name = "run_expert_arbitrage"
+path = "run_expert_arbitrage_demo.rs"
+
+[[bin]]
+name = "run_real_expert_arbitrage"
+path = "run_real_expert_arbitrage.rs"
+
+[[bin]]
+name = "run_aggressive_real_arbitrage"
+path = "run_aggressive_real_arbitrage.rs"
+
+[[bin]]
 name = "test_arbitrage_devnet_simple"
 path = "test_arbitrage_devnet_simple.rs"
 
