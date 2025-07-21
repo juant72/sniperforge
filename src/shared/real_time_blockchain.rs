@@ -1,27 +1,24 @@
 // Phase 5A: Real-time Solana Blockchain Integration
 // Implements live blockchain connectivity for cache-free trading
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::str::FromStr;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::{RwLock, Mutex};
-use tracing::{warn, error};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use solana_client::client_error::ClientError;
 use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcTransactionConfig};
-use solana_transaction_status::UiTransactionEncoding;
-use solana_client::client_error::ClientError;
 use solana_sdk::{
-    account::Account,
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::Signature,
+    account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
 };
-use serde::{Deserialize, Serialize};
-use anyhow::{Result, anyhow};
+use solana_transaction_status::UiTransactionEncoding;
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::{Mutex, RwLock};
+use tracing::{error, warn};
 
 use crate::config::Config;
-use crate::shared::cache_free_trading::{CacheFreeTradeEngine, CacheFreeConfig};
+use crate::shared::cache_free_trading::{CacheFreeConfig, CacheFreeTradeEngine};
 
 /// Real-time blockchain price data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,7 +136,8 @@ impl RealTimeBlockchainEngine {
             balance_cache: Arc::new(RwLock::new(HashMap::new())),
             transaction_tracker: Arc::new(RwLock::new(HashMap::new())),
             is_running: Arc::new(Mutex::new(false)),
-            performance_metrics: Arc::new(RwLock::new(RealTimePerformanceMetrics::default())),        }
+            performance_metrics: Arc::new(RwLock::new(RealTimePerformanceMetrics::default())),
+        }
     }
 
     /// Start real-time blockchain monitoring
@@ -147,11 +145,12 @@ impl RealTimeBlockchainEngine {
         let mut is_running = self.is_running.lock().await;
         if *is_running {
             return Err(anyhow!("Real-time monitoring is already running"));
-        }        *is_running = true;
+        }
+        *is_running = true;
         drop(is_running);
 
         println!("🚀 Starting real-time blockchain monitoring...");
-        
+
         // Start price monitoring task
         if self.config.enable_real_time_validation {
             let engine_clone = Arc::clone(&self);
@@ -170,7 +169,8 @@ impl RealTimeBlockchainEngine {
 
         println!("✅ Real-time blockchain monitoring started successfully");
         Ok(())
-    }    /// Stop real-time blockchain monitoring
+    }
+    /// Stop real-time blockchain monitoring
     pub async fn stop_monitoring(&self) -> Result<()> {
         let mut is_running = self.is_running.lock().await;
         *is_running = false;
@@ -185,9 +185,8 @@ impl RealTimeBlockchainEngine {
         // First check cache
         let price_cache = self.price_cache.read().await;
         if let Some(cached_price) = price_cache.get(token_mint) {
-            let age_ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)?
-                .as_millis() as u64 - cached_price.timestamp_ms;
+            let age_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64
+                - cached_price.timestamp_ms;
 
             // Use cached price if it's fresh (within update interval)
             if age_ms < self.config.price_update_interval_ms {
@@ -198,7 +197,7 @@ impl RealTimeBlockchainEngine {
 
         // Fetch fresh price from RPC
         let fresh_price = self.fetch_fresh_price(token_mint).await?;
-          // Update cache
+        // Update cache
         let mut price_cache = self.price_cache.write().await;
         price_cache.insert(token_mint.to_string(), fresh_price.clone());
         drop(price_cache);
@@ -207,23 +206,28 @@ impl RealTimeBlockchainEngine {
         let latency_ms = start_time.elapsed().as_millis() as f64;
         self.update_price_metrics(latency_ms, true).await;
 
-        println!("🎯 Real-time price for {}: ${:.6} ({}ms)", 
-               token_mint, fresh_price.price_usd, latency_ms);
+        println!(
+            "🎯 Real-time price for {}: ${:.6} ({}ms)",
+            token_mint, fresh_price.price_usd, latency_ms
+        );
 
         Ok(fresh_price)
     }
 
     /// Get real-time balance for a wallet
-    pub async fn get_real_time_balance(&self, wallet_address: &str, token_mint: &str) -> Result<RealTimeBalance> {
+    pub async fn get_real_time_balance(
+        &self,
+        wallet_address: &str,
+        token_mint: &str,
+    ) -> Result<RealTimeBalance> {
         let start_time = Instant::now();
         let cache_key = format!("{}:{}", wallet_address, token_mint);
 
         // Check cache first
         let balance_cache = self.balance_cache.read().await;
         if let Some(cached_balance) = balance_cache.get(&cache_key) {
-            let age_ms = SystemTime::now()
-                .duration_since(UNIX_EPOCH)?
-                .as_millis() as u64 - cached_balance.timestamp_ms;
+            let age_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64
+                - cached_balance.timestamp_ms;
 
             if age_ms < self.config.balance_check_interval_ms {
                 return Ok(cached_balance.clone());
@@ -270,15 +274,14 @@ impl RealTimeBlockchainEngine {
         self.update_transaction_metrics(latency_ms, true).await;
 
         Ok(tx_status)
-    }    /// Private method to fetch fresh price data
+    }
+    /// Private method to fetch fresh price data
     async fn fetch_fresh_price(&self, token_mint: &str) -> Result<RealTimePriceData> {
         // REAL price fetching from Jupiter API
         use crate::shared::jupiter::JupiterClient;
         use crate::shared::jupiter::JupiterConfig;
-        
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_millis() as u64;
+
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
 
         // Get current slot
         let slot = self.rpc_client.get_slot()?;
@@ -286,12 +289,15 @@ impl RealTimeBlockchainEngine {
         // Create Jupiter client for REAL price fetching
         let jupiter_config = JupiterConfig::mainnet();
         let jupiter_client = JupiterClient::new(&jupiter_config).await?;
-        
+
         // Get REAL price from Jupiter API
         let price_usd = match jupiter_client.get_price(token_mint).await? {
             Some(price) => price,
             None => {
-                return Err(anyhow!("Failed to get real price for token: {}", token_mint));
+                return Err(anyhow!(
+                    "Failed to get real price for token: {}",
+                    token_mint
+                ));
             }
         };
 
@@ -308,11 +314,13 @@ impl RealTimeBlockchainEngine {
     }
 
     /// Private method to fetch fresh balance data
-    async fn fetch_fresh_balance(&self, wallet_address: &str, token_mint: &str) -> Result<RealTimeBalance> {
+    async fn fetch_fresh_balance(
+        &self,
+        wallet_address: &str,
+        token_mint: &str,
+    ) -> Result<RealTimeBalance> {
         let wallet_pubkey = wallet_address.parse::<Pubkey>()?;
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_millis() as u64;
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
 
         // Get current slot
         let slot = self.rpc_client.get_slot()?;
@@ -332,20 +340,20 @@ impl RealTimeBlockchainEngine {
                 timestamp_ms: current_time,
                 slot,
             });
-        }        // For SPL tokens, get real token account balance
+        } // For SPL tokens, get real token account balance
         use solana_sdk::program_pack::Pack;
         use spl_token::state::Account as TokenAccount;
-        
+
         // First try to find associated token account
         let wallet_pubkey = Pubkey::from_str(wallet_address)?;
         let token_mint_pubkey = Pubkey::from_str(token_mint)?;
-        
+
         // Get associated token account address
         let associated_token_account = spl_associated_token_account::get_associated_token_address(
             &wallet_pubkey,
             &token_mint_pubkey,
         );
-        
+
         // Try to get the token account info
         match self.rpc_client.get_account(&associated_token_account) {
             Ok(account_info) => {
@@ -357,7 +365,7 @@ impl RealTimeBlockchainEngine {
                             let decimals = 6; // Default, should be fetched from mint info
                             let balance_tokens = balance as f64 / 10_f64.powi(decimals as i32);
                             let price_data = self.get_real_time_price(token_mint).await?;
-                            
+
                             return Ok(RealTimeBalance {
                                 wallet_address: wallet_address.to_string(),
                                 token_mint: token_mint.to_string(),
@@ -367,18 +375,18 @@ impl RealTimeBlockchainEngine {
                                 timestamp_ms: current_time,
                                 slot,
                             });
-                        },
+                        }
                         Err(e) => {
                             warn!("Failed to parse token account: {}", e);
                         }
                     }
                 }
-            },
+            }
             Err(e) => {
                 warn!("Token account not found or error: {}", e);
             }
         }
-        
+
         // If no token account found, return zero balance
         Ok(RealTimeBalance {
             wallet_address: wallet_address.to_string(),
@@ -394,24 +402,31 @@ impl RealTimeBlockchainEngine {
     /// Private method to fetch transaction status
     async fn fetch_transaction_status(&self, signature: &str) -> Result<RealTimeTransaction> {
         let sig = signature.parse::<Signature>()?;
-        let current_time = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_millis() as u64;
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64;
 
         // Get transaction status from RPC
         match self.rpc_client.get_signature_status(&sig)? {
             Some(status) => {
                 let tx_status = if status.is_ok() {
-                    TransactionStatus::Confirmed                } else {
+                    TransactionStatus::Confirmed
+                } else {
                     TransactionStatus::Failed
-                };                // Try to get more details
-                let (slot, fee, error) = match self.rpc_client.get_transaction(&sig, UiTransactionEncoding::Json) {
+                }; // Try to get more details
+                let (slot, fee, error) = match self
+                    .rpc_client
+                    .get_transaction(&sig, UiTransactionEncoding::Json)
+                {
                     Ok(tx) => (
                         Some(tx.slot),
                         tx.transaction.meta.as_ref().map(|m| m.fee),
-                        tx.transaction.meta.as_ref().and_then(|m| m.err.as_ref().map(|e| format!("{:?}", e)))                    ),
+                        tx.transaction
+                            .meta
+                            .as_ref()
+                            .and_then(|m| m.err.as_ref().map(|e| format!("{:?}", e))),
+                    ),
                     Err(_) => (None, None, None),
-                };                Ok(RealTimeTransaction {
+                };
+                Ok(RealTimeTransaction {
                     signature: signature.to_string(),
                     status: tx_status,
                     slot,
@@ -421,17 +436,15 @@ impl RealTimeBlockchainEngine {
                     error,
                 })
             }
-            None => {
-                Ok(RealTimeTransaction {
-                    signature: signature.to_string(),
-                    status: TransactionStatus::Pending,
-                    slot: None,
-                    confirmation_status: "pending".to_string(),
-                    timestamp_ms: current_time,
-                    fee_lamports: None,
-                    error: None,
-                })
-            }
+            None => Ok(RealTimeTransaction {
+                signature: signature.to_string(),
+                status: TransactionStatus::Pending,
+                slot: None,
+                confirmation_status: "pending".to_string(),
+                timestamp_ms: current_time,
+                fee_lamports: None,
+                error: None,
+            }),
         }
     }
 
@@ -440,7 +453,10 @@ impl RealTimeBlockchainEngine {
         let interval = Duration::from_millis(self.config.price_update_interval_ms);
         let mut ticker = tokio::time::interval(interval);
 
-        println!("📊 Starting price monitoring task ({}ms interval)", self.config.price_update_interval_ms);
+        println!(
+            "📊 Starting price monitoring task ({}ms interval)",
+            self.config.price_update_interval_ms
+        );
 
         loop {
             ticker.tick().await;
@@ -452,7 +468,7 @@ impl RealTimeBlockchainEngine {
 
             // Update prices for common tokens
             let common_tokens = vec![
-                "So11111111111111111111111111111111111111112", // SOL
+                "So11111111111111111111111111111111111111112",  // SOL
                 "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
             ];
 
@@ -471,19 +487,19 @@ impl RealTimeBlockchainEngine {
     /// Start WebSocket monitoring background task
     async fn start_websocket_monitoring(&self) -> Result<()> {
         println!("🌐 Starting WebSocket monitoring task");
-        
+
         // WebSocket implementation would go here
         // For now, we'll just log that it's started
-        
+
         let is_running = self.is_running.clone();
         loop {
             tokio::time::sleep(Duration::from_secs(10)).await;
-            
+
             let running = *is_running.lock().await;
             if !running {
                 break;
             }
-            
+
             println!("🌐 WebSocket monitoring active");
         }
 
@@ -495,48 +511,54 @@ impl RealTimeBlockchainEngine {
     async fn update_price_metrics(&self, latency_ms: f64, success: bool) {
         let mut metrics = self.performance_metrics.write().await;
         metrics.total_price_updates += 1;
-        
+
         if success {
             // Update average latency (running average)
             let total_requests = metrics.total_price_updates as f64;
-            metrics.average_rpc_latency_ms = 
-                (metrics.average_rpc_latency_ms * (total_requests - 1.0) + latency_ms) / total_requests;
+            metrics.average_rpc_latency_ms =
+                (metrics.average_rpc_latency_ms * (total_requests - 1.0) + latency_ms)
+                    / total_requests;
         } else {
             metrics.rpc_error_count += 1;
         }
 
         // Update success rate
         let successful_requests = metrics.total_price_updates - metrics.rpc_error_count;
-        metrics.price_update_success_rate = (successful_requests as f64 / metrics.total_price_updates as f64) * 100.0;
-        
+        metrics.price_update_success_rate =
+            (successful_requests as f64 / metrics.total_price_updates as f64) * 100.0;
+
         metrics.last_update_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis() as u64;
-    }    /// Update balance check metrics
+    }
+    /// Update balance check metrics
     async fn update_balance_metrics(&self, _latency_ms: f64, success: bool) {
         let mut metrics = self.performance_metrics.write().await;
         metrics.total_balance_checks += 1;
-        
+
         if !success {
             metrics.rpc_error_count += 1;
         }
 
         // Update success rate
         let successful_checks = metrics.total_balance_checks - metrics.rpc_error_count;
-        metrics.balance_check_success_rate = (successful_checks as f64 / metrics.total_balance_checks as f64) * 100.0;
-    }    /// Update transaction metrics
+        metrics.balance_check_success_rate =
+            (successful_checks as f64 / metrics.total_balance_checks as f64) * 100.0;
+    }
+    /// Update transaction metrics
     async fn update_transaction_metrics(&self, _latency_ms: f64, success: bool) {
         let mut metrics = self.performance_metrics.write().await;
         metrics.total_transactions_tracked += 1;
-        
+
         if !success {
             metrics.rpc_error_count += 1;
         }
 
         // Update confirmation rate
         let confirmed_transactions = metrics.total_transactions_tracked - metrics.rpc_error_count;
-        metrics.transaction_confirmation_rate = (confirmed_transactions as f64 / metrics.total_transactions_tracked as f64) * 100.0;
+        metrics.transaction_confirmation_rate =
+            (confirmed_transactions as f64 / metrics.total_transactions_tracked as f64) * 100.0;
     }
 
     /// Get performance metrics
@@ -566,11 +588,11 @@ impl LiveTradingIntegration {
     /// Start live trading with real blockchain integration
     pub async fn start_live_trading(&self) -> Result<()> {
         println!("🚀 Starting live trading with real blockchain integration...");
-        
+
         // Start blockchain monitoring
         let engine_clone = Arc::clone(&self.blockchain_engine);
         engine_clone.start_monitoring().await?;
-        
+
         println!("✅ Live trading integration started successfully");
         Ok(())
     }
@@ -584,23 +606,29 @@ impl LiveTradingIntegration {
 
     /// Execute live trade with real-time validation
     pub async fn execute_live_trade(&self, token_mint: &str, amount_usd: f64) -> Result<()> {
-        println!("💰 Executing live trade: {} USD of {}", amount_usd, token_mint);
-        
+        println!(
+            "💰 Executing live trade: {} USD of {}",
+            amount_usd, token_mint
+        );
+
         // Get real-time price
-        let price_data = self.blockchain_engine.get_real_time_price(token_mint).await?;
+        let price_data = self
+            .blockchain_engine
+            .get_real_time_price(token_mint)
+            .await?;
         println!("📊 Real-time price: ${:.6}", price_data.price_usd);
-        
+
         // Validate price freshness
-        let price_age_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)?
-            .as_millis() as u64 - price_data.timestamp_ms;
-            
-        if price_age_ms > 1000 { // 1 second max age
+        let price_age_ms = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis() as u64
+            - price_data.timestamp_ms;
+
+        if price_age_ms > 1000 {
+            // 1 second max age
             return Err(anyhow!("Price data too old: {}ms", price_age_ms));
         }
-        
+
         println!("✅ Price validation passed (age: {}ms)", price_age_ms);
-        
+
         // TODO: Execute the actual trade using real Jupiter integration
         error!("🚫 REAL TRADE EXECUTION NOT YET IMPLEMENTED");
         Err(anyhow::anyhow!("Trade execution not implemented"))
@@ -615,7 +643,7 @@ mod tests {
     async fn test_real_time_blockchain_engine_creation() {
         let config = RealTimeBlockchainConfig::default();
         let engine = RealTimeBlockchainEngine::new(config);
-        
+
         let metrics = engine.get_performance_metrics().await;
         assert_eq!(metrics.total_price_updates, 0);
     }
@@ -624,7 +652,7 @@ mod tests {
     async fn test_price_caching() {
         let config = RealTimeBlockchainConfig::default();
         let engine = RealTimeBlockchainEngine::new(config);
-        
+
         // This test would need a real test environment for proper testing
         // For now, we're just testing the structure
         assert!(engine.price_cache.read().await.is_empty());

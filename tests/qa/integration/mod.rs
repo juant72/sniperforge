@@ -1,7 +1,7 @@
 pub mod arbitrage_bot_tests;
 
-use anyhow::Result;
 use crate::qa::QATestSuite;
+use anyhow::Result;
 
 pub async fn run_all_integration_tests() -> Result<Vec<QATestSuite>> {
     let mut suites = Vec::new();

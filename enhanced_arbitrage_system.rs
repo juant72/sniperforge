@@ -1,21 +1,18 @@
-use anyhow::{Result, anyhow};
-use std::collections::HashMap;
-use std::str::FromStr;
-use tokio::time::{sleep, Duration};
-use tracing::{info, warn, error};
+use anyhow::{anyhow, Result};
+use base64;
+use bincode;
+use reqwest::Client;
+use serde_json::Value;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::Keypair,
-    signer::Signer,
-    pubkey::Pubkey,
+    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer,
     transaction::Transaction,
 };
 use spl_associated_token_account::get_associated_token_address;
-use serde_json::Value;
-use reqwest::Client;
-use base64;
-use bincode;
+use std::collections::HashMap;
+use std::str::FromStr;
+use tokio::time::{sleep, Duration};
+use tracing::{error, info, warn};
 
 // Multiple DEX/Aggregator APIs
 const JUPITER_API_BASE: &str = "https://quote-api.jup.ag/v6";
@@ -127,7 +124,7 @@ impl EnhancedArbitrageSystem {
         // Build token maps
         let mut token_map = HashMap::new();
         let mut mint_map = HashMap::new();
-        
+
         for (mint, symbol) in POPULAR_TOKENS {
             token_map.insert(symbol.to_string(), mint.to_string());
             mint_map.insert(mint.to_string(), symbol.to_string());
@@ -149,7 +146,7 @@ impl EnhancedArbitrageSystem {
 
     async fn run_enhanced_arbitrage(&mut self) -> Result<()> {
         info!("🚀 Starting ENHANCED arbitrage scanning...");
-        
+
         let mut cycle = 0;
         let initial_balance = self.get_wallet_balance().await?;
         info!("💰 Initial balance: {:.9} SOL", initial_balance);
@@ -174,24 +171,37 @@ impl EnhancedArbitrageSystem {
             match self.scan_all_arbitrage_opportunities().await {
                 Ok(opportunities) => {
                     if opportunities.is_empty() {
-                        info!("   💤 No profitable arbitrage found across {} routes", ARBITRAGE_ROUTES.len());
+                        info!(
+                            "   💤 No profitable arbitrage found across {} routes",
+                            ARBITRAGE_ROUTES.len()
+                        );
                     } else {
-                        info!("   🎯 {} ENHANCED arbitrage opportunities found!", opportunities.len());
-                        
+                        info!(
+                            "   🎯 {} ENHANCED arbitrage opportunities found!",
+                            opportunities.len()
+                        );
+
                         // Display top 5 opportunities
                         for (i, opp) in opportunities.iter().take(5).enumerate() {
                             info!("   📊 OPPORTUNITY #{}: {:?}", i + 1, opp.route);
-                            info!("      💰 Profit: {} lamports ({:.4}%) - Size: {:.3} SOL", 
-                                  opp.profit_lamports, opp.profit_percentage, opp.trade_size_sol);
-                            info!("      🏢 Source: {} - Confidence: {:.1}%", 
-                                  opp.dex_source, opp.confidence_score * 100.0);
+                            info!(
+                                "      💰 Profit: {} lamports ({:.4}%) - Size: {:.3} SOL",
+                                opp.profit_lamports, opp.profit_percentage, opp.trade_size_sol
+                            );
+                            info!(
+                                "      🏢 Source: {} - Confidence: {:.1}%",
+                                opp.dex_source,
+                                opp.confidence_score * 100.0
+                            );
                         }
-                        
+
                         // Execute best opportunity if profitable enough
                         let best_opp = &opportunities[0];
                         let min_profit_lamports = 20000; // Higher threshold for enhanced system
-                        
-                        if best_opp.profit_lamports > min_profit_lamports && best_opp.confidence_score > 0.7 {
+
+                        if best_opp.profit_lamports > min_profit_lamports
+                            && best_opp.confidence_score > 0.7
+                        {
                             info!("   🚀 EXECUTING BEST OPPORTUNITY...");
                             // Here would go the execution logic
                             // For now, just simulate
@@ -212,33 +222,39 @@ impl EnhancedArbitrageSystem {
     }
 
     async fn scan_all_arbitrage_opportunities(&mut self) -> Result<Vec<EnhancedOpportunity>> {
-        info!("   🔍 ENHANCED SCANNING: {} routes × {} sizes = {} combinations", 
-              ARBITRAGE_ROUTES.len(), TRADE_SIZES_SOL.len(), 
-              ARBITRAGE_ROUTES.len() * TRADE_SIZES_SOL.len());
-        
+        info!(
+            "   🔍 ENHANCED SCANNING: {} routes × {} sizes = {} combinations",
+            ARBITRAGE_ROUTES.len(),
+            TRADE_SIZES_SOL.len(),
+            ARBITRAGE_ROUTES.len() * TRADE_SIZES_SOL.len()
+        );
+
         let mut all_opportunities = Vec::new();
-        
+
         // Scan each route with each trade size
         for route in ARBITRAGE_ROUTES {
             for &trade_size_sol in TRADE_SIZES_SOL {
                 let trade_size_lamports = (trade_size_sol * 1_000_000_000.0) as u64;
-                
-                if let Some(opp) = self.check_enhanced_route(route, trade_size_lamports, trade_size_sol).await? {
+
+                if let Some(opp) = self
+                    .check_enhanced_route(route, trade_size_lamports, trade_size_sol)
+                    .await?
+                {
                     all_opportunities.push(opp);
                 }
-                
+
                 // Rate limiting
                 sleep(Duration::from_millis(100)).await;
             }
         }
-        
+
         // Sort by profit potential (considering confidence)
         all_opportunities.sort_by(|a, b| {
             let score_a = a.profit_lamports as f64 * a.confidence_score;
             let score_b = b.profit_lamports as f64 * b.confidence_score;
             score_b.partial_cmp(&score_a).unwrap()
         });
-        
+
         Ok(all_opportunities)
     }
 
@@ -248,20 +264,24 @@ impl EnhancedArbitrageSystem {
         amount: u64,
         trade_size_sol: f64,
     ) -> Result<Option<EnhancedOpportunity>> {
-        
         let (input_symbol, intermediate_symbol, output_symbol) = route;
-        
+
         // Convert symbols to mints
         let input_mint = self.token_map.get(*input_symbol)?;
         let intermediate_mint = self.token_map.get(*intermediate_symbol)?;
         let output_mint = self.token_map.get(*output_symbol)?;
-        
+
         // Get quotes from Jupiter
-        if let Some(opp) = self.check_jupiter_arbitrage(
-            input_mint, intermediate_mint, output_mint, amount
-        ).await? {
+        if let Some(opp) = self
+            .check_jupiter_arbitrage(input_mint, intermediate_mint, output_mint, amount)
+            .await?
+        {
             return Ok(Some(EnhancedOpportunity {
-                route: vec![input_symbol.to_string(), intermediate_symbol.to_string(), output_symbol.to_string()],
+                route: vec![
+                    input_symbol.to_string(),
+                    intermediate_symbol.to_string(),
+                    output_symbol.to_string(),
+                ],
                 amounts: vec![amount, 0, 0], // Will be filled by actual quotes
                 profit_lamports: opp.profit_lamports,
                 profit_percentage: opp.profit_percentage,
@@ -270,7 +290,7 @@ impl EnhancedArbitrageSystem {
                 confidence_score: self.calculate_confidence_score(&opp, trade_size_sol),
             }));
         }
-        
+
         Ok(None)
     }
 
@@ -281,41 +301,45 @@ impl EnhancedArbitrageSystem {
         output_mint: &str,
         amount: u64,
     ) -> Result<Option<BasicOpportunity>> {
-        
         // Step 1: Get quote for input -> intermediate
-        let quote1 = self.get_jupiter_quote(input_mint, intermediate_mint, amount).await?;
-        
+        let quote1 = self
+            .get_jupiter_quote(input_mint, intermediate_mint, amount)
+            .await?;
+
         if let Some(quote1_data) = quote1 {
             let intermediate_amount: u64 = quote1_data["outAmount"]
                 .as_str()
                 .unwrap_or("0")
                 .parse()
                 .unwrap_or(0);
-            
+
             if intermediate_amount == 0 {
                 return Ok(None);
             }
-            
+
             // Step 2: Get quote for intermediate -> output
-            let quote2 = self.get_jupiter_quote(intermediate_mint, output_mint, intermediate_amount).await?;
-            
+            let quote2 = self
+                .get_jupiter_quote(intermediate_mint, output_mint, intermediate_amount)
+                .await?;
+
             if let Some(quote2_data) = quote2 {
                 let final_amount: u64 = quote2_data["outAmount"]
                     .as_str()
                     .unwrap_or("0")
                     .parse()
                     .unwrap_or(0);
-                
+
                 if final_amount > amount {
                     let profit_lamports = final_amount - amount;
                     let profit_percentage = (profit_lamports as f64 / amount as f64) * 100.0;
-                    
+
                     // Enhanced fee calculation
-                    let total_fees = self.calculate_enhanced_fees(&quote1_data, &quote2_data, amount);
-                    
+                    let total_fees =
+                        self.calculate_enhanced_fees(&quote1_data, &quote2_data, amount);
+
                     if profit_lamports > total_fees {
                         let net_profit = profit_lamports - total_fees;
-                        
+
                         return Ok(Some(BasicOpportunity {
                             profit_lamports: net_profit,
                             profit_percentage,
@@ -324,58 +348,69 @@ impl EnhancedArbitrageSystem {
                 }
             }
         }
-        
+
         Ok(None)
     }
 
-    fn calculate_confidence_score(&self, opportunity: &BasicOpportunity, trade_size_sol: f64) -> f64 {
+    fn calculate_confidence_score(
+        &self,
+        opportunity: &BasicOpportunity,
+        trade_size_sol: f64,
+    ) -> f64 {
         let mut score = 0.5; // Base score
-        
+
         // Higher confidence for higher profits
         if opportunity.profit_percentage > 1.0 {
             score += 0.3;
         } else if opportunity.profit_percentage > 0.5 {
             score += 0.2;
         }
-        
+
         // Optimal trade sizes get higher confidence
         if trade_size_sol >= 0.01 && trade_size_sol <= 0.1 {
             score += 0.2;
         }
-        
+
         // Jupiter is reliable
         score += 0.1;
-        
+
         score.min(1.0)
     }
 
     fn calculate_enhanced_fees(&self, quote1: &Value, quote2: &Value, amount: u64) -> u64 {
         // More sophisticated fee calculation
         let base_tx_fees = 15000u64; // Higher estimate for complex arbitrage
-        let jupiter_fees = self.calculate_jupiter_fees(quote1) + self.calculate_jupiter_fees(quote2);
+        let jupiter_fees =
+            self.calculate_jupiter_fees(quote1) + self.calculate_jupiter_fees(quote2);
         let priority_fees = std::cmp::max(50000, amount / 1000); // Dynamic priority fees
         let slippage_buffer = amount / 200; // 0.5% slippage buffer
-        
+
         base_tx_fees + jupiter_fees + priority_fees + slippage_buffer
     }
 
     // Reuse existing methods from original system
-    async fn get_jupiter_quote(&mut self, input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
+    async fn get_jupiter_quote(
+        &mut self,
+        input_mint: &str,
+        output_mint: &str,
+        amount: u64,
+    ) -> Result<Option<Value>> {
         // Rate limiting
         let elapsed = self.rate_limiter.elapsed();
-        if elapsed < Duration::from_millis(300) { // Faster for enhanced system
+        if elapsed < Duration::from_millis(300) {
+            // Faster for enhanced system
             let sleep_time = Duration::from_millis(300) - elapsed;
             tokio::time::sleep(sleep_time).await;
         }
         self.rate_limiter = std::time::Instant::now();
-        
+
         let slippage_bps = 100; // 1% slippage for enhanced system
-        
+
         let url = format!(
             "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
             JUPITER_API_BASE, input_mint, output_mint, amount, slippage_bps
         );
-        
+
         match self.http_client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {

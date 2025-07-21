@@ -1,5 +1,8 @@
-use super::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use super::{
+    MarketData, RiskLevel, SignalType, StrategyConfig, StrategyPerformance, StrategySignal,
+    Timeframe, TradeResult, TradingStrategy,
+};
+use crate::shared::pool_detector::{OpportunityType, TradingOpportunity};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -68,23 +71,30 @@ impl MeanReversionStrategy {
         }
     }
 
-    fn calculate_bollinger_bands(&self, prices: &[f64], period: usize, std_dev: f64) -> Option<(f64, f64, f64)> {
+    fn calculate_bollinger_bands(
+        &self,
+        prices: &[f64],
+        period: usize,
+        std_dev: f64,
+    ) -> Option<(f64, f64, f64)> {
         if prices.len() < period {
             return None;
         }
 
         let recent_prices: Vec<f64> = prices.iter().rev().take(period).cloned().collect();
         let mean: f64 = recent_prices.iter().sum::<f64>() / period as f64;
-        
-        let variance: f64 = recent_prices.iter()
+
+        let variance: f64 = recent_prices
+            .iter()
             .map(|price| (price - mean).powi(2))
-            .sum::<f64>() / period as f64;
-        
+            .sum::<f64>()
+            / period as f64;
+
         let std_deviation = variance.sqrt();
-        
+
         let upper_band = mean + (std_dev * std_deviation);
         let lower_band = mean - (std_dev * std_deviation);
-        
+
         Some((lower_band, mean, upper_band))
     }
 
@@ -140,7 +150,8 @@ impl MeanReversionStrategy {
 
         let stoch_k = ((current - lowest) / (highest - lowest)) * 100.0;
         Some(stoch_k)
-    }    fn detect_support_resistance(&self, prices: &[f64], _volume: &[f64]) -> Option<(f64, f64)> {
+    }
+    fn detect_support_resistance(&self, prices: &[f64], _volume: &[f64]) -> Option<(f64, f64)> {
         if prices.len() < 30 {
             return None;
         }
@@ -150,15 +161,15 @@ impl MeanReversionStrategy {
         let mut resistance_levels = Vec::new();
 
         // Find local minima (support) and maxima (resistance)
-        for i in window_size..prices.len()-window_size {
+        for i in window_size..prices.len() - window_size {
             let mut is_local_min = true;
             let mut is_local_max = true;
 
             for j in 1..=window_size {
-                if prices[i] > prices[i-j] || prices[i] > prices[i+j] {
+                if prices[i] > prices[i - j] || prices[i] > prices[i + j] {
                     is_local_min = false;
                 }
-                if prices[i] < prices[i-j] || prices[i] < prices[i+j] {
+                if prices[i] < prices[i - j] || prices[i] < prices[i + j] {
                     is_local_max = false;
                 }
             }
@@ -173,14 +184,16 @@ impl MeanReversionStrategy {
 
         // Find the most relevant support and resistance levels
         let current_price = prices[prices.len() - 1];
-        
-        let support = support_levels.iter()
+
+        let support = support_levels
+            .iter()
             .filter(|&&s| s < current_price)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
             .unwrap_or(current_price * 0.95);
 
-        let resistance = resistance_levels.iter()
+        let resistance = resistance_levels
+            .iter()
             .filter(|&&r| r > current_price)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
@@ -203,7 +216,11 @@ impl MeanReversionStrategy {
 
     fn analyze_mean_reversion_opportunity(&self, market_data: &MarketData) -> Result<f64> {
         let prices: Vec<f64> = market_data.price_history.iter().map(|p| p.close).collect();
-        let volumes: Vec<f64> = market_data.volume_history.iter().map(|v| v.volume).collect();
+        let volumes: Vec<f64> = market_data
+            .volume_history
+            .iter()
+            .map(|v| v.volume)
+            .collect();
 
         if prices.len() < 30 {
             return Ok(0.0);
@@ -214,9 +231,10 @@ impl MeanReversionStrategy {
         // Calculate technical indicators
         let rsi = self.calculate_rsi(&prices, 14).unwrap_or(50.0);
         let stoch = self.calculate_stochastic(&prices, 14).unwrap_or(50.0);
-        
+
         // Bollinger Bands
-        let (lower_band, middle_band, upper_band) = self.calculate_bollinger_bands(&prices, 20, 2.0)
+        let (lower_band, middle_band, upper_band) = self
+            .calculate_bollinger_bands(&prices, 20, 2.0)
             .unwrap_or((current_price * 0.98, current_price, current_price * 1.02));
 
         // Calculate position relative to Bollinger Bands
@@ -228,7 +246,8 @@ impl MeanReversionStrategy {
         };
 
         // Support and Resistance levels
-        let (support, resistance) = self.detect_support_resistance(&prices, &volumes)
+        let (support, resistance) = self
+            .detect_support_resistance(&prices, &volumes)
             .unwrap_or((current_price * 0.95, current_price * 1.05));
 
         // Calculate mean reversion score
@@ -273,7 +292,7 @@ impl MeanReversionStrategy {
         if volumes.len() >= 5 {
             let recent_volume: f64 = volumes.iter().rev().take(5).sum::<f64>() / 5.0;
             let avg_volume: f64 = volumes.iter().sum::<f64>() / volumes.len() as f64;
-            
+
             if recent_volume > avg_volume * 1.3 {
                 reversion_score *= 1.1; // Volume confirmation
             }
@@ -281,7 +300,8 @@ impl MeanReversionStrategy {
 
         // Price velocity (rapid moves are more likely to revert)
         if prices.len() >= 5 {
-            let price_change_5min = (current_price - prices[prices.len() - 5]) / prices[prices.len() - 5];
+            let price_change_5min =
+                (current_price - prices[prices.len() - 5]) / prices[prices.len() - 5];
             if price_change_5min.abs() > 0.03 {
                 reversion_score += 0.1 * price_change_5min.abs(); // Rapid move increases reversion probability
             }
@@ -297,7 +317,12 @@ impl MeanReversionStrategy {
 impl TradingStrategy for MeanReversionStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }
+    fn analyze(
+        &self,
+        _opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Option<StrategySignal>> {
         // Need sufficient price history for mean reversion analysis
         if market_data.price_history.len() < 30 {
             return Ok(None);
@@ -308,12 +333,13 @@ impl TradingStrategy for MeanReversionStrategy {
 
         // Calculate mean reversion opportunity score
         let reversion_score = self.analyze_mean_reversion_opportunity(market_data)?;
-        
+
         // Calculate technical indicators for confirmation
         let rsi = self.calculate_rsi(&prices, 14).unwrap_or(50.0);
         let stoch = self.calculate_stochastic(&prices, 14).unwrap_or(50.0);
-        
-        let (lower_band, middle_band, upper_band) = self.calculate_bollinger_bands(&prices, 20, 2.0)
+
+        let (lower_band, middle_band, upper_band) = self
+            .calculate_bollinger_bands(&prices, 20, 2.0)
             .unwrap_or((current_price * 0.98, current_price, current_price * 1.02));
 
         let bb_position = if upper_band != lower_band {
@@ -333,22 +359,54 @@ impl TradingStrategy for MeanReversionStrategy {
 
         // Calculate confidence based on strength of reversion signals
         let base_confidence = reversion_score.abs();
-        
+
         // Additional confidence factors
         let rsi_factor = match signal_type {
-            SignalType::Buy => if rsi < 25.0 { 0.15 } else if rsi < 35.0 { 0.1 } else { 0.0 },
-            SignalType::Sell => if rsi > 75.0 { 0.15 } else if rsi > 65.0 { 0.1 } else { 0.0 },
+            SignalType::Buy => {
+                if rsi < 25.0 {
+                    0.15
+                } else if rsi < 35.0 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
+            SignalType::Sell => {
+                if rsi > 75.0 {
+                    0.15
+                } else if rsi > 65.0 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         };
 
         let bb_factor = match signal_type {
-            SignalType::Buy => if bb_position < -0.8 { 0.1 } else { 0.0 },
-            SignalType::Sell => if bb_position > 0.8 { 0.1 } else { 0.0 },
+            SignalType::Buy => {
+                if bb_position < -0.8 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
+            SignalType::Sell => {
+                if bb_position > 0.8 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         };
 
-        let liquidity_factor = if market_data.liquidity > 5000.0 { 0.05 } else { 0.0 };
-        
+        let liquidity_factor = if market_data.liquidity > 5000.0 {
+            0.05
+        } else {
+            0.0
+        };
+
         let confidence = (base_confidence + rsi_factor + bb_factor + liquidity_factor).min(1.0);
 
         // Only generate signal if confidence is above threshold
@@ -367,20 +425,33 @@ impl TradingStrategy for MeanReversionStrategy {
 
         // Calculate stop loss and take profit based on Bollinger Bands
         let stop_loss = match signal_type {
-            SignalType::Buy => Some((lower_band * 0.995).min(current_price * (1.0 - self.config.stop_loss_percent / 100.0))),
-            SignalType::Sell => Some((upper_band * 1.005).max(current_price * (1.0 + self.config.stop_loss_percent / 100.0))),
+            SignalType::Buy => Some(
+                (lower_band * 0.995)
+                    .min(current_price * (1.0 - self.config.stop_loss_percent / 100.0)),
+            ),
+            SignalType::Sell => Some(
+                (upper_band * 1.005)
+                    .max(current_price * (1.0 + self.config.stop_loss_percent / 100.0)),
+            ),
             _ => None,
         };
 
         let take_profit = match signal_type {
-            SignalType::Buy => Some(middle_band.min(current_price * (1.0 + self.config.take_profit_percent / 100.0))),
-            SignalType::Sell => Some(middle_band.max(current_price * (1.0 - self.config.take_profit_percent / 100.0))),
+            SignalType::Buy => Some(
+                middle_band.min(current_price * (1.0 + self.config.take_profit_percent / 100.0)),
+            ),
+            SignalType::Sell => Some(
+                middle_band.max(current_price * (1.0 - self.config.take_profit_percent / 100.0)),
+            ),
             _ => None,
         };
 
         // Create metadata with analysis details
         let mut metadata = HashMap::new();
-        metadata.insert("reversion_score".to_string(), format!("{:.4}", reversion_score));
+        metadata.insert(
+            "reversion_score".to_string(),
+            format!("{:.4}", reversion_score),
+        );
         metadata.insert("rsi".to_string(), format!("{:.2}", rsi));
         metadata.insert("stochastic".to_string(), format!("{:.2}", stoch));
         metadata.insert("bb_position".to_string(), format!("{:.3}", bb_position));
@@ -417,8 +488,9 @@ impl TradingStrategy for MeanReversionStrategy {
             if self.performance.average_profit == 0.0 {
                 self.performance.average_profit = trade_result.profit_loss;
             } else {
-                self.performance.average_profit = 
-                    (self.performance.average_profit * (self.performance.winning_trades - 1) as f64 + trade_result.profit_loss) 
+                self.performance.average_profit = (self.performance.average_profit
+                    * (self.performance.winning_trades - 1) as f64
+                    + trade_result.profit_loss)
                     / self.performance.winning_trades as f64;
             }
         } else {
@@ -426,18 +498,21 @@ impl TradingStrategy for MeanReversionStrategy {
             if self.performance.average_loss == 0.0 {
                 self.performance.average_loss = trade_result.profit_loss.abs();
             } else {
-                self.performance.average_loss = 
-                    (self.performance.average_loss * (self.performance.losing_trades - 1) as f64 + trade_result.profit_loss.abs()) 
+                self.performance.average_loss = (self.performance.average_loss
+                    * (self.performance.losing_trades - 1) as f64
+                    + trade_result.profit_loss.abs())
                     / self.performance.losing_trades as f64;
             }
         }
 
-        self.performance.win_rate = self.performance.winning_trades as f64 / self.performance.total_trades as f64;
+        self.performance.win_rate =
+            self.performance.winning_trades as f64 / self.performance.total_trades as f64;
         self.performance.last_updated = chrono::Utc::now();
 
         // Calculate Sharpe ratio (simplified)
         if self.performance.total_trades > 5 {
-            let avg_return = self.performance.total_profit_loss / self.performance.total_trades as f64;
+            let avg_return =
+                self.performance.total_profit_loss / self.performance.total_trades as f64;
             let risk_free_rate = 0.02;
             self.performance.sharpe_ratio = (avg_return - risk_free_rate) / (avg_return * 0.1);
         }

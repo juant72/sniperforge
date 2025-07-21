@@ -35,20 +35,35 @@ async fn main() -> Result<()> {
 
 async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
     info!("🧪 Probando tokens conocidos de DevNet:");
-    
+
     let known_tokens = vec![
-        ("So11111111111111111111111111111111111111112", "SOL (Native)"),
-        ("So11111111111111111111111111111111111111112", "wSOL (Wrapped)"),
+        (
+            "So11111111111111111111111111111111111111112",
+            "SOL (Native)",
+        ),
+        (
+            "So11111111111111111111111111111111111111112",
+            "wSOL (Wrapped)",
+        ),
         // DevNet USDC equivalent (if exists)
-        ("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", "USDC (DevNet)"),
+        (
+            "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+            "USDC (DevNet)",
+        ),
         // DevNet test tokens that might exist
-        ("GugU1tP7doLeTw9hQP51xRJyS8Da1fWxuiy2rVrnMD2m", "Test Token 1"),
-        ("34XMHa3JUPv46ftU4dGHvemZ9oKVjnciRePYMcX3rjEF", "Test Token 2"),
+        (
+            "GugU1tP7doLeTw9hQP51xRJyS8Da1fWxuiy2rVrnMD2m",
+            "Test Token 1",
+        ),
+        (
+            "34XMHa3JUPv46ftU4dGHvemZ9oKVjnciRePYMcX3rjEF",
+            "Test Token 2",
+        ),
     ];
-    
+
     for (address, name) in known_tokens {
         info!("  🔍 Probando {}: {}", name, address);
-        
+
         // Try to get a quote for 0.001 SOL -> this token
         let quote_request = QuoteRequest {
             inputMint: "So11111111111111111111111111111111111111112".to_string(),
@@ -56,7 +71,7 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
             amount: 1_000_000, // 0.001 SOL (9 decimals)
             slippageBps: 100,  // 1% slippage
         };
-        
+
         match client.get_quote(quote_request).await {
             Ok(quote) => {
                 info!("    ✅ Token disponible para trading");
@@ -67,10 +82,10 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
             }
         }
     }
-    
+
     // Test SOL wrapping/unwrapping specifically
     info!("\n🔄 Probando SOL wrapping/unwrapping específicamente:");
-    
+
     // SOL -> wSOL (should work)
     let wrap_request = QuoteRequest {
         inputMint: "So11111111111111111111111111111111111111112".to_string(),
@@ -78,7 +93,7 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
         amount: 1_000_000, // 0.001 SOL
         slippageBps: 0,    // No slippage for wrapping
     };
-    
+
     match client.get_quote(wrap_request).await {
         Ok(quote) => {
             info!("  ✅ SOL wrapping disponible");
@@ -88,7 +103,7 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
             info!("  ❌ SOL wrapping falló: {}", e);
         }
     }
-    
+
     info!("\n💡 === RECOMENDACIONES PARA ARBITRAJE DEVNET ===");
     info!("1. Usar SOL wrapping/unwrapping como test básico");
     info!("2. Buscar pools de Orca DevNet que tengan liquidez real");
@@ -98,6 +113,6 @@ async fn test_known_devnet_tokens(client: &JupiterClient) -> Result<()> {
     info!("1. Si SOL wrapping funciona, usar como base para arbitraje");
     info!("2. Integrar con Orca para encontrar pools con liquidez");
     info!("3. Crear test de arbitraje real con tokens que funcionan");
-    
+
     Ok(())
 }

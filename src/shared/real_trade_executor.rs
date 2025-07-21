@@ -1,26 +1,26 @@
 //! Real Trade Execution Engine - 100% Real Data Only
-//! 
+//!
 //! Handles actual trade execution using Jupiter API with real blockchain data
 //! No simulation, mock, virtual, or paper trading - only real trades
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
-use tracing::{info, warn, error, debug};
 use tokio::time::timeout;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::config::Config;
 use crate::shared::jupiter::{Jupiter, QuoteResponse};
-use crate::shared::rpc_pool::RpcConnectionPool;
 use crate::shared::real_data_manager::RealDataManager;
+use crate::shared::rpc_pool::RpcConnectionPool;
 
 /// Real trading execution modes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RealTradingMode {
-    DevNet,     // Real trades on Solana DevNet
-    MainNet,    // Real trades on Solana MainNet
+    DevNet,  // Real trades on Solana DevNet
+    MainNet, // Real trades on Solana MainNet
 }
 
 /// Real trade request using actual tokens and amounts
@@ -69,8 +69,11 @@ impl RealTradeExecutor {
         trading_mode: RealTradingMode,
         config: Config,
     ) -> Self {
-        info!("🚀 Real Trade Executor initialized - Mode: {:?}", trading_mode);
-        
+        info!(
+            "🚀 Real Trade Executor initialized - Mode: {:?}",
+            trading_mode
+        );
+
         Self {
             jupiter,
             rpc_pool,
@@ -81,12 +84,19 @@ impl RealTradeExecutor {
     }
 
     /// Execute real trade on blockchain
-    pub async fn execute_real_trade(&mut self, request: RealTradeRequest) -> Result<RealTradeResult> {
+    pub async fn execute_real_trade(
+        &mut self,
+        request: RealTradeRequest,
+    ) -> Result<RealTradeResult> {
         let start_time = SystemTime::now();
         let timestamp = start_time.duration_since(UNIX_EPOCH)?.as_secs();
-        
-        info!("🎯 Executing REAL trade: {} -> {} (Amount: {:.6})", 
-              &request.input_mint[..8], &request.output_mint[..8], request.amount);
+
+        info!(
+            "🎯 Executing REAL trade: {} -> {} (Amount: {:.6})",
+            &request.input_mint[..8],
+            &request.output_mint[..8],
+            request.amount
+        );
 
         // Validate wallet balance using real blockchain data
         self.validate_real_balance(&request).await?;
@@ -108,7 +118,11 @@ impl RealTradeExecutor {
             block_height: result.block_height,
             input_amount: request.amount,
             output_amount: result.output_amount,
-            actual_price: if result.output_amount > 0.0 { result.output_amount / request.amount } else { 0.0 },
+            actual_price: if result.output_amount > 0.0 {
+                result.output_amount / request.amount
+            } else {
+                0.0
+            },
             actual_slippage: result.actual_slippage,
             network_fee: result.network_fee,
             execution_time_ms: execution_time,
@@ -117,12 +131,23 @@ impl RealTradeExecutor {
         };
 
         if trade_result.success {
-            info!("✅ REAL trade completed successfully: {} in {:.2}s", 
-                  trade_result.transaction_signature.as_ref().unwrap_or(&"unknown".to_string())[..16].to_string(),
-                  execution_time as f64 / 1000.0);
+            info!(
+                "✅ REAL trade completed successfully: {} in {:.2}s",
+                trade_result
+                    .transaction_signature
+                    .as_ref()
+                    .unwrap_or(&"unknown".to_string())[..16]
+                    .to_string(),
+                execution_time as f64 / 1000.0
+            );
         } else {
-            error!("❌ REAL trade failed: {}", 
-                   trade_result.error_message.as_ref().unwrap_or(&"Unknown error".to_string()));
+            error!(
+                "❌ REAL trade failed: {}",
+                trade_result
+                    .error_message
+                    .as_ref()
+                    .unwrap_or(&"Unknown error".to_string())
+            );
         }
 
         Ok(trade_result)
@@ -130,37 +155,49 @@ impl RealTradeExecutor {
 
     /// Validate wallet has sufficient real balance
     async fn validate_real_balance(&mut self, request: &RealTradeRequest) -> Result<()> {
-        debug!("💰 Validating REAL wallet balance for: {}", &request.wallet_name);
+        debug!(
+            "💰 Validating REAL wallet balance for: {}",
+            &request.wallet_name
+        );
 
         // Get wallet address from config
         // Note: Wallet access should be through wallet_manager, not config directly
         // For now, return an error indicating wallet manager integration needed
-        return Err(anyhow!("Wallet '{}' access requires wallet manager integration", request.wallet_name));
+        return Err(anyhow!(
+            "Wallet '{}' access requires wallet manager integration",
+            request.wallet_name
+        ));
     }
 
     /// Get real quote from Jupiter API
     async fn get_real_quote(&self, request: &RealTradeRequest) -> Result<QuoteResponse> {
         debug!("📊 Getting REAL quote from Jupiter API");
 
-        let quote_result = timeout(Duration::from_secs(15),
+        let quote_result = timeout(
+            Duration::from_secs(15),
             self.jupiter.get_quote(
                 &request.input_mint,
                 &request.output_mint,
                 request.amount,
                 request.slippage_bps,
-            )
-        ).await;
+            ),
+        )
+        .await;
 
         match quote_result {
             Ok(Ok(quote)) => {
-                info!("✅ Real quote received: {:.6} -> {:.6} (Price Impact: {:.2}%)", 
-                      quote.in_amount(), quote.out_amount(), quote.price_impact_pct() * 100.0);
+                info!(
+                    "✅ Real quote received: {:.6} -> {:.6} (Price Impact: {:.2}%)",
+                    quote.in_amount(),
+                    quote.out_amount(),
+                    quote.price_impact_pct() * 100.0
+                );
                 Ok(quote)
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Jupiter quote error: {}", e);
                 Err(anyhow!("Failed to get real quote: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ Jupiter quote timeout");
                 Err(anyhow!("Quote request timeout"))
@@ -169,14 +206,19 @@ impl RealTradeExecutor {
     }
 
     /// Validate quote safety parameters
-    fn validate_quote_safety(&self, quote: &QuoteResponse, request: &RealTradeRequest) -> Result<()> {
+    fn validate_quote_safety(
+        &self,
+        quote: &QuoteResponse,
+        request: &RealTradeRequest,
+    ) -> Result<()> {
         debug!("🛡️ Validating quote safety parameters");
 
         // Check price impact
         if quote.price_impact_pct() > request.max_price_impact {
             return Err(anyhow!(
-                "Price impact too high: {:.2}% > {:.2}% limit", 
-                quote.price_impact_pct() * 100.0, request.max_price_impact * 100.0
+                "Price impact too high: {:.2}% > {:.2}% limit",
+                quote.price_impact_pct() * 100.0,
+                request.max_price_impact * 100.0
             ));
         }
 
@@ -190,17 +232,26 @@ impl RealTradeExecutor {
             return Err(anyhow!("No valid route found for swap"));
         }
 
-        info!("✅ Quote safety validated - Price Impact: {:.2}%", quote.price_impact_pct() * 100.0);
+        info!(
+            "✅ Quote safety validated - Price Impact: {:.2}%",
+            quote.price_impact_pct() * 100.0
+        );
         Ok(())
     }
 
     /// Execute real swap on blockchain
-    async fn execute_blockchain_swap(&self, quote: &QuoteResponse, request: &RealTradeRequest) -> Result<BlockchainSwapResult> {
+    async fn execute_blockchain_swap(
+        &self,
+        quote: &QuoteResponse,
+        request: &RealTradeRequest,
+    ) -> Result<BlockchainSwapResult> {
         info!("⚡ Executing REAL swap on blockchain");
 
-        let swap_result = timeout(Duration::from_secs(60),
-            self.jupiter.execute_swap(quote, &request.wallet_name)
-        ).await;
+        let swap_result = timeout(
+            Duration::from_secs(60),
+            self.jupiter.execute_swap(quote, &request.wallet_name),
+        )
+        .await;
 
         match swap_result {
             Ok(Ok(result)) => {
@@ -216,9 +267,13 @@ impl RealTradeExecutor {
                     output_amount: result.output_amount,
                     actual_slippage: result.actual_slippage,
                     network_fee: result.fee_amount,
-                    error_message: if result.success { None } else { Some("Swap failed".to_string()) },
+                    error_message: if result.success {
+                        None
+                    } else {
+                        Some("Swap failed".to_string())
+                    },
                 })
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Blockchain swap error: {}", e);
                 Ok(BlockchainSwapResult {
@@ -230,7 +285,7 @@ impl RealTradeExecutor {
                     network_fee: 0.0,
                     error_message: Some(format!("Swap error: {}", e)),
                 })
-            },
+            }
             Err(_) => {
                 error!("❌ Blockchain swap timeout");
                 Ok(BlockchainSwapResult {
@@ -248,24 +303,33 @@ impl RealTradeExecutor {
 
     /// Verify transaction was actually executed on blockchain
     async fn verify_transaction_on_chain(&self, signature: &str) -> Result<()> {
-        debug!("🔍 Verifying transaction on blockchain: {}", &signature[..16]);
+        debug!(
+            "🔍 Verifying transaction on blockchain: {}",
+            &signature[..16]
+        );
 
-        let signature = signature.parse::<Signature>()
+        let signature = signature
+            .parse::<Signature>()
             .map_err(|e| anyhow!("Invalid transaction signature: {}", e))?;
-        
-        let verification_result = timeout(Duration::from_secs(30),
-            self.rpc_pool.get_transaction(&signature)
-        ).await;
+
+        let verification_result = timeout(
+            Duration::from_secs(30),
+            self.rpc_pool.get_transaction(&signature),
+        )
+        .await;
 
         match verification_result {
             Ok(Ok(_transaction)) => {
-                info!("✅ Transaction verified on blockchain: {}", signature.to_string());
+                info!(
+                    "✅ Transaction verified on blockchain: {}",
+                    signature.to_string()
+                );
                 Ok(())
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Transaction verification failed: {}", e);
                 Err(anyhow!("Failed to verify transaction: {}", e))
-            },
+            }
             Err(_) => {
                 warn!("⚠️ Transaction verification timeout (may still be pending)");
                 Ok(()) // Don't fail on verification timeout - transaction may still succeed
@@ -279,7 +343,10 @@ impl RealTradeExecutor {
 
         // Get real portfolio metrics from blockchain
         let wallet_address = "trading"; // Use default trading wallet
-        let metrics = self.real_data_manager.get_real_portfolio_metrics(wallet_address).await?;
+        let metrics = self
+            .real_data_manager
+            .get_real_portfolio_metrics(wallet_address)
+            .await?;
 
         Ok(RealTradingStats {
             total_trades: metrics.total_transactions,

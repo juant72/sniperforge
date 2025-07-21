@@ -3,7 +3,7 @@ use sniperforge::shared::jupiter_client::JupiterClient;
 use sniperforge::shared::jupiter_config::JupiterConfig;
 use sniperforge::shared::jupiter_types::QuoteRequest;
 use sniperforge::shared::orca_client::OrcaClient;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -33,8 +33,11 @@ async fn main() -> Result<()> {
     // Test amount
     let test_amount_lamports = 10_000_000u64; // 0.01 SOL
     let test_amount_sol = test_amount_lamports as f64 / 1_000_000_000.0;
-    
-    info!("💰 Cantidad de prueba: {} lamports ({:.3} SOL)", test_amount_lamports, test_amount_sol);
+
+    info!(
+        "💰 Cantidad de prueba: {} lamports ({:.3} SOL)",
+        test_amount_lamports, test_amount_sol
+    );
 
     // Step 1: Get SOL price from Jupiter (selling SOL for USDC)
     info!("\n📊 === PASO 1: OBTENER PRECIO SOL EN JUPITER ===");
@@ -62,7 +65,10 @@ async fn main() -> Result<()> {
 
     // Step 2: Get SOL price from Orca
     info!("\n📊 === PASO 2: OBTENER PRECIO SOL EN ORCA ===");
-    let orca_sol_price = match orca_client.get_price("So11111111111111111111111111111111111111112").await {
+    let orca_sol_price = match orca_client
+        .get_price("So11111111111111111111111111111111111111112")
+        .await
+    {
         Ok(Some(price)) => {
             info!("✅ Precio SOL en Orca: ${:.2}", price);
             Some(price)
@@ -79,38 +85,46 @@ async fn main() -> Result<()> {
 
     // Step 3: Calculate arbitrage opportunity
     info!("\n🎯 === PASO 3: ANÁLISIS DE ARBITRAJE ===");
-    
+
     match (jupiter_sol_price, orca_sol_price) {
         (Some(jupiter_price), Some(orca_price)) => {
             let spread_percentage = ((jupiter_price - orca_price) / orca_price) * 100.0;
-            
+
             info!("📈 Análisis de Spread:");
             info!("   🟦 Jupiter SOL: ${:.2}", jupiter_price);
             info!("   🟪 Orca SOL:    ${:.2}", orca_price);
             info!("   📊 Spread:      {:.2}%", spread_percentage);
-            
-            if spread_percentage > 1.0 { // Profitable if > 1%
+
+            if spread_percentage > 1.0 {
+                // Profitable if > 1%
                 let profit_per_sol = jupiter_price - orca_price;
                 let profit_for_test_amount = profit_per_sol * test_amount_sol;
                 let profit_lamports = (profit_for_test_amount * 1_000_000_000.0) as u64;
-                
+
                 info!("\n💰 === OPORTUNIDAD DE ARBITRAJE DETECTADA ===");
                 info!("✅ ARBITRAJE RENTABLE:");
                 info!("   🛒 Comprar SOL en Orca:  ${:.2}", orca_price);
                 info!("   💰 Vender SOL en Jupiter: ${:.2}", jupiter_price);
                 info!("   📈 Profit por SOL:       ${:.2}", profit_per_sol);
-                info!("   🎯 Profit para {:.3} SOL: ${:.4}", test_amount_sol, profit_for_test_amount);
+                info!(
+                    "   🎯 Profit para {:.3} SOL: ${:.4}",
+                    test_amount_sol, profit_for_test_amount
+                );
                 info!("   💎 Profit en lamports:   {} lamports", profit_lamports);
-                
+
                 // Calculate potential profits for different amounts
                 info!("\n💹 === PROFITS ESCALADOS ===");
                 let amounts = vec![0.01, 0.1, 0.5, 1.0];
                 for amount in amounts {
                     let profit_scaled = profit_per_sol * amount;
-                    info!("   {:.2} SOL → Profit: ${:.2} ({:.6} SOL)", 
-                          amount, profit_scaled, profit_scaled / jupiter_price);
+                    info!(
+                        "   {:.2} SOL → Profit: ${:.2} ({:.6} SOL)",
+                        amount,
+                        profit_scaled,
+                        profit_scaled / jupiter_price
+                    );
                 }
-                
+
                 info!("\n🚀 === ESTRATEGIA RECOMENDADA ===");
                 if spread_percentage > 10.0 {
                     info!("✅ SPREAD EXCELENTE (>10%): Ejecutar arbitraje agresivo");
@@ -122,13 +136,15 @@ async fn main() -> Result<()> {
                     info!("⚠️ SPREAD PEQUEÑO (1-5%): Ejecutar arbitraje conservador");
                     info!("💡 Estrategia: Usar hasta 10% del balance disponible");
                 }
-                
             } else if spread_percentage < -1.0 {
                 info!("\n🔄 === ARBITRAJE REVERSO DETECTADO ===");
                 info!("📊 Jupiter más barato que Orca:");
                 info!("   🛒 Comprar SOL en Jupiter: ${:.2}", jupiter_price);
                 info!("   💰 Vender SOL en Orca:     ${:.2}", orca_price);
-                info!("   📈 Profit potencial:       ${:.2}", orca_price - jupiter_price);
+                info!(
+                    "   📈 Profit potencial:       ${:.2}",
+                    orca_price - jupiter_price
+                );
             } else {
                 info!("\n😐 === NO HAY ARBITRAJE RENTABLE ===");
                 info!("📊 Spread demasiado pequeño: {:.2}%", spread_percentage);

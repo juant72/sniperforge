@@ -1,8 +1,8 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert};
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
+use crate::qa::{qa_assert, qa_test, QATestResult, QATestSuite};
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::timeout;
@@ -29,15 +29,24 @@ impl ArbitrageBotStressTests {
         let mut suite = QATestSuite::new("ArbitrageBot Stress Tests".to_string());
 
         // Test 1: Rapid Bot Creation/Destruction
-        let result = qa_test!("Rapid Bot Creation/Destruction", self.test_rapid_creation_destruction());
+        let result = qa_test!(
+            "Rapid Bot Creation/Destruction",
+            self.test_rapid_creation_destruction()
+        );
         suite.add_result(result);
 
         // Test 2: Continuous Market Data Fetching
-        let result = qa_test!("Continuous Market Data Fetching", self.test_continuous_market_data());
+        let result = qa_test!(
+            "Continuous Market Data Fetching",
+            self.test_continuous_market_data()
+        );
         suite.add_result(result);
 
         // Test 3: Multiple Opportunity Detection Cycles
-        let result = qa_test!("Multiple Opportunity Detection Cycles", self.test_multiple_detection_cycles());
+        let result = qa_test!(
+            "Multiple Opportunity Detection Cycles",
+            self.test_multiple_detection_cycles()
+        );
         suite.add_result(result);
 
         // Test 4: Long Running Trading Loop
@@ -49,7 +58,10 @@ impl ArbitrageBotStressTests {
         suite.add_result(result);
 
         // Test 6: Concurrent Bot Operations
-        let result = qa_test!("Concurrent Bot Operations", self.test_concurrent_operations());
+        let result = qa_test!(
+            "Concurrent Bot Operations",
+            self.test_concurrent_operations()
+        );
         suite.add_result(result);
 
         suite
@@ -61,15 +73,19 @@ impl ArbitrageBotStressTests {
         let start_time = Instant::now();
 
         for i in 0..iterations {
-            let wallet_address = self.shared_services.wallet_manager()
-                .get_wallet_address("devnet-trading").await?;
+            let wallet_address = self
+                .shared_services
+                .wallet_manager()
+                .get_wallet_address("devnet-trading")
+                .await?;
 
             let bot = ArbitrageBot::new(
                 wallet_address,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             // Verify bot is functional
             let status = bot.get_status();
@@ -77,7 +93,11 @@ impl ArbitrageBotStressTests {
 
             // Bot will be dropped here (destruction)
             if i % 2 == 0 {
-                details.push(format!("Created and destroyed bot {}/{}", i + 1, iterations));
+                details.push(format!(
+                    "Created and destroyed bot {}/{}",
+                    i + 1,
+                    iterations
+                ));
             }
         }
 
@@ -88,7 +108,10 @@ impl ArbitrageBotStressTests {
         details.push(format!("Total time: {}ms", duration.as_millis()));
         details.push(format!("Average time per bot: {}ms", avg_time));
 
-        qa_assert!(avg_time < 1000, "Average creation time should be < 1 second");
+        qa_assert!(
+            avg_time < 1000,
+            "Average creation time should be < 1 second"
+        );
 
         Ok(details)
     }
@@ -96,15 +119,19 @@ impl ArbitrageBotStressTests {
     async fn test_continuous_market_data(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let iterations = 50;
         let mut successful_fetches = 0;
@@ -117,10 +144,10 @@ impl ArbitrageBotStressTests {
                 Ok(Ok(_market_data)) => {
                     successful_fetches += 1;
                     total_response_time += start.elapsed().as_millis();
-                },
+                }
                 Ok(Err(e)) => {
                     details.push(format!("Fetch {}: Failed - {}", i + 1, e));
-                },
+                }
                 Err(_) => {
                     details.push(format!("Fetch {}: Timeout", i + 1));
                 }
@@ -133,14 +160,22 @@ impl ArbitrageBotStressTests {
         let success_rate = (successful_fetches as f64 / iterations as f64) * 100.0;
         let avg_response_time = if successful_fetches > 0 {
             total_response_time / successful_fetches as u128
-        } else { 0 };
+        } else {
+            0
+        };
 
-        details.push(format!("Successful fetches: {}/{}", successful_fetches, iterations));
+        details.push(format!(
+            "Successful fetches: {}/{}",
+            successful_fetches, iterations
+        ));
         details.push(format!("Success rate: {:.1}%", success_rate));
         details.push(format!("Average response time: {}ms", avg_response_time));
 
         qa_assert!(success_rate > 50.0, "Success rate should be > 50%");
-        qa_assert!(avg_response_time < 2000, "Average response time should be < 2 seconds");
+        qa_assert!(
+            avg_response_time < 2000,
+            "Average response time should be < 2 seconds"
+        );
 
         Ok(details)
     }
@@ -148,15 +183,19 @@ impl ArbitrageBotStressTests {
     async fn test_multiple_detection_cycles(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let cycles = 20;
         let mut total_opportunities = 0;
@@ -165,7 +204,12 @@ impl ArbitrageBotStressTests {
         for i in 0..cycles {
             let start = Instant::now();
 
-            match timeout(Duration::from_secs(10), bot.detect_opportunities_using_strategy()).await {
+            match timeout(
+                Duration::from_secs(10),
+                bot.detect_opportunities_using_strategy(),
+            )
+            .await
+            {
                 Ok(Ok(signals)) => {
                     total_opportunities += signals.len();
                     total_detection_time += start.elapsed().as_millis();
@@ -173,10 +217,10 @@ impl ArbitrageBotStressTests {
                     if i % 5 == 0 {
                         details.push(format!("Cycle {}: {} opportunities", i + 1, signals.len()));
                     }
-                },
+                }
                 Ok(Err(e)) => {
                     details.push(format!("Cycle {}: Detection failed - {}", i + 1, e));
-                },
+                }
                 Err(_) => {
                     details.push(format!("Cycle {}: Detection timeout", i + 1));
                 }
@@ -189,11 +233,20 @@ impl ArbitrageBotStressTests {
         let avg_opportunities = total_opportunities as f64 / cycles as f64;
 
         details.push(format!("Total detection cycles: {}", cycles));
-        details.push(format!("Total opportunities found: {}", total_opportunities));
-        details.push(format!("Average opportunities per cycle: {:.1}", avg_opportunities));
+        details.push(format!(
+            "Total opportunities found: {}",
+            total_opportunities
+        ));
+        details.push(format!(
+            "Average opportunities per cycle: {:.1}",
+            avg_opportunities
+        ));
         details.push(format!("Average detection time: {}ms", avg_detection_time));
 
-        qa_assert!(avg_detection_time < 5000, "Average detection time should be < 5 seconds");
+        qa_assert!(
+            avg_detection_time < 5000,
+            "Average detection time should be < 5 seconds"
+        );
 
         Ok(details)
     }
@@ -201,34 +254,35 @@ impl ArbitrageBotStressTests {
     async fn test_long_running_loop(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let start_time = Instant::now();
         let test_duration = Duration::from_secs(30); // Set to 30 seconds for proper stress testing
 
         // Use timeout instead of select to avoid borrowing issues
-        let result = tokio::time::timeout(
-            test_duration,
-            bot.start_trading()
-        ).await;
+        let result = tokio::time::timeout(test_duration, bot.start_trading()).await;
 
         let actual_duration = start_time.elapsed();
 
         match result {
             Ok(Ok(_)) => {
                 details.push("Trading loop completed normally".to_string());
-            },
+            }
             Ok(Err(e)) => {
                 details.push(format!("Trading loop failed: {}", e));
-            },
+            }
             Err(_) => {
                 // Timeout occurred - stop the bot
                 bot.emergency_stop();
@@ -237,13 +291,25 @@ impl ArbitrageBotStressTests {
         }
         let final_status = bot.get_status();
 
-        details.push(format!("Test duration: {:.1}s", actual_duration.as_secs_f64()));
-        details.push(format!("Opportunities detected: {}", final_status.opportunities_detected));
+        details.push(format!(
+            "Test duration: {:.1}s",
+            actual_duration.as_secs_f64()
+        ));
+        details.push(format!(
+            "Opportunities detected: {}",
+            final_status.opportunities_detected
+        ));
         details.push(format!("Trades executed: {}", final_status.total_trades));
         details.push(format!("Bot uptime: {}s", final_status.uptime_seconds));
 
-        qa_assert!(actual_duration >= Duration::from_secs(25), "Should run for at least 25 seconds");
-        qa_assert!(final_status.emergency_stop, "Emergency stop should be activated");
+        qa_assert!(
+            actual_duration >= Duration::from_secs(25),
+            "Should run for at least 25 seconds"
+        );
+        qa_assert!(
+            final_status.emergency_stop,
+            "Emergency stop should be activated"
+        );
 
         Ok(details)
     }
@@ -256,15 +322,19 @@ impl ArbitrageBotStressTests {
         let num_bots = 5; // Create multiple bots to test memory usage
 
         for i in 0..num_bots {
-            let wallet_address = self.shared_services.wallet_manager()
-                .get_wallet_address("devnet-trading").await?;
+            let wallet_address = self
+                .shared_services
+                .wallet_manager()
+                .get_wallet_address("devnet-trading")
+                .await?;
 
             let bot = ArbitrageBot::new(
                 wallet_address,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             bots.push(bot);
             details.push(format!("Created bot {}/{}", i + 1, num_bots));
@@ -280,7 +350,10 @@ impl ArbitrageBotStressTests {
         }
 
         details.push(format!("Successfully managed {} concurrent bots", num_bots));
-        qa_assert!(bots.len() == num_bots, "All bots should be created successfully");
+        qa_assert!(
+            bots.len() == num_bots,
+            "All bots should be created successfully"
+        );
 
         // Bots will be dropped here, releasing memory
         drop(bots);
@@ -292,15 +365,19 @@ impl ArbitrageBotStressTests {
     async fn test_concurrent_operations(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         // Spawn multiple concurrent operations
         let mut handles = Vec::new();
@@ -308,11 +385,15 @@ impl ArbitrageBotStressTests {
         // Market data fetching tasks
         for i in 0..3 {
             let mut bot_clone = ArbitrageBot::new(
-                self.shared_services.wallet_manager().get_wallet_address("devnet-trading").await?,
+                self.shared_services
+                    .wallet_manager()
+                    .get_wallet_address("devnet-trading")
+                    .await?,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             let handle = tokio::spawn(async move {
                 for j in 0..5 {
@@ -330,16 +411,25 @@ impl ArbitrageBotStressTests {
         // Opportunity detection tasks
         for i in 0..2 {
             let mut bot_clone = ArbitrageBot::new(
-                self.shared_services.wallet_manager().get_wallet_address("devnet-trading").await?,
+                self.shared_services
+                    .wallet_manager()
+                    .get_wallet_address("devnet-trading")
+                    .await?,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             let handle = tokio::spawn(async move {
                 for j in 0..3 {
                     match bot_clone.detect_opportunities_using_strategy().await {
-                        Ok(signals) => info!("Task {} iteration {}: {} opportunities", i, j, signals.len()),
+                        Ok(signals) => info!(
+                            "Task {} iteration {}: {} opportunities",
+                            i,
+                            j,
+                            signals.len()
+                        ),
                         Err(e) => info!("Task {} iteration {}: Detection failed - {}", i, j, e),
                     }
                     tokio::time::sleep(Duration::from_millis(1000)).await;
@@ -358,15 +448,21 @@ impl ArbitrageBotStressTests {
                 Ok(message) => {
                     successful_tasks += 1;
                     details.push(message);
-                },
+                }
                 Err(e) => {
                     details.push(format!("Task failed: {}", e));
                 }
             }
         }
 
-        details.push(format!("Concurrent operations completed: {}/5 successful", successful_tasks));
-        qa_assert!(successful_tasks >= 3, "At least 3 tasks should complete successfully");
+        details.push(format!(
+            "Concurrent operations completed: {}/5 successful",
+            successful_tasks
+        ));
+        qa_assert!(
+            successful_tasks >= 3,
+            "At least 3 tasks should complete successfully"
+        );
 
         Ok(details)
     }

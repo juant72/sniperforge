@@ -1,9 +1,9 @@
 use anyhow::Result;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
-use tokio::sync::RwLock;
 use std::sync::Arc;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
 /// Performance metrics collector for SniperForge Sprint 2 optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -167,7 +167,8 @@ impl PerformanceProfiler {
 
         // Update operation timings
         let mut timings = self.operation_timings.write().await;
-        timings.entry(operation_name.to_string())
+        timings
+            .entry(operation_name.to_string())
             .or_insert_with(Vec::new)
             .push(duration);
 
@@ -212,7 +213,7 @@ impl PerformanceProfiler {
             .iter()
             .filter(|m| m.operation_type == operation_name)
             .collect();
-        
+
         let success_count = operation_metrics.iter().filter(|m| m.success).count();
         let success_rate = if operation_metrics.is_empty() {
             0.0
@@ -256,33 +257,51 @@ impl PerformanceProfiler {
             recommendations.push("🔴 HIGH MEMORY USAGE: Consider implementing memory pooling and reducing allocations".to_string());
         }
         if profile.memory_usage.peak_mb > 500.0 {
-            recommendations.push("⚠️ MEMORY SPIKES: Implement streaming processing to reduce peak memory usage".to_string());
+            recommendations.push(
+                "⚠️ MEMORY SPIKES: Implement streaming processing to reduce peak memory usage"
+                    .to_string(),
+            );
         }
 
         // CPU optimization recommendations
         if profile.cpu_usage.avg_percent > 70.0 {
-            recommendations.push("🔴 HIGH CPU USAGE: Consider optimizing hot paths and implementing CPU profiling".to_string());
+            recommendations.push(
+                "🔴 HIGH CPU USAGE: Consider optimizing hot paths and implementing CPU profiling"
+                    .to_string(),
+            );
         }
 
         // Network optimization recommendations
         if profile.network_usage.rpc_latency_ms.avg_ms > 100.0 {
-            recommendations.push("⚠️ HIGH RPC LATENCY: Consider connection pooling and RPC endpoint optimization".to_string());
+            recommendations.push(
+                "⚠️ HIGH RPC LATENCY: Consider connection pooling and RPC endpoint optimization"
+                    .to_string(),
+            );
         }
         if profile.network_usage.websocket_latency_ms.avg_ms > 50.0 {
-            recommendations.push("⚠️ HIGH WEBSOCKET LATENCY: Consider WebSocket connection optimization".to_string());
+            recommendations.push(
+                "⚠️ HIGH WEBSOCKET LATENCY: Consider WebSocket connection optimization".to_string(),
+            );
         }
 
         // Trading performance recommendations
         if profile.trading_performance.signal_to_execution_ms.avg_ms > 200.0 {
-            recommendations.push("🔴 SLOW TRADING EXECUTION: Critical optimization needed for competitive trading".to_string());
+            recommendations.push(
+                "🔴 SLOW TRADING EXECUTION: Critical optimization needed for competitive trading"
+                    .to_string(),
+            );
         }
         if profile.trading_performance.success_rate < 95.0 {
-            recommendations.push("⚠️ LOW SUCCESS RATE: Investigate error handling and retry mechanisms".to_string());
+            recommendations.push(
+                "⚠️ LOW SUCCESS RATE: Investigate error handling and retry mechanisms".to_string(),
+            );
         }
 
         // Performance targets for Sprint 2
         if profile.trading_performance.signal_to_execution_ms.avg_ms > 50.0 {
-            recommendations.push("🎯 SPRINT 2 TARGET: Optimize to <50ms signal-to-execution latency".to_string());
+            recommendations.push(
+                "🎯 SPRINT 2 TARGET: Optimize to <50ms signal-to-execution latency".to_string(),
+            );
         }
 
         if recommendations.is_empty() {
@@ -344,8 +363,14 @@ impl PerformanceProfiler {
             profile.trading_performance.signal_to_execution_ms.p95_ms,
             profile.trading_performance.quote_fetch_ms.avg_ms,
             profile.trading_performance.quote_fetch_ms.p95_ms,
-            profile.trading_performance.transaction_confirmation_ms.avg_ms,
-            profile.trading_performance.transaction_confirmation_ms.p95_ms,
+            profile
+                .trading_performance
+                .transaction_confirmation_ms
+                .avg_ms,
+            profile
+                .trading_performance
+                .transaction_confirmation_ms
+                .p95_ms,
             profile.trading_performance.success_rate,
             profile.trading_performance.trades_per_minute,
         );
@@ -409,7 +434,9 @@ impl PerformanceProfiler {
         Ok(TradingProfile {
             signal_to_execution_ms: self.get_latency_profile("signal_to_execution").await?,
             quote_fetch_ms: self.get_latency_profile("quote_fetch").await?,
-            transaction_confirmation_ms: self.get_latency_profile("transaction_confirmation").await?,
+            transaction_confirmation_ms: self
+                .get_latency_profile("transaction_confirmation")
+                .await?,
             trades_per_minute: 0.3,
             success_rate: 97.8,
             avg_slippage_percent: 0.12,
@@ -455,12 +482,9 @@ impl OperationTimer {
     /// Complete the operation timing with success status
     pub async fn complete(self, success: bool, error_message: Option<String>) -> Result<()> {
         let duration = self.start_time.elapsed();
-        self.profiler.record_operation(
-            &self.operation_name,
-            duration,
-            success,
-            error_message,
-        ).await
+        self.profiler
+            .record_operation(&self.operation_name, duration, success, error_message)
+            .await
     }
 
     /// Complete the operation timing with success (convenience method)
@@ -480,26 +504,29 @@ impl Drop for OperationTimer {
         let duration = self.start_time.elapsed();
         let profiler = self.profiler.clone();
         let operation_name = self.operation_name.clone();
-        
+
         tokio::spawn(async move {
-            let _ = profiler.record_operation(
-                &operation_name,
-                duration,
-                false,
-                Some("Operation timer dropped without completion".to_string()),
-            ).await;
+            let _ = profiler
+                .record_operation(
+                    &operation_name,
+                    duration,
+                    false,
+                    Some("Operation timer dropped without completion".to_string()),
+                )
+                .await;
         });
     }
 }
 
 /// Global performance profiler instance for Sprint 2 optimization
-static PERFORMANCE_PROFILER: tokio::sync::OnceCell<PerformanceProfiler> = tokio::sync::OnceCell::const_new();
+static PERFORMANCE_PROFILER: tokio::sync::OnceCell<PerformanceProfiler> =
+    tokio::sync::OnceCell::const_new();
 
 /// Get the global performance profiler instance
 pub async fn get_performance_profiler() -> &'static PerformanceProfiler {
-    PERFORMANCE_PROFILER.get_or_init(|| async {
-        PerformanceProfiler::new()
-    }).await
+    PERFORMANCE_PROFILER
+        .get_or_init(|| async { PerformanceProfiler::new() })
+        .await
 }
 
 /// Convenience macro for timing operations
@@ -525,13 +552,30 @@ mod tests {
     #[tokio::test]
     async fn test_performance_profiler_basic() {
         let profiler = PerformanceProfiler::new();
-        
-        // Simulate some operations
-        profiler.record_operation("test_operation", Duration::from_millis(50), true, None).await.unwrap();
-        profiler.record_operation("test_operation", Duration::from_millis(75), true, None).await.unwrap();
-        profiler.record_operation("test_operation", Duration::from_millis(60), false, Some("Test error".to_string())).await.unwrap();
 
-        let profile = profiler.get_latency_profile("test_operation").await.unwrap();
+        // Simulate some operations
+        profiler
+            .record_operation("test_operation", Duration::from_millis(50), true, None)
+            .await
+            .unwrap();
+        profiler
+            .record_operation("test_operation", Duration::from_millis(75), true, None)
+            .await
+            .unwrap();
+        profiler
+            .record_operation(
+                "test_operation",
+                Duration::from_millis(60),
+                false,
+                Some("Test error".to_string()),
+            )
+            .await
+            .unwrap();
+
+        let profile = profiler
+            .get_latency_profile("test_operation")
+            .await
+            .unwrap();
         assert_eq!(profile.total_operations, 3);
         assert!(profile.avg_ms > 60.0 && profile.avg_ms < 65.0);
         assert!(profile.success_rate > 65.0 && profile.success_rate < 70.0);
@@ -540,7 +584,7 @@ mod tests {
     #[tokio::test]
     async fn test_operation_timer() {
         let profiler = PerformanceProfiler::new();
-        
+
         {
             let timer = profiler.start_operation("timer_test");
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -555,11 +599,17 @@ mod tests {
     #[tokio::test]
     async fn test_performance_report_generation() {
         let profiler = PerformanceProfiler::new();
-        
+
         // Add some test data
-        profiler.record_operation("quote_fetch", Duration::from_millis(30), true, None).await.unwrap();
-        profiler.record_operation("signal_to_execution", Duration::from_millis(45), true, None).await.unwrap();
-        
+        profiler
+            .record_operation("quote_fetch", Duration::from_millis(30), true, None)
+            .await
+            .unwrap();
+        profiler
+            .record_operation("signal_to_execution", Duration::from_millis(45), true, None)
+            .await
+            .unwrap();
+
         let report = profiler.generate_performance_report().await.unwrap();
         assert!(report.contains("SNIPERFORGE PERFORMANCE PROFILE"));
         assert!(report.contains("SPRINT 2 OPTIMIZATION"));

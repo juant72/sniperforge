@@ -1,5 +1,5 @@
 //! Model Manager Module
-//! 
+//!
 //! Handles ML model loading, saving, versioning, and lifecycle management.
 //! Provides a centralized interface for all ML models in SniperForge.
 
@@ -8,8 +8,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info, warn, error};
 use tokio::fs;
+use tracing::{debug, error, info, warn};
 
 /// Configuration for model management
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -178,8 +178,8 @@ impl ModelManager {
         metadata: ModelMetadata,
     ) -> Result<String> {
         let model_id = format!(
-            "{:?}_{}_{}", 
-            model_type, 
+            "{:?}_{}_{}",
+            model_type,
             metadata.version,
             metadata.created_at.timestamp()
         );
@@ -189,7 +189,7 @@ impl ModelManager {
         // Save model file
         let model_filename = format!("{}.model", model_id);
         let model_path = self.config.models_directory.join(&model_filename);
-        
+
         fs::write(&model_path, &model_data).await?;
 
         // Update metadata with file info
@@ -200,8 +200,11 @@ impl ModelManager {
         updated_metadata.checksum = self.calculate_checksum(&model_data);
 
         // Add to registry
-        self.models.insert(model_id.clone(), updated_metadata.clone());
-        self.model_registry.models.insert(model_id.clone(), updated_metadata);
+        self.models
+            .insert(model_id.clone(), updated_metadata.clone());
+        self.model_registry
+            .models
+            .insert(model_id.clone(), updated_metadata);
         self.model_registry.last_updated = Utc::now();
 
         // Save registry
@@ -223,7 +226,9 @@ impl ModelManager {
             return Ok(());
         }
 
-        let metadata = self.models.get(model_id)
+        let metadata = self
+            .models
+            .get(model_id)
             .ok_or_else(|| anyhow!("Model not found: {}", model_id))?
             .clone();
 
@@ -233,7 +238,10 @@ impl ModelManager {
         // Verify checksum
         let actual_checksum = self.calculate_checksum(&model_data);
         if actual_checksum != metadata.checksum {
-            return Err(anyhow!("Model file corrupted: checksum mismatch for {}", model_id));
+            return Err(anyhow!(
+                "Model file corrupted: checksum mismatch for {}",
+                model_id
+            ));
         }
 
         // Create loaded model instance
@@ -245,7 +253,8 @@ impl ModelManager {
             prediction_count: 0,
         };
 
-        self.loaded_models.insert(model_id.to_string(), loaded_model);
+        self.loaded_models
+            .insert(model_id.to_string(), loaded_model);
 
         // Update last used timestamp
         if let Some(metadata) = self.models.get_mut(model_id) {
@@ -265,8 +274,10 @@ impl ModelManager {
 
         if let Some(mut loaded_model) = self.loaded_models.remove(model_id) {
             loaded_model.is_loaded = false;
-            debug!("Model unloaded: {} (predictions: {})", 
-                   model_id, loaded_model.prediction_count);
+            debug!(
+                "Model unloaded: {} (predictions: {})",
+                model_id, loaded_model.prediction_count
+            );
         }
 
         Ok(())
@@ -278,7 +289,8 @@ impl ModelManager {
             self.load_model(model_id).await?;
         }
 
-        self.loaded_models.get(model_id)
+        self.loaded_models
+            .get(model_id)
             .ok_or_else(|| anyhow!("Failed to load model: {}", model_id))
     }
 
@@ -310,12 +322,12 @@ impl ModelManager {
 
         if let Some(metadata) = self.models.get_mut(model_id) {
             metadata.performance_metrics = metrics;
-            
+
             // Update registry
             if let Some(registry_metadata) = self.model_registry.models.get_mut(model_id) {
                 registry_metadata.performance_metrics = metadata.performance_metrics.clone();
             }
-            
+
             self.save_registry().await?;
             info!("Performance metrics updated for model: {}", model_id);
         } else {
@@ -342,14 +354,14 @@ impl ModelManager {
 
     /// Check if models need retraining
     pub fn models_needing_retrain(&self) -> Vec<String> {
-        let threshold_date = Utc::now() - chrono::Duration::days(
-            self.config.retrain_interval_days as i64
-        );
+        let threshold_date =
+            Utc::now() - chrono::Duration::days(self.config.retrain_interval_days as i64);
 
         self.models
             .iter()
             .filter(|(_, metadata)| {
-                metadata.trained_at
+                metadata
+                    .trained_at
                     .map(|trained| trained < threshold_date)
                     .unwrap_or(true)
             })
@@ -358,14 +370,12 @@ impl ModelManager {
     }
 
     /// Export model for external use
-    pub async fn export_model(
-        &self,
-        model_id: &str,
-        export_path: &Path,
-    ) -> Result<()> {
+    pub async fn export_model(&self, model_id: &str, export_path: &Path) -> Result<()> {
         info!("Exporting model {} to {:?}", model_id, export_path);
 
-        let metadata = self.models.get(model_id)
+        let metadata = self
+            .models
+            .get(model_id)
             .ok_or_else(|| anyhow!("Model not found: {}", model_id))?;
 
         // Copy model file
@@ -396,11 +406,9 @@ impl ModelManager {
         let model_data = fs::read(model_path).await?;
 
         // Register the imported model
-        let model_id = self.register_model(
-            metadata.model_type.clone(),
-            model_data,
-            metadata,
-        ).await?;
+        let model_id = self
+            .register_model(metadata.model_type.clone(), model_data, metadata)
+            .await?;
 
         info!("Model imported successfully: {}", model_id);
         Ok(model_id)
@@ -488,8 +496,11 @@ impl ModelManager {
         } else {
             0.0
         }
-    }    /// Cleanup old model versions
-    async fn cleanup_old_versions(&mut self, model_type: &ModelType) -> Result<()> {        let mut type_models: Vec<_> = self.models
+    }
+    /// Cleanup old model versions
+    async fn cleanup_old_versions(&mut self, model_type: &ModelType) -> Result<()> {
+        let mut type_models: Vec<_> = self
+            .models
             .iter()
             .filter(|(_, metadata)| metadata.model_type == *model_type)
             .map(|(id, metadata)| (id.clone(), metadata.clone()))
@@ -498,14 +509,15 @@ impl ModelManager {
         // Sort by creation date, newest first
         type_models.sort_by(|a, b| b.1.created_at.cmp(&a.1.created_at));
 
-        if type_models.len() > self.config.max_model_versions {            let to_remove: Vec<_> = type_models[self.config.max_model_versions..]
+        if type_models.len() > self.config.max_model_versions {
+            let to_remove: Vec<_> = type_models[self.config.max_model_versions..]
                 .iter()
                 .map(|(id, metadata)| (id.clone(), metadata.clone()))
                 .collect();
-            
+
             for (model_id, metadata) in to_remove {
                 info!("Removing old model version: {}", model_id);
-                
+
                 // Remove file
                 if metadata.file_path.exists() {
                     if let Err(e) = fs::remove_file(&metadata.file_path).await {
@@ -532,12 +544,15 @@ impl ModelManager {
         }
 
         // Find least recently used models to unload
-        let mut models_by_usage: Vec<_> = self.loaded_models
+        let mut models_by_usage: Vec<_> = self
+            .loaded_models
             .iter()
-            .map(|(id, model)| (
-                id.clone(),
-                model.last_prediction.unwrap_or(model.metadata.created_at)
-            ))
+            .map(|(id, model)| {
+                (
+                    id.clone(),
+                    model.last_prediction.unwrap_or(model.metadata.created_at),
+                )
+            })
             .collect();
 
         models_by_usage.sort_by(|a, b| a.1.cmp(&b.1));
@@ -618,7 +633,7 @@ mod tests {
         };
 
         let mut manager = ModelManager::new(config).await.unwrap();
-        
+
         let metadata = ModelMetadata {
             model_id: "test_model".to_string(),
             model_type: ModelType::PatternRecognition,
@@ -649,11 +664,10 @@ mod tests {
         };
 
         let model_data = vec![1, 2, 3, 4, 5]; // Dummy model data
-        let model_id = manager.register_model(
-            ModelType::PatternRecognition,
-            model_data,
-            metadata,
-        ).await.unwrap();
+        let model_id = manager
+            .register_model(ModelType::PatternRecognition, model_data, metadata)
+            .await
+            .unwrap();
 
         assert!(!model_id.is_empty());
         assert!(manager.models.contains_key(&model_id));
@@ -668,7 +682,7 @@ mod tests {
         };
 
         let mut manager = ModelManager::new(config).await.unwrap();
-        
+
         // First register a model
         let metadata = ModelMetadata {
             model_id: "test_model".to_string(),
@@ -700,11 +714,10 @@ mod tests {
         };
 
         let model_data = vec![1, 2, 3, 4, 5];
-        let model_id = manager.register_model(
-            ModelType::PatternRecognition,
-            model_data,
-            metadata,
-        ).await.unwrap();
+        let model_id = manager
+            .register_model(ModelType::PatternRecognition, model_data, metadata)
+            .await
+            .unwrap();
 
         // Now test loading
         manager.load_model(&model_id).await.unwrap();

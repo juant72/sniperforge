@@ -2,7 +2,7 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// Basic configuration struct for alternative API manager
 #[derive(Debug, Clone)]
@@ -194,12 +194,14 @@ impl AlternativeApiManager {
             format!("{}/v2/ammPools", self.raydium_api_base),
             format!("{}/pools", self.raydium_api_base),
         ];
-        
+
         for url in endpoints {
-            match self.client.get(&url)
+            match self
+                .client
+                .get(&url)
                 .timeout(std::time::Duration::from_secs(10))
                 .send()
-                .await 
+                .await
             {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -208,7 +210,11 @@ impl AlternativeApiManager {
                         info!("✅ Raydium API responded successfully (simplified mode)");
                         return Ok(vec![]);
                     } else {
-                        warn!("⚠️ Raydium endpoint {} returned status: {}", url, response.status());
+                        warn!(
+                            "⚠️ Raydium endpoint {} returned status: {}",
+                            url,
+                            response.status()
+                        );
                         continue;
                     }
                 }
@@ -218,7 +224,7 @@ impl AlternativeApiManager {
                 }
             }
         }
-        
+
         error!("❌ All Raydium endpoints failed");
         Err(anyhow::anyhow!("All Raydium API endpoints failed"))
     }
@@ -232,12 +238,14 @@ impl AlternativeApiManager {
             format!("{}/v6/tokens", self.jupiter_api_base),
             format!("{}/tokens", self.jupiter_api_base),
         ];
-        
+
         for url in endpoints {
-            match self.client.get(&url)
+            match self
+                .client
+                .get(&url)
                 .timeout(std::time::Duration::from_secs(10))
                 .send()
-                .await 
+                .await
             {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -245,7 +253,11 @@ impl AlternativeApiManager {
                         info!("✅ Jupiter API responded successfully (simplified mode)");
                         return Ok(vec![]);
                     } else {
-                        warn!("⚠️ Jupiter endpoint {} returned status: {}", url, response.status());
+                        warn!(
+                            "⚠️ Jupiter endpoint {} returned status: {}",
+                            url,
+                            response.status()
+                        );
                         continue;
                     }
                 }
@@ -255,7 +267,7 @@ impl AlternativeApiManager {
                 }
             }
         }
-        
+
         error!("❌ All Jupiter endpoints failed");
         Err(anyhow::anyhow!("All Jupiter API endpoints failed"))
     }
@@ -264,8 +276,11 @@ impl AlternativeApiManager {
     pub async fn fetch_birdeye_token_data(&self, token_address: &str) -> Result<BirdeyeTokenData> {
         info!("🔄 Fetching token data from Birdeye for {}", token_address);
 
-        let url = format!("{}/public/token_overview?address={}", self.birdeye_api_base, token_address);
-        
+        let url = format!(
+            "{}/public/token_overview?address={}",
+            self.birdeye_api_base, token_address
+        );
+
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -279,8 +294,7 @@ impl AlternativeApiManager {
                             Err(anyhow::anyhow!("Failed to parse Birdeye response: {}", e))
                         }
                     }
-                }
-                else {
+                } else {
                     error!("❌ Birdeye API returned status: {}", response.status());
                     Err(anyhow::anyhow!("Birdeye API error: {}", response.status()))
                 }
@@ -293,28 +307,28 @@ impl AlternativeApiManager {
     }
 
     /// Fetch pairs from DexScreener
-    /// 
+    ///
     /// API Documentation: https://docs.dexscreener.com/api/reference
     /// Base URL: https://api.dexscreener.com/
-    /// 
+    ///
     /// Rate Limits:
     ///   - 300 requests/minute para endpoints principales (pairs, search, tokens)
     ///   - 60 requests/minute para endpoints de profiles y boosts
-    /// 
+    ///
     /// Autenticación: No requerida
-    /// 
+    ///
     /// Endpoints principales:
     ///   - GET /latest/dex/pairs/{chainId}/{pairId} - Info de un par específico
     ///   - GET /latest/dex/search?q={query} - Búsqueda de pares (ej: "SOL/USDC")
     ///   - GET /token-pairs/v1/{chainId}/{tokenAddress} - Pools de un token específico
     ///   - GET /tokens/v1/{chainId}/{tokenAddresses} - Info de múltiples tokens (hasta 30, comma-separated)
-    /// 
+    ///
     /// Endpoints adicionales:
     ///   - GET /token-profiles/latest/v1 - Últimos perfiles de tokens (60 req/min)
     ///   - GET /token-boosts/latest/v1 - Tokens con boosts recientes (60 req/min)
     ///   - GET /token-boosts/top/v1 - Tokens con más boosts activos (60 req/min)
     ///   - GET /orders/v1/{chainId}/{tokenAddress} - Estado de órdenes pagadas (60 req/min)
-    /// 
+    ///
     /// Estructura de respuesta para pares:
     ///   - chainId: ID de la blockchain ("solana")
     ///   - dexId: ID del DEX ("raydium", "jupiter", etc.)
@@ -339,8 +353,11 @@ impl AlternativeApiManager {
         // Este endpoint acepta hasta 30 direcciones de tokens separadas por comas
         // y devuelve información de todos los pares donde aparecen esos tokens
         let tokens_param = tokens.join(",");
-        let url = format!("{}/tokens/v1/solana/{}", self.dexscreener_api_base, tokens_param);
-        
+        let url = format!(
+            "{}/tokens/v1/solana/{}",
+            self.dexscreener_api_base, tokens_param
+        );
+
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -353,13 +370,18 @@ impl AlternativeApiManager {
                         }
                         Err(e) => {
                             error!("❌ Failed to parse DexScreener response: {}", e);
-                            Err(anyhow::anyhow!("Failed to parse DexScreener response: {}", e))
+                            Err(anyhow::anyhow!(
+                                "Failed to parse DexScreener response: {}",
+                                e
+                            ))
                         }
                     }
-                }
-                else {
+                } else {
                     error!("❌ DexScreener API returned status: {}", response.status());
-                    Err(anyhow::anyhow!("DexScreener API error: {}", response.status()))
+                    Err(anyhow::anyhow!(
+                        "DexScreener API error: {}",
+                        response.status()
+                    ))
                 }
             }
             Err(e) => {
@@ -370,7 +392,7 @@ impl AlternativeApiManager {
     }
 
     /// Search for pairs using DexScreener search endpoint
-    /// 
+    ///
     /// This endpoint allows searching for pairs using various queries:
     /// - Token symbols: "SOL/USDC", "BONK"
     /// - Token addresses
@@ -382,11 +404,12 @@ impl AlternativeApiManager {
 
         info!("🔍 Searching DexScreener pairs with query: '{}'", query);
 
-        let url = format!("{}/latest/dex/search?q={}", 
-            self.dexscreener_api_base, 
+        let url = format!(
+            "{}/latest/dex/search?q={}",
+            self.dexscreener_api_base,
             urlencoding::encode(query)
         );
-        
+
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -406,38 +429,55 @@ impl AlternativeApiManager {
                         }
                         Err(e) => {
                             error!("❌ Failed to parse DexScreener search response: {}", e);
-                            Err(anyhow::anyhow!("Failed to parse DexScreener search response: {}", e))
+                            Err(anyhow::anyhow!(
+                                "Failed to parse DexScreener search response: {}",
+                                e
+                            ))
                         }
                     }
-                }
-                else {
-                    error!("❌ DexScreener search API returned status: {}", response.status());
-                    Err(anyhow::anyhow!("DexScreener search API error: {}", response.status()))
+                } else {
+                    error!(
+                        "❌ DexScreener search API returned status: {}",
+                        response.status()
+                    );
+                    Err(anyhow::anyhow!(
+                        "DexScreener search API error: {}",
+                        response.status()
+                    ))
                 }
             }
             Err(e) => {
                 error!("❌ Failed to connect to DexScreener search API: {}", e);
-                Err(anyhow::anyhow!("DexScreener search API connection failed: {}", e))
+                Err(anyhow::anyhow!(
+                    "DexScreener search API connection failed: {}",
+                    e
+                ))
             }
         }
     }
 
     /// Get all pools for a specific token address using DexScreener
-    /// 
+    ///
     /// This is useful for finding all trading pairs where a token appears
     /// as either base or quote token
-    pub async fn get_token_pools_dexscreener(&self, token_address: &str) -> Result<Vec<DexscreenerPair>> {
+    pub async fn get_token_pools_dexscreener(
+        &self,
+        token_address: &str,
+    ) -> Result<Vec<DexscreenerPair>> {
         if token_address.is_empty() {
             return Ok(vec![]);
         }
 
-        info!("🔄 Fetching pools for token {} from DexScreener", token_address);
-
-        let url = format!("{}/token-pairs/v1/solana/{}", 
-            self.dexscreener_api_base, 
+        info!(
+            "🔄 Fetching pools for token {} from DexScreener",
             token_address
         );
-        
+
+        let url = format!(
+            "{}/token-pairs/v1/solana/{}",
+            self.dexscreener_api_base, token_address
+        );
+
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -448,37 +488,54 @@ impl AlternativeApiManager {
                         }
                         Err(e) => {
                             error!("❌ Failed to parse DexScreener token pools response: {}", e);
-                            Err(anyhow::anyhow!("Failed to parse DexScreener token pools response: {}", e))
+                            Err(anyhow::anyhow!(
+                                "Failed to parse DexScreener token pools response: {}",
+                                e
+                            ))
                         }
                     }
-                }
-                else {
-                    error!("❌ DexScreener token pools API returned status: {}", response.status());
-                    Err(anyhow::anyhow!("DexScreener token pools API error: {}", response.status()))
+                } else {
+                    error!(
+                        "❌ DexScreener token pools API returned status: {}",
+                        response.status()
+                    );
+                    Err(anyhow::anyhow!(
+                        "DexScreener token pools API error: {}",
+                        response.status()
+                    ))
                 }
             }
             Err(e) => {
                 error!("❌ Failed to connect to DexScreener token pools API: {}", e);
-                Err(anyhow::anyhow!("DexScreener token pools API connection failed: {}", e))
+                Err(anyhow::anyhow!(
+                    "DexScreener token pools API connection failed: {}",
+                    e
+                ))
             }
         }
     }
 
     /// Get specific pair information by pair address using DexScreener
-    /// 
+    ///
     /// This provides detailed information about a specific trading pair
-    pub async fn get_pair_info_dexscreener(&self, pair_address: &str) -> Result<Option<DexscreenerPair>> {
+    pub async fn get_pair_info_dexscreener(
+        &self,
+        pair_address: &str,
+    ) -> Result<Option<DexscreenerPair>> {
         if pair_address.is_empty() {
             return Ok(None);
         }
 
-        info!("🔄 Fetching pair info for {} from DexScreener", pair_address);
-
-        let url = format!("{}/latest/dex/pairs/solana/{}", 
-            self.dexscreener_api_base, 
+        info!(
+            "🔄 Fetching pair info for {} from DexScreener",
             pair_address
         );
-        
+
+        let url = format!(
+            "{}/latest/dex/pairs/solana/{}",
+            self.dexscreener_api_base, pair_address
+        );
+
         match self.client.get(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
@@ -492,8 +549,10 @@ impl AlternativeApiManager {
                             let pairs = data.pairs.unwrap_or_default();
                             let pair = pairs.into_iter().next();
                             if let Some(ref p) = pair {
-                                info!("✅ Found pair info for {}: {}/{}", 
-                                    pair_address, p.base_token.symbol, p.quote_token.symbol);
+                                info!(
+                                    "✅ Found pair info for {}: {}/{}",
+                                    pair_address, p.base_token.symbol, p.quote_token.symbol
+                                );
                             } else {
                                 info!("⚠️ No pair found for address {}", pair_address);
                             }
@@ -501,18 +560,29 @@ impl AlternativeApiManager {
                         }
                         Err(e) => {
                             error!("❌ Failed to parse DexScreener pair response: {}", e);
-                            Err(anyhow::anyhow!("Failed to parse DexScreener pair response: {}", e))
+                            Err(anyhow::anyhow!(
+                                "Failed to parse DexScreener pair response: {}",
+                                e
+                            ))
                         }
                     }
-                }
-                else {
-                    error!("❌ DexScreener pair API returned status: {}", response.status());
-                    Err(anyhow::anyhow!("DexScreener pair API error: {}", response.status()))
+                } else {
+                    error!(
+                        "❌ DexScreener pair API returned status: {}",
+                        response.status()
+                    );
+                    Err(anyhow::anyhow!(
+                        "DexScreener pair API error: {}",
+                        response.status()
+                    ))
                 }
             }
             Err(e) => {
                 error!("❌ Failed to connect to DexScreener pair API: {}", e);
-                Err(anyhow::anyhow!("DexScreener pair API connection failed: {}", e))
+                Err(anyhow::anyhow!(
+                    "DexScreener pair API connection failed: {}",
+                    e
+                ))
             }
         }
     }
@@ -534,91 +604,103 @@ impl AlternativeApiManager {
 
         // If Raydium API fails, create fallback pools using Jupiter + DexScreener data
         warn!("⚠️ Using fallback pool detection method");
-        
+
         // Get a few well-known token addresses to fetch pairs
         let well_known_tokens = vec![
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".to_string(), // USDT  
-            "So11111111111111111111111111111111111111112".to_string(),   // Wrapped SOL
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB".to_string(), // USDT
+            "So11111111111111111111111111111111111111112".to_string(),  // Wrapped SOL
         ];
 
         match self.fetch_dexscreener_pairs(&well_known_tokens).await {
             Ok(pairs) => {
-                info!("✅ Found {} pairs from DexScreener, creating fallback pools", pairs.len());
-                
-                // Convert DexScreener pairs to RaydiumPoolInfo format
-                let fallback_pools: Vec<RaydiumPoolInfo> = pairs.into_iter().take(10).map(|pair| {
-                    RaydiumPoolInfo {
-                        id: pair.pair_address.clone(),
-                        base_mint: pair.base_token.address,
-                        quote_mint: pair.quote_token.address,
-                        lp_mint: format!("{}_lp", pair.pair_address),
-                        base_decimals: 6, // Default assumption
-                        quote_decimals: 6, // Default assumption
-                        lp_decimals: 6,
-                        version: 4,
-                        program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string(),
-                        authority: "11111111111111111111111111111112".to_string(),
-                        open_orders: "11111111111111111111111111111112".to_string(),
-                        target_orders: "11111111111111111111111111111112".to_string(),
-                        base_vault: "11111111111111111111111111111112".to_string(),
-                        quote_vault: "11111111111111111111111111111112".to_string(),
-                        withdraw_queue: "11111111111111111111111111111112".to_string(),
-                        lp_vault: "11111111111111111111111111111112".to_string(),
-                        market_version: 3,
-                        market_program_id: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin".to_string(),
-                        market_id: "11111111111111111111111111111112".to_string(),
-                        market_authority: "11111111111111111111111111111112".to_string(),
-                        market_base_vault: "11111111111111111111111111111112".to_string(),
-                        market_quote_vault: "11111111111111111111111111111112".to_string(),
-                        market_bids: "11111111111111111111111111111112".to_string(),
-                        market_asks: "11111111111111111111111111111112".to_string(),
-                        market_event_queue: "11111111111111111111111111111112".to_string(),
-                        liquidity: pair.liquidity.map(|l| l.usd),
-                    }
-                }).collect();
+                info!(
+                    "✅ Found {} pairs from DexScreener, creating fallback pools",
+                    pairs.len()
+                );
 
-                info!("✅ Created {} fallback pools from DexScreener data", fallback_pools.len());
+                // Convert DexScreener pairs to RaydiumPoolInfo format
+                let fallback_pools: Vec<RaydiumPoolInfo> = pairs
+                    .into_iter()
+                    .take(10)
+                    .map(|pair| {
+                        RaydiumPoolInfo {
+                            id: pair.pair_address.clone(),
+                            base_mint: pair.base_token.address,
+                            quote_mint: pair.quote_token.address,
+                            lp_mint: format!("{}_lp", pair.pair_address),
+                            base_decimals: 6,  // Default assumption
+                            quote_decimals: 6, // Default assumption
+                            lp_decimals: 6,
+                            version: 4,
+                            program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string(),
+                            authority: "11111111111111111111111111111112".to_string(),
+                            open_orders: "11111111111111111111111111111112".to_string(),
+                            target_orders: "11111111111111111111111111111112".to_string(),
+                            base_vault: "11111111111111111111111111111112".to_string(),
+                            quote_vault: "11111111111111111111111111111112".to_string(),
+                            withdraw_queue: "11111111111111111111111111111112".to_string(),
+                            lp_vault: "11111111111111111111111111111112".to_string(),
+                            market_version: 3,
+                            market_program_id: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin"
+                                .to_string(),
+                            market_id: "11111111111111111111111111111112".to_string(),
+                            market_authority: "11111111111111111111111111111112".to_string(),
+                            market_base_vault: "11111111111111111111111111111112".to_string(),
+                            market_quote_vault: "11111111111111111111111111111112".to_string(),
+                            market_bids: "11111111111111111111111111111112".to_string(),
+                            market_asks: "11111111111111111111111111111112".to_string(),
+                            market_event_queue: "11111111111111111111111111111112".to_string(),
+                            liquidity: pair.liquidity.map(|l| l.usd),
+                        }
+                    })
+                    .collect();
+
+                info!(
+                    "✅ Created {} fallback pools from DexScreener data",
+                    fallback_pools.len()
+                );
                 Ok(fallback_pools)
             }
             Err(e) => {
                 error!("❌ All alternative APIs failed: {}", e);
-                
+
                 // Final fallback: return a few hardcoded pools for testing
                 warn!("⚠️ Using hardcoded fallback pools for testing");
-                
-                let hardcoded_pools = vec![
-                    RaydiumPoolInfo {
-                        id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2".to_string(),
-                        base_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
-                        quote_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
-                        lp_mint: "8HoQnePLqPj4M7PUDzfw8e3Ymdwgc7NLGnaTUapubyvu".to_string(),
-                        base_decimals: 9,
-                        quote_decimals: 6,
-                        lp_decimals: 9,
-                        version: 4,
-                        program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string(),
-                        authority: "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1".to_string(),
-                        open_orders: "HRk9CMrpq7Jn9sh7mzxE8CChHG2dGZjmxufoQDieMsdn".to_string(),
-                        target_orders: "CZza3Ej4Mc58MnxWA385itCC9jCo3L1D7zc3LKy1bZMR".to_string(),
-                        base_vault: "DQyrAcCrDXQ7NeoqGgDCZwBvWDcYmFCjSb9JtteuvPpz".to_string(),
-                        quote_vault: "HLmqeL62xR1QoZ1HKKbXRrdN1p3phKpxRMb2VVopvBBz".to_string(),
-                        withdraw_queue: "G7xeGGLevkRwB5f44QNgQtrPKBdMfkT6ZZwpS9xcC97n".to_string(),
-                        lp_vault: "Awpt6N7ZYPBa4vG4BQNFhFxDj5xqrSqeKNQRRBLn5AQE".to_string(),
-                        market_version: 3,
-                        market_program_id: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin".to_string(),
-                        market_id: "9wFFyRfZBsuAha4YcuxcXLKwMxJR43S7fPfQLusDBzvT".to_string(),
-                        market_authority: "aCBYUAcTQqeQmGdwxgh6E2vPFQTuwCKMWMbRp8WWyJJN".to_string(),
-                        market_base_vault: "36c6YqAwyGKQG66XEp2dJc5JqjaBNv7sVghEtJv4c7u6".to_string(),
-                        market_quote_vault: "8CFo8bL8mZQK8abbFyypFMwEDd8tVJjHTTojMLgQTUSZ".to_string(),
-                        market_bids: "14ivtgssEBoBjuZJtSAPKYgpUK7DmnSwuPMqJoVTSgKJ".to_string(),
-                        market_asks: "CEQdAFKdycHugujQg9k2wbmxjcpdYZyVLfV9WerTnafJ".to_string(),
-                        market_event_queue: "5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht".to_string(),
-                        liquidity: Some(1000000.0), // $1M placeholder
-                    }
-                ];
 
-                info!("✅ Using {} hardcoded fallback pools", hardcoded_pools.len());
+                let hardcoded_pools = vec![RaydiumPoolInfo {
+                    id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2".to_string(),
+                    base_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
+                    quote_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
+                    lp_mint: "8HoQnePLqPj4M7PUDzfw8e3Ymdwgc7NLGnaTUapubyvu".to_string(),
+                    base_decimals: 9,
+                    quote_decimals: 6,
+                    lp_decimals: 9,
+                    version: 4,
+                    program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8".to_string(),
+                    authority: "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1".to_string(),
+                    open_orders: "HRk9CMrpq7Jn9sh7mzxE8CChHG2dGZjmxufoQDieMsdn".to_string(),
+                    target_orders: "CZza3Ej4Mc58MnxWA385itCC9jCo3L1D7zc3LKy1bZMR".to_string(),
+                    base_vault: "DQyrAcCrDXQ7NeoqGgDCZwBvWDcYmFCjSb9JtteuvPpz".to_string(),
+                    quote_vault: "HLmqeL62xR1QoZ1HKKbXRrdN1p3phKpxRMb2VVopvBBz".to_string(),
+                    withdraw_queue: "G7xeGGLevkRwB5f44QNgQtrPKBdMfkT6ZZwpS9xcC97n".to_string(),
+                    lp_vault: "Awpt6N7ZYPBa4vG4BQNFhFxDj5xqrSqeKNQRRBLn5AQE".to_string(),
+                    market_version: 3,
+                    market_program_id: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin".to_string(),
+                    market_id: "9wFFyRfZBsuAha4YcuxcXLKwMxJR43S7fPfQLusDBzvT".to_string(),
+                    market_authority: "aCBYUAcTQqeQmGdwxgh6E2vPFQTuwCKMWMbRp8WWyJJN".to_string(),
+                    market_base_vault: "36c6YqAwyGKQG66XEp2dJc5JqjaBNv7sVghEtJv4c7u6".to_string(),
+                    market_quote_vault: "8CFo8bL8mZQK8abbFyypFMwEDd8tVJjHTTojMLgQTUSZ".to_string(),
+                    market_bids: "14ivtgssEBoBjuZJtSAPKYgpUK7DmnSwuPMqJoVTSgKJ".to_string(),
+                    market_asks: "CEQdAFKdycHugujQg9k2wbmxjcpdYZyVLfV9WerTnafJ".to_string(),
+                    market_event_queue: "5KKsLVU6TcbVDK4BS6K1DGDxnh4Q9xjYJ8XaDCG5t8ht".to_string(),
+                    liquidity: Some(1000000.0), // $1M placeholder
+                }];
+
+                info!(
+                    "✅ Using {} hardcoded fallback pools",
+                    hardcoded_pools.len()
+                );
                 Ok(hardcoded_pools)
             }
         }

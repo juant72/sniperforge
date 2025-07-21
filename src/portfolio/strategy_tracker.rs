@@ -1,9 +1,9 @@
-use anyhow::{Result, Context};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use crate::portfolio::blockchain_analyzer::{TransactionHistory, TransactionType};
 use crate::portfolio::price_feed::{PriceFeed, TokenPrice};
 use crate::portfolio::wallet_scanner::WalletBalance;
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyPerformance {
@@ -115,10 +115,8 @@ impl StrategyTracker {
         println!("📊 Calculating performance for strategy: {}", strategy_name);
 
         // Filter transactions relevant to this strategy
-        let strategy_transactions = self.filter_strategy_transactions(
-            &transaction_history.transactions,
-            strategy_name,
-        );
+        let strategy_transactions =
+            self.filter_strategy_transactions(&transaction_history.transactions, strategy_name);
 
         let total_trades = strategy_transactions.len();
         let mut winning_trades = 0;
@@ -169,19 +167,33 @@ impl StrategyTracker {
         let profit_factor = if average_loss > 0.0 {
             (wins_sum) / (losses_sum)
         } else {
-            if wins_sum > 0.0 { f64::INFINITY } else { 0.0 }
+            if wins_sum > 0.0 {
+                f64::INFINITY
+            } else {
+                0.0
+            }
         };
 
         // Calculate drawdown
         let (max_drawdown, max_drawdown_percentage) = self.calculate_drawdown(&trades);
 
         // Find best and worst trades
-        let best_trade = trades.iter()
-            .max_by(|a, b| a.pnl_usd.partial_cmp(&b.pnl_usd).unwrap_or(std::cmp::Ordering::Equal))
+        let best_trade = trades
+            .iter()
+            .max_by(|a, b| {
+                a.pnl_usd
+                    .partial_cmp(&b.pnl_usd)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .cloned();
 
-        let worst_trade = trades.iter()
-            .min_by(|a, b| a.pnl_usd.partial_cmp(&b.pnl_usd).unwrap_or(std::cmp::Ordering::Equal))
+        let worst_trade = trades
+            .iter()
+            .min_by(|a, b| {
+                a.pnl_usd
+                    .partial_cmp(&b.pnl_usd)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .cloned();
 
         // Calculate ROI (simplified)
@@ -190,10 +202,14 @@ impl StrategyTracker {
         // Calculate trades per day
         let days_span = if let (Some(first), Some(last)) = (
             strategy_transactions.first().and_then(|tx| tx.block_time),
-            strategy_transactions.last().and_then(|tx| tx.block_time)
+            strategy_transactions.last().and_then(|tx| tx.block_time),
         ) {
             let duration = (last - first) as f64 / 86400.0; // Convert seconds to days
-            if duration > 0.0 { duration } else { 1.0 }
+            if duration > 0.0 {
+                duration
+            } else {
+                1.0
+            }
         } else {
             1.0
         };
@@ -232,7 +248,8 @@ impl StrategyTracker {
     ) -> Vec<&'a crate::portfolio::blockchain_analyzer::TransactionRecord> {
         // This is a simplified filter
         // In a real implementation, we would have strategy-specific transaction tagging
-        transactions.iter()
+        transactions
+            .iter()
             .filter(|tx| {
                 match strategy_name {
                     "jupiter_arbitrage" => tx.programs.iter().any(|p| p.contains("Jupiter")),
@@ -259,8 +276,7 @@ impl StrategyTracker {
         };
 
         let entry_time = if let Some(block_time) = tx.block_time {
-            chrono::DateTime::from_timestamp(block_time, 0)
-                .unwrap_or_else(|| chrono::Utc::now())
+            chrono::DateTime::from_timestamp(block_time, 0).unwrap_or_else(|| chrono::Utc::now())
         } else {
             chrono::Utc::now()
         };
@@ -298,8 +314,12 @@ impl StrategyTracker {
             pnl_percentage: 0.0, // Would need entry value
             fees: tx.fee,
             status: match tx.status {
-                crate::portfolio::blockchain_analyzer::TransactionStatus::Success => TradeStatus::Closed,
-                crate::portfolio::blockchain_analyzer::TransactionStatus::Failed => TradeStatus::Failed,
+                crate::portfolio::blockchain_analyzer::TransactionStatus::Success => {
+                    TradeStatus::Closed
+                }
+                crate::portfolio::blockchain_analyzer::TransactionStatus::Failed => {
+                    TradeStatus::Failed
+                }
                 _ => TradeStatus::Open,
             },
             transaction_signatures: vec![tx.signature.clone()],
@@ -357,7 +377,8 @@ impl StrategyTracker {
         }
 
         // Calculate total P&L
-        let total_pnl_usd: f64 = strategy_performances.iter()
+        let total_pnl_usd: f64 = strategy_performances
+            .iter()
             .map(|sp| sp.total_pnl_usd)
             .sum();
 
@@ -368,7 +389,8 @@ impl StrategyTracker {
         };
 
         // Create strategy allocations
-        let strategy_allocations: Vec<StrategyAllocation> = strategy_performances.iter()
+        let strategy_allocations: Vec<StrategyAllocation> = strategy_performances
+            .iter()
             .map(|sp| {
                 let allocation_percentage = if total_value_usd > 0.0 {
                     (sp.total_pnl_usd.abs() / total_value_usd) * 100.0
@@ -388,8 +410,10 @@ impl StrategyTracker {
 
         // Calculate risk metrics (simplified)
         let portfolio_volatility = self.calculate_portfolio_volatility(strategy_performances);
-        let sharpe_ratio = self.calculate_sharpe_ratio(&strategy_performances, portfolio_volatility);
-        let max_drawdown = strategy_performances.iter()
+        let sharpe_ratio =
+            self.calculate_sharpe_ratio(&strategy_performances, portfolio_volatility);
+        let max_drawdown = strategy_performances
+            .iter()
             .map(|sp| sp.max_drawdown)
             .fold(0.0, f64::max);
 
@@ -403,7 +427,8 @@ impl StrategyTracker {
         };
 
         // Calculate performance attribution
-        let performance_attribution: Vec<StrategyContribution> = strategy_performances.iter()
+        let performance_attribution: Vec<StrategyContribution> = strategy_performances
+            .iter()
             .map(|sp| {
                 let contribution_to_return = if total_pnl_usd != 0.0 {
                     sp.total_pnl_usd / total_pnl_usd
@@ -438,26 +463,35 @@ impl StrategyTracker {
             return 0.0;
         }
 
-        let returns: Vec<f64> = strategy_performances.iter()
+        let returns: Vec<f64> = strategy_performances
+            .iter()
             .map(|sp| sp.total_pnl_percentage)
             .collect();
 
         let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
-        let variance = returns.iter()
+        let variance = returns
+            .iter()
             .map(|r| (r - mean_return).powi(2))
-            .sum::<f64>() / returns.len() as f64;
+            .sum::<f64>()
+            / returns.len() as f64;
 
         variance.sqrt()
     }
 
-    fn calculate_sharpe_ratio(&self, strategy_performances: &[StrategyPerformance], volatility: f64) -> f64 {
+    fn calculate_sharpe_ratio(
+        &self,
+        strategy_performances: &[StrategyPerformance],
+        volatility: f64,
+    ) -> f64 {
         if volatility == 0.0 {
             return 0.0;
         }
 
-        let average_return = strategy_performances.iter()
+        let average_return = strategy_performances
+            .iter()
             .map(|sp| sp.total_pnl_percentage)
-            .sum::<f64>() / strategy_performances.len() as f64;
+            .sum::<f64>()
+            / strategy_performances.len() as f64;
 
         let risk_free_rate = 2.0; // Assume 2% risk-free rate
         (average_return - risk_free_rate) / volatility

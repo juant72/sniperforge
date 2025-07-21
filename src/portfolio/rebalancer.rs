@@ -1,11 +1,11 @@
 //! Portfolio Rebalancer - Automated portfolio rebalancing system
-//! 
+//!
 //! Handles automatic rebalancing based on strategy performance and allocation targets
 
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use super::{Position, RebalanceFrequency};
@@ -22,8 +22,8 @@ pub struct PortfolioRebalancer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RebalanceConfig {
     pub target_allocations: HashMap<String, f64>, // Strategy -> target percentage
-    pub rebalance_threshold: f64, // Threshold for triggering rebalance
-    pub min_trade_size: f64, // Minimum trade size for rebalancing
+    pub rebalance_threshold: f64,                 // Threshold for triggering rebalance
+    pub min_trade_size: f64,                      // Minimum trade size for rebalancing
     pub max_rebalance_frequency: RebalanceFrequency,
     pub enabled: bool,
 }
@@ -45,11 +45,11 @@ pub struct RebalanceAction {
 /// Type of rebalance action
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ActionType {
-    Increase,    // Increase position size
-    Decrease,    // Decrease position size
-    Close,       // Close position entirely
-    Open,        // Open new position
-    Rebalance,   // Partial rebalance
+    Increase,  // Increase position size
+    Decrease,  // Decrease position size
+    Close,     // Close position entirely
+    Open,      // Open new position
+    Rebalance, // Partial rebalance
 }
 
 /// Priority of rebalance action
@@ -156,25 +156,32 @@ impl PortfolioRebalancer {
                 needs_rebalancing = true;
             }
 
-            drift_analysis.insert(strategy.clone(), AllocationDrift {
-                target_allocation: target_pct,
-                current_allocation: *current_pct,
-                drift_percentage: drift_pct,
-                drift_amount,
-                requires_action,
-            });
+            drift_analysis.insert(
+                strategy.clone(),
+                AllocationDrift {
+                    target_allocation: target_pct,
+                    current_allocation: *current_pct,
+                    drift_percentage: drift_pct,
+                    drift_amount,
+                    requires_action,
+                },
+            );
         }
 
         // Generate recommended actions
         let recommended_actions = if needs_rebalancing {
-            self.generate_rebalance_actions(&drift_analysis, positions, total_value).await?
+            self.generate_rebalance_actions(&drift_analysis, positions, total_value)
+                .await?
         } else {
             Vec::new()
         };
 
         // Calculate metrics
         let total_trades_needed = recommended_actions.len();
-        let estimated_volume: f64 = recommended_actions.iter().map(|a| a.trade_amount.abs()).sum();
+        let estimated_volume: f64 = recommended_actions
+            .iter()
+            .map(|a| a.trade_amount.abs())
+            .sum();
         let estimated_costs = estimated_volume * 0.001; // Assume 0.1% trading costs
 
         // Calculate risk impact (simplified)
@@ -214,7 +221,8 @@ impl PortfolioRebalancer {
             }
 
             // Get positions for this strategy
-            let strategy_positions: Vec<_> = positions.values()
+            let strategy_positions: Vec<_> = positions
+                .values()
                 .filter(|p| p.strategy == *strategy)
                 .collect();
 
@@ -225,7 +233,7 @@ impl PortfolioRebalancer {
                     let strategy_len = strategy_positions.len() as f64;
                     for position in &strategy_positions {
                         let proportional_increase = adjustment_needed / strategy_len;
-                        
+
                         actions.push(RebalanceAction {
                             action_type: ActionType::Increase,
                             position_id: Some(position.id),
@@ -235,7 +243,10 @@ impl PortfolioRebalancer {
                             current_amount: position.value_usd,
                             trade_amount: proportional_increase,
                             priority: self.determine_priority(drift.drift_percentage),
-                            reasoning: format!("Increase {} allocation by ${:.2}", strategy, proportional_increase),
+                            reasoning: format!(
+                                "Increase {} allocation by ${:.2}",
+                                strategy, proportional_increase
+                            ),
                         });
                     }
                 } else {
@@ -249,30 +260,34 @@ impl PortfolioRebalancer {
                         current_amount: 0.0,
                         trade_amount: adjustment_needed,
                         priority: self.determine_priority(drift.drift_percentage),
-                        reasoning: format!("Open new {} position for ${:.2}", strategy, adjustment_needed),
+                        reasoning: format!(
+                            "Open new {} position for ${:.2}",
+                            strategy, adjustment_needed
+                        ),
                     });
                 }
             } else {
                 // Need to decrease allocation
                 let reduction_needed = adjustment_needed.abs();
-                
+
                 if strategy_positions.is_empty() {
                     continue;
                 }
 
                 // Reduce positions proportionally, starting with the worst performing
                 let mut sorted_positions = strategy_positions;
-                sorted_positions.sort_by(|a, b| a.unrealized_pnl.partial_cmp(&b.unrealized_pnl).unwrap());
+                sorted_positions
+                    .sort_by(|a, b| a.unrealized_pnl.partial_cmp(&b.unrealized_pnl).unwrap());
 
                 let mut remaining_reduction = reduction_needed;
-                
+
                 for position in sorted_positions {
                     if remaining_reduction <= 0.0 {
                         break;
                     }
 
                     let position_reduction = remaining_reduction.min(position.value_usd);
-                    
+
                     let action_type = if position_reduction >= position.value_usd * 0.9 {
                         ActionType::Close
                     } else {
@@ -288,7 +303,10 @@ impl PortfolioRebalancer {
                         current_amount: position.value_usd,
                         trade_amount: -position_reduction,
                         priority: self.determine_priority(drift.drift_percentage),
-                        reasoning: format!("Reduce {} allocation by ${:.2}", strategy, position_reduction),
+                        reasoning: format!(
+                            "Reduce {} allocation by ${:.2}",
+                            strategy, position_reduction
+                        ),
                     });
 
                     remaining_reduction -= position_reduction;
@@ -311,15 +329,18 @@ impl PortfolioRebalancer {
     }
 
     /// Calculate current strategy allocations
-    fn calculate_current_allocations(&self, positions: &HashMap<Uuid, Position>) -> HashMap<String, f64> {
+    fn calculate_current_allocations(
+        &self,
+        positions: &HashMap<Uuid, Position>,
+    ) -> HashMap<String, f64> {
         let total_value: f64 = positions.values().map(|p| p.value_usd).sum();
-        
+
         if total_value == 0.0 {
             return HashMap::new();
         }
 
         let mut allocations = HashMap::new();
-        
+
         for position in positions.values() {
             let allocation = allocations.entry(position.strategy.clone()).or_insert(0.0);
             *allocation += position.value_usd;
@@ -354,14 +375,14 @@ impl PortfolioRebalancer {
     ) -> RiskImpact {
         // Simplified risk impact calculation
         let volume_impact = actions.iter().map(|a| a.trade_amount.abs()).sum::<f64>();
-        
+
         // Estimate that rebalancing generally reduces risk
         let expected_risk_reduction = (volume_impact / 10000.0).min(0.1); // Max 10% risk reduction
-        
+
         RiskImpact {
-            correlation_change: -0.05, // Assume rebalancing reduces correlation
+            correlation_change: -0.05,   // Assume rebalancing reduces correlation
             concentration_change: -0.03, // Assume rebalancing reduces concentration
-            volatility_change: -0.02, // Assume rebalancing reduces volatility
+            volatility_change: -0.02,    // Assume rebalancing reduces volatility
             expected_risk_reduction,
         }
     }
@@ -374,7 +395,7 @@ impl PortfolioRebalancer {
     ) -> Result<RebalanceEvent> {
         let timestamp = Utc::now();
         let pre_allocations = HashMap::new(); // Would be calculated from current positions
-        
+
         // In a real implementation, this would execute the trades
         // For now, we'll just simulate success
         let success = true;
@@ -405,7 +426,7 @@ impl PortfolioRebalancer {
     /// Check if enough time has passed for rebalancing
     pub fn can_rebalance(&self) -> bool {
         let time_since_last = Utc::now() - self.last_rebalance;
-        
+
         match self.config.max_rebalance_frequency {
             RebalanceFrequency::Never => false,
             RebalanceFrequency::Daily => time_since_last.num_hours() >= 24,
@@ -420,19 +441,43 @@ impl PortfolioRebalancer {
         let mut summary = String::new();
         summary.push_str(&format!("⚖️ Rebalance Analysis\n"));
         summary.push_str(&format!("═══════════════════\n"));
-        summary.push_str(&format!("🎯 Needs Rebalancing: {}\n", 
-            if analysis.needs_rebalancing { "Yes" } else { "No" }));
-        summary.push_str(&format!("📊 Trades Needed: {}\n", analysis.total_trades_needed));
-        summary.push_str(&format!("💰 Estimated Volume: ${:.2}\n", analysis.estimated_volume));
-        summary.push_str(&format!("💸 Estimated Costs: ${:.2}\n", analysis.estimated_costs));
-        
+        summary.push_str(&format!(
+            "🎯 Needs Rebalancing: {}\n",
+            if analysis.needs_rebalancing {
+                "Yes"
+            } else {
+                "No"
+            }
+        ));
+        summary.push_str(&format!(
+            "📊 Trades Needed: {}\n",
+            analysis.total_trades_needed
+        ));
+        summary.push_str(&format!(
+            "💰 Estimated Volume: ${:.2}\n",
+            analysis.estimated_volume
+        ));
+        summary.push_str(&format!(
+            "💸 Estimated Costs: ${:.2}\n",
+            analysis.estimated_costs
+        ));
+
         if !analysis.drift_analysis.is_empty() {
             summary.push_str(&format!("\n📈 Strategy Drift Analysis:\n"));
             for (strategy, drift) in &analysis.drift_analysis {
-                let status = if drift.requires_action { "⚠️" } else { "✅" };
-                summary.push_str(&format!("  {} {}: {:.1}% → {:.1}% (drift: {:.1}%)\n", 
-                    status, strategy, drift.current_allocation * 100.0, 
-                    drift.target_allocation * 100.0, drift.drift_percentage * 100.0));
+                let status = if drift.requires_action {
+                    "⚠️"
+                } else {
+                    "✅"
+                };
+                summary.push_str(&format!(
+                    "  {} {}: {:.1}% → {:.1}% (drift: {:.1}%)\n",
+                    status,
+                    strategy,
+                    drift.current_allocation * 100.0,
+                    drift.target_allocation * 100.0,
+                    drift.drift_percentage * 100.0
+                ));
             }
         }
 
@@ -509,7 +554,7 @@ mod tests {
     async fn test_rebalancer_creation() {
         let config = create_test_config();
         let rebalancer = PortfolioRebalancer::new(config);
-        
+
         assert!(rebalancer.rebalance_history.is_empty());
     }
 
@@ -517,14 +562,20 @@ mod tests {
     async fn test_balanced_portfolio() {
         let config = create_test_config();
         let rebalancer = PortfolioRebalancer::new(config);
-        
+
         let mut positions = HashMap::new();
         positions.insert(Uuid::new_v4(), create_test_position("trend", 4000.0));
         positions.insert(Uuid::new_v4(), create_test_position("momentum", 3000.0));
-        positions.insert(Uuid::new_v4(), create_test_position("mean_reversion", 3000.0));
+        positions.insert(
+            Uuid::new_v4(),
+            create_test_position("mean_reversion", 3000.0),
+        );
 
-        let analysis = rebalancer.analyze_rebalance_needs(&positions, 10000.0).await.unwrap();
-        
+        let analysis = rebalancer
+            .analyze_rebalance_needs(&positions, 10000.0)
+            .await
+            .unwrap();
+
         // Should not need rebalancing as allocations are correct
         assert!(!analysis.needs_rebalancing);
         assert_eq!(analysis.total_trades_needed, 0);
@@ -534,15 +585,21 @@ mod tests {
     async fn test_unbalanced_portfolio() {
         let config = create_test_config();
         let rebalancer = PortfolioRebalancer::new(config);
-        
+
         let mut positions = HashMap::new();
         // Over-allocated to trend (70% instead of 40%)
         positions.insert(Uuid::new_v4(), create_test_position("trend", 7000.0));
         positions.insert(Uuid::new_v4(), create_test_position("momentum", 2000.0));
-        positions.insert(Uuid::new_v4(), create_test_position("mean_reversion", 1000.0));
+        positions.insert(
+            Uuid::new_v4(),
+            create_test_position("mean_reversion", 1000.0),
+        );
 
-        let analysis = rebalancer.analyze_rebalance_needs(&positions, 10000.0).await.unwrap();
-        
+        let analysis = rebalancer
+            .analyze_rebalance_needs(&positions, 10000.0)
+            .await
+            .unwrap();
+
         // Should need rebalancing due to large drift
         assert!(analysis.needs_rebalancing);
         assert!(analysis.total_trades_needed > 0);
@@ -552,10 +609,22 @@ mod tests {
     async fn test_priority_determination() {
         let config = create_test_config();
         let rebalancer = PortfolioRebalancer::new(config);
-        
-        assert!(matches!(rebalancer.determine_priority(0.25), RebalancePriority::Critical));
-        assert!(matches!(rebalancer.determine_priority(0.15), RebalancePriority::High));
-        assert!(matches!(rebalancer.determine_priority(0.08), RebalancePriority::Medium));
-        assert!(matches!(rebalancer.determine_priority(0.03), RebalancePriority::Low));
+
+        assert!(matches!(
+            rebalancer.determine_priority(0.25),
+            RebalancePriority::Critical
+        ));
+        assert!(matches!(
+            rebalancer.determine_priority(0.15),
+            RebalancePriority::High
+        ));
+        assert!(matches!(
+            rebalancer.determine_priority(0.08),
+            RebalancePriority::Medium
+        ));
+        assert!(matches!(
+            rebalancer.determine_priority(0.03),
+            RebalancePriority::Low
+        ));
     }
 }

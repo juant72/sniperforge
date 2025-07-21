@@ -1,5 +1,5 @@
 //! Jupiter API Integration - Legacy Compatibility Module
-//! 
+//!
 //! This module provides backward compatibility for existing code.
 //! New code should use the modules directly:
 //! - jupiter_api::Jupiter for main functionality
@@ -8,10 +8,10 @@
 //! - jupiter_config for configuration
 
 // Re-export everything from the new modular structure
-pub use super::jupiter_types::*;
-pub use super::jupiter_config::*;
-pub use super::jupiter_client::*;
 pub use super::jupiter_api::*;
+pub use super::jupiter_client::*;
+pub use super::jupiter_config::*;
+pub use super::jupiter_types::*;
 
 // Backward compatibility aliases
 pub use super::jupiter_api::Jupiter as JupiterWrapper;

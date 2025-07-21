@@ -1,16 +1,16 @@
+use anyhow::Result;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc, broadcast};
-use anyhow::Result;
-use tracing::{info, warn, error, debug};
-use serde::{Serialize, Deserialize};
-use solana_sdk::pubkey::Pubkey;
-use reqwest::Client;
+use tokio::sync::{broadcast, mpsc, RwLock};
+use tracing::{debug, error, info, warn};
 // REMOVED: use rand::Rng; - no more random data generation
 
 use crate::config::Config;
 use crate::shared::rpc_pool::RpcConnectionPool;
-use crate::types::{PlatformError, HealthStatus, PoolInfo, TokenInfo, PriceData};
+use crate::types::{HealthStatus, PlatformError, PoolInfo, PriceData, TokenInfo};
 
 /// Market data feed types
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -64,13 +64,13 @@ pub struct MarketDataFeeds {
 impl MarketDataFeeds {
     pub async fn new(config: &Config, rpc_pool: Arc<RpcConnectionPool>) -> Result<Self> {
         info!("📊 Initializing Market Data Feeds");
-        
+
         let http_client = Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()?;
-            
+
         let (shutdown_tx, _) = mpsc::channel(1);
-        
+
         Ok(Self {
             config: config.clone(),
             rpc_pool,
@@ -87,18 +87,18 @@ impl MarketDataFeeds {
     /// Start the market data feeds
     pub async fn start(&self) -> Result<()> {
         info!("🚀 Starting Market Data Feeds");
-        
+
         *self.is_running.write().await = true;
-        
+
         // Start price feed updater
         self.start_price_feed_updater().await;
-        
+
         // Start pool monitoring
         self.start_pool_monitoring().await;
-        
+
         // Start cache cleanup task
         self.start_cache_cleanup().await;
-        
+
         info!("✅ Market Data Feeds started successfully");
         Ok(())
     }
@@ -106,9 +106,9 @@ impl MarketDataFeeds {
     /// Stop the market data feeds
     pub async fn stop(&self) -> Result<()> {
         info!("🛑 Stopping Market Data Feeds");
-        
+
         *self.is_running.write().await = false;
-        
+
         // Clear subscriptions
         {
             let mut price_subs = self.price_subscriptions.write().await;
@@ -118,10 +118,10 @@ impl MarketDataFeeds {
             let mut pool_subs = self.pool_subscriptions.write().await;
             pool_subs.clear();
         }
-        
+
         // Send shutdown signal
         let _ = self.shutdown_tx.send(()).await;
-        
+
         Ok(())
     }
 
@@ -133,7 +133,7 @@ impl MarketDataFeeds {
     ) -> Result<(uuid::Uuid, broadcast::Receiver<PriceData>)> {
         let subscription_id = uuid::Uuid::new_v4();
         let (tx, rx) = broadcast::channel(1000);
-        
+
         let subscription = PriceFeedSubscription {
             id: subscription_id,
             tokens: tokens.clone(),
@@ -143,7 +143,7 @@ impl MarketDataFeeds {
 
         let mut subscriptions = self.price_subscriptions.write().await;
         subscriptions.insert(subscription_id, subscription);
-        
+
         info!("📈 Created price subscription for {} tokens", tokens.len());
         Ok((subscription_id, rx))
     }
@@ -155,7 +155,7 @@ impl MarketDataFeeds {
     ) -> Result<(uuid::Uuid, broadcast::Receiver<PoolInfo>)> {
         let subscription_id = uuid::Uuid::new_v4();
         let (tx, rx) = broadcast::channel(1000);
-        
+
         let subscription = PoolMonitoringSubscription {
             id: subscription_id,
             pool_addresses: pool_addresses.clone(),
@@ -164,8 +164,11 @@ impl MarketDataFeeds {
 
         let mut subscriptions = self.pool_subscriptions.write().await;
         subscriptions.insert(subscription_id, subscription);
-        
-        info!("🏊 Created pool subscription for {} pools", pool_addresses.len());
+
+        info!(
+            "🏊 Created pool subscription for {} pools",
+            pool_addresses.len()
+        );
         Ok((subscription_id, rx))
     }
 
@@ -204,23 +207,29 @@ impl MarketDataFeeds {
     }
 
     /// Fetch latest prices from external API
-    pub async fn fetch_token_prices(&self, tokens: &[Pubkey]) -> Result<HashMap<Pubkey, PriceData>> {
+    pub async fn fetch_token_prices(
+        &self,
+        tokens: &[Pubkey],
+    ) -> Result<HashMap<Pubkey, PriceData>> {
         debug!("📊 Fetching prices for {} tokens", tokens.len());
-        
+
         error!("🚫 SIMULATED PRICE DATA DISABLED - Use real price APIs");
         warn!("fetch_token_prices() requires real Jupiter/CoinGecko/Birdeye API implementation");
-        
+
         // Return empty HashMap until real implementation is added
         Ok(HashMap::new())
     }
 
     /// Fetch pool information from Raydium
-    pub async fn fetch_pool_info(&self, pool_addresses: &[Pubkey]) -> Result<HashMap<Pubkey, PoolInfo>> {
+    pub async fn fetch_pool_info(
+        &self,
+        pool_addresses: &[Pubkey],
+    ) -> Result<HashMap<Pubkey, PoolInfo>> {
         debug!("🏊 Fetching pool info for {} pools", pool_addresses.len());
-        
+
         error!("🚫 SIMULATED POOL DATA DISABLED - Use real Raydium/Orca APIs");
         warn!("fetch_pool_info() requires real DEX API implementation");
-        
+
         // Return empty HashMap until real implementation is added
         Ok(HashMap::new())
     }
@@ -231,7 +240,7 @@ impl MarketDataFeeds {
         let pool_subs = self.pool_subscriptions.read().await;
         let cached_prices = self.cached_prices.read().await;
         let cached_pools = self.cached_pools.read().await;
-        
+
         MarketDataStats {
             price_subscriptions: price_subs.len(),
             pool_subscriptions: pool_subs.len(),
@@ -244,7 +253,7 @@ impl MarketDataFeeds {
     /// Health check
     pub async fn health_check(&self) -> Result<HealthStatus> {
         let is_running = *self.is_running.read().await;
-          if !is_running {
+        if !is_running {
             return Ok(HealthStatus {
                 is_healthy: false,
                 component: "market_data_feeds".to_string(),
@@ -258,10 +267,11 @@ impl MarketDataFeeds {
         let cached_prices = self.cached_prices.read().await;
         let now = chrono::Utc::now();
         let stale_threshold = chrono::Duration::minutes(5);
-          let stale_prices = cached_prices.values()
+        let stale_prices = cached_prices
+            .values()
             .filter(|price| now.signed_duration_since(price.timestamp) > stale_threshold)
             .count();
-          if stale_prices > 0 && !cached_prices.is_empty() {
+        if stale_prices > 0 && !cached_prices.is_empty() {
             Ok(HealthStatus {
                 is_healthy: true,
                 component: "market_data_feeds".to_string(),
@@ -285,23 +295,23 @@ impl MarketDataFeeds {
         let price_subscriptions = self.price_subscriptions.clone();
         let cached_prices = self.cached_prices.clone();
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 let subscriptions = price_subscriptions.read().await;
-                
+
                 for subscription in subscriptions.values() {
                     // For each subscription, send updates to subscribers
                     let cached = cached_prices.read().await;
-                    
+
                     for token in &subscription.tokens {
                         if let Some(price_data) = cached.get(token) {
                             if let Err(e) = subscription.sender.send(price_data.clone()) {
@@ -319,22 +329,22 @@ impl MarketDataFeeds {
         let pool_subscriptions = self.pool_subscriptions.clone();
         let cached_pools = self.cached_pools.clone();
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 let subscriptions = pool_subscriptions.read().await;
-                
+
                 for subscription in subscriptions.values() {
                     let cached = cached_pools.read().await;
-                    
+
                     for pool_address in &subscription.pool_addresses {
                         if let Some(pool_info) = cached.get(pool_address) {
                             if let Err(e) = subscription.sender.send(pool_info.clone()) {
@@ -352,20 +362,20 @@ impl MarketDataFeeds {
         let cached_prices = self.cached_prices.clone();
         let cached_pools = self.cached_pools.clone();
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(300)); // 5 minutes
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 let now = chrono::Utc::now();
                 let stale_threshold = chrono::Duration::minutes(30);
-                
+
                 // Clean stale prices
                 {
                     let mut prices = cached_prices.write().await;
@@ -373,7 +383,7 @@ impl MarketDataFeeds {
                         now.signed_duration_since(price.timestamp) <= stale_threshold
                     });
                 }
-                
+
                 // Clean stale pools
                 {
                     let mut pools = cached_pools.write().await;
@@ -381,7 +391,7 @@ impl MarketDataFeeds {
                         now.signed_duration_since(pool.detected_at) <= stale_threshold
                     });
                 }
-                
+
                 debug!("🧹 Cache cleanup completed");
             }
         });

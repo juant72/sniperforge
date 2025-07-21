@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -62,16 +62,19 @@ async fn main() -> Result<()> {
                 info!("🎉 ¡HÍBRIDO EXITOSO - PHASE 2 OPTIMIZADA!");
                 info!("   ✅ Ganancia total: +{:.9} SOL", actual_profit);
                 info!("   💰 Valor USD aprox: +${:.2}", actual_profit * 200.0);
-                info!("   📈 ROI: +{:.4}%", (actual_profit / initial_balance) * 100.0);
+                info!(
+                    "   📈 ROI: +{:.4}%",
+                    (actual_profit / initial_balance) * 100.0
+                );
                 info!("   🚀 Multiplicador vs 2C: {:.2}x", profit_multiplier);
-                
+
                 // Calcular métricas avanzadas
                 let profit_per_cycle = actual_profit / cycles as f64;
                 let efficiency = (actual_profit / (base_amount * cycles as f64)) * 100.0;
-                
+
                 info!("   📊 Profit por ciclo: {:.9} SOL", profit_per_cycle);
                 info!("   ⚡ Eficiencia: {:.2}%", efficiency);
-                
+
                 update_hybrid_success(actual_profit, cycles).await?;
             } else {
                 warn!("⚠️ Resultado: {:.9} SOL", actual_profit);
@@ -91,7 +94,7 @@ async fn execute_hybrid_arbitrage(
     base_amount: f64,
 ) -> Result<f64> {
     let mut total_profit = 0.0;
-    
+
     info!("🔧 === CONFIGURACIÓN HÍBRIDA ===");
     info!("   🔄 Ciclos: {} (usando método exitoso 2C)", cycles);
     info!("   💰 Amount base: {} SOL", base_amount);
@@ -99,24 +102,23 @@ async fn execute_hybrid_arbitrage(
 
     // Crear ATA una sola vez para todos los ciclos
     let wsol_account = setup_reusable_wsol_account(client, wallet).await?;
-    info!("   ✅ ATA configurado: {}...", &wsol_account.to_string()[..8]);
+    info!(
+        "   ✅ ATA configurado: {}...",
+        &wsol_account.to_string()[..8]
+    );
 
     for cycle in 1..=cycles {
         info!("\n💫 === CICLO HÍBRIDO {}/{} ===", cycle, cycles);
-        
+
         let cycle_amount = calculate_optimized_amount(base_amount, cycle);
         info!("   💰 Amount optimizado: {} SOL", cycle_amount);
-        
-        match execute_winning_strategy_cycle(
-            client, 
-            wallet, 
-            &wsol_account, 
-            cycle_amount, 
-            cycle
-        ).await {
+
+        match execute_winning_strategy_cycle(client, wallet, &wsol_account, cycle_amount, cycle)
+            .await
+        {
             Ok(cycle_profit) => {
                 total_profit += cycle_profit;
-                
+
                 if cycle_profit > 0.0 {
                     info!("   🎉 Ciclo {} PROFITABLE: +{:.9} SOL", cycle, cycle_profit);
                 } else {
@@ -140,7 +142,7 @@ async fn execute_hybrid_arbitrage(
         // Check balance for next cycle
         let current_balance = check_sol_balance(client, &wallet.pubkey()).await?;
         let next_amount = calculate_optimized_amount(base_amount, cycle + 1);
-        
+
         if current_balance < next_amount + 0.01 && cycle < cycles {
             warn!("   ⚠️ Balance insuficiente para ciclo {}", cycle + 1);
             break;
@@ -154,34 +156,30 @@ async fn execute_hybrid_arbitrage(
 fn calculate_optimized_amount(base: f64, cycle: u32) -> f64 {
     // Usar cantidades que sabemos funcionan mejor
     match cycle {
-        1 => base,                    // 0.015 SOL
-        2 => base + 0.005,           // 0.020 SOL (similar a 2C exitoso)
-        3 => base - 0.005,           // 0.010 SOL (más conservador)
+        1 => base,         // 0.015 SOL
+        2 => base + 0.005, // 0.020 SOL (similar a 2C exitoso)
+        3 => base - 0.005, // 0.010 SOL (más conservador)
         _ => base,
     }
 }
 
-async fn setup_reusable_wsol_account(
-    client: &RpcClient,
-    wallet: &Keypair,
-) -> Result<Pubkey> {
+async fn setup_reusable_wsol_account(client: &RpcClient, wallet: &Keypair) -> Result<Pubkey> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     // Solo crear si no existe
     if client.get_account(&wsol_account).is_err() {
         info!("   🔧 Creando ATA reutilizable...");
-        
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
 
         let recent_blockhash = client.get_latest_blockhash()?;
         let transaction = Transaction::new_signed_with_payer(
@@ -210,51 +208,53 @@ async fn execute_winning_strategy_cycle(
     let user_pubkey = wallet.pubkey();
     let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
-    
-    info!("   🎯 Ejecutando estrategia ganadora (ciclo {})", cycle_number);
+
+    info!(
+        "   🎯 Ejecutando estrategia ganadora (ciclo {})",
+        cycle_number
+    );
 
     let balance_before = client.get_balance(&user_pubkey)?;
-    
+
     // PASO 1: Wrap usando método exitoso de 2C
     info!("     💫 Wrap optimizado...");
     let wrap_sig = execute_optimized_wrap_2c_style(
-        client, 
-        wallet, 
-        wsol_account, 
-        amount_lamports + rent_exempt
-    ).await?;
-    
+        client,
+        wallet,
+        wsol_account,
+        amount_lamports + rent_exempt,
+    )
+    .await?;
+
     // PASO 2: Timing optimization (el secreto de 2C)
     let timing_delay = match cycle_number {
-        1 => 800,   // Timing original de 2C
-        2 => 600,   // Más agresivo
-        3 => 1000,  // Más conservador
+        1 => 800,  // Timing original de 2C
+        2 => 600,  // Más agresivo
+        3 => 1000, // Más conservador
         _ => 800,
     };
-    
+
     info!("     ⏰ Timing crítico: {}ms", timing_delay);
     tokio::time::sleep(std::time::Duration::from_millis(timing_delay)).await;
 
     // PASO 3: Unwrap usando método exitoso de 2C
     info!("     🔄 Unwrap optimizado...");
-    let unwrap_sig = execute_optimized_unwrap_2c_style(
-        client, 
-        wallet, 
-        wsol_account
-    ).await?;
+    let unwrap_sig = execute_optimized_unwrap_2c_style(client, wallet, wsol_account).await?;
 
     // PASO 4: Calcular profit (con pausa como en 2C)
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
     let balance_after = client.get_balance(&user_pubkey)?;
-    
+
     let net_change = balance_after as i64 - balance_before as i64;
     let profit = net_change as f64 / LAMPORTS_PER_SOL as f64;
 
     info!("     📊 Resultado: {:.9} SOL", profit);
-    info!("     🔗 Signatures: {}... / {}...", 
-           &wrap_sig.to_string()[..8], 
-           &unwrap_sig.to_string()[..8]);
-    
+    info!(
+        "     🔗 Signatures: {}... / {}...",
+        &wrap_sig.to_string()[..8],
+        &unwrap_sig.to_string()[..8]
+    );
+
     Ok(profit)
 }
 
@@ -328,7 +328,7 @@ async fn update_hybrid_success(profit: f64, cycles: u32) -> Result<()> {
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

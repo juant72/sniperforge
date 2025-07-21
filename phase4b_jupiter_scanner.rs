@@ -1,18 +1,15 @@
 use anyhow::Result;
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    native_token::LAMPORTS_PER_SOL,
-};
 use reqwest;
 use serde_json::Value;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,
+    signature::Keypair, signer::Signer,
+};
 use std::fs;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,9 +25,9 @@ async fn main() -> Result<()> {
 
     let rpc_url = "https://api.mainnet-beta.solana.com";
     let client = RpcClient::new_with_timeout_and_commitment(
-        rpc_url.to_string(), 
+        rpc_url.to_string(),
         Duration::from_secs(30),
-        CommitmentConfig::confirmed()
+        CommitmentConfig::confirmed(),
     );
 
     let wallet = load_mainnet_wallet().await?;
@@ -42,9 +39,27 @@ async fn main() -> Result<()> {
 
     // Test different token pairs and amounts
     let test_pairs = vec![
-        ("SOL", "USDC", "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 1_000_000.0),
-        ("SOL", "RAY", "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", 1_000_000.0),
-        ("SOL", "BONK", "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", 1_000_000_000.0),
+        (
+            "SOL",
+            "USDC",
+            "So11111111111111111111111111111111111111112",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+            1_000_000.0,
+        ),
+        (
+            "SOL",
+            "RAY",
+            "So11111111111111111111111111111111111111112",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+            1_000_000.0,
+        ),
+        (
+            "SOL",
+            "BONK",
+            "So11111111111111111111111111111111111111112",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+            1_000_000_000.0,
+        ),
     ];
 
     let test_amounts_sol = vec![0.005, 0.01, 0.02, 0.03];
@@ -61,17 +76,22 @@ async fn main() -> Result<()> {
             }
 
             scan_count += 1;
-            info!("\n🔍 Scan {}: {} ↔ {} ({} SOL)", scan_count, token_a, token_b, amount_sol);
+            info!(
+                "\n🔍 Scan {}: {} ↔ {} ({} SOL)",
+                scan_count, token_a, token_b, amount_sol
+            );
 
             match scan_arbitrage_opportunity(mint_a, mint_b, amount_sol, token_b_decimals).await {
                 Ok(Some(result)) => {
                     info!("   ✅ Opportunity found!");
                     info!("   💰 Profit: {:.9} SOL", result.profit);
                     info!("   📈 ROI: {:.4}%", result.roi);
-                    
+
                     if result.profit > 0.000015 {
                         info!("   🎯 PROFITABLE! (> fees)");
-                        if best_opportunity.is_none() || result.profit > best_opportunity.as_ref().unwrap().profit {
+                        if best_opportunity.is_none()
+                            || result.profit > best_opportunity.as_ref().unwrap().profit
+                        {
                             best_opportunity = Some(result);
                             info!("   🏆 NEW BEST OPPORTUNITY!");
                         }
@@ -94,7 +114,7 @@ async fn main() -> Result<()> {
 
     info!("\n📊 === FINAL SCAN RESULTS ===");
     info!("   🔍 Total scans: {}", scan_count);
-    
+
     if let Some(best) = best_opportunity {
         info!("🏆 === BEST OPPORTUNITY FOUND ===");
         info!("   💰 Pair: {} ↔ {}", best.token_a, best.token_b);
@@ -102,8 +122,9 @@ async fn main() -> Result<()> {
         info!("   📈 Profit: {:.9} SOL", best.profit);
         info!("   📈 ROI: {:.4}%", best.roi);
         info!("   ⚡ Spread: {:.6}%", best.spread_percent);
-        
-        if best.profit > 0.000050 { // Significant margin over fees
+
+        if best.profit > 0.000050 {
+            // Significant margin over fees
             info!("🎉 HIGHLY PROFITABLE OPPORTUNITY!");
             info!("   ✅ Recommended for execution");
             info!("   💡 Profit margin: {:.1}x fees", best.profit / 0.000015);
@@ -140,37 +161,50 @@ struct ArbitrageResult {
 }
 
 async fn scan_arbitrage_opportunity(
-    mint_a: &str, 
-    mint_b: &str, 
+    mint_a: &str,
+    mint_b: &str,
     amount_sol: f64,
-    token_b_decimals: f64
+    token_b_decimals: f64,
 ) -> Result<Option<ArbitrageResult>> {
     let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
-    
+
     // Route 1: A → B
     let route_1 = get_jupiter_quote(mint_a, mint_b, amount_lamports).await?;
-    
+
     if let Some(route_1_data) = route_1 {
-        let token_b_amount: u64 = route_1_data["outAmount"].as_str()
-            .unwrap_or("0").parse().unwrap_or(0);
-        
+        let token_b_amount: u64 = route_1_data["outAmount"]
+            .as_str()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+
         // Small delay
         sleep(Duration::from_millis(200)).await;
-        
+
         // Route 2: B → A
         let route_2 = get_jupiter_quote(mint_b, mint_a, token_b_amount).await?;
-        
+
         if let Some(route_2_data) = route_2 {
-            let final_amount: u64 = route_2_data["outAmount"].as_str()
-                .unwrap_or("0").parse().unwrap_or(0);
+            let final_amount: u64 = route_2_data["outAmount"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(0);
             let final_sol = final_amount as f64 / LAMPORTS_PER_SOL as f64;
-            
+
             let profit = final_sol - amount_sol;
             let roi = (profit / amount_sol) * 100.0;
-            
+
             return Ok(Some(ArbitrageResult {
                 token_a: "SOL".to_string(),
-                token_b: if mint_b.contains("EPjF") { "USDC" } else if mint_b.contains("4k3D") { "RAY" } else { "BONK" }.to_string(),
+                token_b: if mint_b.contains("EPjF") {
+                    "USDC"
+                } else if mint_b.contains("4k3D") {
+                    "RAY"
+                } else {
+                    "BONK"
+                }
+                .to_string(),
                 amount_sol,
                 profit,
                 roi,
@@ -178,18 +212,22 @@ async fn scan_arbitrage_opportunity(
             }));
         }
     }
-    
+
     Ok(None)
 }
 
-async fn get_jupiter_quote(input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
+async fn get_jupiter_quote(
+    input_mint: &str,
+    output_mint: &str,
+    amount: u64,
+) -> Result<Option<Value>> {
     let client = reqwest::Client::new();
-    
+
     let url = format!(
         "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
         input_mint, output_mint, amount
     );
-    
+
     match client.get(&url).send().await {
         Ok(response) => {
             if response.status().is_success() {
@@ -201,13 +239,13 @@ async fn get_jupiter_quote(input_mint: &str, output_mint: &str, amount: u64) -> 
                             Ok(Some(data))
                         }
                     }
-                    Err(_) => Ok(None)
+                    Err(_) => Ok(None),
                 }
             } else {
                 Ok(None)
             }
         }
-        Err(_) => Ok(None)
+        Err(_) => Ok(None),
     }
 }
 
@@ -218,7 +256,7 @@ async fn check_sol_balance(client: &RpcClient, pubkey: &Pubkey) -> Result<f64> {
 
 async fn load_mainnet_wallet() -> Result<Keypair> {
     let wallet_path = "mainnet-arbitrage-wallet.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

@@ -1,19 +1,19 @@
+use anyhow::Result;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    pubkey::Pubkey,
+    signature::Signature,
+    signer::{keypair::Keypair, Signer},
+    transaction::Transaction,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use anyhow::Result;
-use tracing::{info, warn, error, debug};
-use solana_sdk::{
-    signer::{Signer, keypair::Keypair},
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
-};
-use solana_client::rpc_client::RpcClient;
+use tracing::{debug, error, info, warn};
 // use serde::{Serialize, Deserialize}; // Temporarily commented for compilation
 
 use crate::config::{Config, WalletEnvironmentConfig};
-use crate::types::{PlatformError, HealthStatus};
+use crate::types::{HealthStatus, PlatformError};
 
 /// Wallet configuration for different purposes
 #[derive(Debug, Clone)]
@@ -30,10 +30,10 @@ pub struct WalletConfig {
 /// Types of wallets in the system
 #[derive(Debug, Clone)]
 pub enum WalletType {
-    Trading,      // Main trading wallet
-    Fee,          // For transaction fees
-    Emergency,    // Emergency backup wallet
-    Testing,      // For testing purposes
+    Trading,   // Main trading wallet
+    Fee,       // For transaction fees
+    Emergency, // Emergency backup wallet
+    Testing,   // For testing purposes
 }
 
 /// Risk management settings per wallet
@@ -99,8 +99,10 @@ impl WalletManager {
         // Load configured wallets
         manager.load_configured_wallets().await?;
 
-        info!("✅ Wallet Manager initialized with {} wallets",
-              manager.wallets.read().await.len());
+        info!(
+            "✅ Wallet Manager initialized with {} wallets",
+            manager.wallets.read().await.len()
+        );
 
         Ok(manager)
     }
@@ -216,17 +218,21 @@ impl WalletManager {
         // Validate wallet availability
         if !self.is_wallet_available(wallet_name, amount_sol).await? {
             return Err(PlatformError::WalletManagement(
-                "Wallet not available for transaction".to_string()
-            ).into());
+                "Wallet not available for transaction".to_string(),
+            )
+            .into());
         }
 
         let wallets = self.wallets.read().await;
         if let Some(wallet) = wallets.get(wallet_name) {
             // Check risk management
             if wallet.config.risk_management.require_confirmation {
-                info!("🔐 Transaction requires confirmation: {} SOL - {}", amount_sol, description);
+                info!(
+                    "🔐 Transaction requires confirmation: {} SOL - {}",
+                    amount_sol, description
+                );
                 // In a real implementation, this would wait for user confirmation
-            }            // Sign the transaction
+            } // Sign the transaction
             let keypair = wallet.keypair.as_ref();
             transaction.try_sign(&[keypair], transaction.message.recent_blockhash)?;
 
@@ -237,7 +243,10 @@ impl WalletManager {
                 daily_volumes.insert(wallet_name.to_string(), current_volume + amount_sol);
             }
 
-            info!("✅ Transaction signed with wallet: {} ({} SOL)", wallet_name, amount_sol);
+            info!(
+                "✅ Transaction signed with wallet: {} ({} SOL)",
+                wallet_name, amount_sol
+            );
             Ok(transaction)
         } else {
             Err(PlatformError::WalletManagement("Wallet not found".to_string()).into())
@@ -284,21 +293,22 @@ impl WalletManager {
         }
 
         Ok(())
-    }    /// Get wallet information
+    }
+    /// Get wallet information
     pub async fn get_wallet_info(&self, wallet_name: &str) -> Option<WalletInfo> {
         let wallets = self.wallets.read().await;
         let daily_volumes = self.daily_volumes.read().await;
 
         wallets.get(wallet_name).map(|wallet| WalletInfo {
-                name: wallet.config.name.clone(),
-                wallet_type: wallet.config.wallet_type.clone(),
-                pubkey: wallet.pubkey,
-                balance_sol: wallet.balance_sol,
-                daily_volume: *daily_volumes.get(wallet_name).unwrap_or(&0.0),
-                is_locked: wallet.is_locked,
-                lock_reason: wallet.lock_reason.clone(),
-                last_balance_check: wallet.last_balance_check,
-            })
+            name: wallet.config.name.clone(),
+            wallet_type: wallet.config.wallet_type.clone(),
+            pubkey: wallet.pubkey,
+            balance_sol: wallet.balance_sol,
+            daily_volume: *daily_volumes.get(wallet_name).unwrap_or(&0.0),
+            is_locked: wallet.is_locked,
+            lock_reason: wallet.lock_reason.clone(),
+            last_balance_check: wallet.last_balance_check,
+        })
     }
 
     /// List all managed wallets
@@ -306,7 +316,8 @@ impl WalletManager {
         let wallets = self.wallets.read().await;
         let daily_volumes = self.daily_volumes.read().await;
 
-        wallets.values()
+        wallets
+            .values()
             .map(|wallet| WalletInfo {
                 name: wallet.config.name.clone(),
                 wallet_type: wallet.config.wallet_type.clone(),
@@ -324,7 +335,7 @@ impl WalletManager {
     pub async fn health_check(&self) -> Result<HealthStatus> {
         let wallets = self.wallets.read().await;
         let emergency_stop = *self.emergency_stop.read().await;
-          if emergency_stop {
+        if emergency_stop {
             return Ok(HealthStatus {
                 is_healthy: false,
                 component: "wallet_manager".to_string(),
@@ -334,10 +345,12 @@ impl WalletManager {
             });
         }
 
-        let locked_wallets: Vec<_> = wallets.values()
+        let locked_wallets: Vec<_> = wallets
+            .values()
             .filter(|w| w.is_locked)
             .map(|w| w.config.name.clone())
-            .collect();        if locked_wallets.len() == wallets.len() && !wallets.is_empty() {
+            .collect();
+        if locked_wallets.len() == wallets.len() && !wallets.is_empty() {
             Ok(HealthStatus {
                 is_healthy: false,
                 component: "wallet_manager".to_string(),
@@ -368,25 +381,32 @@ impl WalletManager {
     async fn load_keypair(&self, config: &WalletConfig) -> Result<Keypair> {
         if let Some(keypair_data) = &config.keypair_data {
             // Load from base58 string
-            let bytes = bs58::decode(keypair_data)
-                .into_vec()
-                .map_err(|e| PlatformError::WalletManagement(format!("Invalid keypair data: {}", e)))?;
+            let bytes = bs58::decode(keypair_data).into_vec().map_err(|e| {
+                PlatformError::WalletManagement(format!("Invalid keypair data: {}", e))
+            })?;
 
-            Keypair::from_bytes(&bytes)
-                .map_err(|e| PlatformError::WalletManagement(format!("Failed to create keypair: {}", e)).into())
+            Keypair::from_bytes(&bytes).map_err(|e| {
+                PlatformError::WalletManagement(format!("Failed to create keypair: {}", e)).into()
+            })
         } else if let Some(keypair_path) = &config.keypair_path {
             // Load from file
-            let keypair_bytes = std::fs::read(keypair_path)
-                .map_err(|e| PlatformError::WalletManagement(format!("Failed to read keypair file: {}", e)))?;
+            let keypair_bytes = std::fs::read(keypair_path).map_err(|e| {
+                PlatformError::WalletManagement(format!("Failed to read keypair file: {}", e))
+            })?;
 
-            Keypair::from_bytes(&keypair_bytes)
-                .map_err(|e| PlatformError::WalletManagement(format!("Failed to create keypair: {}", e)).into())
+            Keypair::from_bytes(&keypair_bytes).map_err(|e| {
+                PlatformError::WalletManagement(format!("Failed to create keypair: {}", e)).into()
+            })
         } else {
             // Generate new keypair
-            warn!("No keypair specified for wallet {}, generating new one", config.name);
+            warn!(
+                "No keypair specified for wallet {}, generating new one",
+                config.name
+            );
             Ok(Keypair::new())
         }
-    }    /// Load wallets from configuration - Sprint 1.5 implementation
+    }
+    /// Load wallets from configuration - Sprint 1.5 implementation
     async fn load_configured_wallets(&mut self) -> Result<()> {
         info!("🔐 Loading wallet configurations for Sprint 1.5");
 
@@ -400,9 +420,15 @@ impl WalletManager {
                     let devnet_wallet = self.create_devnet_wallet(&wallet_config.devnet).await?;
                     self.add_wallet(devnet_wallet).await?;
                     info!("✅ DevNet wallet created for real trading");
-                      // Auto-airdrop if enabled
+                    // Auto-airdrop if enabled
                     if wallet_config.auto_airdrop_devnet {
-                        match self.airdrop_devnet_sol("devnet-trading", wallet_config.devnet_airdrop_amount).await {
+                        match self
+                            .airdrop_devnet_sol(
+                                "devnet-trading",
+                                wallet_config.devnet_airdrop_amount,
+                            )
+                            .await
+                        {
                             Ok(_) => {
                                 info!("✅ DevNet airdrop successful");
                             }
@@ -445,7 +471,10 @@ impl WalletManager {
     }
 
     /// Create DevNet wallet with real keypair
-    async fn create_devnet_wallet(&self, env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
+    async fn create_devnet_wallet(
+        &self,
+        env_config: &WalletEnvironmentConfig,
+    ) -> Result<WalletConfig> {
         info!("🧪 Creating DevNet wallet with real keypair");
 
         // Generate new keypair for devnet
@@ -472,14 +501,20 @@ impl WalletManager {
     }
 
     /// Create MainNet wallet with real keypair (real trading)
-    async fn create_mainnet_wallet(&self, _env_config: &WalletEnvironmentConfig) -> Result<WalletConfig> {
+    async fn create_mainnet_wallet(
+        &self,
+        _env_config: &WalletEnvironmentConfig,
+    ) -> Result<WalletConfig> {
         error!("� MainNet real trading not yet implemented - requires security review");
         return Err(anyhow::anyhow!("MainNet real trading disabled for safety"));
     }
 
     /// Airdrop SOL on devnet for testing
     async fn airdrop_devnet_sol(&self, wallet_name: &str, amount: f64) -> Result<()> {
-        info!("💧 Requesting {} SOL airdrop for wallet: {}", amount, wallet_name);
+        info!(
+            "💧 Requesting {} SOL airdrop for wallet: {}",
+            amount, wallet_name
+        );
 
         // Get the wallet
         let wallets = self.wallets.read().await;
@@ -490,16 +525,21 @@ impl WalletManager {
                     .into_vec()
                     .map_err(|e| anyhow::anyhow!("Failed to decode keypair: {}", e))?;
                 let keypair = Keypair::from_bytes(&keypair_bytes)?;
-                  info!("💸 Requesting airdrop for pubkey: {}", keypair.pubkey());
+                info!("💸 Requesting airdrop for pubkey: {}", keypair.pubkey());
 
                 // Real airdrop request to devnet
-                let rpc_client = solana_client::rpc_client::RpcClient::new("https://api.devnet.solana.com".to_string());
+                let rpc_client = solana_client::rpc_client::RpcClient::new(
+                    "https://api.devnet.solana.com".to_string(),
+                );
                 let lamports = (amount * 1_000_000_000.0) as u64; // Convert SOL to lamports
 
                 match rpc_client.request_airdrop(&keypair.pubkey(), lamports) {
                     Ok(signature) => {
                         info!("✅ Airdrop request successful! Signature: {}", signature);
-                        info!("🎯 Requested {} SOL ({} lamports) for wallet {}", amount, lamports, wallet_name);
+                        info!(
+                            "🎯 Requested {} SOL ({} lamports) for wallet {}",
+                            amount, lamports, wallet_name
+                        );
 
                         // Wait a moment for confirmation
                         tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
@@ -508,7 +548,10 @@ impl WalletManager {
                         match rpc_client.get_balance(&keypair.pubkey()) {
                             Ok(balance) => {
                                 let balance_sol = balance as f64 / 1_000_000_000.0;
-                                info!("💰 Current wallet balance: {} SOL ({} lamports)", balance_sol, balance);
+                                info!(
+                                    "💰 Current wallet balance: {} SOL ({} lamports)",
+                                    balance_sol, balance
+                                );
                             }
                             Err(e) => warn!("⚠️ Could not check balance: {}", e),
                         }
@@ -525,8 +568,12 @@ impl WalletManager {
             }
         }
 
-        Err(anyhow::anyhow!("Wallet not found or no keypair: {}", wallet_name))
-    }/// Start balance monitoring task
+        Err(anyhow::anyhow!(
+            "Wallet not found or no keypair: {}",
+            wallet_name
+        ))
+    }
+    /// Start balance monitoring task
     async fn start_balance_monitoring(&self) {
         let _wallets = self.wallets.clone();
 
@@ -540,17 +587,20 @@ impl WalletManager {
                 debug!("Balance monitoring tick");
             }
         });
-    }    /// Start daily volume reset task
+    }
+    /// Start daily volume reset task
     async fn start_daily_reset_task(&self) {
         let daily_volumes = self.daily_volumes.clone();
 
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(24 * 60 * 60)); // 24 hours
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_secs(24 * 60 * 60)); // 24 hours
 
             loop {
                 interval.tick().await;
 
-                let mut volumes = daily_volumes.write().await;                volumes.clear();
+                let mut volumes = daily_volumes.write().await;
+                volumes.clear();
                 info!("🔄 Daily volume limits reset");
             }
         });
@@ -562,9 +612,10 @@ impl WalletManager {
         if let Some(wallet) = wallets.get(wallet_name) {
             Ok(wallet.pubkey.to_string())
         } else {
-            Err(PlatformError::WalletManagement(
-                format!("Wallet '{}' not found", wallet_name)
-            ).into())
+            Err(
+                PlatformError::WalletManagement(format!("Wallet '{}' not found", wallet_name))
+                    .into(),
+            )
         }
     }
 
@@ -574,9 +625,10 @@ impl WalletManager {
         if let Some(wallet) = wallets.get(wallet_name) {
             Ok(wallet.keypair.clone())
         } else {
-            Err(PlatformError::WalletManagement(
-                format!("Wallet '{}' not found", wallet_name)
-            ).into())
+            Err(
+                PlatformError::WalletManagement(format!("Wallet '{}' not found", wallet_name))
+                    .into(),
+            )
         }
     }
 

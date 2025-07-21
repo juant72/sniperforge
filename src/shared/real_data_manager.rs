@@ -1,20 +1,19 @@
 /// Real Data Manager - Centralized 100% Real Data Integration
-/// 
+///
 /// This module ensures ALL data sources are real and live, replacing any
 /// virtual, mock, simulated, or placeholder data throughout the system.
-
-use anyhow::{Result, anyhow};
-use std::collections::HashMap;
-use solana_sdk::pubkey::Pubkey;
-use std::time::{Duration, SystemTime, UNIX_EPOCH, Instant};
-use serde::{Serialize, Deserialize};
-use tracing::{info, warn, error, debug};
-use tokio::time::timeout;
+use anyhow::{anyhow, Result};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use tokio::time::timeout;
+use tracing::{debug, error, info, warn};
 
+use crate::config::Config;
 use crate::shared::jupiter::Jupiter;
 use crate::shared::rpc_pool::RpcConnectionPool;
-use crate::config::Config;
 
 /// Real price data from live sources
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,17 +94,26 @@ impl RealDataManager {
         // Check cache first
         if let Some((cached_price, cached_time)) = self.price_cache.get(token_mint) {
             if cached_time.elapsed().unwrap_or(Duration::MAX) < self.cache_ttl {
-                debug!("💰 Using cached real price for {}: ${:.6}", &token_mint[..8], cached_price.price_usd);
+                debug!(
+                    "💰 Using cached real price for {}: ${:.6}",
+                    &token_mint[..8],
+                    cached_price.price_usd
+                );
                 return Ok(cached_price.clone());
             }
         }
 
         // Fetch real price from Jupiter
-        debug!("📡 Fetching REAL price from Jupiter API for token: {}", &token_mint[..8]);
-        
-        let price_result = timeout(Duration::from_secs(10), 
-            self.jupiter.get_token_price(token_mint)
-        ).await;
+        debug!(
+            "📡 Fetching REAL price from Jupiter API for token: {}",
+            &token_mint[..8]
+        );
+
+        let price_result = timeout(
+            Duration::from_secs(10),
+            self.jupiter.get_token_price(token_mint),
+        )
+        .await;
 
         match price_result {
             Ok(Ok(jupiter_price)) => {
@@ -120,15 +128,22 @@ impl RealDataManager {
                 };
 
                 // Cache the real price
-                self.price_cache.insert(token_mint.to_string(), (real_price.clone(), SystemTime::now()));
-                
-                info!("✅ Real price fetched: {} = ${:.6} (Source: Jupiter)", &token_mint[..8], real_price.price_usd);
+                self.price_cache.insert(
+                    token_mint.to_string(),
+                    (real_price.clone(), SystemTime::now()),
+                );
+
+                info!(
+                    "✅ Real price fetched: {} = ${:.6} (Source: Jupiter)",
+                    &token_mint[..8],
+                    real_price.price_usd
+                );
                 Ok(real_price)
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Jupiter API error for {}: {}", &token_mint[..8], e);
                 Err(anyhow!("Jupiter API error: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ Jupiter API timeout for {}", &token_mint[..8]);
                 Err(anyhow!("Jupiter API timeout"))
@@ -137,36 +152,51 @@ impl RealDataManager {
     }
 
     /// Get real wallet balances from blockchain
-    pub async fn get_real_wallet_balances(&mut self, wallet_address: &str) -> Result<Vec<RealWalletBalance>> {
+    pub async fn get_real_wallet_balances(
+        &mut self,
+        wallet_address: &str,
+    ) -> Result<Vec<RealWalletBalance>> {
         // Check cache first
         if let Some((cached_balances, cached_time)) = self.balance_cache.get(wallet_address) {
             if cached_time.elapsed().unwrap_or(Duration::MAX) < self.cache_ttl {
-                debug!("💼 Using cached real balances for wallet: {}", &wallet_address[..8]);
+                debug!(
+                    "💼 Using cached real balances for wallet: {}",
+                    &wallet_address[..8]
+                );
                 return Ok(cached_balances.clone());
             }
         }
 
-        debug!("📡 Fetching REAL wallet balances from blockchain for: {}", &wallet_address[..8]);
+        debug!(
+            "📡 Fetching REAL wallet balances from blockchain for: {}",
+            &wallet_address[..8]
+        );
 
         // Get real balances from RPC
-        let wallet_pubkey = wallet_address.parse::<Pubkey>()
+        let wallet_pubkey = wallet_address
+            .parse::<Pubkey>()
             .map_err(|e| anyhow!("Invalid wallet address: {}", e))?;
 
-        let balance_result = timeout(Duration::from_secs(15),
-            self.rpc_pool.get_balance(&wallet_pubkey)
-        ).await;
+        let balance_result = timeout(
+            Duration::from_secs(15),
+            self.rpc_pool.get_balance(&wallet_pubkey),
+        )
+        .await;
 
         match balance_result {
             Ok(Ok(lamports)) => {
                 let mut real_balances = Vec::new();
-                
+
                 // Convert lamports to SOL
                 let sol_amount = lamports as f64 / 1_000_000_000.0;
-                
+
                 // Get real SOL price
-                if let Ok(price_data) = self.get_real_price("So11111111111111111111111111111111111111112").await {
+                if let Ok(price_data) = self
+                    .get_real_price("So11111111111111111111111111111111111111112")
+                    .await
+                {
                     let value_usd = sol_amount * price_data.price_usd;
-                    
+
                     real_balances.push(RealWalletBalance {
                         token_mint: "So11111111111111111111111111111111111111112".to_string(),
                         symbol: "SOL".to_string(),
@@ -177,15 +207,21 @@ impl RealDataManager {
                 }
 
                 // Cache real balances
-                self.balance_cache.insert(wallet_address.to_string(), (real_balances.clone(), SystemTime::now()));
-                
-                info!("✅ Real wallet balances fetched: {} tokens (Blockchain)", real_balances.len());
+                self.balance_cache.insert(
+                    wallet_address.to_string(),
+                    (real_balances.clone(), SystemTime::now()),
+                );
+
+                info!(
+                    "✅ Real wallet balances fetched: {} tokens (Blockchain)",
+                    real_balances.len()
+                );
                 Ok(real_balances)
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ RPC error for wallet {}: {}", &wallet_address[..8], e);
                 Err(anyhow!("RPC error: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ RPC timeout for wallet {}", &wallet_address[..8]);
                 Err(anyhow!("RPC timeout"))
@@ -194,7 +230,10 @@ impl RealDataManager {
     }
 
     /// Calculate real portfolio metrics from actual transactions
-    pub async fn get_real_portfolio_metrics(&mut self, wallet_address: &str) -> Result<RealPortfolioMetrics> {
+    pub async fn get_real_portfolio_metrics(
+        &mut self,
+        wallet_address: &str,
+    ) -> Result<RealPortfolioMetrics> {
         debug!("📊 Calculating REAL portfolio metrics from blockchain data");
 
         // Get real balances
@@ -217,12 +256,15 @@ impl RealDataManager {
             total_transactions = transactions.len() as u32;
 
             // TODO: Analyze each real transaction (requires full transaction parsing)
-            for _transaction in transactions.iter().take(50) { // Limit for performance
+            for _transaction in transactions.iter().take(50) {
+                // Limit for performance
                 // TODO: Parse real transaction details for actual PnL calculation
                 total_fees_paid += 0.005; // Estimated transaction fee
 
                 // TODO: Real PnL calculation requires parsing swap transaction details
-                warn!("📊 Transaction analysis using simplified estimates - implement real parsing");
+                warn!(
+                    "📊 Transaction analysis using simplified estimates - implement real parsing"
+                );
                 // For now, skip detailed analysis until real parsing is implemented
             }
         }
@@ -236,7 +278,7 @@ impl RealDataManager {
         let metrics = RealPortfolioMetrics {
             total_value_usd,
             total_pnl: largest_gain + largest_loss, // Simplified
-            total_pnl_percent: 0.0, // Would calculate based on initial investment
+            total_pnl_percent: 0.0,                 // Would calculate based on initial investment
             total_transactions,
             total_fees_paid,
             actual_win_rate: win_rate,
@@ -245,8 +287,10 @@ impl RealDataManager {
             last_updated: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
         };
 
-        info!("✅ Real portfolio metrics calculated: ${:.2} total value, {} transactions (W:{} L:{})", 
-              metrics.total_value_usd, metrics.total_transactions, wins, losses);
+        info!(
+            "✅ Real portfolio metrics calculated: ${:.2} total value, {} transactions (W:{} L:{})",
+            metrics.total_value_usd, metrics.total_transactions, wins, losses
+        );
 
         Ok(metrics)
     }
@@ -259,20 +303,29 @@ impl RealDataManager {
         amount: f64,
         slippage_bps: u16,
     ) -> Result<RealTransaction> {
-        info!("🚀 Executing REAL trade: {} -> {} (Amount: {:.6})", 
-              &input_mint[..8], &output_mint[..8], amount);
+        info!(
+            "🚀 Executing REAL trade: {} -> {} (Amount: {:.6})",
+            &input_mint[..8],
+            &output_mint[..8],
+            amount
+        );
 
         // Get real quote from Jupiter
-        let quote_result = timeout(Duration::from_secs(10),
-            self.jupiter.get_quote(input_mint, output_mint, amount, slippage_bps)
-        ).await;
+        let quote_result = timeout(
+            Duration::from_secs(10),
+            self.jupiter
+                .get_quote(input_mint, output_mint, amount, slippage_bps),
+        )
+        .await;
 
         match quote_result {
             Ok(Ok(quote)) => {
                 // Execute real swap through Jupiter
-                let swap_result = timeout(Duration::from_secs(30),
-                    self.jupiter.execute_swap(&quote, "trading") // Use default trading wallet
-                ).await;
+                let swap_result = timeout(
+                    Duration::from_secs(30),
+                    self.jupiter.execute_swap(&quote, "trading"), // Use default trading wallet
+                )
+                .await;
 
                 match swap_result {
                     Ok(Ok(swap_result)) => {
@@ -289,23 +342,26 @@ impl RealDataManager {
                             block_height: 0, // Would get from transaction confirmation
                         };
 
-                        info!("✅ REAL trade executed successfully: {}", &real_transaction.signature[..8]);
+                        info!(
+                            "✅ REAL trade executed successfully: {}",
+                            &real_transaction.signature[..8]
+                        );
                         Ok(real_transaction)
-                    },
+                    }
                     Ok(Err(e)) => {
                         error!("❌ Real trade execution failed: {}", e);
                         Err(anyhow!("Trade execution failed: {}", e))
-                    },
+                    }
                     Err(_) => {
                         error!("❌ Real trade execution timeout");
                         Err(anyhow!("Trade execution timeout"))
                     }
                 }
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Failed to get real quote: {}", e);
                 Err(anyhow!("Quote failed: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ Quote request timeout");
                 Err(anyhow!("Quote timeout"))
@@ -314,20 +370,24 @@ impl RealDataManager {
     }
 
     /// Get historical price data (simulated for now - would integrate with real API)
-    pub async fn get_price_history(&mut self, token_mint: &str, timeframe_minutes: u64) -> Result<Vec<RealPriceData>> {
+    pub async fn get_price_history(
+        &mut self,
+        token_mint: &str,
+        timeframe_minutes: u64,
+    ) -> Result<Vec<RealPriceData>> {
         // For now, simulate historical data based on current price
         // In production, this would fetch from DexScreener, Jupiter, or other sources
-        
+
         let current_price = self.get_real_price(token_mint).await?;
         let mut history = Vec::new();
-        
+
         // Generate last 20 data points with some realistic variation
         let mut rng = rand::thread_rng();
         for i in 0..20 {
             let time_offset = (20 - i) * timeframe_minutes * 60;
             let price_variation = (rng.gen::<f64>() - 0.5) * 0.1; // ±5% variation
             let volume_variation = (rng.gen::<f64>() - 0.5) * 0.3; // ±15% variation
-            
+
             history.push(RealPriceData {
                 token_mint: token_mint.to_string(),
                 price_usd: current_price.price_usd * (1.0 + price_variation),
@@ -338,7 +398,7 @@ impl RealDataManager {
                 confidence_score: 0.9, // Slightly lower confidence for historical data
             });
         }
-        
+
         Ok(history)
     }
 
@@ -378,14 +438,14 @@ impl RealDataManager {
     /// Get real-time system status
     pub async fn get_real_data_status(&self) -> HashMap<String, String> {
         let mut status = HashMap::new();
-        
+
         status.insert("data_source".to_string(), "100% REAL".to_string());
         status.insert("jupiter_api".to_string(), "LIVE".to_string());
         status.insert("solana_rpc".to_string(), "MAINNET".to_string());
         status.insert("simulation_mode".to_string(), "DISABLED".to_string());
         status.insert("mock_data".to_string(), "NONE".to_string());
         status.insert("virtual_trading".to_string(), "DISABLED".to_string());
-        
+
         status
     }
 }
@@ -400,14 +460,16 @@ pub trait RealDataOnly {
 pub fn ensure_production_real_data() -> Result<()> {
     #[cfg(test)]
     {
-        return Err(anyhow!("Test environment detected - real data trading disabled"));
+        return Err(anyhow!(
+            "Test environment detected - real data trading disabled"
+        ));
     }
-    
+
     #[cfg(not(test))]
     {
         #[cfg(debug_assertions)]
         warn!("⚠️ Debug build detected - ensure this is not production trading");
-        
+
         Ok(())
     }
 }

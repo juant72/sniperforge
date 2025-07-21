@@ -8,26 +8,26 @@ pub async fn test_websocket_basic() {
 
 pub async fn test_websocket_with_network(network: &str) {
     println!("🔌 Basic WebSocket connectivity test");
-    
+
     // Load config based on network
     let config_file = match network {
         "mainnet" => "config/mainnet.toml",
         "devnet" => "config/devnet.toml",
         _ => "config/devnet.toml", // Default fallback
     };
-    
+
     let config = match crate::Config::load(config_file) {
         Ok(c) => {
             println!("✅ Loaded config from: {}", config_file);
             println!("   Environment: {}", c.network.environment);
-            
+
             // Verify the config environment matches what we expect
             let expected_env = match network {
                 "mainnet" => "mainnet",
-                "devnet" => "devnet", 
+                "devnet" => "devnet",
                 _ => network,
             };
-            
+
             if c.network.environment != expected_env {
                 println!("❌ ERROR: Config environment mismatch!");
                 println!("   Expected: {}", expected_env);
@@ -35,22 +35,24 @@ pub async fn test_websocket_with_network(network: &str) {
                 println!("   This indicates a configuration problem.");
                 return;
             }
-            
+
             c
-        },
+        }
         Err(e) => {
             println!("❌ FAILED to load {}: {}", config_file, e);
-            println!("   This is a critical error - no fallback to prevent silent network changes.");
+            println!(
+                "   This is a critical error - no fallback to prevent silent network changes."
+            );
             println!("   Please fix the configuration file or check file permissions.");
             return;
         }
     };
-    
+
     // Test WebSocket manager creation
     match crate::shared::websocket_manager::WebSocketManager::new(&config).await {
         Ok(manager) => {
             println!("✅ WebSocket manager created successfully");
-            
+
             // Give WebSocket time to connect (short timeout)
             println!("🔄 Waiting for WebSocket connection...");
             for i in 1..=3 {
@@ -60,7 +62,9 @@ pub async fn test_websocket_with_network(network: &str) {
                     break;
                 } else if i == 3 {
                     println!("⚠️  WebSocket manager created but connection still in progress");
-                    println!("   (This is normal for quick tests - connection happens in background)");
+                    println!(
+                        "   (This is normal for quick tests - connection happens in background)"
+                    );
                 }
             }
         }
@@ -73,7 +77,7 @@ pub async fn test_websocket_with_network(network: &str) {
 pub async fn test_basic_integration_with_network(network: &str) {
     println!("🧪 Basic Integration Test");
     println!("=========================");
-    
+
     // Test config loading with specified network
     print!("📋 Testing config loading... ");
     let config_file = match network {
@@ -84,18 +88,18 @@ pub async fn test_basic_integration_with_network(network: &str) {
             return;
         }
     };
-    
+
     let config = match crate::Config::load(config_file) {
         Ok(c) => {
             println!("✅ OK");
-            
+
             // Verify the config environment matches what we expect
             let expected_env = match network {
                 "mainnet" => "mainnet",
-                "devnet" => "devnet", 
+                "devnet" => "devnet",
                 _ => network,
             };
-            
+
             if c.network.environment != expected_env {
                 println!("❌ FAILED: Config environment mismatch!");
                 println!("   Expected: {}", expected_env);
@@ -103,19 +107,22 @@ pub async fn test_basic_integration_with_network(network: &str) {
                 println!("   File: {}", config_file);
                 return;
             }
-            
+
             c
-        },
+        }
         Err(e) => {
             println!("❌ FAILED: {}", e);
-            println!("   Cannot load {} - no fallback to prevent silent network changes.", config_file);
+            println!(
+                "   Cannot load {} - no fallback to prevent silent network changes.",
+                config_file
+            );
             return;
         }
     };
-    
+
     // Test Solana connectivity
     print!("🌐 Testing Solana connectivity... ");
-    
+
     match crate::solana_testing::test_solana_connectivity(&config).await {
         Ok(_) => println!("✅ OK"),
         Err(e) => {
@@ -130,17 +137,20 @@ pub async fn test_basic_integration_with_network(network: &str) {
             }
         }
     }
-      // Test Jupiter client
+    // Test Jupiter client
     print!("🪐 Testing Jupiter client... ");
     let jupiter_config = crate::shared::jupiter::JupiterConfig::default();
     match crate::shared::jupiter::JupiterClient::new(&jupiter_config).await {
         Ok(jupiter_client) => {
             // Test SOL price
-            match jupiter_client.get_price("So11111111111111111111111111111111111111112").await {
+            match jupiter_client
+                .get_price("So11111111111111111111111111111111111111112")
+                .await
+            {
                 Ok(Some(price)) => {
                     println!("✅ OK");
                     println!("   SOL price: ${:.2}", price);
-                    
+
                     // Test multiple tokens
                     print!("   🧪 Testing multiple tokens... ");
                     let test_tokens = vec![
@@ -148,7 +158,7 @@ pub async fn test_basic_integration_with_network(network: &str) {
                         ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
                         ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
                     ];
-                    
+
                     let mut success_count = 0;
                     for (symbol, mint) in test_tokens {
                         match jupiter_client.get_price(mint).await {
@@ -164,11 +174,14 @@ pub async fn test_basic_integration_with_network(network: &str) {
                             }
                         }
                     }
-                    
+
                     if success_count >= 2 {
                         println!("   ✅ Multi-token test passed ({}/3 tokens)", success_count);
                     } else {
-                        println!("   ⚠️  Multi-token test partial ({}/3 tokens)", success_count);
+                        println!(
+                            "   ⚠️  Multi-token test partial ({}/3 tokens)",
+                            success_count
+                        );
                     }
                 }
                 Ok(None) => {
@@ -179,17 +192,17 @@ pub async fn test_basic_integration_with_network(network: &str) {
         }
         Err(e) => println!("❌ Jupiter client creation failed: {}", e),
     }
-    
+
     // Test WebSocket
     print!("🔌 Testing WebSocket... ");
     test_websocket_with_network(network).await;
-    
+
     // Test DexScreener API integration
     println!("\n🔄 Testing DexScreener API integration...");
     if let Err(e) = crate::dexscreener_testing::test_dexscreener_integration().await {
         eprintln!("❌ DexScreener API test failed: {}", e);
     }
-    
+
     println!("\n🎉 Basic integration test completed!");
 }
 
@@ -201,23 +214,23 @@ pub async fn test_basic_integration() {
 pub async fn run_simple_tests() {
     println!("🧪 Running Simple Test Suite");
     println!("============================");
-    
+
     // Initialize crypto provider first to prevent rustls panics
     init_crypto_provider_early();
-    
+
     test_basic_integration().await;
 }
 
 fn init_crypto_provider_early() {
     use std::sync::Once;
     static INIT: Once = Once::new();
-    
+
     INIT.call_once(|| {
         println!("🔐 Initializing crypto provider for tests...");
-        
+
         // Try to install the ring crypto provider
         let result = rustls::crypto::ring::default_provider().install_default();
-        
+
         match result {
             Ok(()) => {
                 println!("✅ Ring crypto provider installed successfully");

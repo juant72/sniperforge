@@ -1,19 +1,19 @@
 //! Real Trading Execution Engine
-//! 
+//!
 //! This module implements actual swap execution using Jupiter API
 //! with comprehensive safety measures and real-time validation.
 
-use anyhow::{Result, anyhow};
-use std::time::{Duration, Instant};
-use tracing::{info, warn, error, debug};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    pubkey::Pubkey, 
-    signature::{Signature, Keypair, Signer},
-    transaction::VersionedTransaction,
     commitment_config::CommitmentConfig,
+    pubkey::Pubkey,
+    signature::{Keypair, Signature, Signer},
+    transaction::VersionedTransaction,
 };
-use serde::{Deserialize, Serialize};
+use std::time::{Duration, Instant};
+use tracing::{debug, error, info, warn};
 
 use crate::shared::jupiter::{Jupiter, JupiterConfig, QuoteRequest, QuoteResponse};
 use crate::shared::rpc_pool::RpcConnectionPool;
@@ -37,11 +37,11 @@ pub struct RealTradingConfig {
 impl Default for RealTradingConfig {
     fn default() -> Self {
         Self {
-            max_slippage_bps: 300,          // 3% max slippage
-            max_price_age_ms: 1000,        // 1 second max
-            min_sol_balance: 0.01,         // 0.01 SOL minimum
-            max_trade_amount_usd: 1000.0,  // $1000 max per trade
-            rpc_timeout_ms: 30000,         // 30 second timeout
+            max_slippage_bps: 300,        // 3% max slippage
+            max_price_age_ms: 1000,       // 1 second max
+            min_sol_balance: 0.01,        // 0.01 SOL minimum
+            max_trade_amount_usd: 1000.0, // $1000 max per trade
+            rpc_timeout_ms: 30000,        // 30 second timeout
         }
     }
 }
@@ -85,14 +85,18 @@ impl RealTradingEngine {
         rpc_pool: RpcConnectionPool,
     ) -> Result<Self> {
         info!("🔥 Initializing Real Trading Engine");
-        info!("   Max slippage: {}bps ({}%)", config.max_slippage_bps, config.max_slippage_bps as f64 / 100.0);
+        info!(
+            "   Max slippage: {}bps ({}%)",
+            config.max_slippage_bps,
+            config.max_slippage_bps as f64 / 100.0
+        );
         info!("   Max price age: {}ms", config.max_price_age_ms);
         info!("   Min SOL balance: {} SOL", config.min_sol_balance);
         info!("   Max trade amount: ${}", config.max_trade_amount_usd);
-        
+
         let jupiter_config = JupiterConfig::default();
         let jupiter = Jupiter::new(&jupiter_config).await?;
-        
+
         Ok(Self {
             config,
             jupiter,
@@ -108,24 +112,33 @@ impl RealTradingEngine {
         output_mint: &str,
         amount: u64,
     ) -> Result<QuoteValidation> {
-        debug!("🔍 Validating quote: {} -> {} (amount: {})", input_mint, output_mint, amount);
-        
+        debug!(
+            "🔍 Validating quote: {} -> {} (amount: {})",
+            input_mint, output_mint, amount
+        );
+
         let mut validation_errors = Vec::new();
-        
+
         // Step 1: Get quote from Jupiter
         let amount_sol = amount as f64 / 1_000_000_000.0; // Convert lamports to SOL
-        
-        let quote = match self.jupiter.get_quote(
-            input_mint,
-            output_mint, 
-            amount_sol,
-            self.config.max_slippage_bps
-        ).await {
+
+        let quote = match self
+            .jupiter
+            .get_quote(
+                input_mint,
+                output_mint,
+                amount_sol,
+                self.config.max_slippage_bps,
+            )
+            .await
+        {
             Ok(quote) => {
-                info!("✅ Quote received: {} {} -> {} {}", 
-                      quote.inAmount, input_mint, quote.outAmount, output_mint);
+                info!(
+                    "✅ Quote received: {} {} -> {} {}",
+                    quote.inAmount, input_mint, quote.outAmount, output_mint
+                );
                 Some(quote)
-            },
+            }
             Err(e) => {
                 validation_errors.push(format!("Failed to get quote: {}", e));
                 None
@@ -138,21 +151,25 @@ impl RealTradingEngine {
         if let Some(ref q) = quote {
             // Parse price impact
             price_impact_pct = q.priceImpactPct.parse::<f64>().unwrap_or(0.0);
-            
+
             // Validate price impact
             if price_impact_pct > 5.0 {
                 validation_errors.push(format!("Price impact too high: {:.2}%", price_impact_pct));
             }
-            
+
             // Estimate fees (basic calculation)
             estimated_fees = 5000; // ~0.000005 SOL base fee
-            
+
             // Validate minimum output
-            let expected_min_output = amount * (10000 - self.config.max_slippage_bps) as u64 / 10000;
+            let expected_min_output =
+                amount * (10000 - self.config.max_slippage_bps) as u64 / 10000;
             let actual_output: u64 = q.outAmount.parse().unwrap_or(0);
-            
+
             if actual_output < expected_min_output {
-                validation_errors.push(format!("Output amount too low: {} < {}", actual_output, expected_min_output));
+                validation_errors.push(format!(
+                    "Output amount too low: {} < {}",
+                    actual_output, expected_min_output
+                ));
             }
         }
 
@@ -160,16 +177,19 @@ impl RealTradingEngine {
         match self.check_wallet_balance().await {
             Ok(sol_balance) => {
                 if sol_balance < self.config.min_sol_balance {
-                    validation_errors.push(format!("Insufficient SOL balance: {} < {}", sol_balance, self.config.min_sol_balance));
+                    validation_errors.push(format!(
+                        "Insufficient SOL balance: {} < {}",
+                        sol_balance, self.config.min_sol_balance
+                    ));
                 }
-            },
+            }
             Err(e) => {
                 validation_errors.push(format!("Failed to check wallet balance: {}", e));
             }
         }
 
         let is_valid = validation_errors.is_empty();
-        
+
         if is_valid {
             info!("✅ Quote validation passed");
         } else {
@@ -193,12 +213,15 @@ impl RealTradingEngine {
         amount: u64,
     ) -> Result<RealTradeResult> {
         let start_time = Instant::now();
-        
-        info!("🚀 Executing REAL swap: {} -> {} (amount: {})", input_mint, output_mint, amount);
-        
+
+        info!(
+            "🚀 Executing REAL swap: {} -> {} (amount: {})",
+            input_mint, output_mint, amount
+        );
+
         // Step 1: Validate quote
         let validation = self.validate_quote(input_mint, output_mint, amount).await?;
-        
+
         if !validation.is_valid {
             return Ok(RealTradeResult {
                 success: false,
@@ -208,24 +231,31 @@ impl RealTradingEngine {
                 actual_slippage_bps: 0,
                 execution_time: start_time.elapsed(),
                 fees_paid: 0,
-                error_message: Some(format!("Validation failed: {:?}", validation.validation_errors)),
+                error_message: Some(format!(
+                    "Validation failed: {:?}",
+                    validation.validation_errors
+                )),
             });
         }
 
         let quote = validation.quote.unwrap();
-        
+
         // Step 2: Get swap transaction from Jupiter
         info!("📝 Getting swap transaction from Jupiter...");
-        
-        let swap_result = match self.jupiter.execute_swap_with_wallet(
-            &quote, 
-            &self.wallet_keypair.pubkey().to_string(),
-            Some(&self.wallet_keypair)
-        ).await {
+
+        let swap_result = match self
+            .jupiter
+            .execute_swap_with_wallet(
+                &quote,
+                &self.wallet_keypair.pubkey().to_string(),
+                Some(&self.wallet_keypair),
+            )
+            .await
+        {
             Ok(result) => {
                 info!("✅ Swap transaction executed successfully");
                 result
-            },
+            }
             Err(e) => {
                 error!("❌ Failed to execute swap: {}", e);
                 return Ok(RealTradeResult {
@@ -244,7 +274,7 @@ impl RealTradingEngine {
         // Return the result from Jupiter execution
         let execution_time = start_time.elapsed();
         let output_amount: u64 = quote.outAmount.parse().unwrap_or(0);
-        
+
         Ok(RealTradeResult {
             success: swap_result.success,
             transaction_signature: Some(swap_result.transaction_signature),
@@ -253,16 +283,22 @@ impl RealTradingEngine {
             actual_slippage_bps: (swap_result.actual_slippage * 100.0) as u16,
             execution_time,
             fees_paid: (swap_result.fee_amount * 1_000_000_000.0) as u64, // Convert SOL to lamports
-            error_message: if swap_result.success { None } else { Some("Swap execution failed".to_string()) },
+            error_message: if swap_result.success {
+                None
+            } else {
+                Some("Swap execution failed".to_string())
+            },
         })
     }
 
     /// Check wallet SOL balance
     async fn check_wallet_balance(&self) -> Result<f64> {
         let rpc_handle = self.rpc_pool.get_client(Priority::High).await?;
-        let balance = rpc_handle.client().get_balance(&self.wallet_keypair.pubkey())?;
+        let balance = rpc_handle
+            .client()
+            .get_balance(&self.wallet_keypair.pubkey())?;
         let sol_balance = balance as f64 / 1_000_000_000.0; // Convert lamports to SOL
-        
+
         debug!("💰 Wallet balance: {} SOL", sol_balance);
         Ok(sol_balance)
     }
@@ -274,22 +310,22 @@ impl RealTradingEngine {
         // Get recent blockhash
         let rpc_handle = self.rpc_pool.get_client(Priority::High).await?;
         let recent_blockhash = rpc_handle.client().get_latest_blockhash()?;
-        
+
         // Update transaction with fresh blockhash
         if let Some(legacy_message) = transaction.message.as_legacy_message() {
             // Handle legacy message
             debug!("Updating legacy message with fresh blockhash");
         }
-        
+
         // Sign transaction
         transaction.sign(&[&self.wallet_keypair], recent_blockhash)?;
-        
+
         // Send transaction with commitment level
         let signature = rpc_handle.client().send_and_confirm_transaction_with_spinner_and_commitment(
             &transaction.into(),
             CommitmentConfig::confirmed()
         )?;
-        
+
         Ok(signature.to_string())
     }
     */
@@ -304,12 +340,12 @@ impl RealTradingEngine {
         // Get current prices
         let input_price = self.jupiter.get_token_price(input_mint).await?.price;
         let output_price = self.jupiter.get_token_price(output_mint).await?.price;
-        
+
         // Get quote
         let validation = self.validate_quote(input_mint, output_mint, amount).await?;
-        
+
         let estimated_usd_value = if input_price > 0.0 {
-            (amount as f64 / 1_000_000.0) * input_price  // Assume 6 decimals
+            (amount as f64 / 1_000_000.0) * input_price // Assume 6 decimals
         } else {
             0.0
         };
@@ -320,7 +356,11 @@ impl RealTradingEngine {
             input_amount: amount,
             input_price,
             output_price,
-            estimated_output: validation.quote.as_ref().map(|q| q.outAmount.parse().unwrap_or(0)).unwrap_or(0),
+            estimated_output: validation
+                .quote
+                .as_ref()
+                .map(|q| q.outAmount.parse().unwrap_or(0))
+                .unwrap_or(0),
             price_impact_pct: validation.price_impact_pct,
             estimated_fees: validation.estimated_fees,
             estimated_usd_value,
@@ -350,35 +390,35 @@ pub struct SwapInfo {
 pub async fn test_real_trading_engine() -> Result<()> {
     println!("🔥 REAL TRADING ENGINE TEST");
     println!("==============================");
-    
+
     // Load test wallet (read-only for safety)
     let wallet_path = "test-wallet.json";
     let wallet_keypair = match std::fs::read_to_string(wallet_path) {
         Ok(content) => {
             let wallet_data: Vec<u8> = serde_json::from_str(&content)?;
             Keypair::from_bytes(&wallet_data)?
-        },
+        }
         Err(_) => {
             println!("⚠️ Test wallet not found, creating temporary keypair");
             Keypair::new()
         }
     };
-    
+
     println!("Wallet address: {}", wallet_keypair.pubkey());
-    
+
     // Initialize RPC pool
     let config = crate::Config::load("config/devnet.toml")?;
     let rpc_pool = RpcConnectionPool::new(&config).await?;
-    
+
     // Create trading engine
     let config = RealTradingConfig::default();
     let engine = RealTradingEngine::new(config, wallet_keypair, rpc_pool).await?;
-    
+
     // Test tokens
     let sol_mint = "So11111111111111111111111111111111111111112";
     let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
     let amount = 1_000_000; // 0.001 SOL
-    
+
     // Test 1: Get swap info
     println!("\n1️⃣ Getting swap information...");
     match engine.get_swap_info(sol_mint, usdc_mint, amount).await {
@@ -387,48 +427,61 @@ pub async fn test_real_trading_engine() -> Result<()> {
             println!("   Input: {} SOL", amount as f64 / 1_000_000_000.0);
             println!("   Input price: ${:.4}", swap_info.input_price);
             println!("   Output price: ${:.4}", swap_info.output_price);
-            println!("   Estimated output: {} USDC", swap_info.estimated_output as f64 / 1_000_000.0);
+            println!(
+                "   Estimated output: {} USDC",
+                swap_info.estimated_output as f64 / 1_000_000.0
+            );
             println!("   Price impact: {:.2}%", swap_info.price_impact_pct);
             println!("   Estimated fees: {} lamports", swap_info.estimated_fees);
             println!("   USD value: ${:.2}", swap_info.estimated_usd_value);
-            println!("   Executable: {}", if swap_info.is_executable { "✅" } else { "❌" });
-            
+            println!(
+                "   Executable: {}",
+                if swap_info.is_executable {
+                    "✅"
+                } else {
+                    "❌"
+                }
+            );
+
             if !swap_info.validation_errors.is_empty() {
                 println!("   Validation errors:");
                 for error in &swap_info.validation_errors {
                     println!("     • {}", error);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Failed to get swap info: {}", e);
         }
     }
-    
+
     // Test 2: Validate quote (without executing)
     println!("\n2️⃣ Validating quote...");
     match engine.validate_quote(sol_mint, usdc_mint, amount).await {
         Ok(validation) => {
             println!("✅ Quote validation completed:");
-            println!("   Valid: {}", if validation.is_valid { "✅" } else { "❌" });
+            println!(
+                "   Valid: {}",
+                if validation.is_valid { "✅" } else { "❌" }
+            );
             println!("   Price impact: {:.2}%", validation.price_impact_pct);
             println!("   Estimated fees: {} lamports", validation.estimated_fees);
-            
+
             if !validation.validation_errors.is_empty() {
                 println!("   Validation errors:");
                 for error in &validation.validation_errors {
                     println!("     • {}", error);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ Quote validation failed: {}", e);
         }
     }
-    
+
     println!("\n⚠️ NOTE: Actual swap execution not performed in test mode");
     println!("    To execute real swaps, use: execute_swap() method");
-    
+
     println!("\n🎯 REAL TRADING SUMMARY:");
     println!("===========================");
     println!("✅ Real Jupiter API integration");
@@ -436,7 +489,7 @@ pub async fn test_real_trading_engine() -> Result<()> {
     println!("✅ Safety checks and limits");
     println!("✅ Real transaction signing");
     println!("✅ Production-ready execution");
-    
+
     println!("\n✅ Real trading engine test completed!");
     Ok(())
 }

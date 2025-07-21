@@ -1,19 +1,14 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::{
+    account::Account, commitment_config::CommitmentConfig, instruction::Instruction,
+    pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
+};
+use spl_associated_token_account::get_associated_token_address;
 use std::collections::HashMap;
 use std::str::FromStr;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn};
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::Keypair,
-    signer::Signer,
-    pubkey::Pubkey,
-    transaction::Transaction,
-    instruction::Instruction,
-    account::Account,
-};
-use spl_associated_token_account::get_associated_token_address;
 
 // ===== MILITAR V2: DIRECT POOL INSPECTION =====
 // Completamente sin APIs, acceso directo a blockchain
@@ -120,35 +115,37 @@ impl MilitarV2 {
 
     async fn run_analysis(&mut self) -> Result<()> {
         info!("🔥 Starting direct pool analysis...");
-        
+
         let balance = self.get_wallet_balance().await?;
         info!("💰 Wallet balance: {:.9} SOL", balance);
 
         loop {
             info!("\n⚔️  === ANALYSIS CYCLE ===");
-            
+
             // 1. Analyze all pools directly
             self.analyze_all_pools().await?;
-            
+
             // 2. Find arbitrage opportunities
             let opportunities = self.find_arbitrage_opportunities().await?;
-            
+
             if !opportunities.is_empty() {
                 info!("🎯 Found {} arbitrage opportunities:", opportunities.len());
                 for (i, opp) in opportunities.iter().take(5).enumerate() {
-                    info!("  {}. {} -> {} -> {}: {:.4}% profit ({:.6} SOL)", 
-                        i + 1, 
-                        opp.token_in, 
-                        opp.token_intermediate, 
+                    info!(
+                        "  {}. {} -> {} -> {}: {:.4}% profit ({:.6} SOL)",
+                        i + 1,
+                        opp.token_in,
+                        opp.token_intermediate,
                         opp.token_out,
                         opp.profit_percentage,
                         opp.estimated_profit as f64 / 1e9
                     );
                 }
-                
+
                 // Execute best opportunity
                 if let Some(best) = opportunities.first() {
-                    if best.profit_percentage > 1.0 { // Only execute if >1% profit
+                    if best.profit_percentage > 1.0 {
+                        // Only execute if >1% profit
                         info!("⚔️  Executing best opportunity...");
                         match self.execute_arbitrage(best).await {
                             Ok(signature) => {
@@ -166,18 +163,19 @@ impl MilitarV2 {
             } else {
                 info!("💤 No profitable opportunities found");
             }
-            
+
             sleep(Duration::from_secs(3)).await;
         }
     }
 
     async fn analyze_all_pools(&mut self) -> Result<()> {
         info!("🔬 Analyzing pool structures...");
-        
+
         for pool_address in &self.monitoring_pools.clone() {
             match self.analyze_pool_structure(pool_address).await {
                 Ok(pool_data) => {
-                    info!("  ✅ {}: {} ({} / {})", 
+                    info!(
+                        "  ✅ {}: {} ({} / {})",
                         pool_address[..8].to_string(),
                         pool_data.pool_type,
                         self.format_balance(pool_data.token_a_balance),
@@ -190,7 +188,7 @@ impl MilitarV2 {
                 }
             }
         }
-        
+
         info!("📊 Successfully analyzed {} pools", self.pools.len());
         Ok(())
     }
@@ -198,46 +196,58 @@ impl MilitarV2 {
     async fn analyze_pool_structure(&self, pool_address: &str) -> Result<RealPoolData> {
         let pool_pubkey = Pubkey::from_str(pool_address)?;
         let account = self.client.get_account(&pool_pubkey).await?;
-        
+
         let program_id = account.owner;
         let program_str = program_id.to_string();
-        
+
         match program_str.as_str() {
             RAYDIUM_AMM_PROGRAM => self.parse_raydium_pool_v2(pool_pubkey, &account).await,
             ORCA_SWAP_PROGRAM => self.parse_orca_pool_v2(pool_pubkey, &account).await,
             ORCA_WHIRLPOOL_PROGRAM => self.parse_orca_whirlpool_v2(pool_pubkey, &account).await,
-            _ => Err(anyhow!("Unknown pool program: {}", program_str))
+            _ => Err(anyhow!("Unknown pool program: {}", program_str)),
         }
     }
 
-    async fn parse_raydium_pool_v2(&self, pool_address: Pubkey, account: &Account) -> Result<RealPoolData> {
+    async fn parse_raydium_pool_v2(
+        &self,
+        pool_address: Pubkey,
+        account: &Account,
+    ) -> Result<RealPoolData> {
         let data = &account.data;
-        
+
         if data.len() < 752 {
             return Err(anyhow!("Invalid Raydium pool size: {}", data.len()));
         }
-        
+
         // Raydium AMM v4 layout offsets
         let token_a_mint = Pubkey::new_from_array(
-            data[400..432].try_into().map_err(|_| anyhow!("Invalid token A mint"))?
+            data[400..432]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A mint"))?,
         );
         let token_b_mint = Pubkey::new_from_array(
-            data[432..464].try_into().map_err(|_| anyhow!("Invalid token B mint"))?
+            data[432..464]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B mint"))?,
         );
         let token_a_vault = Pubkey::new_from_array(
-            data[464..496].try_into().map_err(|_| anyhow!("Invalid token A vault"))?
+            data[464..496]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A vault"))?,
         );
         let token_b_vault = Pubkey::new_from_array(
-            data[496..528].try_into().map_err(|_| anyhow!("Invalid token B vault"))?
+            data[496..528]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B vault"))?,
         );
-        
+
         // Get real balances from vault accounts
         let token_a_balance = self.get_vault_balance(&token_a_vault).await.unwrap_or(0);
         let token_b_balance = self.get_vault_balance(&token_b_vault).await.unwrap_or(0);
-        
+
         // Calculate prices
         let (price_a_to_b, price_b_to_a) = self.calculate_prices(token_a_balance, token_b_balance);
-        
+
         Ok(RealPoolData {
             address: pool_address,
             program_id: account.owner,
@@ -257,32 +267,44 @@ impl MilitarV2 {
         })
     }
 
-    async fn parse_orca_pool_v2(&self, pool_address: Pubkey, account: &Account) -> Result<RealPoolData> {
+    async fn parse_orca_pool_v2(
+        &self,
+        pool_address: Pubkey,
+        account: &Account,
+    ) -> Result<RealPoolData> {
         let data = &account.data;
-        
+
         if data.len() < 324 {
             return Err(anyhow!("Invalid Orca pool size: {}", data.len()));
         }
-        
+
         // Orca swap pool layout
         let token_a_mint = Pubkey::new_from_array(
-            data[101..133].try_into().map_err(|_| anyhow!("Invalid token A mint"))?
+            data[101..133]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A mint"))?,
         );
         let token_b_mint = Pubkey::new_from_array(
-            data[181..213].try_into().map_err(|_| anyhow!("Invalid token B mint"))?
+            data[181..213]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B mint"))?,
         );
         let token_a_vault = Pubkey::new_from_array(
-            data[85..117].try_into().map_err(|_| anyhow!("Invalid token A vault"))?
+            data[85..117]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A vault"))?,
         );
         let token_b_vault = Pubkey::new_from_array(
-            data[165..197].try_into().map_err(|_| anyhow!("Invalid token B vault"))?
+            data[165..197]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B vault"))?,
         );
-        
+
         let token_a_balance = self.get_vault_balance(&token_a_vault).await.unwrap_or(0);
         let token_b_balance = self.get_vault_balance(&token_b_vault).await.unwrap_or(0);
-        
+
         let (price_a_to_b, price_b_to_a) = self.calculate_prices(token_a_balance, token_b_balance);
-        
+
         Ok(RealPoolData {
             address: pool_address,
             program_id: account.owner,
@@ -302,32 +324,44 @@ impl MilitarV2 {
         })
     }
 
-    async fn parse_orca_whirlpool_v2(&self, pool_address: Pubkey, account: &Account) -> Result<RealPoolData> {
+    async fn parse_orca_whirlpool_v2(
+        &self,
+        pool_address: Pubkey,
+        account: &Account,
+    ) -> Result<RealPoolData> {
         let data = &account.data;
-        
+
         if data.len() < 653 {
             return Err(anyhow!("Invalid Whirlpool size: {}", data.len()));
         }
-        
+
         // Whirlpool layout (concentrated liquidity)
         let token_a_mint = Pubkey::new_from_array(
-            data[101..133].try_into().map_err(|_| anyhow!("Invalid token A mint"))?
+            data[101..133]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A mint"))?,
         );
         let token_b_mint = Pubkey::new_from_array(
-            data[133..165].try_into().map_err(|_| anyhow!("Invalid token B mint"))?
+            data[133..165]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B mint"))?,
         );
         let token_a_vault = Pubkey::new_from_array(
-            data[165..197].try_into().map_err(|_| anyhow!("Invalid token A vault"))?
+            data[165..197]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token A vault"))?,
         );
         let token_b_vault = Pubkey::new_from_array(
-            data[197..229].try_into().map_err(|_| anyhow!("Invalid token B vault"))?
+            data[197..229]
+                .try_into()
+                .map_err(|_| anyhow!("Invalid token B vault"))?,
         );
-        
+
         let token_a_balance = self.get_vault_balance(&token_a_vault).await.unwrap_or(0);
         let token_b_balance = self.get_vault_balance(&token_b_vault).await.unwrap_or(0);
-        
+
         let (price_a_to_b, price_b_to_a) = self.calculate_prices(token_a_balance, token_b_balance);
-        
+
         Ok(RealPoolData {
             address: pool_address,
             program_id: account.owner,
@@ -349,16 +383,16 @@ impl MilitarV2 {
 
     async fn get_vault_balance(&self, vault_address: &Pubkey) -> Result<u64> {
         let account = self.client.get_account(vault_address).await?;
-        
+
         if account.data.len() < 165 {
             return Err(anyhow!("Invalid token account size"));
         }
-        
+
         // Token account amount is at offset 64-72
         let amount_bytes: [u8; 8] = account.data[64..72]
             .try_into()
             .map_err(|_| anyhow!("Failed to parse amount"))?;
-        
+
         Ok(u64::from_le_bytes(amount_bytes))
     }
 
@@ -366,82 +400,100 @@ impl MilitarV2 {
         if balance_a == 0 || balance_b == 0 {
             return (0.0, 0.0);
         }
-        
+
         let price_a_to_b = balance_b as f64 / balance_a as f64;
         let price_b_to_a = balance_a as f64 / balance_b as f64;
-        
+
         (price_a_to_b, price_b_to_a)
     }
 
     async fn find_arbitrage_opportunities(&self) -> Result<Vec<ArbitrageOpportunity>> {
         let mut opportunities = Vec::new();
-        
+
         // Compare all pool pairs
         let pool_keys: Vec<_> = self.pools.keys().collect();
-        
+
         for i in 0..pool_keys.len() {
             for j in (i + 1)..pool_keys.len() {
                 let pool_1 = &self.pools[pool_keys[i]];
                 let pool_2 = &self.pools[pool_keys[j]];
-                
+
                 // Check for common tokens
                 let common_tokens = self.find_common_tokens(pool_1, pool_2);
-                
+
                 for common_token in common_tokens {
-                    if let Some(opp) = self.calculate_arbitrage_opportunity(pool_1, pool_2, &common_token).await? {
+                    if let Some(opp) = self
+                        .calculate_arbitrage_opportunity(pool_1, pool_2, &common_token)
+                        .await?
+                    {
                         opportunities.push(opp);
                     }
                 }
             }
         }
-        
+
         // Sort by profit percentage
-        opportunities.sort_by(|a, b| b.profit_percentage.partial_cmp(&a.profit_percentage).unwrap());
-        
+        opportunities.sort_by(|a, b| {
+            b.profit_percentage
+                .partial_cmp(&a.profit_percentage)
+                .unwrap()
+        });
+
         Ok(opportunities)
     }
 
     fn find_common_tokens(&self, pool_1: &RealPoolData, pool_2: &RealPoolData) -> Vec<Pubkey> {
         let mut common = Vec::new();
-        
-        if pool_1.token_a_mint == pool_2.token_a_mint || pool_1.token_a_mint == pool_2.token_b_mint {
+
+        if pool_1.token_a_mint == pool_2.token_a_mint || pool_1.token_a_mint == pool_2.token_b_mint
+        {
             common.push(pool_1.token_a_mint);
         }
-        if pool_1.token_b_mint == pool_2.token_a_mint || pool_1.token_b_mint == pool_2.token_b_mint {
+        if pool_1.token_b_mint == pool_2.token_a_mint || pool_1.token_b_mint == pool_2.token_b_mint
+        {
             common.push(pool_1.token_b_mint);
         }
-        
+
         common
     }
 
-    async fn calculate_arbitrage_opportunity(&self, pool_1: &RealPoolData, pool_2: &RealPoolData, 
-                                           common_token: &Pubkey) -> Result<Option<ArbitrageOpportunity>> {
+    async fn calculate_arbitrage_opportunity(
+        &self,
+        pool_1: &RealPoolData,
+        pool_2: &RealPoolData,
+        common_token: &Pubkey,
+    ) -> Result<Option<ArbitrageOpportunity>> {
         let test_amount = 10_000_000; // 0.01 SOL equivalent
-        
+
         // Route 1: Pool 1 -> Common Token -> Pool 2
         let step1_out = self.simulate_swap(pool_1, test_amount, common_token)?;
         let step2_out = self.simulate_swap(pool_2, step1_out, common_token)?;
-        
+
         let profit = step2_out as i64 - test_amount as i64;
         let profit_percentage = (profit as f64 / test_amount as f64) * 100.0;
-        
+
         if profit > 0 {
             return Ok(Some(ArbitrageOpportunity {
                 pool_1: pool_1.address.to_string()[..8].to_string(),
                 pool_2: pool_2.address.to_string()[..8].to_string(),
-                token_in: "SOL".to_string(), // Simplified
+                token_in: "SOL".to_string(),             // Simplified
                 token_intermediate: "TOKEN".to_string(), // Simplified
-                token_out: "SOL".to_string(), // Simplified
+                token_out: "SOL".to_string(),            // Simplified
                 amount_in: test_amount,
                 estimated_profit: profit,
                 profit_percentage,
             }));
         }
-        
+
         Ok(None)
     }
 
-    fn simulate_swap(&self, pool: &RealPoolData, amount_in: u64, output_token: &Pubkey) -> Result<u64> {
+    fn simulate_swap(
+        &self,
+        pool: &RealPoolData,
+        amount_in: u64,
+        output_token: &Pubkey,
+    ) -> Result<u64> {
         let (reserve_in, reserve_out) = if pool.token_a_mint == *output_token {
             (pool.token_b_balance, pool.token_a_balance)
         } else if pool.token_b_mint == *output_token {
@@ -449,34 +501,35 @@ impl MilitarV2 {
         } else {
             return Err(anyhow!("Token not in pool"));
         };
-        
+
         if reserve_in == 0 || reserve_out == 0 {
             return Ok(0);
         }
-        
+
         // Constant product formula with 0.3% fee
         let amount_in_with_fee = amount_in * 997 / 1000;
         let k = reserve_in as u128 * reserve_out as u128;
         let new_reserve_in = reserve_in as u128 + amount_in_with_fee as u128;
         let new_reserve_out = k / new_reserve_in;
         let amount_out = reserve_out as u128 - new_reserve_out;
-        
+
         Ok((amount_out * 99 / 100) as u64) // 1% slippage buffer
     }
 
     async fn execute_arbitrage(&self, opportunity: &ArbitrageOpportunity) -> Result<String> {
         // Simplified execution - would need full transaction building
         info!("🚀 Simulating arbitrage execution...");
-        
+
         // In real implementation, would build and send transaction here
-        let simulated_signature = format!("SIM{}{}", 
-            opportunity.pool_1, 
+        let simulated_signature = format!(
+            "SIM{}{}",
+            opportunity.pool_1,
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
         );
-        
+
         Ok(simulated_signature)
     }
 

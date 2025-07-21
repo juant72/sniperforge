@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use crate::strategies::{PricePoint, Timeframe, VolumePoint};
 use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::strategies::{Timeframe, PricePoint, VolumePoint};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeframeAnalysis {
@@ -56,10 +56,10 @@ pub struct MultiTimeframeSignal {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EntryTiming {
-    Immediate,    // All timeframes aligned, strong signal
-    Cautious,     // Some divergence, wait for confirmation
-    Wait,         // Conflicting signals, wait for clarity
-    Avoid,        // High risk or unclear conditions
+    Immediate, // All timeframes aligned, strong signal
+    Cautious,  // Some divergence, wait for confirmation
+    Wait,      // Conflicting signals, wait for clarity
+    Avoid,     // High risk or unclear conditions
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,12 +78,12 @@ pub struct MultiTimeframeAnalyzer {
 impl MultiTimeframeAnalyzer {
     pub fn new() -> Self {
         let mut min_data_points = HashMap::new();
-        min_data_points.insert(Timeframe::OneMin, 60);      // 1 hour of 1min data
-        min_data_points.insert(Timeframe::FiveMin, 48);     // 4 hours of 5min data
-        min_data_points.insert(Timeframe::FifteenMin, 32);  // 8 hours of 15min data
-        min_data_points.insert(Timeframe::OneHour, 24);     // 1 day of 1hour data
-        min_data_points.insert(Timeframe::FourHour, 12);    // 2 days of 4hour data
-        min_data_points.insert(Timeframe::OneDay, 7);       // 1 week of daily data
+        min_data_points.insert(Timeframe::OneMin, 60); // 1 hour of 1min data
+        min_data_points.insert(Timeframe::FiveMin, 48); // 4 hours of 5min data
+        min_data_points.insert(Timeframe::FifteenMin, 32); // 8 hours of 15min data
+        min_data_points.insert(Timeframe::OneHour, 24); // 1 day of 1hour data
+        min_data_points.insert(Timeframe::FourHour, 12); // 2 days of 4hour data
+        min_data_points.insert(Timeframe::OneDay, 7); // 1 week of daily data
 
         Self {
             timeframes: vec![
@@ -102,29 +102,37 @@ impl MultiTimeframeAnalyzer {
         analyzer
     }
 
-    pub fn analyze(&self, price_history: &[PricePoint], volume_history: &[VolumePoint]) -> Result<MultiTimeframeSignal> {
+    pub fn analyze(
+        &self,
+        price_history: &[PricePoint],
+        volume_history: &[VolumePoint],
+    ) -> Result<MultiTimeframeSignal> {
         let mut timeframe_analyses = HashMap::new();
-        
+
         // Analyze each timeframe
         for &timeframe in &self.timeframes {
-            if let Some(analysis) = self.analyze_timeframe(timeframe, price_history, volume_history)? {
+            if let Some(analysis) =
+                self.analyze_timeframe(timeframe, price_history, volume_history)?
+            {
                 timeframe_analyses.insert(timeframe, analysis);
             }
         }
 
         if timeframe_analyses.is_empty() {
-            return Err(anyhow::anyhow!("Insufficient data for any timeframe analysis"));
+            return Err(anyhow::anyhow!(
+                "Insufficient data for any timeframe analysis"
+            ));
         }
 
         // Determine overall bias and confidence
         let (overall_bias, confidence) = self.calculate_overall_bias(&timeframe_analyses);
-        
+
         // Calculate timeframe alignment
         let timeframe_alignment = self.calculate_timeframe_alignment(&timeframe_analyses);
-        
+
         // Determine entry timing
         let entry_timing = self.determine_entry_timing(&timeframe_analyses, timeframe_alignment);
-        
+
         // Assess risk level
         let risk_level = self.assess_risk_level(&timeframe_analyses, timeframe_alignment);
 
@@ -145,13 +153,14 @@ impl MultiTimeframeAnalyzer {
         volume_history: &[VolumePoint],
     ) -> Result<Option<TimeframeAnalysis>> {
         let min_points = self.min_data_points.get(&timeframe).unwrap_or(&20);
-        
+
         if price_history.len() < *min_points || volume_history.len() < *min_points {
             return Ok(None);
         }
 
         // Aggregate data according to timeframe
-        let (aggregated_prices, aggregated_volumes) = self.aggregate_data(timeframe, price_history, volume_history)?;
+        let (aggregated_prices, aggregated_volumes) =
+            self.aggregate_data(timeframe, price_history, volume_history)?;
 
         if aggregated_prices.is_empty() {
             return Ok(None);
@@ -159,16 +168,17 @@ impl MultiTimeframeAnalyzer {
 
         // Calculate trend analysis
         let (trend_direction, trend_strength) = self.analyze_trend(&aggregated_prices)?;
-        
+
         // Calculate support and resistance
-        let (support_level, resistance_level) = self.calculate_support_resistance(&aggregated_prices)?;
-        
+        let (support_level, resistance_level) =
+            self.calculate_support_resistance(&aggregated_prices)?;
+
         // Analyze volume profile
         let volume_profile = self.analyze_volume_profile(&aggregated_volumes)?;
-        
+
         // Calculate volatility
         let volatility = self.calculate_volatility(&aggregated_prices)?;
-        
+
         // Calculate momentum
         let momentum = self.calculate_momentum(&aggregated_prices)?;
 
@@ -206,7 +216,7 @@ impl MultiTimeframeAnalyzer {
         let mut aggregated_volumes = Vec::new();
 
         let step_size = interval_minutes.max(1);
-        
+
         for i in (0..price_history.len()).step_by(step_size) {
             aggregated_prices.push(price_history[i].close);
         }
@@ -248,7 +258,8 @@ impl MultiTimeframeAnalyzer {
 
         // Price momentum
         if prices.len() >= 5 {
-            let recent_change = (current_price - prices[prices.len() - 5]) / prices[prices.len() - 5];
+            let recent_change =
+                (current_price - prices[prices.len() - 5]) / prices[prices.len() - 5];
             trend_score += recent_change * 2.0; // Amplify momentum effect
         }
 
@@ -287,7 +298,11 @@ impl MultiTimeframeAnalyzer {
         let n = prices.len() as f64;
         let x_sum: f64 = (0..prices.len()).map(|i| i as f64).sum();
         let y_sum: f64 = prices.iter().sum();
-        let xy_sum: f64 = prices.iter().enumerate().map(|(i, &price)| i as f64 * price).sum();
+        let xy_sum: f64 = prices
+            .iter()
+            .enumerate()
+            .map(|(i, &price)| i as f64 * price)
+            .sum();
         let x_squared_sum: f64 = (0..prices.len()).map(|i| (i as f64).powi(2)).sum();
 
         let denominator = n * x_squared_sum - x_sum.powi(2);
@@ -310,15 +325,15 @@ impl MultiTimeframeAnalyzer {
         let mut local_maxs = Vec::new();
         let window = 3;
 
-        for i in window..prices.len()-window {
+        for i in window..prices.len() - window {
             let mut is_min = true;
             let mut is_max = true;
 
             for j in 1..=window {
-                if prices[i] > prices[i-j] || prices[i] > prices[i+j] {
+                if prices[i] > prices[i - j] || prices[i] > prices[i + j] {
                     is_min = false;
                 }
-                if prices[i] < prices[i-j] || prices[i] < prices[i+j] {
+                if prices[i] < prices[i - j] || prices[i] < prices[i + j] {
                     is_max = false;
                 }
             }
@@ -334,13 +349,15 @@ impl MultiTimeframeAnalyzer {
         let current_price = prices[prices.len() - 1];
 
         // Find the most relevant support (highest below current) and resistance (lowest above current)
-        let support = local_mins.iter()
+        let support = local_mins
+            .iter()
             .filter(|&&price| price < current_price)
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
             .unwrap_or(current_price * 0.95);
 
-        let resistance = local_maxs.iter()
+        let resistance = local_maxs
+            .iter()
             .filter(|&&price| price > current_price)
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
@@ -364,7 +381,7 @@ impl MultiTimeframeAnalyzer {
         let volume_trend = if volumes.len() >= 10 {
             let recent_avg = volumes.iter().rev().take(5).sum::<f64>() / 5.0;
             let past_avg = volumes.iter().rev().skip(5).take(5).sum::<f64>() / 5.0;
-            
+
             if recent_avg > past_avg * 1.1 {
                 VolumeTrend::Increasing
             } else if recent_avg < past_avg * 0.9 {
@@ -381,7 +398,8 @@ impl MultiTimeframeAnalyzer {
         for (i, &volume) in volumes.iter().enumerate() {
             if volume > average_volume * 2.0 {
                 volume_spikes.push(VolumeSpike {
-                    timestamp: chrono::Utc::now() - chrono::Duration::minutes((volumes.len() - i) as i64),
+                    timestamp: chrono::Utc::now()
+                        - chrono::Duration::minutes((volumes.len() - i) as i64),
                     volume,
                     spike_ratio: volume / average_volume,
                 });
@@ -400,14 +418,17 @@ impl MultiTimeframeAnalyzer {
             return Ok(0.0);
         }
 
-        let returns: Vec<f64> = prices.windows(2)
+        let returns: Vec<f64> = prices
+            .windows(2)
             .map(|window| (window[1] - window[0]) / window[0])
             .collect();
 
         let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
-        let variance = returns.iter()
+        let variance = returns
+            .iter()
             .map(|&r| (r - mean_return).powi(2))
-            .sum::<f64>() / returns.len() as f64;
+            .sum::<f64>()
+            / returns.len() as f64;
 
         Ok(variance.sqrt())
     }
@@ -419,11 +440,14 @@ impl MultiTimeframeAnalyzer {
 
         let current = prices[prices.len() - 1];
         let past = prices[prices.len() - 10];
-        
+
         Ok((current - past) / past)
     }
 
-    fn calculate_overall_bias(&self, analyses: &HashMap<Timeframe, TimeframeAnalysis>) -> (TrendDirection, f64) {
+    fn calculate_overall_bias(
+        &self,
+        analyses: &HashMap<Timeframe, TimeframeAnalysis>,
+    ) -> (TrendDirection, f64) {
         if analyses.is_empty() {
             return (TrendDirection::Sideways, 0.0);
         }
@@ -472,16 +496,21 @@ impl MultiTimeframeAnalyzer {
         (overall_bias, confidence.min(1.0))
     }
 
-    fn calculate_timeframe_alignment(&self, analyses: &HashMap<Timeframe, TimeframeAnalysis>) -> f64 {
+    fn calculate_timeframe_alignment(
+        &self,
+        analyses: &HashMap<Timeframe, TimeframeAnalysis>,
+    ) -> f64 {
         if analyses.len() < 2 {
             return 1.0; // Perfect alignment if only one timeframe
         }
 
-        let bullish_count = analyses.values()
+        let bullish_count = analyses
+            .values()
             .filter(|a| matches!(a.trend_direction, TrendDirection::Bullish))
             .count();
 
-        let bearish_count = analyses.values()
+        let bearish_count = analyses
+            .values()
             .filter(|a| matches!(a.trend_direction, TrendDirection::Bearish))
             .count();
 
@@ -489,7 +518,12 @@ impl MultiTimeframeAnalyzer {
         let max_aligned = bullish_count.max(bearish_count);
 
         max_aligned as f64 / total_count as f64
-    }    fn determine_entry_timing(&self, _analyses: &HashMap<Timeframe, TimeframeAnalysis>, alignment: f64) -> EntryTiming {
+    }
+    fn determine_entry_timing(
+        &self,
+        _analyses: &HashMap<Timeframe, TimeframeAnalysis>,
+        alignment: f64,
+    ) -> EntryTiming {
         if alignment >= 0.8 {
             EntryTiming::Immediate
         } else if alignment >= 0.6 {
@@ -501,10 +535,13 @@ impl MultiTimeframeAnalyzer {
         }
     }
 
-    fn assess_risk_level(&self, analyses: &HashMap<Timeframe, TimeframeAnalysis>, alignment: f64) -> RiskAssessment {
-        let avg_volatility: f64 = analyses.values()
-            .map(|a| a.volatility)
-            .sum::<f64>() / analyses.len() as f64;
+    fn assess_risk_level(
+        &self,
+        analyses: &HashMap<Timeframe, TimeframeAnalysis>,
+        alignment: f64,
+    ) -> RiskAssessment {
+        let avg_volatility: f64 =
+            analyses.values().map(|a| a.volatility).sum::<f64>() / analyses.len() as f64;
 
         let high_volatility = avg_volatility > 0.05; // 5% volatility threshold
 

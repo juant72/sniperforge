@@ -8,7 +8,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::str::FromStr;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use sniperforge::shared::orca_client::{OrcaClient, OrcaQuoteRequest, OrcaSwapRequest};
 
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     // PASO 1: Obtener cotización para swap SOL → BONK
     let swap_amount_sol = 0.01; // 0.01 SOL
     let swap_amount_lamports = (swap_amount_sol * 1_000_000_000.0) as u64;
-    
+
     info!("\n🔍 === OBTENIENDO COTIZACIÓN ORCA ===");
     info!("   Swap: {} SOL → BONK", swap_amount_sol);
     info!("   Cantidad: {} lamports", swap_amount_lamports);
@@ -75,7 +75,10 @@ async fn main() -> Result<()> {
             info!("✅ Cotización Orca obtenida:");
             info!("   Input: {} lamports SOL", swap_amount_lamports);
             info!("   Output: {} tokens BONK", quote.output_amount);
-            info!("   Price impact: {:.2}%", quote.price_impact_pct.unwrap_or(0.0));
+            info!(
+                "   Price impact: {:.2}%",
+                quote.price_impact_pct.unwrap_or(0.0)
+            );
             quote
         }
         Err(e) => {
@@ -94,11 +97,14 @@ async fn main() -> Result<()> {
         Ok(signature) => {
             info!("✅ SWAP EJECUTADO EXITOSAMENTE!");
             info!("   Signature: {}", signature);
-            info!("   Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            info!(
+                "   Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
         }
         Err(e) => {
             error!("❌ Error ejecutando swap: {}", e);
-            
+
             // FALLBACK: Crear cuenta de tokens manualmente
             info!("🔧 Intentando fallback: crear cuenta de tokens...");
             match create_token_account(&client, &wallet, BONK_MINT).await {
@@ -118,7 +124,7 @@ async fn main() -> Result<()> {
 
     // PASO 3: Verificar cambios en balance
     info!("\n📊 === VERIFICANDO RESULTADOS ===");
-    
+
     let final_sol_balance = check_sol_balance(&client, &user_pubkey).await?;
     let final_bonk_balance = check_token_balance(&client, &user_pubkey, BONK_MINT).await;
 
@@ -152,7 +158,16 @@ async fn main() -> Result<()> {
 
     info!("\n🎯 === RESUMEN FASE 1 ===");
     info!("   Objetivo: Swap real SOL → BONK");
-    info!("   Estado: {}", if bonk_change > 0.0 { "✅ EXITOSO" } else if sol_change < 0.0 { "⚠️ PARCIAL" } else { "❌ REQUIERE REVISIÓN" });
+    info!(
+        "   Estado: {}",
+        if bonk_change > 0.0 {
+            "✅ EXITOSO"
+        } else if sol_change < 0.0 {
+            "⚠️ PARCIAL"
+        } else {
+            "❌ REQUIERE REVISIÓN"
+        }
+    );
     info!("   Próximo paso: Fase 2 - Ciclo completo con ganancia");
 
     Ok(())
@@ -165,7 +180,7 @@ async fn execute_simple_orca_swap(
     quote: &sniperforge::shared::orca_client::OrcaQuoteResponse,
 ) -> Result<Signature> {
     info!("🔄 Intentando ejecutar swap con Orca...");
-    
+
     // Crear swap request
     let swap_request = OrcaSwapRequest {
         quote: quote.clone(),
@@ -198,7 +213,7 @@ async fn create_token_account(
     mint: &str,
 ) -> Result<Signature> {
     info!("🏗️ Creando cuenta de token para mint: {}", mint);
-    
+
     let mint_pubkey = Pubkey::from_str(mint)?;
     let user_pubkey = wallet.pubkey();
 
@@ -225,7 +240,7 @@ async fn create_token_account(
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;
@@ -249,10 +264,8 @@ async fn check_token_balance(client: &RpcClient, owner: &Pubkey, mint: &str) -> 
     };
 
     // Obtener cuenta de token asociada
-    let associated_token_account = spl_associated_token_account::get_associated_token_address(
-        owner,
-        &mint_pubkey,
-    );
+    let associated_token_account =
+        spl_associated_token_account::get_associated_token_address(owner, &mint_pubkey);
 
     // Verificar balance
     match client.get_token_account_balance(&associated_token_account) {

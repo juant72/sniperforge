@@ -1,18 +1,18 @@
 // Cache-Free Trading Engine
 // Phase 4 Implementation - Ultra-fast trading with real-time price validation
 
-use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::time::{Duration, Instant, timeout};
-use uuid::Uuid;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, error, debug};
+use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signer;
+use std::collections::HashMap;
+use tokio::time::{timeout, Duration, Instant};
+use tracing::{debug, error, info, warn};
+use uuid::Uuid;
 
-use crate::shared::pool_detector::{DetectedPool, TradingOpportunity, OpportunityType};
-use crate::types::PriceData;
 use crate::shared::jupiter::{Jupiter, JupiterConfig};
+use crate::shared::pool_detector::{DetectedPool, OpportunityType, TradingOpportunity};
+use crate::types::PriceData;
 
 /// Constants for Solana protocol token addresses (these are protocol constants, not hardcodes)
 pub const SOL_MINT_ADDRESS: &str = "So11111111111111111111111111111111111111112";
@@ -26,25 +26,25 @@ pub const TOKEN_PROGRAM_ADDRESS: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623V
 /// Cache-free trading configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheFreeConfig {
-    pub max_slippage_pct: f64,           // Maximum allowed slippage percentage
-    pub price_staleness_ms: u64,         // Maximum price age in milliseconds
-    pub confirmation_threshold: u8,       // Number of price confirmations required
-    pub max_execution_time_ms: u64,      // Maximum time allowed for trade execution
-    pub real_balance_check: bool,         // Whether to check real wallet balance
-    pub safety_margin_pct: f64,          // Safety margin for position sizing
-    pub min_profit_threshold_usd: f64,   // Minimum profit required to execute trade
-    
+    pub max_slippage_pct: f64,         // Maximum allowed slippage percentage
+    pub price_staleness_ms: u64,       // Maximum price age in milliseconds
+    pub confirmation_threshold: u8,    // Number of price confirmations required
+    pub max_execution_time_ms: u64,    // Maximum time allowed for trade execution
+    pub real_balance_check: bool,      // Whether to check real wallet balance
+    pub safety_margin_pct: f64,        // Safety margin for position sizing
+    pub min_profit_threshold_usd: f64, // Minimum profit required to execute trade
+
     // Trading limits and safety
-    pub max_trade_amount_sol: f64,       // Maximum trade amount in SOL
-    pub estimated_sol_price_usd: f64,    // Estimated SOL price for calculations
-    pub max_trade_size_usd: f64,         // Maximum trade size in USD
-    
+    pub max_trade_amount_sol: f64,    // Maximum trade amount in SOL
+    pub estimated_sol_price_usd: f64, // Estimated SOL price for calculations
+    pub max_trade_size_usd: f64,      // Maximum trade size in USD
+
     // Token addresses (configurable)
-    pub sol_mint_address: String,        // SOL token mint address
-    pub usdc_mint_address: String,       // USDC token mint address
-    
+    pub sol_mint_address: String,  // SOL token mint address
+    pub usdc_mint_address: String, // USDC token mint address
+
     // Demo mode settings
-    pub demo_wallet_address: String,     // Demo wallet address for testing
+    pub demo_wallet_address: String, // Demo wallet address for testing
 }
 
 impl Default for CacheFreeConfig {
@@ -57,53 +57,53 @@ impl CacheFreeConfig {
     /// Safe defaults for DevNet testing
     pub fn devnet_safe_defaults() -> Self {
         Self {
-            max_slippage_pct: 1.0,        // 1% max slippage
-            price_staleness_ms: 500,      // 500ms max price age
-            confirmation_threshold: 2,     // Require 2 price confirmations
-            max_execution_time_ms: 2000,  // 2s max execution time
-            real_balance_check: true,      // Always check real balance
-            safety_margin_pct: 5.0,       // 5% safety margin
+            max_slippage_pct: 1.0,          // 1% max slippage
+            price_staleness_ms: 500,        // 500ms max price age
+            confirmation_threshold: 2,      // Require 2 price confirmations
+            max_execution_time_ms: 2000,    // 2s max execution time
+            real_balance_check: true,       // Always check real balance
+            safety_margin_pct: 5.0,         // 5% safety margin
             min_profit_threshold_usd: 0.01, // $0.01 minimum profit for DevNet
-            
+
             // Trading limits (very conservative for DevNet)
-            max_trade_amount_sol: 0.001,   // 0.001 SOL max per trade (very small)
+            max_trade_amount_sol: 0.001, // 0.001 SOL max per trade (very small)
             estimated_sol_price_usd: 100.0, // Conservative SOL price estimate
-            max_trade_size_usd: 0.10,     // $0.10 max trade size for DevNet
-            
+            max_trade_size_usd: 0.10,    // $0.10 max trade size for DevNet
+
             // Standard Solana token addresses (these are protocol constants)
             sol_mint_address: SOL_MINT_ADDRESS.to_string(),
             usdc_mint_address: USDC_MINT_ADDRESS.to_string(),
-            
+
             // Demo mode
             demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),
         }
     }
-    
+
     /// Production-ready defaults for MainNet
     pub fn mainnet_defaults() -> Self {
         Self {
-            max_slippage_pct: 0.5,        // 0.5% max slippage (more conservative)
-            price_staleness_ms: 200,      // 200ms max price age (faster)
+            max_slippage_pct: 0.5,         // 0.5% max slippage (more conservative)
+            price_staleness_ms: 200,       // 200ms max price age (faster)
             confirmation_threshold: 3,     // Require 3 price confirmations
-            max_execution_time_ms: 1500,  // 1.5s max execution time
+            max_execution_time_ms: 1500,   // 1.5s max execution time
             real_balance_check: true,      // Always check real balance
-            safety_margin_pct: 10.0,      // 10% safety margin (more conservative)
+            safety_margin_pct: 10.0,       // 10% safety margin (more conservative)
             min_profit_threshold_usd: 5.0, // $5 minimum profit for MainNet
-            
+
             // Trading limits (production values)
-            max_trade_amount_sol: 0.1,     // 0.1 SOL max per trade
+            max_trade_amount_sol: 0.1,      // 0.1 SOL max per trade
             estimated_sol_price_usd: 200.0, // Higher SOL price estimate
-            max_trade_size_usd: 50.0,     // $50 max trade size
-            
+            max_trade_size_usd: 50.0,       // $50 max trade size
+
             // Standard Solana token addresses (these are protocol constants)
             sol_mint_address: SOL_MINT_ADDRESS.to_string(),
             usdc_mint_address: USDC_MINT_ADDRESS.to_string(),
-            
+
             // Demo mode
             demo_wallet_address: "DEMO_WALLET_CACHE_FREE_TRADING".to_string(),
         }
     }
-    
+
     /// Create config from environment and network
     pub fn from_network_environment(is_devnet: bool) -> Self {
         if is_devnet {
@@ -217,7 +217,7 @@ impl RealTimeMarketData {
     pub async fn new(config: CacheFreeConfig) -> Result<Self> {
         let jupiter_config = JupiterConfig::default();
         let jupiter = Jupiter::new(&jupiter_config).await?;
-        
+
         Ok(Self {
             price_feeds: HashMap::new(),
             last_update: Instant::now(),
@@ -259,7 +259,7 @@ impl RealTimeMarketData {
     /// Get validated price with confidence scoring
     pub fn get_validated_price(&self, token_address: &str) -> Option<ValidatedPrice> {
         let prices = self.price_feeds.get(token_address)?;
-        
+
         if prices.is_empty() {
             return None;
         }
@@ -267,12 +267,16 @@ impl RealTimeMarketData {
         // Check price staleness
         let now = Instant::now();
         let max_age = Duration::from_millis(self.config.price_staleness_ms);
-        
-        let fresh_prices: Vec<_> = prices.iter()
+
+        let fresh_prices: Vec<_> = prices
+            .iter()
             .filter(|p| {
-                let age = now.duration_since(Instant::now() - Duration::from_millis(
-                    (Utc::now() - p.timestamp).num_milliseconds() as u64
-                ));
+                let age = now.duration_since(
+                    Instant::now()
+                        - Duration::from_millis(
+                            (Utc::now() - p.timestamp).num_milliseconds() as u64
+                        ),
+                );
                 age < max_age
             })
             .collect();
@@ -283,13 +287,14 @@ impl RealTimeMarketData {
 
         // Calculate weighted average price based on confidence
         let total_weight: f64 = fresh_prices.iter().map(|p| p.confidence).sum();
-        let weighted_price: f64 = fresh_prices.iter()
+        let weighted_price: f64 = fresh_prices
+            .iter()
             .map(|p| p.price_usd * p.confidence)
-            .sum::<f64>() / total_weight;
+            .sum::<f64>()
+            / total_weight;
 
         // Use the most recent price data as base
-        let base_price = fresh_prices.iter()
-            .max_by_key(|p| p.timestamp)?;
+        let base_price = fresh_prices.iter().max_by_key(|p| p.timestamp)?;
 
         Some(ValidatedPrice {
             token_address: token_address.to_string(),
@@ -304,12 +309,17 @@ impl RealTimeMarketData {
 
     /// Get fresh real-time price data from Jupiter API only
     async fn get_fresh_price(&self, token_address: &str) -> Result<PriceData> {
-        debug!("📡 Fetching REAL price from Jupiter API: {}", &token_address[..8]);
-        
+        debug!(
+            "📡 Fetching REAL price from Jupiter API: {}",
+            &token_address[..8]
+        );
+
         // Get real price from Jupiter API with timeout
-        let price_result = timeout(Duration::from_secs(10),
-            self.jupiter.get_token_price(token_address)
-        ).await;
+        let price_result = timeout(
+            Duration::from_secs(10),
+            self.jupiter.get_token_price(token_address),
+        )
+        .await;
 
         match price_result {
             Ok(Ok(jupiter_price)) => {
@@ -327,13 +337,17 @@ impl RealTimeMarketData {
                     confidence: 1.0, // Real data = 100% confidence
                 };
 
-                info!("✅ Real price fetched: {} = ${:.6}", &token_address[..8], price_data.price_usd);
+                info!(
+                    "✅ Real price fetched: {} = ${:.6}",
+                    &token_address[..8],
+                    price_data.price_usd
+                );
                 Ok(price_data)
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Jupiter API error for {}: {}", &token_address[..8], e);
                 Err(anyhow!("Failed to fetch real price from Jupiter: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ Jupiter API timeout for {}", &token_address[..8]);
                 Err(anyhow!("Jupiter API timeout"))
@@ -355,7 +369,7 @@ pub struct CacheFreeTradeEngine {
 impl CacheFreeTradeEngine {
     pub async fn new(config: CacheFreeConfig) -> Result<Self> {
         let market_data = RealTimeMarketData::new(config.clone()).await?;
-        
+
         Ok(Self {
             config,
             market_data,
@@ -367,11 +381,11 @@ impl CacheFreeTradeEngine {
 
     /// Initialize with wallet keypair for real trading
     pub async fn new_with_wallet(
-        config: CacheFreeConfig, 
-        wallet_keypair: solana_sdk::signature::Keypair
+        config: CacheFreeConfig,
+        wallet_keypair: solana_sdk::signature::Keypair,
     ) -> Result<Self> {
         let market_data = RealTimeMarketData::new(config.clone()).await?;
-        
+
         Ok(Self {
             config,
             market_data,
@@ -382,52 +396,88 @@ impl CacheFreeTradeEngine {
     }
 
     /// Execute trade with real-time validation
-    pub async fn execute_trade_with_validation(&mut self, opportunity: &TradingOpportunity) -> Result<CacheFreeTradeResult> {
+    pub async fn execute_trade_with_validation(
+        &mut self,
+        opportunity: &TradingOpportunity,
+    ) -> Result<CacheFreeTradeResult> {
         let trade_id = Uuid::new_v4().to_string();
         let start_time = Instant::now();
         let execution_start = Utc::now();
 
         println!("🚀 CACHE-FREE TRADE EXECUTION");
         println!("   Trade ID: {}", &trade_id[..8]);
-        println!("   Type: {} Opportunity", match opportunity.opportunity_type {
-            OpportunityType::NewPoolSnipe => "New Pool",
-            OpportunityType::PriceDiscrepancy => "Arbitrage",
-            OpportunityType::LiquidityImbalance => "Low Slippage",
-            OpportunityType::VolumeSpike => "Volume Spike",
-        });
+        println!(
+            "   Type: {} Opportunity",
+            match opportunity.opportunity_type {
+                OpportunityType::NewPoolSnipe => "New Pool",
+                OpportunityType::PriceDiscrepancy => "Arbitrage",
+                OpportunityType::LiquidityImbalance => "Low Slippage",
+                OpportunityType::VolumeSpike => "Volume Spike",
+            }
+        );
 
         // Step 1: Update real-time prices
         let token_addresses = vec![
             opportunity.pool.token_a.mint.clone(),
             opportunity.pool.token_b.mint.clone(),
         ];
-        
+
         self.market_data.update_prices(&token_addresses).await?;
 
         // Step 2: Validate prices
-        let token_a_price = self.market_data.get_validated_price(&opportunity.pool.token_a.mint)
+        let token_a_price = self
+            .market_data
+            .get_validated_price(&opportunity.pool.token_a.mint)
             .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token A"))?;
-        
-        let token_b_price = self.market_data.get_validated_price(&opportunity.pool.token_b.mint)
-            .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token B"))?;        // Step 3: Calculate real-time slippage
+
+        let token_b_price = self
+            .market_data
+            .get_validated_price(&opportunity.pool.token_b.mint)
+            .ok_or_else(|| anyhow::anyhow!("Unable to get validated price for token B"))?; // Step 3: Calculate real-time slippage
         let expected_price = opportunity.expected_profit_usd / opportunity.recommended_size_usd;
         let current_price = token_a_price.price_usd / token_b_price.price_usd;
         let actual_slippage = ((current_price - expected_price).abs() / expected_price) * 100.0;
 
         println!("   💰 Price Validation:");
-        println!("      Token A: ${:.8} (confidence: {:.1}%)", token_a_price.price_usd, token_a_price.confidence * 100.0);
-        println!("      Token B: ${:.8} (confidence: {:.1}%)", token_b_price.price_usd, token_b_price.confidence * 100.0);
-        println!("      Slippage: {:.2}% (max: {:.1}%)", actual_slippage, self.config.max_slippage_pct);
+        println!(
+            "      Token A: ${:.8} (confidence: {:.1}%)",
+            token_a_price.price_usd,
+            token_a_price.confidence * 100.0
+        );
+        println!(
+            "      Token B: ${:.8} (confidence: {:.1}%)",
+            token_b_price.price_usd,
+            token_b_price.confidence * 100.0
+        );
+        println!(
+            "      Slippage: {:.2}% (max: {:.1}%)",
+            actual_slippage, self.config.max_slippage_pct
+        );
 
         // Step 4: Safety checks
         if actual_slippage > self.config.max_slippage_pct {
-            let error_msg = format!("Slippage too high: {:.2}% > {:.1}%", actual_slippage, self.config.max_slippage_pct);
-            return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
+            let error_msg = format!(
+                "Slippage too high: {:.2}% > {:.1}%",
+                actual_slippage, self.config.max_slippage_pct
+            );
+            return self.create_failed_trade_result(
+                trade_id,
+                opportunity,
+                execution_start,
+                start_time,
+                error_msg,
+            );
         }
 
         if token_a_price.confidence < 0.7 || token_b_price.confidence < 0.7 {
             let error_msg = "Price confidence too low for safe execution".to_string();
-            return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
+            return self.create_failed_trade_result(
+                trade_id,
+                opportunity,
+                execution_start,
+                start_time,
+                error_msg,
+            );
         }
 
         // Step 5: Calculate potential profit after slippage
@@ -436,41 +486,72 @@ impl CacheFreeTradeEngine {
         let net_profit = adjusted_profit - estimated_gas_fees;
 
         if net_profit < self.config.min_profit_threshold_usd {
-            let error_msg = format!("Profit too low after fees: ${:.4} < ${:.2}", net_profit, self.config.min_profit_threshold_usd);
-            return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
+            let error_msg = format!(
+                "Profit too low after fees: ${:.4} < ${:.2}",
+                net_profit, self.config.min_profit_threshold_usd
+            );
+            return self.create_failed_trade_result(
+                trade_id,
+                opportunity,
+                execution_start,
+                start_time,
+                error_msg,
+            );
         }
 
         // Step 6: REAL TRADE EXECUTION
         println!("   🔥 EXECUTING REAL TRADE");
-        
-        let trade_result = match self.execute_real_trade(opportunity, &trade_id, current_price, actual_slippage).await {
+
+        let trade_result = match self
+            .execute_real_trade(opportunity, &trade_id, current_price, actual_slippage)
+            .await
+        {
             Ok(result) => result,
             Err(e) => {
                 let error_msg = format!("Trade execution failed: {}", e);
-                return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
+                return self.create_failed_trade_result(
+                    trade_id,
+                    opportunity,
+                    execution_start,
+                    start_time,
+                    error_msg,
+                );
             }
         };
-        
+
         let execution_time_ms = start_time.elapsed().as_millis() as u64;
 
         // Check execution time limit
         if execution_time_ms > self.config.max_execution_time_ms {
-            let error_msg = format!("Execution timeout: {}ms > {}ms", execution_time_ms, self.config.max_execution_time_ms);
-            return self.create_failed_trade_result(trade_id, opportunity, execution_start, start_time, error_msg);
+            let error_msg = format!(
+                "Execution timeout: {}ms > {}ms",
+                execution_time_ms, self.config.max_execution_time_ms
+            );
+            return self.create_failed_trade_result(
+                trade_id,
+                opportunity,
+                execution_start,
+                start_time,
+                error_msg,
+            );
         }
-        
+
         // Update the trade result with correct timing
         let mut final_trade_result = trade_result;
         final_trade_result.execution_time_ms = execution_time_ms;
 
         println!("   🎯 TRADE EXECUTED SUCCESSFULLY");
         println!("      Execution time: {}ms", execution_time_ms);
-        println!("      Net profit: ${:.4}", final_trade_result.net_profit_usd);
+        println!(
+            "      Net profit: ${:.4}",
+            final_trade_result.net_profit_usd
+        );
         println!("      Gas fees: ${:.4}", final_trade_result.gas_fees_usd);
 
         // Update performance metrics
         self.performance_metrics.record_trade(&final_trade_result);
-        self.active_trades.insert(trade_id, final_trade_result.clone());
+        self.active_trades
+            .insert(trade_id, final_trade_result.clone());
 
         Ok(final_trade_result)
     }
@@ -484,7 +565,7 @@ impl CacheFreeTradeEngine {
         error_message: String,
     ) -> Result<CacheFreeTradeResult> {
         println!("   ❌ TRADE REJECTED: {}", error_message);
-        
+
         Ok(CacheFreeTradeResult {
             trade_id,
             opportunity: opportunity.clone(),
@@ -524,7 +605,10 @@ impl CacheFreeTradeEngine {
         current_price: f64,
         actual_slippage: f64,
     ) -> Result<CacheFreeTradeResult> {
-        info!("🔄 Executing real trade via Jupiter for opportunity: {}", &trade_id[..8]);
+        info!(
+            "🔄 Executing real trade via Jupiter for opportunity: {}",
+            &trade_id[..8]
+        );
 
         // Determine trade direction based on opportunity type
         let (input_mint, output_mint, trade_amount_usd) = match opportunity.opportunity_type {
@@ -533,41 +617,65 @@ impl CacheFreeTradeEngine {
                 (
                     self.config.sol_mint_address.clone(),
                     opportunity.pool.token_a.mint.clone(),
-                    opportunity.recommended_size_usd.min(self.config.max_trade_size_usd), // Use configured limit
+                    opportunity
+                        .recommended_size_usd
+                        .min(self.config.max_trade_size_usd), // Use configured limit
                 )
-            },
+            }
             OpportunityType::PriceDiscrepancy => {
                 // For arbitrage, swap based on price difference
                 (
                     self.config.usdc_mint_address.clone(), // Use configured USDC address
                     opportunity.pool.token_a.mint.clone(),
-                    opportunity.recommended_size_usd.min(self.config.max_trade_size_usd), // Use configured limit
+                    opportunity
+                        .recommended_size_usd
+                        .min(self.config.max_trade_size_usd), // Use configured limit
                 )
-            },
+            }
             _ => {
-                return Err(anyhow!("Trade type not yet implemented: {:?}", opportunity.opportunity_type));
+                return Err(anyhow!(
+                    "Trade type not yet implemented: {:?}",
+                    opportunity.opportunity_type
+                ));
             }
         };
 
         // Convert USD amount to SOL using configured price
         let trade_amount_sol = trade_amount_usd / self.config.estimated_sol_price_usd;
-        
+
         // Safety check: Use configured maximum trade amount
         let safe_trade_amount = trade_amount_sol.min(self.config.max_trade_amount_sol);
-        
+
         info!("💰 Trade parameters:");
-        info!("   Input: {} ({})", input_mint, if input_mint.contains("So1111") { "SOL" } else { "Token" });
+        info!(
+            "   Input: {} ({})",
+            input_mint,
+            if input_mint.contains("So1111") {
+                "SOL"
+            } else {
+                "Token"
+            }
+        );
         info!("   Output: {}", &output_mint[..8]);
-        info!("   Amount: {} SOL (${:.2})", safe_trade_amount, safe_trade_amount * self.config.estimated_sol_price_usd);
+        info!(
+            "   Amount: {} SOL (${:.2})",
+            safe_trade_amount,
+            safe_trade_amount * self.config.estimated_sol_price_usd
+        );
         info!("   Max Slippage: {:.2}%", self.config.max_slippage_pct);
 
         // Get quote from Jupiter
-        let quote = self.market_data.jupiter.get_quote(
-            &input_mint,
-            &output_mint,
-            safe_trade_amount,
-            (self.config.max_slippage_pct * 100.0) as u16, // Convert to basis points
-        ).await.map_err(|e| anyhow!("Failed to get Jupiter quote: {}", e))?;
+        let quote = self
+            .market_data
+            .jupiter
+            .get_quote(
+                &input_mint,
+                &output_mint,
+                safe_trade_amount,
+                (self.config.max_slippage_pct * 100.0) as u16, // Convert to basis points
+            )
+            .await
+            .map_err(|e| anyhow!("Failed to get Jupiter quote: {}", e))?;
 
         info!("📊 Jupiter quote received:");
         info!("   Input amount: {} SOL", quote.in_amount());
@@ -578,20 +686,32 @@ impl CacheFreeTradeEngine {
         let swap_result = if let Some(ref keypair) = self.wallet_keypair {
             // Real trading with wallet integration
             let wallet_address = keypair.pubkey().to_string();
-            info!("🔐 Executing REAL trade with wallet: {}...", &wallet_address[..8]);
-            
-            self.market_data.jupiter.execute_swap_with_wallet(&quote, &wallet_address, Some(keypair)).await
+            info!(
+                "🔐 Executing REAL trade with wallet: {}...",
+                &wallet_address[..8]
+            );
+
+            self.market_data
+                .jupiter
+                .execute_swap_with_wallet(&quote, &wallet_address, Some(keypair))
+                .await
                 .map_err(|e| anyhow!("Failed to execute real swap: {}", e))?
         } else {
             // Demo mode - only build transaction without signing
             warn!("🚧 Demo mode: Building transaction without execution");
-            let demo_result = self.market_data.jupiter.execute_swap(&quote, &self.config.demo_wallet_address).await
+            let demo_result = self
+                .market_data
+                .jupiter
+                .execute_swap(&quote, &self.config.demo_wallet_address)
+                .await
                 .map_err(|e| anyhow!("Failed to build demo swap transaction: {}", e))?;
-            
+
             // Convert SwapResult to SwapExecutionResult for consistency
             crate::shared::jupiter::SwapExecutionResult {
                 success: demo_result.success,
-                transaction_signature: demo_result.transaction_signature.unwrap_or("DEMO_MODE".to_string()),
+                transaction_signature: demo_result
+                    .transaction_signature
+                    .unwrap_or("DEMO_MODE".to_string()),
                 output_amount: demo_result.output_amount,
                 actual_slippage: demo_result.actual_slippage,
                 fee_amount: demo_result.fee_amount,
@@ -682,11 +802,16 @@ impl CacheFreePerformanceMetrics {
             self.total_trades_executed += 1;
             self.total_profit_usd += trade_result.profit_loss_usd;
             self.total_gas_fees_usd += trade_result.gas_fees_usd;
-            
+
             // Update averages
             let total_executions = self.total_trades_executed as f64;
-            self.average_execution_time_ms = (self.average_execution_time_ms * (total_executions - 1.0) + trade_result.execution_time_ms as f64) / total_executions;
-            self.average_slippage_pct = (self.average_slippage_pct * (total_executions - 1.0) + trade_result.actual_slippage_pct) / total_executions;
+            self.average_execution_time_ms = (self.average_execution_time_ms
+                * (total_executions - 1.0)
+                + trade_result.execution_time_ms as f64)
+                / total_executions;
+            self.average_slippage_pct = (self.average_slippage_pct * (total_executions - 1.0)
+                + trade_result.actual_slippage_pct)
+                / total_executions;
         } else {
             self.total_trades_rejected += 1;
             if let Some(error) = &trade_result.error_message {
@@ -696,6 +821,7 @@ impl CacheFreePerformanceMetrics {
         }
 
         // Update success rate
-        self.success_rate_pct = (self.total_trades_executed as f64 / self.total_opportunities_evaluated as f64) * 100.0;
+        self.success_rate_pct =
+            (self.total_trades_executed as f64 / self.total_opportunities_evaluated as f64) * 100.0;
     }
 }

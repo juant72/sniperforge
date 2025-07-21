@@ -1,5 +1,8 @@
-use super::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use super::{
+    MarketData, RiskLevel, SignalType, StrategyConfig, StrategyPerformance, StrategySignal,
+    Timeframe, TradeResult, TradingStrategy,
+};
+use crate::shared::pool_detector::{OpportunityType, TradingOpportunity};
 use anyhow::Result;
 use std::collections::HashMap;
 use tracing::warn;
@@ -32,9 +35,9 @@ impl ArbitrageStrategy {
             capital_allocation: 0.15, // 15% allocation
             risk_level: RiskLevel::Conservative,
             max_position_size: 200.0,
-            stop_loss_percent: 1.0, // Very tight for arbitrage
-            take_profit_percent: 3.0, // Quick profits
-            min_confidence: 0.8, // High confidence required
+            stop_loss_percent: 1.0,              // Very tight for arbitrage
+            take_profit_percent: 3.0,            // Quick profits
+            min_confidence: 0.8,                 // High confidence required
             timeframes: vec![Timeframe::OneMin], // Arbitrage needs immediate execution
         };
 
@@ -97,11 +100,11 @@ impl ArbitrageStrategy {
     fn calculate_transaction_costs(&self, amount: f64, exchange: &str) -> f64 {
         // Estimate transaction costs (trading fees, slippage, gas fees)
         let base_fee = match exchange {
-            "Raydium" => 0.0025,  // 0.25%
-            "Orca" => 0.003,      // 0.30%
-            "Jupiter" => 0.002,   // 0.20% (aggregator)
-            "Serum" => 0.0022,    // 0.22%
-            _ => 0.003,           // Default 0.30%
+            "Raydium" => 0.0025, // 0.25%
+            "Orca" => 0.003,     // 0.30%
+            "Jupiter" => 0.002,  // 0.20% (aggregator)
+            "Serum" => 0.0022,   // 0.22%
+            _ => 0.003,          // Default 0.30%
         };
 
         let slippage = if amount > 1000.0 { 0.001 } else { 0.0005 }; // Estimate slippage
@@ -110,12 +113,15 @@ impl ArbitrageStrategy {
         amount * (base_fee + slippage) + gas_fee
     }
 
-    fn detect_arbitrage_opportunities(&self, market_data: &MarketData) -> Vec<ArbitrageOpportunity> {
+    fn detect_arbitrage_opportunities(
+        &self,
+        market_data: &MarketData,
+    ) -> Vec<ArbitrageOpportunity> {
         let mut opportunities = Vec::new();
 
         // Use only real price feeds - no synthetic data generation
         let mut exchanges = HashMap::new();
-        
+
         // Use stored price feeds from real sources only
         for (exchange, price) in &self.price_feeds {
             exchanges.insert(exchange.clone(), *price);
@@ -123,9 +129,9 @@ impl ArbitrageStrategy {
 
         // Find price differences between exchanges
         let exchange_list: Vec<(String, f64)> = exchanges.into_iter().collect();
-        
+
         for i in 0..exchange_list.len() {
-            for j in i+1..exchange_list.len() {
+            for j in i + 1..exchange_list.len() {
                 let (ref exchange1, price1) = exchange_list[i];
                 let (ref exchange2, price2) = exchange_list[j];
 
@@ -133,13 +139,13 @@ impl ArbitrageStrategy {
                 let profit_percentage = price_diff / price1.min(price2);
 
                 // Only consider if price difference is significant
-                if profit_percentage > 0.005 { // 0.5% minimum
-                    let (buy_exchange, buy_price, sell_exchange, sell_price) = 
-                        if price1 < price2 {
-                            (exchange1.clone(), price1, exchange2.clone(), price2)
-                        } else {
-                            (exchange2.clone(), price2, exchange1.clone(), price1)
-                        };
+                if profit_percentage > 0.005 {
+                    // 0.5% minimum
+                    let (buy_exchange, buy_price, sell_exchange, sell_price) = if price1 < price2 {
+                        (exchange1.clone(), price1, exchange2.clone(), price2)
+                    } else {
+                        (exchange2.clone(), price2, exchange1.clone(), price1)
+                    };
 
                     // Estimate liquidity (simplified)
                     let liquidity_buy = market_data.liquidity * 0.8; // Assume 80% available
@@ -214,7 +220,10 @@ impl ArbitrageStrategy {
         Vec::new()
     }
 
-    fn select_best_arbitrage<'a>(&self, opportunities: &'a [ArbitrageOpportunity]) -> Option<&'a ArbitrageOpportunity> {
+    fn select_best_arbitrage<'a>(
+        &self,
+        opportunities: &'a [ArbitrageOpportunity],
+    ) -> Option<&'a ArbitrageOpportunity> {
         if opportunities.is_empty() {
             return None;
         }
@@ -260,13 +269,21 @@ impl ArbitrageStrategy {
 impl TradingStrategy for ArbitrageStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }
+    fn analyze(
+        &self,
+        _opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Option<StrategySignal>> {
         // Arbitrage requires real-time price data from multiple sources
         // TODO: Implement real multi-exchange price feeds
-        
+
         // Only use real price feeds - no simulation
         if self.price_feeds.len() < 2 {
-            warn!("🚫 Insufficient real exchange price feeds for arbitrage (need 2+, have {})", self.price_feeds.len());
+            warn!(
+                "🚫 Insufficient real exchange price feeds for arbitrage (need 2+, have {})",
+                self.price_feeds.len()
+            );
             return Ok(None);
         }
 
@@ -284,7 +301,8 @@ impl TradingStrategy for ArbitrageStrategy {
             return Ok(None);
         }
 
-        if best_opportunity.estimated_profit < 1.0 { // Minimum $1 profit
+        if best_opportunity.estimated_profit < 1.0 {
+            // Minimum $1 profit
             return Ok(None);
         }
 
@@ -294,12 +312,15 @@ impl TradingStrategy for ArbitrageStrategy {
         let signal_type = SignalType::Buy;
 
         // Position size should not exceed available liquidity
-        let max_liquidity = best_opportunity.liquidity_buy.min(best_opportunity.liquidity_sell);
+        let max_liquidity = best_opportunity
+            .liquidity_buy
+            .min(best_opportunity.liquidity_sell);
         let position_size = self.config.max_position_size.min(max_liquidity * 0.8);
 
         // For arbitrage, stop loss should be very tight (execution failure)
-        let stop_loss = Some(best_opportunity.buy_price * (1.0 - self.config.stop_loss_percent / 100.0));
-        
+        let stop_loss =
+            Some(best_opportunity.buy_price * (1.0 - self.config.stop_loss_percent / 100.0));
+
         // Take profit is the sell price minus estimated costs
         let take_profit_price = best_opportunity.sell_price * 0.995; // Account for execution slippage
         let take_profit = Some(take_profit_price);
@@ -307,14 +328,38 @@ impl TradingStrategy for ArbitrageStrategy {
         // Create detailed metadata
         let mut metadata = HashMap::new();
         metadata.insert("arbitrage_type".to_string(), "direct".to_string());
-        metadata.insert("buy_exchange".to_string(), best_opportunity.buy_exchange.clone());
-        metadata.insert("sell_exchange".to_string(), best_opportunity.sell_exchange.clone());
-        metadata.insert("buy_price".to_string(), format!("{:.6}", best_opportunity.buy_price));
-        metadata.insert("sell_price".to_string(), format!("{:.6}", best_opportunity.sell_price));
-        metadata.insert("profit_percentage".to_string(), format!("{:.4}", best_opportunity.profit_percentage * 100.0));
-        metadata.insert("estimated_profit".to_string(), format!("{:.2}", best_opportunity.estimated_profit));
-        metadata.insert("liquidity_buy".to_string(), format!("{:.2}", best_opportunity.liquidity_buy));
-        metadata.insert("liquidity_sell".to_string(), format!("{:.2}", best_opportunity.liquidity_sell));
+        metadata.insert(
+            "buy_exchange".to_string(),
+            best_opportunity.buy_exchange.clone(),
+        );
+        metadata.insert(
+            "sell_exchange".to_string(),
+            best_opportunity.sell_exchange.clone(),
+        );
+        metadata.insert(
+            "buy_price".to_string(),
+            format!("{:.6}", best_opportunity.buy_price),
+        );
+        metadata.insert(
+            "sell_price".to_string(),
+            format!("{:.6}", best_opportunity.sell_price),
+        );
+        metadata.insert(
+            "profit_percentage".to_string(),
+            format!("{:.4}", best_opportunity.profit_percentage * 100.0),
+        );
+        metadata.insert(
+            "estimated_profit".to_string(),
+            format!("{:.2}", best_opportunity.estimated_profit),
+        );
+        metadata.insert(
+            "liquidity_buy".to_string(),
+            format!("{:.2}", best_opportunity.liquidity_buy),
+        );
+        metadata.insert(
+            "liquidity_sell".to_string(),
+            format!("{:.2}", best_opportunity.liquidity_sell),
+        );
 
         let signal = StrategySignal {
             strategy_name: self.config.name.clone(),
@@ -350,8 +395,9 @@ impl TradingStrategy for ArbitrageStrategy {
             if self.performance.average_profit == 0.0 {
                 self.performance.average_profit = trade_result.profit_loss;
             } else {
-                self.performance.average_profit = 
-                    (self.performance.average_profit * (self.performance.winning_trades - 1) as f64 + trade_result.profit_loss) 
+                self.performance.average_profit = (self.performance.average_profit
+                    * (self.performance.winning_trades - 1) as f64
+                    + trade_result.profit_loss)
                     / self.performance.winning_trades as f64;
             }
         } else {
@@ -359,18 +405,21 @@ impl TradingStrategy for ArbitrageStrategy {
             if self.performance.average_loss == 0.0 {
                 self.performance.average_loss = trade_result.profit_loss.abs();
             } else {
-                self.performance.average_loss = 
-                    (self.performance.average_loss * (self.performance.losing_trades - 1) as f64 + trade_result.profit_loss.abs()) 
+                self.performance.average_loss = (self.performance.average_loss
+                    * (self.performance.losing_trades - 1) as f64
+                    + trade_result.profit_loss.abs())
                     / self.performance.losing_trades as f64;
             }
         }
 
-        self.performance.win_rate = self.performance.winning_trades as f64 / self.performance.total_trades as f64;
+        self.performance.win_rate =
+            self.performance.winning_trades as f64 / self.performance.total_trades as f64;
         self.performance.last_updated = chrono::Utc::now();
 
         // Arbitrage should have a high win rate and consistent profits
         if self.performance.total_trades > 5 {
-            let avg_return = self.performance.total_profit_loss / self.performance.total_trades as f64;
+            let avg_return =
+                self.performance.total_profit_loss / self.performance.total_trades as f64;
             let risk_free_rate = 0.02;
             // Arbitrage typically has lower volatility, so better Sharpe ratios
             self.performance.sharpe_ratio = (avg_return - risk_free_rate) / (avg_return * 0.05);

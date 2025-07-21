@@ -1,8 +1,5 @@
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-};
+use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use std::str::FromStr;
 use tokio;
 
@@ -12,18 +9,18 @@ const RAYDIUM_AMM_PROGRAM: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔬 Analyzing Raydium pool structure...");
-    
+
     let rpc_url = std::env::var("SOLANA_RPC_URL")
         .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string());
-    
+
     let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
-    
+
     // SOL-USDC pool que sabemos que existe
     let pool_address = "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2";
     let pool_pubkey = Pubkey::from_str(pool_address)?;
-    
+
     println!("📡 Analyzing pool: {}", pool_address);
-    
+
     match client.get_account(&pool_pubkey) {
         Ok(account) => {
             println!("✅ Pool account found");
@@ -31,15 +28,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   Data size: {} bytes", account.data.len());
             println!("   Executable: {}", account.executable);
             println!("   Rent epoch: {}", account.rent_epoch);
-            
+
             if account.owner.to_string() == RAYDIUM_AMM_PROGRAM {
                 println!("🔥 This is a Raydium AMM pool");
-                
+
                 // Parse Raydium pool structure
                 let data = &account.data;
                 if data.len() >= 752 {
                     println!("\n📊 Raydium Pool Data Analysis:");
-                    
+
                     // Raydium AMM pool layout (approximate)
                     // Status: 8 bytes
                     // nonce: 8 bytes
@@ -91,41 +88,41 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // withdraw_queue: 32 bytes (pubkey)
                     // lp_vault: 32 bytes (pubkey)
                     // owner: 32 bytes (pubkey)
-                    
+
                     // Extract key addresses (approximate offsets)
                     let base_vault_offset = 344; // Approximate
                     let quote_vault_offset = 376; // Approximate
                     let base_mint_offset = 408; // Approximate
                     let quote_mint_offset = 440; // Approximate
-                    
+
                     if data.len() >= base_vault_offset + 32 {
                         let base_vault_bytes = &data[base_vault_offset..base_vault_offset + 32];
                         if let Ok(base_vault) = Pubkey::try_from(base_vault_bytes) {
                             println!("   Base Vault: {}", base_vault);
                         }
                     }
-                    
+
                     if data.len() >= quote_vault_offset + 32 {
                         let quote_vault_bytes = &data[quote_vault_offset..quote_vault_offset + 32];
                         if let Ok(quote_vault) = Pubkey::try_from(quote_vault_bytes) {
                             println!("   Quote Vault: {}", quote_vault);
                         }
                     }
-                    
+
                     if data.len() >= base_mint_offset + 32 {
                         let base_mint_bytes = &data[base_mint_offset..base_mint_offset + 32];
                         if let Ok(base_mint) = Pubkey::try_from(base_mint_bytes) {
                             println!("   Base Mint: {}", base_mint);
                         }
                     }
-                    
+
                     if data.len() >= quote_mint_offset + 32 {
                         let quote_mint_bytes = &data[quote_mint_offset..quote_mint_offset + 32];
                         if let Ok(quote_mint) = Pubkey::try_from(quote_mint_bytes) {
                             println!("   Quote Mint: {}", quote_mint);
                         }
                     }
-                    
+
                     // Print raw bytes for analysis
                     println!("\n🔍 Raw data (first 200 bytes):");
                     for (i, chunk) in data.chunks(32).take(6).enumerate() {
@@ -135,7 +132,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                         println!();
                     }
-                    
                 } else {
                     println!("❌ Data too small for Raydium pool");
                 }
@@ -145,6 +141,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("❌ Failed to get account: {}", e);
         }
     }
-    
+
     Ok(())
 }

@@ -1,16 +1,16 @@
 mod qa;
 
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
-use qa::{QATestSuite, QATestResult};
 use anyhow::Result;
+use qa::{QATestResult, QATestSuite};
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 // Import QA macros from qa module
-use qa::{qa_test, qa_assert, qa_assert_eq};
+use qa::{qa_assert, qa_assert_eq, qa_test};
 
 /// Main QA Test Runner for ArbitrageBot
 #[tokio::main]
@@ -53,7 +53,7 @@ async fn main() -> Result<()> {
                 total_failed += summary.failed_tests;
                 all_suites.push(suite);
             }
-        },
+        }
         Err(e) => {
             error!("❌ Integration tests failed to initialize: {}", e);
             error!("💡 Make sure DevNet configuration is available");
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
                 total_failed += summary.failed_tests;
                 all_suites.push(suite);
             }
-        },
+        }
         Err(e) => {
             error!("❌ Stress tests failed to initialize: {}", e);
         }
@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
                 total_failed += summary.failed_tests;
                 all_suites.push(suite);
             }
-        },
+        }
         Err(e) => {
             error!("❌ Performance tests failed to initialize: {}", e);
         }
@@ -106,7 +106,13 @@ async fn main() -> Result<()> {
 
     // Print overall summary
     let total_duration = start_time.elapsed();
-    print_overall_summary(total_tests, total_passed, total_failed, total_duration, &all_suites);
+    print_overall_summary(
+        total_tests,
+        total_passed,
+        total_failed,
+        total_duration,
+        &all_suites,
+    );
 
     // Exit with appropriate code
     if total_failed > 0 {
@@ -121,7 +127,7 @@ fn print_overall_summary(
     total_passed: usize,
     total_failed: usize,
     total_duration: std::time::Duration,
-    all_suites: &[QATestSuite]
+    all_suites: &[QATestSuite],
 ) {
     info!("🎯 OVERALL QA TEST SUMMARY");
     info!("{}", "=".repeat(70));
@@ -143,13 +149,19 @@ fn print_overall_summary(
     info!("\n📋 Suite Breakdown:");
     for suite in all_suites {
         let summary = suite.get_summary();
-        let status = if summary.failed_tests == 0 { "✅" } else { "❌" };
-        info!("   {} {}: {}/{} passed ({:.1}%)",
-              status,
-              summary.suite_name,
-              summary.passed_tests,
-              summary.total_tests,
-              summary.success_rate);
+        let status = if summary.failed_tests == 0 {
+            "✅"
+        } else {
+            "❌"
+        };
+        info!(
+            "   {} {}: {}/{} passed ({:.1}%)",
+            status,
+            summary.suite_name,
+            summary.passed_tests,
+            summary.total_tests,
+            summary.success_rate
+        );
     }
 
     // Quality assessment
@@ -158,15 +170,15 @@ fn print_overall_summary(
         rate if rate >= 95.0 => {
             info!("   🟢 EXCELLENT - Production ready!");
             info!("   🚀 ArbitrageBot passes all quality standards");
-        },
+        }
         rate if rate >= 85.0 => {
             info!("   🟡 GOOD - Minor issues to address");
             info!("   ⚠️ Review failed tests before production");
-        },
+        }
         rate if rate >= 70.0 => {
             info!("   🟠 FAIR - Several issues need attention");
             info!("   🔧 Significant improvements required");
-        },
+        }
         _ => {
             info!("   🔴 POOR - Major issues detected");
             info!("   🛑 Not ready for production use");

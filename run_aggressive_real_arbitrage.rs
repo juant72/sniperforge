@@ -1,10 +1,8 @@
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    signature::{Keypair, Signer},
-};
-use std::time::{Duration, Instant};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::signature::{Keypair, Signer};
+use std::time::{Duration, Instant};
 use tracing::info;
 
 // Real mainnet token addresses (same as before)
@@ -102,10 +100,8 @@ impl AggressiveRealArbitrageEngine {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let rpc_url = "https://api.mainnet-beta.solana.com";
         let rpc_client = RpcClient::new(rpc_url.to_string());
-        
-        let http_client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()?;
+
+        let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
         // Use existing wallet or create new one
         let wallet = Keypair::new();
@@ -120,11 +116,11 @@ impl AggressiveRealArbitrageEngine {
 
         // Much smaller amounts to find more opportunities
         let test_amounts = vec![
-            10_000_000,    // 0.01 SOL
-            50_000_000,    // 0.05 SOL  
-            100_000_000,   // 0.1 SOL
-            200_000_000,   // 0.2 SOL
-            500_000_000,   // 0.5 SOL
+            10_000_000,  // 0.01 SOL
+            50_000_000,  // 0.05 SOL
+            100_000_000, // 0.1 SOL
+            200_000_000, // 0.2 SOL
+            500_000_000, // 0.5 SOL
         ];
 
         Ok(Self {
@@ -147,45 +143,51 @@ impl AggressiveRealArbitrageEngine {
         output_mint: &str,
         amount: u64,
     ) -> Result<Option<JupiterRoute>, Box<dyn std::error::Error>> {
-        let url = format!(
+        let url =
+            format!(
             "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
             input_mint, output_mint, amount, (MAX_SLIPPAGE * 10000.0) as u16
         );
 
         let response = self.http_client.get(&url).send().await?;
-        
+
         if !response.status().is_success() {
             return Ok(None);
         }
 
         let quote_response: JupiterQuoteResponse = response.json().await?;
-        
+
         Ok(quote_response.data.into_iter().next())
     }
 
-    pub async fn scan_aggressive_opportunities(&self) -> Result<Vec<AggressiveArbitrageOpportunity>, Box<dyn std::error::Error>> {
+    pub async fn scan_aggressive_opportunities(
+        &self,
+    ) -> Result<Vec<AggressiveArbitrageOpportunity>, Box<dyn std::error::Error>> {
         let start = Instant::now();
         let mut opportunities = Vec::new();
 
-        info!("🔍 AGGRESSIVE SCAN: Testing {} token pairs with {} amounts", 
-            self.token_mints.len() * (self.token_mints.len() - 1), 
+        info!(
+            "🔍 AGGRESSIVE SCAN: Testing {} token pairs with {} amounts",
+            self.token_mints.len() * (self.token_mints.len() - 1),
             self.test_amounts.len()
         );
 
         // Test all token pairs with all amounts
         for (i, token_a) in self.token_mints.iter().enumerate() {
             for (j, token_b) in self.token_mints.iter().enumerate() {
-                if i >= j { continue; } // Skip duplicates and self-pairs
+                if i >= j {
+                    continue;
+                } // Skip duplicates and self-pairs
 
                 for &amount in &self.test_amounts {
-                    if let Some(opportunity) = self.check_aggressive_arbitrage_pair(
-                        token_a, 
-                        token_b, 
-                        amount
-                    ).await? {
-                        info!("💰 AGGRESSIVE OPPORTUNITY FOUND: {} -> {} profit: {} SOL", 
-                            opportunity.token_a, 
-                            opportunity.token_b, 
+                    if let Some(opportunity) = self
+                        .check_aggressive_arbitrage_pair(token_a, token_b, amount)
+                        .await?
+                    {
+                        info!(
+                            "💰 AGGRESSIVE OPPORTUNITY FOUND: {} -> {} profit: {} SOL",
+                            opportunity.token_a,
+                            opportunity.token_b,
                             opportunity.profit as f64 / 1e9
                         );
                         opportunities.push(opportunity);
@@ -198,8 +200,11 @@ impl AggressiveRealArbitrageEngine {
         }
 
         let duration = start.elapsed().as_millis();
-        info!("📊 AGGRESSIVE SCAN COMPLETE: {} opportunities in {}ms", 
-            opportunities.len(), duration);
+        info!(
+            "📊 AGGRESSIVE SCAN COMPLETE: {} opportunities in {}ms",
+            opportunities.len(),
+            duration
+        );
 
         Ok(opportunities)
     }
@@ -211,7 +216,10 @@ impl AggressiveRealArbitrageEngine {
         amount: u64,
     ) -> Result<Option<AggressiveArbitrageOpportunity>, Box<dyn std::error::Error>> {
         // Get quote for A -> B
-        let quote_a_to_b = match self.get_aggressive_jupiter_quote(token_a, token_b, amount).await? {
+        let quote_a_to_b = match self
+            .get_aggressive_jupiter_quote(token_a, token_b, amount)
+            .await?
+        {
             Some(quote) => quote,
             None => return Ok(None),
         };
@@ -219,7 +227,10 @@ impl AggressiveRealArbitrageEngine {
         let amount_after_first_swap = quote_a_to_b.out_amount.parse::<u64>()?;
 
         // Get quote for B -> A
-        let quote_b_to_a = match self.get_aggressive_jupiter_quote(token_b, token_a, amount_after_first_swap).await? {
+        let quote_b_to_a = match self
+            .get_aggressive_jupiter_quote(token_b, token_a, amount_after_first_swap)
+            .await?
+        {
             Some(quote) => quote,
             None => return Ok(None),
         };
@@ -230,7 +241,7 @@ impl AggressiveRealArbitrageEngine {
         // More aggressive profit threshold
         if profit > MIN_PROFIT_LAMPORTS as i64 {
             let profit_percentage = (profit as f64 / amount as f64) * 100.0;
-            
+
             return Ok(Some(AggressiveArbitrageOpportunity {
                 token_a: token_a.to_string(),
                 token_b: token_b.to_string(),
@@ -247,24 +258,35 @@ impl AggressiveRealArbitrageEngine {
         Ok(None)
     }
 
-    pub async fn run_aggressive_arbitrage_session(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("╔═══════════════════════════════════════════════════════════════════════════════╗");
+    pub async fn run_aggressive_arbitrage_session(
+        &mut self,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        println!(
+            "╔═══════════════════════════════════════════════════════════════════════════════╗"
+        );
         println!("║                 🚀 AGGRESSIVE REAL ARBITRAGE SYSTEM 🚀                      ║");
         println!("║                      100% REAL - ULTRA AGGRESSIVE MODE                      ║");
-        println!("║                                                                               ║");
+        println!(
+            "║                                                                               ║"
+        );
         println!("║  ⚡ Lower Profit Thresholds (0.0005 SOL min)                               ║");
         println!("║  ⚡ Higher Slippage Tolerance (2%)                                         ║");
         println!("║  ⚡ Smaller Test Amounts (0.01-0.5 SOL)                                   ║");
         println!("║  ⚡ More Token Pairs & Combinations                                        ║");
         println!("║  ⚡ Real Jupiter API Integration                                           ║");
-        println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
+        println!(
+            "╚═══════════════════════════════════════════════════════════════════════════════╝"
+        );
 
         info!("🔥 INITIALIZING AGGRESSIVE REAL ARBITRAGE ENGINE");
-        
+
         let balance = self.get_real_wallet_balance().await?;
-        info!("✅ AGGRESSIVE ENGINE INITIALIZED: Wallet {}", self.wallet.pubkey());
+        info!(
+            "✅ AGGRESSIVE ENGINE INITIALIZED: Wallet {}",
+            self.wallet.pubkey()
+        );
         info!("💰 REAL WALLET BALANCE: {} SOL", balance as f64 / 1e9);
-        
+
         info!("🚀 STARTING AGGRESSIVE ARBITRAGE SESSION");
 
         let mut total_opportunities = 0;
@@ -273,7 +295,7 @@ impl AggressiveRealArbitrageEngine {
 
         for cycle in 1..=20 {
             info!("🔄 AGGRESSIVE CYCLE #{}: Scanning opportunities...", cycle);
-            
+
             let opportunities = self.scan_aggressive_opportunities().await?;
             total_opportunities += opportunities.len();
 
@@ -281,9 +303,10 @@ impl AggressiveRealArbitrageEngine {
                 info!("⏳ No profitable opportunities found this cycle");
             } else {
                 info!("💎 FOUND {} AGGRESSIVE OPPORTUNITIES:", opportunities.len());
-                
+
                 for (i, opp) in opportunities.iter().enumerate() {
-                    info!("   {}. {} -> {}: {} SOL profit ({:.4}%)", 
+                    info!(
+                        "   {}. {} -> {}: {} SOL profit ({:.4}%)",
                         i + 1,
                         opp.token_a[..8].to_string(),
                         opp.token_b[..8].to_string(),
@@ -294,21 +317,23 @@ impl AggressiveRealArbitrageEngine {
 
                 // Execute the most profitable opportunity
                 if let Some(best_opp) = opportunities.iter().max_by_key(|opp| opp.profit) {
-                    info!("🎯 EXECUTING BEST OPPORTUNITY: {} SOL profit", 
-                        best_opp.profit as f64 / 1e9);
-                    
+                    info!(
+                        "🎯 EXECUTING BEST OPPORTUNITY: {} SOL profit",
+                        best_opp.profit as f64 / 1e9
+                    );
+
                     // In real implementation, execute the trades here
                     // For now, just simulate the execution
                     total_executed += 1;
                     total_profit += best_opp.profit;
-                    
+
                     info!("✅ TRADE EXECUTED SUCCESSFULLY");
                 }
             }
 
             let cycle_time = 500; // Faster cycles for aggressive mode
             info!("⏱️  AGGRESSIVE CYCLE #{} COMPLETE: {}ms", cycle, cycle_time);
-            
+
             tokio::time::sleep(Duration::from_millis(cycle_time)).await;
         }
 

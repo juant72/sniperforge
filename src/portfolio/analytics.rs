@@ -1,11 +1,11 @@
 //! Portfolio Analytics - Comprehensive performance analysis and reporting
-//! 
+//!
 //! Provides detailed analytics, performance attribution, and reporting capabilities
 
 use anyhow::Result;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
 use super::Position;
@@ -176,8 +176,11 @@ impl PortfolioAnalytics {
     /// Record performance snapshot
     pub fn record_snapshot(&mut self, positions: &HashMap<Uuid, Position>) {
         let total_value: f64 = positions.values().map(|p| p.value_usd).sum();
-        let total_pnl: f64 = positions.values().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
-        
+        let total_pnl: f64 = positions
+            .values()
+            .map(|p| p.unrealized_pnl + p.realized_pnl)
+            .sum();
+
         // Calculate daily return
         let daily_return = if let Some(last_snapshot) = self.performance_history.last() {
             if last_snapshot.total_value > 0.0 {
@@ -210,13 +213,17 @@ impl PortfolioAnalytics {
     }
 
     /// Calculate strategy performance breakdown
-    fn calculate_strategy_breakdown(&self, positions: &HashMap<Uuid, Position>) -> HashMap<String, StrategyPerformance> {
+    fn calculate_strategy_breakdown(
+        &self,
+        positions: &HashMap<Uuid, Position>,
+    ) -> HashMap<String, StrategyPerformance> {
         let mut breakdown = HashMap::new();
 
         // Group positions by strategy
         let mut strategy_positions: HashMap<String, Vec<&Position>> = HashMap::new();
         for position in positions.values() {
-            strategy_positions.entry(position.strategy.clone())
+            strategy_positions
+                .entry(position.strategy.clone())
                 .or_insert_with(Vec::new)
                 .push(position);
         }
@@ -224,13 +231,18 @@ impl PortfolioAnalytics {
         // Calculate metrics for each strategy
         for (strategy, positions) in strategy_positions {
             let total_value: f64 = positions.iter().map(|p| p.value_usd).sum();
-            let total_pnl: f64 = positions.iter().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
-            
+            let total_pnl: f64 = positions
+                .iter()
+                .map(|p| p.unrealized_pnl + p.realized_pnl)
+                .sum();
+
             // Calculate daily return for strategy
             let daily_return = if let Some(last_snapshot) = self.performance_history.last() {
                 if let Some(last_strategy_perf) = last_snapshot.strategy_breakdown.get(&strategy) {
                     if last_strategy_perf.total_value > 0.0 {
-                        ((total_value - last_strategy_perf.total_value) / last_strategy_perf.total_value) * 100.0
+                        ((total_value - last_strategy_perf.total_value)
+                            / last_strategy_perf.total_value)
+                            * 100.0
                     } else {
                         0.0
                     }
@@ -250,22 +262,26 @@ impl PortfolioAnalytics {
             };
 
             // Calculate max drawdown (simplified)
-            let max_drawdown = positions.iter()
+            let max_drawdown = positions
+                .iter()
                 .map(|p| p.risk_metrics.max_drawdown)
                 .fold(0.0, f64::max);
 
             // Calculate Sharpe ratio (simplified)
             let sharpe_ratio = if daily_return > 0.0 { 1.5 } else { 0.0 }; // Placeholder
 
-            breakdown.insert(strategy, StrategyPerformance {
-                total_value,
-                total_pnl,
-                daily_return,
-                positions_count: positions.len(),
-                win_rate,
-                sharpe_ratio,
-                max_drawdown,
-            });
+            breakdown.insert(
+                strategy,
+                StrategyPerformance {
+                    total_value,
+                    total_pnl,
+                    daily_return,
+                    positions_count: positions.len(),
+                    win_rate,
+                    sharpe_ratio,
+                    max_drawdown,
+                },
+            );
         }
 
         breakdown
@@ -279,14 +295,18 @@ impl PortfolioAnalytics {
 
         let end_date = Utc::now();
         let start_date = end_date - Duration::days(days);
-        
+
         // Filter snapshots for the period
-        let period_snapshots: Vec<_> = self.performance_history.iter()
+        let period_snapshots: Vec<_> = self
+            .performance_history
+            .iter()
             .filter(|s| s.timestamp >= start_date && s.timestamp <= end_date)
             .collect();
 
         if period_snapshots.is_empty() {
-            return Err(anyhow::anyhow!("No data available for the specified period"));
+            return Err(anyhow::anyhow!(
+                "No data available for the specified period"
+            ));
         }
 
         let first_snapshot = period_snapshots.first().unwrap();
@@ -294,7 +314,8 @@ impl PortfolioAnalytics {
 
         // Calculate basic metrics
         let total_return = if first_snapshot.total_value > 0.0 {
-            ((last_snapshot.total_value - first_snapshot.total_value) / first_snapshot.total_value) * 100.0
+            ((last_snapshot.total_value - first_snapshot.total_value) / first_snapshot.total_value)
+                * 100.0
         } else {
             0.0
         };
@@ -409,63 +430,94 @@ impl PortfolioAnalytics {
     }
 
     /// Generate attribution analysis
-    pub fn generate_attribution_report(&self, positions: &HashMap<Uuid, Position>) -> Result<AttributionReport> {
+    pub fn generate_attribution_report(
+        &self,
+        positions: &HashMap<Uuid, Position>,
+    ) -> Result<AttributionReport> {
         let total_value: f64 = positions.values().map(|p| p.value_usd).sum();
-        let total_return: f64 = positions.values().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
+        let total_return: f64 = positions
+            .values()
+            .map(|p| p.unrealized_pnl + p.realized_pnl)
+            .sum();
 
         // Strategy attribution
         let mut strategy_attribution = HashMap::new();
         let mut strategy_groups: HashMap<String, Vec<&Position>> = HashMap::new();
-        
+
         for position in positions.values() {
-            strategy_groups.entry(position.strategy.clone())
+            strategy_groups
+                .entry(position.strategy.clone())
                 .or_insert_with(Vec::new)
                 .push(position);
         }
 
         for (strategy, positions) in strategy_groups {
             let strategy_value: f64 = positions.iter().map(|p| p.value_usd).sum();
-            let strategy_return: f64 = positions.iter().map(|p| p.unrealized_pnl + p.realized_pnl).sum();
-            
-            let weight = if total_value > 0.0 { strategy_value / total_value } else { 0.0 };
-            let return_contribution = if total_value > 0.0 { strategy_return / total_value } else { 0.0 };
-            
-            strategy_attribution.insert(strategy, StrategyAttribution {
-                weight,
-                return_contribution,
-                alpha: 0.02, // Placeholder
-                selection_effect: return_contribution * 0.6,
-                allocation_effect: return_contribution * 0.3,
-                interaction_effect: return_contribution * 0.1,
-            });
+            let strategy_return: f64 = positions
+                .iter()
+                .map(|p| p.unrealized_pnl + p.realized_pnl)
+                .sum();
+
+            let weight = if total_value > 0.0 {
+                strategy_value / total_value
+            } else {
+                0.0
+            };
+            let return_contribution = if total_value > 0.0 {
+                strategy_return / total_value
+            } else {
+                0.0
+            };
+
+            strategy_attribution.insert(
+                strategy,
+                StrategyAttribution {
+                    weight,
+                    return_contribution,
+                    alpha: 0.02, // Placeholder
+                    selection_effect: return_contribution * 0.6,
+                    allocation_effect: return_contribution * 0.3,
+                    interaction_effect: return_contribution * 0.1,
+                },
+            );
         }
 
         // Asset attribution
         let mut asset_attribution = HashMap::new();
         for position in positions.values() {
-            let weight = if total_value > 0.0 { position.value_usd / total_value } else { 0.0 };
-            let return_contribution = if total_value > 0.0 { 
-                (position.unrealized_pnl + position.realized_pnl) / total_value 
-            } else { 
-                0.0 
+            let weight = if total_value > 0.0 {
+                position.value_usd / total_value
+            } else {
+                0.0
+            };
+            let return_contribution = if total_value > 0.0 {
+                (position.unrealized_pnl + position.realized_pnl) / total_value
+            } else {
+                0.0
             };
 
-            asset_attribution.insert(position.symbol.clone(), AssetAttribution {
-                weight,
-                return_contribution,
-                relative_performance: return_contribution / weight.max(0.001),
-                sector: "Crypto".to_string(), // Simplified
-            });
+            asset_attribution.insert(
+                position.symbol.clone(),
+                AssetAttribution {
+                    weight,
+                    return_contribution,
+                    relative_performance: return_contribution / weight.max(0.001),
+                    sector: "Crypto".to_string(), // Simplified
+                },
+            );
         }
 
         // Sector attribution (simplified for crypto)
         let mut sector_attribution = HashMap::new();
-        sector_attribution.insert("Crypto".to_string(), SectorAttribution {
-            weight: 1.0,
-            return_contribution: total_return / total_value.max(1.0),
-            overweight: 0.0,
-            relative_performance: 0.0,
-        });
+        sector_attribution.insert(
+            "Crypto".to_string(),
+            SectorAttribution {
+                weight: 1.0,
+                return_contribution: total_return / total_value.max(1.0),
+                overweight: 0.0,
+                relative_performance: 0.0,
+            },
+        );
 
         // Alpha-beta analysis
         let alpha_beta_analysis = AlphaBetaAnalysis {
@@ -484,7 +536,8 @@ impl PortfolioAnalytics {
             idiosyncratic_risk: 0.05,
             concentration_risk: 0.03,
             correlation_risk: 0.02,
-            strategy_risk_breakdown: strategy_attribution.iter()
+            strategy_risk_breakdown: strategy_attribution
+                .iter()
                 .map(|(k, v)| (k.clone(), v.weight * 0.15))
                 .collect(),
         };
@@ -506,10 +559,9 @@ impl PortfolioAnalytics {
         }
 
         let mean = returns.iter().sum::<f64>() / returns.len() as f64;
-        let variance = returns.iter()
-            .map(|r| (r - mean).powi(2))
-            .sum::<f64>() / (returns.len() - 1) as f64;
-        
+        let variance =
+            returns.iter().map(|r| (r - mean).powi(2)).sum::<f64>() / (returns.len() - 1) as f64;
+
         variance.sqrt() * (252.0_f64).sqrt() // Annualized
     }
 
@@ -520,20 +572,20 @@ impl PortfolioAnalytics {
         }
 
         let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
-        let downside_returns: Vec<f64> = returns.iter()
-            .filter(|&&r| r < 0.0)
-            .cloned()
-            .collect();
+        let downside_returns: Vec<f64> = returns.iter().filter(|&&r| r < 0.0).cloned().collect();
 
         if downside_returns.is_empty() {
             return f64::INFINITY;
         }
 
         let downside_deviation = {
-            let mean_downside = downside_returns.iter().sum::<f64>() / downside_returns.len() as f64;
-            let variance = downside_returns.iter()
+            let mean_downside =
+                downside_returns.iter().sum::<f64>() / downside_returns.len() as f64;
+            let variance = downside_returns
+                .iter()
                 .map(|r| (r - mean_downside).powi(2))
-                .sum::<f64>() / downside_returns.len() as f64;
+                .sum::<f64>()
+                / downside_returns.len() as f64;
             variance.sqrt()
         };
 
@@ -596,7 +648,7 @@ impl PortfolioAnalytics {
         // Simplified monthly return calculation
         // In a real implementation, this would properly group by month
         let mut monthly_returns = Vec::new();
-        
+
         if snapshots.len() >= 30 {
             let chunks: Vec<_> = snapshots.chunks(30).collect();
             for (i, chunk) in chunks.iter().enumerate() {
@@ -624,9 +676,12 @@ impl PortfolioAnalytics {
     }
 
     /// Calculate drawdown periods
-    fn calculate_drawdown_periods(&self, snapshots: &[&PerformanceSnapshot]) -> Vec<DrawdownPeriod> {
+    fn calculate_drawdown_periods(
+        &self,
+        snapshots: &[&PerformanceSnapshot],
+    ) -> Vec<DrawdownPeriod> {
         let mut drawdown_periods = Vec::new();
-        
+
         if snapshots.len() < 2 {
             return drawdown_periods;
         }
@@ -676,7 +731,10 @@ impl PortfolioAnalytics {
         summary.push_str(&format!("📊 Performance Analytics\n"));
         summary.push_str(&format!("═══════════════════════\n"));
         summary.push_str(&format!("📈 Total Return: {:.2}%\n", report.total_return));
-        summary.push_str(&format!("📅 Annualized Return: {:.2}%\n", report.annualized_return));
+        summary.push_str(&format!(
+            "📅 Annualized Return: {:.2}%\n",
+            report.annualized_return
+        ));
         summary.push_str(&format!("📊 Volatility: {:.2}%\n", report.volatility));
         summary.push_str(&format!("⚡ Sharpe Ratio: {:.2}\n", report.sharpe_ratio));
         summary.push_str(&format!("📉 Max Drawdown: {:.2}%\n", report.max_drawdown));
@@ -686,9 +744,18 @@ impl PortfolioAnalytics {
         summary.push_str(&format!("📉 Average Loss: {:.2}%\n", report.average_loss));
         summary.push_str(&format!("🔄 Total Trades: {}\n", report.total_trades));
         summary.push_str(&format!("\n🏆 vs Benchmark:\n"));
-        summary.push_str(&format!("  📊 Excess Return: {:.2}%\n", report.benchmark_comparison.excess_return));
-        summary.push_str(&format!("  📈 Alpha: {:.2}%\n", report.benchmark_comparison.alpha));
-        summary.push_str(&format!("  📊 Beta: {:.2}\n", report.benchmark_comparison.beta));
+        summary.push_str(&format!(
+            "  📊 Excess Return: {:.2}%\n",
+            report.benchmark_comparison.excess_return
+        ));
+        summary.push_str(&format!(
+            "  📈 Alpha: {:.2}%\n",
+            report.benchmark_comparison.alpha
+        ));
+        summary.push_str(&format!(
+            "  📊 Beta: {:.2}\n",
+            report.benchmark_comparison.beta
+        ));
 
         summary
     }
@@ -744,7 +811,7 @@ mod tests {
         positions.insert(Uuid::new_v4(), create_test_position("trend", 1000.0, 50.0));
 
         analytics.record_snapshot(&positions);
-        
+
         assert_eq!(analytics.performance_history.len(), 1);
         assert_eq!(analytics.performance_history[0].total_value, 1000.0);
         assert_eq!(analytics.performance_history[0].positions_count, 1);
@@ -787,7 +854,7 @@ mod tests {
                 strategy_breakdown: HashMap::new(),
             },
         ];
-        
+
         let snapshot_refs: Vec<_> = snapshots.iter().collect();
         let max_drawdown = analytics.calculate_max_drawdown(&snapshot_refs);
         assert_eq!(max_drawdown, 25.0); // 25% drawdown from 1200 to 900

@@ -1,15 +1,15 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
-pub mod trend_following;
-pub mod mean_reversion;
 pub mod arbitrage;
+pub mod mean_reversion;
 pub mod momentum;
+pub mod trend_following;
 
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use crate::shared::pool_detector::{OpportunityType, TradingOpportunity};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StrategyConfig {
@@ -82,7 +82,11 @@ pub struct StrategyPerformance {
 
 pub trait TradingStrategy: Send + Sync {
     fn name(&self) -> &str;
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>>;
+    fn analyze(
+        &self,
+        opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Option<StrategySignal>>;
     fn update_performance(&mut self, trade_result: &TradeResult) -> Result<()>;
     fn get_performance(&self) -> &StrategyPerformance;
     fn is_enabled(&self) -> bool;
@@ -147,9 +151,9 @@ pub struct MultiStrategyConfig {
 
 #[derive(Debug, Clone)]
 pub enum SignalAggregationMethod {
-    Consensus,      // Require majority agreement
+    Consensus,       // Require majority agreement
     WeightedAverage, // Weight by confidence and past performance
-    BestPerformer,  // Use signal from best performing strategy
+    BestPerformer,   // Use signal from best performing strategy
     DiversifiedRisk, // Diversify across multiple signals
 }
 
@@ -170,14 +174,18 @@ impl MultiStrategyEngine {
 
         let strategy_name = strategy.name().to_string();
         self.strategies.push(strategy);
-        
+
         println!("✅ Added strategy: {}", strategy_name);
         Ok(())
     }
 
-    pub async fn analyze_opportunity(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Vec<StrategySignal>> {
+    pub async fn analyze_opportunity(
+        &self,
+        opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Vec<StrategySignal>> {
         let mut signals = Vec::new();
-        
+
         for strategy in &self.strategies {
             if !strategy.is_enabled() {
                 continue;
@@ -185,7 +193,11 @@ impl MultiStrategyEngine {
 
             match strategy.analyze(opportunity, market_data) {
                 Ok(Some(signal)) => {
-                    println!("📊 Strategy '{}' generated signal: {:?}", strategy.name(), signal.signal_type);
+                    println!(
+                        "📊 Strategy '{}' generated signal: {:?}",
+                        strategy.name(),
+                        signal.signal_type
+                    );
                     signals.push(signal);
                 }
                 Ok(None) => {
@@ -200,7 +212,7 @@ impl MultiStrategyEngine {
         // Store active signals
         let mut active_signals = self.active_signals.write().await;
         active_signals.extend(signals.clone());
-        
+
         // Keep only recent signals (last hour)
         let cutoff = chrono::Utc::now() - chrono::Duration::hours(1);
         active_signals.retain(|s| s.timestamp > cutoff);
@@ -208,20 +220,32 @@ impl MultiStrategyEngine {
         Ok(signals)
     }
 
-    pub async fn aggregate_signals(&self, signals: &[StrategySignal]) -> Result<Option<StrategySignal>> {
+    pub async fn aggregate_signals(
+        &self,
+        signals: &[StrategySignal],
+    ) -> Result<Option<StrategySignal>> {
         if signals.is_empty() {
             return Ok(None);
         }
 
         match self.config.signal_aggregation_method {
             SignalAggregationMethod::Consensus => self.consensus_aggregation(signals).await,
-            SignalAggregationMethod::WeightedAverage => self.weighted_average_aggregation(signals).await,
-            SignalAggregationMethod::BestPerformer => self.best_performer_aggregation(signals).await,
-            SignalAggregationMethod::DiversifiedRisk => self.diversified_risk_aggregation(signals).await,
+            SignalAggregationMethod::WeightedAverage => {
+                self.weighted_average_aggregation(signals).await
+            }
+            SignalAggregationMethod::BestPerformer => {
+                self.best_performer_aggregation(signals).await
+            }
+            SignalAggregationMethod::DiversifiedRisk => {
+                self.diversified_risk_aggregation(signals).await
+            }
         }
     }
 
-    async fn consensus_aggregation(&self, signals: &[StrategySignal]) -> Result<Option<StrategySignal>> {
+    async fn consensus_aggregation(
+        &self,
+        signals: &[StrategySignal],
+    ) -> Result<Option<StrategySignal>> {
         let mut buy_count = 0;
         let mut sell_count = 0;
         let mut total_confidence = 0.0;
@@ -236,17 +260,19 @@ impl MultiStrategyEngine {
         }
 
         let majority_threshold = signals.len() / 2 + 1;
-        
+
         if buy_count >= majority_threshold {
             Ok(Some(StrategySignal {
                 strategy_name: "CONSENSUS".to_string(),
                 signal_type: SignalType::Buy,
                 confidence: total_confidence / signals.len() as f64,
                 timeframe: signals[0].timeframe,
-                entry_price: signals.iter().map(|s| s.entry_price).sum::<f64>() / signals.len() as f64,
+                entry_price: signals.iter().map(|s| s.entry_price).sum::<f64>()
+                    / signals.len() as f64,
                 stop_loss: None,
                 take_profit: None,
-                position_size: signals.iter().map(|s| s.position_size).sum::<f64>() / signals.len() as f64,
+                position_size: signals.iter().map(|s| s.position_size).sum::<f64>()
+                    / signals.len() as f64,
                 timestamp: chrono::Utc::now(),
                 metadata: HashMap::new(),
             }))
@@ -256,10 +282,12 @@ impl MultiStrategyEngine {
                 signal_type: SignalType::Sell,
                 confidence: total_confidence / signals.len() as f64,
                 timeframe: signals[0].timeframe,
-                entry_price: signals.iter().map(|s| s.entry_price).sum::<f64>() / signals.len() as f64,
+                entry_price: signals.iter().map(|s| s.entry_price).sum::<f64>()
+                    / signals.len() as f64,
                 stop_loss: None,
                 take_profit: None,
-                position_size: signals.iter().map(|s| s.position_size).sum::<f64>() / signals.len() as f64,
+                position_size: signals.iter().map(|s| s.position_size).sum::<f64>()
+                    / signals.len() as f64,
                 timestamp: chrono::Utc::now(),
                 metadata: HashMap::new(),
             }))
@@ -268,7 +296,10 @@ impl MultiStrategyEngine {
         }
     }
 
-    async fn weighted_average_aggregation(&self, signals: &[StrategySignal]) -> Result<Option<StrategySignal>> {
+    async fn weighted_average_aggregation(
+        &self,
+        signals: &[StrategySignal],
+    ) -> Result<Option<StrategySignal>> {
         let performance_tracker = self.performance_tracker.read().await;
         let mut weighted_signals: Vec<(f64, &StrategySignal)> = Vec::new();
 
@@ -287,24 +318,28 @@ impl MultiStrategyEngine {
 
         // Sort by weight (highest first)
         weighted_signals.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
-        
+
         // Use the highest weighted signal
         let best_signal = weighted_signals[0].1;
         Ok(Some(best_signal.clone()))
     }
 
-    async fn best_performer_aggregation(&self, signals: &[StrategySignal]) -> Result<Option<StrategySignal>> {
+    async fn best_performer_aggregation(
+        &self,
+        signals: &[StrategySignal],
+    ) -> Result<Option<StrategySignal>> {
         let performance_tracker = self.performance_tracker.read().await;
-        
+
         let mut best_signal: Option<&StrategySignal> = None;
         let mut best_performance = 0.0;
 
         for signal in signals {
-            let performance_score = if let Some(perf) = performance_tracker.get(&signal.strategy_name) {
-                perf.win_rate * perf.sharpe_ratio.max(0.0)
-            } else {
-                signal.confidence // Fallback to confidence if no performance data
-            };
+            let performance_score =
+                if let Some(perf) = performance_tracker.get(&signal.strategy_name) {
+                    perf.win_rate * perf.sharpe_ratio.max(0.0)
+                } else {
+                    signal.confidence // Fallback to confidence if no performance data
+                };
 
             if performance_score > best_performance {
                 best_performance = performance_score;
@@ -315,7 +350,10 @@ impl MultiStrategyEngine {
         Ok(best_signal.cloned())
     }
 
-    async fn diversified_risk_aggregation(&self, signals: &[StrategySignal]) -> Result<Option<StrategySignal>> {
+    async fn diversified_risk_aggregation(
+        &self,
+        signals: &[StrategySignal],
+    ) -> Result<Option<StrategySignal>> {
         // Select a mix of signals to diversify risk
         if signals.len() <= 2 {
             return self.weighted_average_aggregation(signals).await;
@@ -337,9 +375,15 @@ impl MultiStrategyEngine {
         }
 
         // Create averaged signal from selected strategies
-        let avg_confidence = selected_signals.iter().map(|s| s.confidence).sum::<f64>() / selected_signals.len() as f64;
-        let avg_price = selected_signals.iter().map(|s| s.entry_price).sum::<f64>() / selected_signals.len() as f64;
-        let avg_position = selected_signals.iter().map(|s| s.position_size).sum::<f64>() / selected_signals.len() as f64;
+        let avg_confidence = selected_signals.iter().map(|s| s.confidence).sum::<f64>()
+            / selected_signals.len() as f64;
+        let avg_price = selected_signals.iter().map(|s| s.entry_price).sum::<f64>()
+            / selected_signals.len() as f64;
+        let avg_position = selected_signals
+            .iter()
+            .map(|s| s.position_size)
+            .sum::<f64>()
+            / selected_signals.len() as f64;
 
         Ok(Some(StrategySignal {
             strategy_name: "DIVERSIFIED".to_string(),
@@ -355,7 +399,10 @@ impl MultiStrategyEngine {
         }))
     }
 
-    pub async fn get_strategy_performance(&self, strategy_name: &str) -> Option<StrategyPerformance> {
+    pub async fn get_strategy_performance(
+        &self,
+        strategy_name: &str,
+    ) -> Option<StrategyPerformance> {
         let performance_tracker = self.performance_tracker.read().await;
         performance_tracker.get(strategy_name).cloned()
     }
@@ -365,9 +412,13 @@ impl MultiStrategyEngine {
         performance_tracker.clone()
     }
 
-    pub async fn update_strategy_performance(&self, strategy_name: &str, trade_result: &TradeResult) -> Result<()> {
+    pub async fn update_strategy_performance(
+        &self,
+        strategy_name: &str,
+        trade_result: &TradeResult,
+    ) -> Result<()> {
         let mut performance_tracker = self.performance_tracker.write().await;
-        
+
         let performance = performance_tracker
             .entry(strategy_name.to_string())
             .or_insert(StrategyPerformance {
@@ -398,8 +449,12 @@ impl MultiStrategyEngine {
         performance.win_rate = performance.winning_trades as f64 / performance.total_trades as f64;
         performance.last_updated = chrono::Utc::now();
 
-        println!("📈 Updated performance for {}: Win Rate: {:.2}%, Total P&L: ${:.2}", 
-            strategy_name, performance.win_rate * 100.0, performance.total_profit_loss);
+        println!(
+            "📈 Updated performance for {}: Win Rate: {:.2}%, Total P&L: ${:.2}",
+            strategy_name,
+            performance.win_rate * 100.0,
+            performance.total_profit_loss
+        );
 
         Ok(())
     }

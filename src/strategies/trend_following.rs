@@ -1,5 +1,8 @@
-use super::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use super::{
+    MarketData, RiskLevel, SignalType, StrategyConfig, StrategyPerformance, StrategySignal,
+    Timeframe, TradeResult, TradingStrategy,
+};
+use crate::shared::pool_detector::{OpportunityType, TradingOpportunity};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -20,7 +23,11 @@ impl TrendFollowingStrategy {
             stop_loss_percent: 3.0,
             take_profit_percent: 8.0,
             min_confidence: 0.65,
-            timeframes: vec![Timeframe::FiveMin, Timeframe::FifteenMin, Timeframe::OneHour],
+            timeframes: vec![
+                Timeframe::FiveMin,
+                Timeframe::FifteenMin,
+                Timeframe::OneHour,
+            ],
         };
 
         let performance = StrategyPerformance {
@@ -133,13 +140,13 @@ impl TrendFollowingStrategy {
             return None;
         }
 
-        let recent_prices = &prices[prices.len()-20..];
-        let recent_volume = &volume[volume.len()-20..];
+        let recent_prices = &prices[prices.len() - 20..];
+        let recent_volume = &volume[volume.len() - 20..];
 
         // Calculate resistance and support levels
         let max_price = recent_prices.iter().fold(0.0f64, |a, &b| a.max(b));
         let min_price = recent_prices.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        
+
         let current_price = prices[prices.len() - 1];
         let current_volume = volume[volume.len() - 1];
         let avg_volume: f64 = recent_volume.iter().sum::<f64>() / recent_volume.len() as f64;
@@ -165,13 +172,17 @@ impl TrendFollowingStrategy {
 
         let current_price = prices[prices.len() - 1];
         let past_price = prices[prices.len() - period];
-        
+
         Some((current_price - past_price) / past_price)
     }
 
     fn analyze_trend_strength(&self, market_data: &MarketData) -> Result<f64> {
         let prices: Vec<f64> = market_data.price_history.iter().map(|p| p.close).collect();
-        let volumes: Vec<f64> = market_data.volume_history.iter().map(|v| v.volume).collect();
+        let volumes: Vec<f64> = market_data
+            .volume_history
+            .iter()
+            .map(|v| v.volume)
+            .collect();
 
         if prices.len() < 20 {
             return Ok(0.0);
@@ -231,7 +242,7 @@ impl TrendFollowingStrategy {
         if volumes.len() >= 5 {
             let recent_avg_volume: f64 = volumes.iter().rev().take(5).sum::<f64>() / 5.0;
             let long_avg_volume: f64 = volumes.iter().sum::<f64>() / volumes.len() as f64;
-            
+
             if recent_avg_volume > long_avg_volume * 1.2 {
                 trend_score += 0.1; // Volume confirmation
             }
@@ -256,7 +267,12 @@ impl TrendFollowingStrategy {
 impl TradingStrategy for TrendFollowingStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }
+    fn analyze(
+        &self,
+        _opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Option<StrategySignal>> {
         // Only analyze if we have sufficient data
         if market_data.price_history.len() < 20 {
             return Ok(None);
@@ -264,16 +280,29 @@ impl TradingStrategy for TrendFollowingStrategy {
 
         // Calculate trend strength
         let trend_strength = self.analyze_trend_strength(market_data)?;
-        
+
         // Calculate confidence based on trend strength and market conditions
         let base_confidence = trend_strength.abs();
-        
-        // Additional confidence factors
-        let liquidity_factor = if market_data.liquidity > 10000.0 { 0.1 } else { 0.0 };
-        let volume_factor = if market_data.volume_24h > market_data.current_price * 50000.0 { 0.1 } else { 0.0 };
-        let spread_factor = if market_data.bid_ask_spread < 0.01 { 0.05 } else { 0.0 };
 
-        let confidence = (base_confidence + liquidity_factor + volume_factor + spread_factor).min(1.0);
+        // Additional confidence factors
+        let liquidity_factor = if market_data.liquidity > 10000.0 {
+            0.1
+        } else {
+            0.0
+        };
+        let volume_factor = if market_data.volume_24h > market_data.current_price * 50000.0 {
+            0.1
+        } else {
+            0.0
+        };
+        let spread_factor = if market_data.bid_ask_spread < 0.01 {
+            0.05
+        } else {
+            0.0
+        };
+
+        let confidence =
+            (base_confidence + liquidity_factor + volume_factor + spread_factor).min(1.0);
 
         // Only generate signal if confidence is above threshold
         if confidence < self.config.min_confidence {
@@ -300,23 +329,43 @@ impl TradingStrategy for TrendFollowingStrategy {
 
         // Calculate stop loss and take profit
         let stop_loss = match signal_type {
-            SignalType::Buy => Some(market_data.current_price * (1.0 - self.config.stop_loss_percent / 100.0)),
-            SignalType::Sell => Some(market_data.current_price * (1.0 + self.config.stop_loss_percent / 100.0)),
+            SignalType::Buy => {
+                Some(market_data.current_price * (1.0 - self.config.stop_loss_percent / 100.0))
+            }
+            SignalType::Sell => {
+                Some(market_data.current_price * (1.0 + self.config.stop_loss_percent / 100.0))
+            }
             _ => None,
         };
 
         let take_profit = match signal_type {
-            SignalType::Buy => Some(market_data.current_price * (1.0 + self.config.take_profit_percent / 100.0)),
-            SignalType::Sell => Some(market_data.current_price * (1.0 - self.config.take_profit_percent / 100.0)),
+            SignalType::Buy => {
+                Some(market_data.current_price * (1.0 + self.config.take_profit_percent / 100.0))
+            }
+            SignalType::Sell => {
+                Some(market_data.current_price * (1.0 - self.config.take_profit_percent / 100.0))
+            }
             _ => None,
         };
 
         // Create metadata with analysis details
         let mut metadata = HashMap::new();
-        metadata.insert("trend_strength".to_string(), format!("{:.4}", trend_strength));
-        metadata.insert("liquidity".to_string(), format!("{:.2}", market_data.liquidity));
-        metadata.insert("volume_24h".to_string(), format!("{:.2}", market_data.volume_24h));
-        metadata.insert("spread".to_string(), format!("{:.6}", market_data.bid_ask_spread));
+        metadata.insert(
+            "trend_strength".to_string(),
+            format!("{:.4}", trend_strength),
+        );
+        metadata.insert(
+            "liquidity".to_string(),
+            format!("{:.2}", market_data.liquidity),
+        );
+        metadata.insert(
+            "volume_24h".to_string(),
+            format!("{:.2}", market_data.volume_24h),
+        );
+        metadata.insert(
+            "spread".to_string(),
+            format!("{:.6}", market_data.bid_ask_spread),
+        );
 
         let signal = StrategySignal {
             strategy_name: self.config.name.clone(),
@@ -331,8 +380,12 @@ impl TradingStrategy for TrendFollowingStrategy {
             metadata,
         };
 
-        println!("📈 Trend Following Signal: {:?} with confidence {:.2}% (trend: {:.3})", 
-            signal.signal_type, confidence * 100.0, trend_strength);
+        println!(
+            "📈 Trend Following Signal: {:?} with confidence {:.2}% (trend: {:.3})",
+            signal.signal_type,
+            confidence * 100.0,
+            trend_strength
+        );
 
         Ok(Some(signal))
     }
@@ -347,8 +400,9 @@ impl TradingStrategy for TrendFollowingStrategy {
             if self.performance.average_profit == 0.0 {
                 self.performance.average_profit = trade_result.profit_loss;
             } else {
-                self.performance.average_profit = 
-                    (self.performance.average_profit * (self.performance.winning_trades - 1) as f64 + trade_result.profit_loss) 
+                self.performance.average_profit = (self.performance.average_profit
+                    * (self.performance.winning_trades - 1) as f64
+                    + trade_result.profit_loss)
                     / self.performance.winning_trades as f64;
             }
         } else {
@@ -356,20 +410,24 @@ impl TradingStrategy for TrendFollowingStrategy {
             if self.performance.average_loss == 0.0 {
                 self.performance.average_loss = trade_result.profit_loss.abs();
             } else {
-                self.performance.average_loss = 
-                    (self.performance.average_loss * (self.performance.losing_trades - 1) as f64 + trade_result.profit_loss.abs()) 
+                self.performance.average_loss = (self.performance.average_loss
+                    * (self.performance.losing_trades - 1) as f64
+                    + trade_result.profit_loss.abs())
                     / self.performance.losing_trades as f64;
             }
         }
 
-        self.performance.win_rate = self.performance.winning_trades as f64 / self.performance.total_trades as f64;
+        self.performance.win_rate =
+            self.performance.winning_trades as f64 / self.performance.total_trades as f64;
         self.performance.last_updated = chrono::Utc::now();
 
         // Calculate Sharpe ratio (simplified)
         if self.performance.total_trades > 5 {
-            let avg_return = self.performance.total_profit_loss / self.performance.total_trades as f64;
+            let avg_return =
+                self.performance.total_profit_loss / self.performance.total_trades as f64;
             let risk_free_rate = 0.02; // Assume 2% risk-free rate
-            self.performance.sharpe_ratio = (avg_return - risk_free_rate) / (avg_return * 0.1); // Simplified calculation
+            self.performance.sharpe_ratio = (avg_return - risk_free_rate) / (avg_return * 0.1);
+            // Simplified calculation
         }
 
         Ok(())

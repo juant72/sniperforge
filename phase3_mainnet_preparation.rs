@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -62,7 +62,7 @@ async fn main() -> Result<()> {
         info!("   🎯 Objetivo: Verificar si technique funciona en MainNet");
 
         let initial_balance = balance;
-        
+
         match execute_mainnet_minimal_arbitrage(&client, &wallet).await {
             Ok(result) => {
                 let final_balance = check_sol_balance(&client, &user_pubkey).await?;
@@ -86,35 +86,42 @@ async fn main() -> Result<()> {
 
 async fn analyze_mainnet_conditions(client: &RpcClient) -> Result<()> {
     info!("   🔍 Analizando condiciones MainNet...");
-    
+
     // Network activity
     let slot1 = client.get_slot()?;
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     let slot2 = client.get_slot()?;
     let slot_rate = slot2 - slot1;
-    
+
     info!("     📈 MainNet slot rate: {} slots/segundo", slot_rate);
-    
+
     // Performance samples
     let recent_performance_samples = client.get_recent_performance_samples(Some(3))?;
     if let Some(latest) = recent_performance_samples.first() {
-        info!("     ⚡ MainNet samples: {} slots, {} transactions", 
-               latest.num_slots, latest.num_transactions);
-        info!("     📊 MainNet TPS: {:.2}", 
-               latest.num_transactions as f64 / latest.num_slots as f64);
+        info!(
+            "     ⚡ MainNet samples: {} slots, {} transactions",
+            latest.num_slots, latest.num_transactions
+        );
+        info!(
+            "     📊 MainNet TPS: {:.2}",
+            latest.num_transactions as f64 / latest.num_slots as f64
+        );
     }
-    
+
     // Rent costs (MainNet vs DevNet)
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
-    info!("     🏠 MainNet rent exempt: {} lamports ({:.9} SOL)", 
-           rent_exempt, rent_exempt as f64 / LAMPORTS_PER_SOL as f64);
-    
+    info!(
+        "     🏠 MainNet rent exempt: {} lamports ({:.9} SOL)",
+        rent_exempt,
+        rent_exempt as f64 / LAMPORTS_PER_SOL as f64
+    );
+
     // Current blockhash
     let recent_blockhash = client.get_latest_blockhash()?;
     info!("     🔗 MainNet blockhash: {}", recent_blockhash);
-    
+
     info!("     ✅ MainNet connection successful");
-    
+
     Ok(())
 }
 
@@ -131,20 +138,21 @@ async fn execute_mainnet_minimal_arbitrage(
 ) -> Result<MainnetResult> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    
+
     info!("   🔧 Configurando MainNet arbitrage...");
-    
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     // CANTIDAD MÍNIMA para MainNet
     let amount_lamports = 1_000_000u64; // 0.001 SOL
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
-    
-    info!("     💰 Cantidad MainNet: {} lamports ({:.6} SOL)", 
-           amount_lamports, amount_lamports as f64 / LAMPORTS_PER_SOL as f64);
+
+    info!(
+        "     💰 Cantidad MainNet: {} lamports ({:.6} SOL)",
+        amount_lamports,
+        amount_lamports as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     let start_time = std::time::Instant::now();
 
@@ -166,13 +174,14 @@ async fn execute_mainnet_minimal_arbitrage(
             &[wallet],
             recent_blockhash,
         );
-        
+
         let _ = client.send_and_confirm_transaction(&close_transaction)?;
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
 
     info!("     🔄 PASO 1: MainNet Wrap...");
-    let wrap_sig = execute_mainnet_wrap(client, wallet, &wsol_account, amount_lamports + rent_exempt).await?;
+    let wrap_sig =
+        execute_mainnet_wrap(client, wallet, &wsol_account, amount_lamports + rent_exempt).await?;
     info!("       ✅ MainNet Wrap: {}...", &wrap_sig.to_string()[..20]);
 
     info!("     ⏰ PASO 2: MainNet timing (800ms)...");
@@ -180,7 +189,10 @@ async fn execute_mainnet_minimal_arbitrage(
 
     info!("     🔄 PASO 3: MainNet Unwrap...");
     let unwrap_sig = execute_mainnet_unwrap(client, wallet, &wsol_account).await?;
-    info!("       ✅ MainNet Unwrap: {}...", &unwrap_sig.to_string()[..20]);
+    info!(
+        "       ✅ MainNet Unwrap: {}...",
+        &unwrap_sig.to_string()[..20]
+    );
 
     let execution_time = start_time.elapsed().as_millis();
 
@@ -253,7 +265,7 @@ async fn analyze_mainnet_results(
     result: &MainnetResult,
 ) -> Result<()> {
     let profit = final_balance - initial_balance;
-    
+
     info!("\n📊 === RESULTADOS MAINNET ===");
     info!("   💰 Balance inicial: {:.9} SOL", initial_balance);
     info!("   💰 Balance final: {:.9} SOL", final_balance);
@@ -261,7 +273,7 @@ async fn analyze_mainnet_results(
     info!("   ⏱️ Tiempo ejecución: {} ms", result.execution_time_ms);
     info!("   🔗 Wrap signature: {}", result.wrap_signature);
     info!("   🔗 Unwrap signature: {}", result.unwrap_signature);
-    
+
     if profit > 0.0 {
         info!("   🎉 ¡MAINNET ARBITRAGE EXITOSO!");
         info!("   ✅ Profit confirmado en MainNet");
@@ -276,51 +288,60 @@ async fn analyze_mainnet_results(
         info!("   📊 Costos MainNet vs DevNet");
         info!("   🔧 Revisar timing y cantidades");
     }
-    
+
     // Verificar que las transacciones son reales
     info!("\n🔍 === VERIFICACIÓN MAINNET ===");
     info!("   🌐 Transacciones verificables en:");
-    info!("     🔗 Solscan: https://solscan.io/tx/{}", result.wrap_signature);
-    info!("     🔗 Solscan: https://solscan.io/tx/{}", result.unwrap_signature);
+    info!(
+        "     🔗 Solscan: https://solscan.io/tx/{}",
+        result.wrap_signature
+    );
+    info!(
+        "     🔗 Solscan: https://solscan.io/tx/{}",
+        result.unwrap_signature
+    );
     info!("   ✅ Confirmado: TRANSACCIONES REALES EN MAINNET");
-    
+
     Ok(())
 }
 
 async fn provide_mainnet_recommendations(client: &RpcClient) -> Result<()> {
     info!("   🎯 Basado en resultados MainNet:");
-    
+
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
     let typical_fee = 5000u64;
     let break_even = rent_exempt + (typical_fee * 2);
-    
-    info!("     💰 Break-even MainNet: {} lamports ({:.6} SOL)", 
-           break_even, break_even as f64 / LAMPORTS_PER_SOL as f64);
-    
+
+    info!(
+        "     💰 Break-even MainNet: {} lamports ({:.6} SOL)",
+        break_even,
+        break_even as f64 / LAMPORTS_PER_SOL as f64
+    );
+
     info!("   📋 NEXT STEPS:");
     info!("     1. 🔧 Si profit > 0: Incrementar cantidades gradualmente");
     info!("     2. ⚖️ Si neutro: Ajustar timing para MainNet conditions");
     info!("     3. 📊 Si pérdida: Analizar fees MainNet vs DevNet");
     info!("     4. 🚀 Si exitoso: Implementar scaling strategy");
-    
+
     info!("   💡 RECOMENDACIONES ESCALAMIENTO:");
     info!("     - Start: 0.001 SOL (confirmado)");
     info!("     - Next: 0.005 SOL (si profitable)");
     info!("     - Scale: 0.01, 0.02, 0.05 SOL");
     info!("     - Monitor: ROI% constant across amounts");
-    
+
     info!("   🚨 SAFETY MEASURES:");
     info!("     - Never > 10% of wallet balance");
     info!("     - Always maintain 0.01+ SOL reserve");
     info!("     - Monitor transaction success rate");
     info!("     - Stop if ROI% decreases with scale");
-    
+
     Ok(())
 }
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

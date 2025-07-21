@@ -1,5 +1,8 @@
-use super::{TradingStrategy, StrategySignal, StrategyPerformance, StrategyConfig, SignalType, Timeframe, MarketData, TradeResult, RiskLevel};
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType};
+use super::{
+    MarketData, RiskLevel, SignalType, StrategyConfig, StrategyPerformance, StrategySignal,
+    Timeframe, TradeResult, TradingStrategy,
+};
+use crate::shared::pool_detector::{OpportunityType, TradingOpportunity};
 use anyhow::Result;
 use std::collections::HashMap;
 
@@ -75,7 +78,7 @@ impl MomentumStrategy {
 
         let current_price = prices[prices.len() - 1];
         let past_price = prices[prices.len() - period];
-        
+
         Some((current_price - past_price) / past_price)
     }
 
@@ -99,8 +102,15 @@ impl MomentumStrategy {
             return None;
         }
 
-        let recent_avg: f64 = volumes.iter().rev().take(period / 2).sum::<f64>() / (period / 2) as f64;
-        let past_avg: f64 = volumes.iter().rev().skip(period / 2).take(period / 2).sum::<f64>() / (period / 2) as f64;
+        let recent_avg: f64 =
+            volumes.iter().rev().take(period / 2).sum::<f64>() / (period / 2) as f64;
+        let past_avg: f64 = volumes
+            .iter()
+            .rev()
+            .skip(period / 2)
+            .take(period / 2)
+            .sum::<f64>()
+            / (period / 2) as f64;
 
         if past_avg == 0.0 {
             return Some(0.0);
@@ -109,7 +119,13 @@ impl MomentumStrategy {
         Some((recent_avg - past_avg) / past_avg)
     }
 
-    fn calculate_macd(&self, prices: &[f64], fast_period: usize, slow_period: usize, signal_period: usize) -> Option<(f64, f64, f64)> {
+    fn calculate_macd(
+        &self,
+        prices: &[f64],
+        fast_period: usize,
+        slow_period: usize,
+        signal_period: usize,
+    ) -> Option<(f64, f64, f64)> {
         if prices.len() < slow_period.max(signal_period) {
             return None;
         }
@@ -196,9 +212,11 @@ impl MomentumStrategy {
 
         let current_price = prices[prices.len() - 1];
         let historical_prices = &prices[prices.len() - lookback - 1..prices.len() - 1];
-        
+
         let max_price = historical_prices.iter().fold(0.0f64, |a, &b| a.max(b));
-        let min_price = historical_prices.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+        let min_price = historical_prices
+            .iter()
+            .fold(f64::INFINITY, |a, &b| a.min(b));
 
         let upward_breakout = current_price > max_price * 1.01; // 1% above historical high
         let downward_breakout = current_price < min_price * 0.99; // 1% below historical low
@@ -214,7 +232,11 @@ impl MomentumStrategy {
 
     fn calculate_momentum_score(&self, market_data: &MarketData) -> Result<f64> {
         let prices: Vec<f64> = market_data.price_history.iter().map(|p| p.close).collect();
-        let volumes: Vec<f64> = market_data.volume_history.iter().map(|v| v.volume).collect();
+        let volumes: Vec<f64> = market_data
+            .volume_history
+            .iter()
+            .map(|v| v.volume)
+            .collect();
 
         if prices.len() < 20 {
             return Ok(0.0);
@@ -299,14 +321,23 @@ impl MomentumStrategy {
 impl TradingStrategy for MomentumStrategy {
     fn name(&self) -> &str {
         &self.config.name
-    }    fn analyze(&self, _opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    }
+    fn analyze(
+        &self,
+        _opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Option<StrategySignal>> {
         // Need sufficient data for momentum analysis
         if market_data.price_history.len() < 20 {
             return Ok(None);
         }
 
         let prices: Vec<f64> = market_data.price_history.iter().map(|p| p.close).collect();
-        let volumes: Vec<f64> = market_data.volume_history.iter().map(|v| v.volume).collect();
+        let volumes: Vec<f64> = market_data
+            .volume_history
+            .iter()
+            .map(|v| v.volume)
+            .collect();
         let current_price = market_data.current_price;
 
         // Calculate momentum score
@@ -329,29 +360,49 @@ impl TradingStrategy for MomentumStrategy {
 
         // Calculate confidence based on multiple momentum factors
         let base_confidence = momentum_score.abs();
-        
+
         // Momentum alignment bonus
-        let alignment_bonus = if (momentum_5min > 0.0 && momentum_15min > 0.0 && momentum_score > 0.0) ||
-                                 (momentum_5min < 0.0 && momentum_15min < 0.0 && momentum_score < 0.0) {
-            0.15 // All timeframes aligned
-        } else {
-            0.0
-        };
+        let alignment_bonus =
+            if (momentum_5min > 0.0 && momentum_15min > 0.0 && momentum_score > 0.0)
+                || (momentum_5min < 0.0 && momentum_15min < 0.0 && momentum_score < 0.0)
+            {
+                0.15 // All timeframes aligned
+            } else {
+                0.0
+            };
 
         // Volume confirmation bonus
         let volume_bonus = if volume_spike { 0.1 } else { 0.0 };
 
         // RSI confirmation (avoid extreme zones)
         let rsi_bonus = match signal_type {
-            SignalType::Buy => if rsi > 45.0 && rsi < 75.0 { 0.1 } else { 0.0 },
-            SignalType::Sell => if rsi < 55.0 && rsi > 25.0 { 0.1 } else { 0.0 },
+            SignalType::Buy => {
+                if rsi > 45.0 && rsi < 75.0 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
+            SignalType::Sell => {
+                if rsi < 55.0 && rsi > 25.0 {
+                    0.1
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         };
 
         // Liquidity factor
-        let liquidity_bonus = if market_data.liquidity > 15000.0 { 0.05 } else { 0.0 };
+        let liquidity_bonus = if market_data.liquidity > 15000.0 {
+            0.05
+        } else {
+            0.0
+        };
 
-        let confidence = (base_confidence + alignment_bonus + volume_bonus + rsi_bonus + liquidity_bonus).min(1.0);
+        let confidence =
+            (base_confidence + alignment_bonus + volume_bonus + rsi_bonus + liquidity_bonus)
+                .min(1.0);
 
         // Only generate signal if confidence meets threshold
         if confidence < self.config.min_confidence {
@@ -373,16 +424,20 @@ impl TradingStrategy for MomentumStrategy {
         let volatility_factor = if prices.len() >= 10 {
             let recent_prices: Vec<f64> = prices.iter().rev().take(10).cloned().collect();
             let mean: f64 = recent_prices.iter().sum::<f64>() / recent_prices.len() as f64;
-            let variance: f64 = recent_prices.iter()
+            let variance: f64 = recent_prices
+                .iter()
                 .map(|price| (price - mean).powi(2))
-                .sum::<f64>() / recent_prices.len() as f64;
+                .sum::<f64>()
+                / recent_prices.len() as f64;
             variance.sqrt() / mean
         } else {
             0.02 // Default 2% volatility
         };
 
-        let dynamic_stop_loss = (self.config.stop_loss_percent / 100.0).max(volatility_factor * 2.0);
-        let dynamic_take_profit = (self.config.take_profit_percent / 100.0).max(volatility_factor * 3.0);
+        let dynamic_stop_loss =
+            (self.config.stop_loss_percent / 100.0).max(volatility_factor * 2.0);
+        let dynamic_take_profit =
+            (self.config.take_profit_percent / 100.0).max(volatility_factor * 3.0);
 
         let stop_loss = match signal_type {
             SignalType::Buy => Some(current_price * (1.0 - dynamic_stop_loss)),
@@ -398,13 +453,25 @@ impl TradingStrategy for MomentumStrategy {
 
         // Create metadata with detailed momentum analysis
         let mut metadata = HashMap::new();
-        metadata.insert("momentum_score".to_string(), format!("{:.4}", momentum_score));
+        metadata.insert(
+            "momentum_score".to_string(),
+            format!("{:.4}", momentum_score),
+        );
         metadata.insert("momentum_5min".to_string(), format!("{:.4}", momentum_5min));
-        metadata.insert("momentum_15min".to_string(), format!("{:.4}", momentum_15min));
+        metadata.insert(
+            "momentum_15min".to_string(),
+            format!("{:.4}", momentum_15min),
+        );
         metadata.insert("rsi".to_string(), format!("{:.2}", rsi));
         metadata.insert("volume_spike".to_string(), volume_spike.to_string());
-        metadata.insert("volatility".to_string(), format!("{:.4}", volatility_factor));
-        metadata.insert("alignment_bonus".to_string(), format!("{:.3}", alignment_bonus));
+        metadata.insert(
+            "volatility".to_string(),
+            format!("{:.4}", volatility_factor),
+        );
+        metadata.insert(
+            "alignment_bonus".to_string(),
+            format!("{:.3}", alignment_bonus),
+        );
 
         // Determine appropriate timeframe based on momentum strength
         let timeframe = if momentum_score.abs() > 0.7 {
@@ -444,8 +511,9 @@ impl TradingStrategy for MomentumStrategy {
             if self.performance.average_profit == 0.0 {
                 self.performance.average_profit = trade_result.profit_loss;
             } else {
-                self.performance.average_profit = 
-                    (self.performance.average_profit * (self.performance.winning_trades - 1) as f64 + trade_result.profit_loss) 
+                self.performance.average_profit = (self.performance.average_profit
+                    * (self.performance.winning_trades - 1) as f64
+                    + trade_result.profit_loss)
                     / self.performance.winning_trades as f64;
             }
         } else {
@@ -453,18 +521,21 @@ impl TradingStrategy for MomentumStrategy {
             if self.performance.average_loss == 0.0 {
                 self.performance.average_loss = trade_result.profit_loss.abs();
             } else {
-                self.performance.average_loss = 
-                    (self.performance.average_loss * (self.performance.losing_trades - 1) as f64 + trade_result.profit_loss.abs()) 
+                self.performance.average_loss = (self.performance.average_loss
+                    * (self.performance.losing_trades - 1) as f64
+                    + trade_result.profit_loss.abs())
                     / self.performance.losing_trades as f64;
             }
         }
 
-        self.performance.win_rate = self.performance.winning_trades as f64 / self.performance.total_trades as f64;
+        self.performance.win_rate =
+            self.performance.winning_trades as f64 / self.performance.total_trades as f64;
         self.performance.last_updated = chrono::Utc::now();
 
         // Calculate Sharpe ratio (simplified)
         if self.performance.total_trades > 5 {
-            let avg_return = self.performance.total_profit_loss / self.performance.total_trades as f64;
+            let avg_return =
+                self.performance.total_profit_loss / self.performance.total_trades as f64;
             let risk_free_rate = 0.02;
             self.performance.sharpe_ratio = (avg_return - risk_free_rate) / (avg_return * 0.1);
         }

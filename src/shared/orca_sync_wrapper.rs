@@ -1,27 +1,25 @@
 // Orca Sync Wrapper - Solution for async/Send issues
 // This wrapper isolates the Orca SDK in a sync context and communicates via channels
 
-use std::sync::Arc;
-use std::str::FromStr;
-use tokio::sync::{mpsc, oneshot};
+use anyhow::Result;
+use chrono::Utc;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    instruction::Instruction,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
-    transaction::Transaction,
-    instruction::Instruction,
-    commitment_config::CommitmentConfig,
     signer::Signer,
     system_instruction,
+    transaction::Transaction,
 };
-use anyhow::Result;
-use tracing::{info, warn, error};
-use chrono::Utc;
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::{mpsc, oneshot};
+use tracing::{error, info, warn};
 
 // Orca SDK imports - simplified for compilation
-use orca_whirlpools::{
-    WhirlpoolsConfigInput,
-};
+use orca_whirlpools::WhirlpoolsConfigInput;
 
 // Types for communication with the sync worker
 #[derive(Debug, Clone)]
@@ -103,12 +101,15 @@ impl OrcaSyncWrapper {
     pub async fn get_quote(&self, request: OrcaQuoteRequest) -> Result<OrcaQuoteResponse> {
         let (response_tx, response_rx) = oneshot::channel();
 
-        self.message_tx.send(OrcaWorkerMessage::Quote {
-            request,
-            response_tx,
-        }).map_err(|_| anyhow::anyhow!("Failed to send quote request to Orca worker"))?;
+        self.message_tx
+            .send(OrcaWorkerMessage::Quote {
+                request,
+                response_tx,
+            })
+            .map_err(|_| anyhow::anyhow!("Failed to send quote request to Orca worker"))?;
 
-        response_rx.await
+        response_rx
+            .await
             .map_err(|_| anyhow::anyhow!("Failed to receive quote response from Orca worker"))?
     }
 
@@ -116,13 +117,16 @@ impl OrcaSyncWrapper {
     pub async fn get_pools(&self, token_a: Pubkey, token_b: Pubkey) -> Result<Vec<String>> {
         let (response_tx, response_rx) = oneshot::channel();
 
-        self.message_tx.send(OrcaWorkerMessage::GetPools {
-            token_a,
-            token_b,
-            response_tx,
-        }).map_err(|_| anyhow::anyhow!("Failed to send pools request to Orca worker"))?;
+        self.message_tx
+            .send(OrcaWorkerMessage::GetPools {
+                token_a,
+                token_b,
+                response_tx,
+            })
+            .map_err(|_| anyhow::anyhow!("Failed to send pools request to Orca worker"))?;
 
-        response_rx.await
+        response_rx
+            .await
             .map_err(|_| anyhow::anyhow!("Failed to receive pools response from Orca worker"))?
     }
 
@@ -149,17 +153,23 @@ impl OrcaSyncWrapper {
     pub async fn execute_swap(&self, request: OrcaSwapRequest) -> Result<OrcaSwapResponse> {
         let (response_tx, response_rx) = oneshot::channel();
 
-        self.message_tx.send(OrcaWorkerMessage::Swap {
-            request,
-            response_tx,
-        }).map_err(|_| anyhow::anyhow!("Failed to send swap request to Orca worker"))?;
+        self.message_tx
+            .send(OrcaWorkerMessage::Swap {
+                request,
+                response_tx,
+            })
+            .map_err(|_| anyhow::anyhow!("Failed to send swap request to Orca worker"))?;
 
-        response_rx.await
+        response_rx
+            .await
             .map_err(|_| anyhow::anyhow!("Failed to receive swap response from Orca worker"))?
     }
 
     /// Sync worker that runs in a blocking thread and handles Orca SDK operations
-    fn run_sync_worker(network: String, mut message_rx: mpsc::UnboundedReceiver<OrcaWorkerMessage>) {
+    fn run_sync_worker(
+        network: String,
+        mut message_rx: mpsc::UnboundedReceiver<OrcaWorkerMessage>,
+    ) {
         info!("🌊 Starting Orca sync worker for network: {}", network);
 
         // Initialize RPC client in sync context
@@ -177,15 +187,25 @@ impl OrcaSyncWrapper {
         // Message processing loop
         while let Some(message) = message_rx.blocking_recv() {
             match message {
-                OrcaWorkerMessage::Quote { request, response_tx } => {
+                OrcaWorkerMessage::Quote {
+                    request,
+                    response_tx,
+                } => {
                     let result = Self::handle_quote_sync(&rpc_client, &network, request);
                     let _ = response_tx.send(result);
                 }
-                OrcaWorkerMessage::GetPools { token_a, token_b, response_tx } => {
+                OrcaWorkerMessage::GetPools {
+                    token_a,
+                    token_b,
+                    response_tx,
+                } => {
                     let result = Self::handle_get_pools_sync(&rpc_client, token_a, token_b);
                     let _ = response_tx.send(result);
                 }
-                OrcaWorkerMessage::Swap { request, response_tx } => {
+                OrcaWorkerMessage::Swap {
+                    request,
+                    response_tx,
+                } => {
                     let result = Self::handle_swap_sync(&rpc_client, &network, request);
                     let _ = response_tx.send(result);
                 }
@@ -205,8 +225,10 @@ impl OrcaSyncWrapper {
         network: &str,
         request: OrcaQuoteRequest,
     ) -> Result<OrcaQuoteResponse> {
-        info!("🔍 Processing Orca quote: {} -> {} (amount: {})",
-               request.input_mint, request.output_mint, request.amount);
+        info!(
+            "🔍 Processing Orca quote: {} -> {} (amount: {})",
+            request.input_mint, request.output_mint, request.amount
+        );
 
         // For now, we'll implement a mock response until we can properly integrate the Orca SDK
         // This allows the async system to work while we resolve the SDK issues
@@ -221,21 +243,28 @@ impl OrcaSyncWrapper {
 
         match rpc_client.get_account(&orca_program_id) {
             Ok(account) => {
-                info!("✅ Orca program accessible on {}, executable: {}", network, account.executable);
+                info!(
+                    "✅ Orca program accessible on {}, executable: {}",
+                    network, account.executable
+                );
 
                 // For now, return a mock quote
                 // TODO: Replace with real Orca SDK integration once async issues are resolved
                 Ok(OrcaQuoteResponse {
                     input_amount: request.amount,
                     output_amount: Self::simulate_quote_calculation(request.amount),
-                    price_impact_pct: 0.1, // 0.1% price impact
+                    price_impact_pct: 0.1,                // 0.1% price impact
                     estimated_fee: request.amount / 1000, // 0.1% fee
                     route: format!("Orca-{}-MOCK", network),
                 })
             }
             Err(e) => {
                 warn!("⚠️ Orca program not accessible: {}", e);
-                Err(anyhow::anyhow!("Orca program not accessible on {}: {}", network, e))
+                Err(anyhow::anyhow!(
+                    "Orca program not accessible on {}: {}",
+                    network,
+                    e
+                ))
             }
         }
     }
@@ -251,8 +280,16 @@ impl OrcaSyncWrapper {
         // Mock implementation for now
         // TODO: Replace with real pool discovery once async issues are resolved
         Ok(vec![
-            format!("Orca-Pool-{}-{}-0.3%", token_a.to_string()[..8].to_string(), token_b.to_string()[..8].to_string()),
-            format!("Orca-Pool-{}-{}-1.0%", token_a.to_string()[..8].to_string(), token_b.to_string()[..8].to_string()),
+            format!(
+                "Orca-Pool-{}-{}-0.3%",
+                token_a.to_string()[..8].to_string(),
+                token_b.to_string()[..8].to_string()
+            ),
+            format!(
+                "Orca-Pool-{}-{}-1.0%",
+                token_a.to_string()[..8].to_string(),
+                token_b.to_string()[..8].to_string()
+            ),
         ])
     }
 
@@ -262,8 +299,13 @@ impl OrcaSyncWrapper {
         network: &str,
         request: OrcaSwapRequest,
     ) -> Result<OrcaSwapResponse> {
-        info!("🌊 Processing Orca swap in {}: {} -> {} (amount: {})",
-               network, request.quote.input_amount, request.quote.output_amount, request.quote.input_amount);
+        info!(
+            "🌊 Processing Orca swap in {}: {} -> {} (amount: {})",
+            network,
+            request.quote.input_amount,
+            request.quote.output_amount,
+            request.quote.input_amount
+        );
 
         // Check if this is a simulation request
         if request.simulate_only {
@@ -301,22 +343,24 @@ impl OrcaSyncWrapper {
                 warn!("⚠️ Mainnet swaps not enabled for safety");
                 Err(anyhow::anyhow!("Mainnet swaps disabled for safety"))
             }
-            _ => {
-                Err(anyhow::anyhow!("Unknown network: {}", network))
-            }
+            _ => Err(anyhow::anyhow!("Unknown network: {}", network)),
         }
     }
 
     /// Handle simulated swap (old behavior)
-    fn handle_simulated_swap(
-        network: &str,
-        request: OrcaSwapRequest,
-    ) -> Result<OrcaSwapResponse> {
+    fn handle_simulated_swap(network: &str, request: OrcaSwapRequest) -> Result<OrcaSwapResponse> {
         info!("🎭 Processing simulated Orca swap in {}", network);
-        info!("   💱 Simulated swap: {} -> {}", request.quote.input_amount, request.quote.output_amount);
+        info!(
+            "   💱 Simulated swap: {} -> {}",
+            request.quote.input_amount, request.quote.output_amount
+        );
 
         Ok(OrcaSwapResponse {
-            transaction_signature: format!("{}_simulation_{}", network, chrono::Utc::now().timestamp()),
+            transaction_signature: format!(
+                "{}_simulation_{}",
+                network,
+                chrono::Utc::now().timestamp()
+            ),
             success: true,
             error_message: None,
             was_simulated: true,
@@ -333,7 +377,10 @@ impl OrcaSyncWrapper {
                 .map_err(|e| anyhow::anyhow!("Failed to decode private key: {}", e))?;
 
             if private_key_bytes.len() != 64 {
-                return Err(anyhow::anyhow!("Invalid private key length: expected 64 bytes, got {}", private_key_bytes.len()));
+                return Err(anyhow::anyhow!(
+                    "Invalid private key length: expected 64 bytes, got {}",
+                    private_key_bytes.len()
+                ));
             }
 
             return Ok(Keypair::from_bytes(&private_key_bytes)
@@ -355,7 +402,10 @@ impl OrcaSyncWrapper {
             .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
 
         if wallet_bytes.len() != 64 {
-            return Err(anyhow::anyhow!("Invalid wallet file: expected 64 bytes, got {}", wallet_bytes.len()));
+            return Err(anyhow::anyhow!(
+                "Invalid wallet file: expected 64 bytes, got {}",
+                wallet_bytes.len()
+            ));
         }
 
         Ok(Keypair::from_bytes(&wallet_bytes)
@@ -377,7 +427,10 @@ impl OrcaSyncWrapper {
         match Self::build_and_send_swap_transaction(rpc_client, &payer, &request) {
             Ok(signature) => {
                 info!("🎉 SUCCESS! Real DevNet transaction: {}", signature);
-                info!("   � View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+                info!(
+                    "   � View on explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                    signature
+                );
 
                 Ok(OrcaSwapResponse {
                     transaction_signature: signature,
@@ -407,7 +460,8 @@ impl OrcaSyncWrapper {
         info!("� Building real Orca swap transaction");
 
         // Get recent blockhash for transaction
-        let recent_blockhash = rpc_client.get_latest_blockhash()
+        let recent_blockhash = rpc_client
+            .get_latest_blockhash()
             .map_err(|e| anyhow::anyhow!("Failed to get recent blockhash: {}", e))?;
 
         info!("🧱 Recent blockhash: {}", recent_blockhash);
@@ -449,7 +503,10 @@ impl OrcaSyncWrapper {
         match rpc_client.send_transaction(&transaction) {
             Ok(signature) => {
                 info!("✅ REAL transaction SENT to DevNet: {}", signature);
-                info!("🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+                info!(
+                    "🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                    signature
+                );
                 info!("⏳ Transaction submitted to network (will be confirmed shortly)");
 
                 Ok(signature.to_string())
@@ -488,10 +545,14 @@ mod tests {
         let wrapper = OrcaSyncWrapper::new("devnet");
 
         let request = OrcaQuoteRequest {
-            input_mint: "So11111111111111111111111111111111111111112".parse().unwrap(), // SOL
-            output_mint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU".parse().unwrap(), // USDC-Dev
+            input_mint: "So11111111111111111111111111111111111111112"
+                .parse()
+                .unwrap(), // SOL
+            output_mint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+                .parse()
+                .unwrap(), // USDC-Dev
             amount: 1_000_000_000, // 1 SOL
-            slippage_bps: 50, // 0.5%
+            slippage_bps: 50,      // 0.5%
         };
 
         let result = wrapper.get_quote(request).await;
@@ -501,6 +562,9 @@ mod tests {
         assert!(quote.output_amount > 0);
         assert!(quote.route.contains("Orca"));
 
-        println!("✅ Test quote: {} -> {}", quote.input_amount, quote.output_amount);
+        println!(
+            "✅ Test quote: {} -> {}",
+            quote.input_amount, quote.output_amount
+        );
     }
 }

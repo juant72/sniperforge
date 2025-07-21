@@ -2,17 +2,17 @@
 #![allow(unused_imports)]
 
 use anyhow::Result;
-use tracing::info;
 use dotenv::dotenv;
+use tracing::info;
 
-pub mod config;
-pub mod platform;
 pub mod bots;
+mod cache_safety_test;
+mod cli;
+pub mod config;
+mod jupiter_speed_test;
+pub mod platform;
 pub mod shared;
 pub mod types;
-mod cli;
-mod jupiter_speed_test;
-mod cache_safety_test;
 
 use config::Config;
 
@@ -32,41 +32,41 @@ async fn main() -> Result<()> {
             }
             _ => {}
         }
-        
+
         // Check for subcommand help
         if args.len() > 2 && (args[2] == "--help" || args[2] == "-h") {
             show_subcommand_help(&args[1]);
             return Ok(());
         }
-        
+
         // Check for sub-subcommand help (e.g., test swap-real --help)
         if args.len() > 3 && (args[3] == "--help" || args[3] == "-h") {
             show_subsubcommand_help(&args[1], &args[2]);
             return Ok(());
         }
     }
-    
+
     // Load environment variables from .env file
     dotenv().ok();
-    
+
     // Initialize rustls crypto provider first
     init_crypto_provider();
-    
+
     // Initialize logging
     init_logging()?;
-    
+
     info!("🚀 Starting SniperForge Multi-Bot Platform v0.1.0");
-    
+
     // Always use the modern CLI system
     cli::run_cli().await
 }
 
 fn init_logging() -> Result<()> {
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-    
+
     let file_appender = tracing_appender::rolling::daily("logs", "sniperforge.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -76,27 +76,27 @@ fn init_logging() -> Result<()> {
         .with(
             tracing_subscriber::fmt::layer()
                 .with_writer(non_blocking)
-                .with_ansi(false)
+                .with_ansi(false),
         )
         .init();
-    
+
     // Keep the guard alive for the duration of the program
     std::mem::forget(_guard);
-      Ok(())
+    Ok(())
 }
 
 fn init_crypto_provider() {
     // Initialize rustls default crypto provider to fix:
     // "no process-level CryptoProvider available"
-    
+
     eprintln!("🔐 Setting up crypto provider for TLS connections...");
-    
+
     // For rustls 0.23+, we need to explicitly install a crypto provider
     // This MUST be done once at program startup before any TLS operations
-    
+
     // Try to install the ring crypto provider
     let result = rustls::crypto::ring::default_provider().install_default();
-    
+
     match result {
         Ok(()) => {
             eprintln!("✅ Ring crypto provider installed successfully");
@@ -106,7 +106,7 @@ fn init_crypto_provider() {
             eprintln!("ℹ️  Crypto provider was already installed");
         }
     }
-    
+
     eprintln!("✅ Crypto setup completed");
 }
 
@@ -159,7 +159,9 @@ fn show_subcommand_help(command: &str) {
             println!("    sniperforge start [OPTIONS]");
             println!();
             println!("OPTIONS:");
-            println!("    -b, --bot <BOT_TYPE>    Specific bot to start (can be used multiple times)");
+            println!(
+                "    -b, --bot <BOT_TYPE>    Specific bot to start (can be used multiple times)"
+            );
             println!("        --devnet            Use DevNet configuration for testing");
             println!("    -h, --help              Print help information");
             println!();
@@ -220,10 +222,14 @@ fn show_subcommand_help(command: &str) {
             println!("SUBCOMMANDS:");
             println!("    analyze-patterns       Analyze market patterns using ML models");
             println!("    predict-trend          Predict price trends using ML models");
-            println!("    optimize-strategy      Optimize trading strategy using genetic algorithms");
+            println!(
+                "    optimize-strategy      Optimize trading strategy using genetic algorithms"
+            );
             println!("    backtest-optimized     Backtest optimized strategy parameters");
             println!("    assess-risk            Assess market risk using ML models");
-            println!("    market-regime          Detect current market regime (bull/bear/sideways)");
+            println!(
+                "    market-regime          Detect current market regime (bull/bear/sideways)"
+            );
             println!("    predict-timing         Predict optimal trade execution timing");
             println!("    optimize-execution     Optimize trade execution for large orders");
             println!("    train-models           Train or retrain ML models");
@@ -237,7 +243,10 @@ fn show_subcommand_help(command: &str) {
             println!("    sniperforge ml train-models --model all --days 30");
         }
         _ => {
-            println!("Help not available for '{}'. Use 'sniperforge --help' for main help.", command);
+            println!(
+                "Help not available for '{}'. Use 'sniperforge --help' for main help.",
+                command
+            );
             println!("Available commands: start, status, config, wallet, test, interactive, ml, portfolio");
         }
     }
@@ -283,7 +292,7 @@ fn show_subsubcommand_help(command: &str, subcommand: &str) {
             println!();
             println!("SPRINT 1 STATUS: ✅ This command is production-ready");
             println!("   - All mock data removed");
-            println!("   - Jupiter API integration complete");  
+            println!("   - Jupiter API integration complete");
             println!("   - Real transaction capability verified");
         }
         ("wallet", "balance") => {

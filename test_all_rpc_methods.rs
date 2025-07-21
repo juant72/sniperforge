@@ -1,6 +1,6 @@
 use anyhow::Result;
-use sniperforge::Config;
 use sniperforge::shared::rpc_pool::RpcConnectionPool;
+use sniperforge::Config;
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 
@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
     for network in ["devnet", "mainnet"] {
         println!("\n🌐 Testing Network: {}", network);
         println!("{}", "=".repeat(50));
-        
+
         let config_file = match network {
             "mainnet" => "config/mainnet.toml",
             "devnet" => "config/devnet.toml",
@@ -91,8 +91,11 @@ async fn main() -> Result<()> {
         // Summary for this network
         println!("\n📊 Network {} Summary:", network);
         println!("   Tests: {}/{} passed", passed_count, test_count);
-        println!("   Success rate: {:.1}%", (passed_count as f64 / test_count as f64) * 100.0);
-        
+        println!(
+            "   Success rate: {:.1}%",
+            (passed_count as f64 / test_count as f64) * 100.0
+        );
+
         if passed_count == test_count {
             println!("   🎉 ALL TESTS PASSED!");
         } else {

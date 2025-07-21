@@ -1,16 +1,16 @@
 //! RPC Health Persistence System
-//! 
+//!
 //! Persiste el estado de salud de los endpoints RPC para recordar
 //! qué endpoints han fallado históricamente y evitar usarlos
 //! inmediatamente en futuras ejecuciones.
 
 use anyhow::Result;
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 /// Estado persistente de salud de un endpoint RPC
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ pub struct PersistedRpcHealth {
     pub consecutive_failures: u32,
     pub average_response_time_ms: u64,
     pub failure_types: HashMap<String, u32>, // Tipos de errores: "410 Gone", "timeout", etc.
-    pub reliability_score: f64, // 0.0 (malo) a 1.0 (perfecto)
+    pub reliability_score: f64,              // 0.0 (malo) a 1.0 (perfecto)
 }
 
 impl PersistedRpcHealth {
@@ -46,15 +46,20 @@ impl PersistedRpcHealth {
         self.last_failure_time = Some(Utc::now());
         self.total_failures += 1;
         self.consecutive_failures += 1;
-        
+
         // Registra el tipo de error
-        *self.failure_types.entry(error_type.to_string()).or_insert(0) += 1;
-        
+        *self
+            .failure_types
+            .entry(error_type.to_string())
+            .or_insert(0) += 1;
+
         // Recalcula el score de confiabilidad
         self.update_reliability_score();
-        
-        debug!("📉 RPC {} failure recorded: {} (consecutive: {})", 
-               self.url, error_type, self.consecutive_failures);
+
+        debug!(
+            "📉 RPC {} failure recorded: {} (consecutive: {})",
+            self.url, error_type, self.consecutive_failures
+        );
     }
 
     /// Registra un éxito
@@ -62,7 +67,7 @@ impl PersistedRpcHealth {
         self.last_success_time = Some(Utc::now());
         self.total_successes += 1;
         self.consecutive_failures = 0; // Reset contador de fallos consecutivos
-        
+
         // Actualiza tiempo promedio de respuesta
         if self.total_successes == 1 {
             self.average_response_time_ms = response_time_ms;
@@ -70,12 +75,14 @@ impl PersistedRpcHealth {
             let total_time = self.average_response_time_ms * (self.total_successes - 1);
             self.average_response_time_ms = (total_time + response_time_ms) / self.total_successes;
         }
-        
+
         // Recalcula el score de confiabilidad
         self.update_reliability_score();
-        
-        debug!("📈 RPC {} success recorded: {}ms (score: {:.2})", 
-               self.url, response_time_ms, self.reliability_score);
+
+        debug!(
+            "📈 RPC {} success recorded: {}ms (score: {:.2})",
+            self.url, response_time_ms, self.reliability_score
+        );
     }
 
     /// Calcula el score de confiabilidad basado en histórico
@@ -88,17 +95,17 @@ impl PersistedRpcHealth {
 
         // Score base: ratio de éxito
         let success_ratio = self.total_successes as f64 / total_requests as f64;
-        
+
         // Penaliza fallos consecutivos recientes
         let consecutive_penalty = if self.consecutive_failures > 0 {
             1.0 - (self.consecutive_failures as f64 * 0.1).min(0.5)
         } else {
             1.0
         };
-        
+
         // Penaliza ciertos tipos de errores más que otros
         let error_type_penalty = self.calculate_error_type_penalty();
-        
+
         // Penaliza respuestas lentas
         let speed_bonus = if self.average_response_time_ms < 500 {
             1.0
@@ -108,31 +115,32 @@ impl PersistedRpcHealth {
             0.8
         };
 
-        self.reliability_score = (success_ratio * consecutive_penalty * error_type_penalty * speed_bonus)
-            .max(0.0)
-            .min(1.0);
+        self.reliability_score =
+            (success_ratio * consecutive_penalty * error_type_penalty * speed_bonus)
+                .max(0.0)
+                .min(1.0);
     }
 
     /// Calcula penalidad basada en tipos de errores
     fn calculate_error_type_penalty(&self) -> f64 {
         let mut penalty = 1.0;
-        
+
         for (error_type, count) in &self.failure_types {
             let error_penalty = match error_type.as_str() {
-                "410 Gone" => 0.7,      // Severo: rate limiting
-                "timeout" => 0.8,       // Moderado: puede ser temporal
-                "401 Unauthorized" => 0.6, // Severo: necesita API key
-                "403 Forbidden" => 0.6,  // Severo: acceso denegado
-                "dns error" => 0.5,     // Muy severo: endpoint no existe
+                "410 Gone" => 0.7,           // Severo: rate limiting
+                "timeout" => 0.8,            // Moderado: puede ser temporal
+                "401 Unauthorized" => 0.6,   // Severo: necesita API key
+                "403 Forbidden" => 0.6,      // Severo: acceso denegado
+                "dns error" => 0.5,          // Muy severo: endpoint no existe
                 "connection refused" => 0.5, // Muy severo: endpoint caído
-                _ => 0.9,               // Error genérico
+                _ => 0.9,                    // Error genérico
             };
-            
+
             // Aplica penalidad proporcional a la frecuencia
             let frequency_factor = (*count as f64 / (self.total_failures + 1) as f64).min(1.0);
             penalty *= 1.0 - (1.0 - error_penalty) * frequency_factor;
         }
-        
+
         penalty.max(0.1) // Mínimo 10% de score
     }
 
@@ -166,8 +174,8 @@ impl PersistedRpcHealth {
     fn has_severe_recent_errors(&self) -> bool {
         for error_type in self.failure_types.keys() {
             match error_type.as_str() {
-                "410 Gone" | "401 Unauthorized" | "403 Forbidden" | 
-                "dns error" | "connection refused" => return true,
+                "410 Gone" | "401 Unauthorized" | "403 Forbidden" | "dns error"
+                | "connection refused" => return true,
                 _ => {}
             }
         }
@@ -200,19 +208,29 @@ impl RpcHealthPersistence {
 
         let content = fs::read_to_string(&self.file_path).await?;
         self.endpoints = serde_json::from_str(&content)?;
-        
-        info!("📂 Loaded RPC health data for {} endpoints", self.endpoints.len());
-        
+
+        info!(
+            "📂 Loaded RPC health data for {} endpoints",
+            self.endpoints.len()
+        );
+
         // Log endpoints que deberían evitarse
-        let problematic_endpoints: Vec<_> = self.endpoints.iter()
+        let problematic_endpoints: Vec<_> = self
+            .endpoints
+            .iter()
             .filter(|(_, health)| health.should_avoid_endpoint(24))
             .collect();
-            
+
         if !problematic_endpoints.is_empty() {
-            warn!("⚠️ Found {} problematic RPC endpoints:", problematic_endpoints.len());
+            warn!(
+                "⚠️ Found {} problematic RPC endpoints:",
+                problematic_endpoints.len()
+            );
             for (url, health) in problematic_endpoints {
-                warn!("   ❌ {} (score: {:.2}, consecutive failures: {})", 
-                      url, health.reliability_score, health.consecutive_failures);
+                warn!(
+                    "   ❌ {} (score: {:.2}, consecutive failures: {})",
+                    url, health.reliability_score, health.consecutive_failures
+                );
             }
         }
 
@@ -222,43 +240,54 @@ impl RpcHealthPersistence {
     /// Guarda el estado actual en disco
     pub async fn save(&self) -> Result<()> {
         let content = serde_json::to_string_pretty(&self.endpoints)?;
-        
+
         // Crea el directorio si no existe
         if let Some(parent) = Path::new(&self.file_path).parent() {
             fs::create_dir_all(parent).await?;
         }
-        
+
         fs::write(&self.file_path, content).await?;
-        
-        debug!("💾 Saved RPC health data for {} endpoints", self.endpoints.len());
+
+        debug!(
+            "💾 Saved RPC health data for {} endpoints",
+            self.endpoints.len()
+        );
         Ok(())
     }
 
     /// Registra un fallo de endpoint
     pub async fn record_endpoint_failure(&mut self, url: &str, error_type: &str) -> Result<()> {
-        let health = self.endpoints.entry(url.to_string())
+        let health = self
+            .endpoints
+            .entry(url.to_string())
             .or_insert_with(|| PersistedRpcHealth::new(url.to_string()));
-        
+
         health.record_failure(error_type);
-        
+
         // Guarda inmediatamente para no perder datos
         self.save().await?;
-        
+
         Ok(())
     }
 
     /// Registra un éxito de endpoint
-    pub async fn record_endpoint_success(&mut self, url: &str, response_time_ms: u64) -> Result<()> {
-        let health = self.endpoints.entry(url.to_string())
+    pub async fn record_endpoint_success(
+        &mut self,
+        url: &str,
+        response_time_ms: u64,
+    ) -> Result<()> {
+        let health = self
+            .endpoints
+            .entry(url.to_string())
             .or_insert_with(|| PersistedRpcHealth::new(url.to_string()));
-        
+
         health.record_success(response_time_ms);
-        
+
         // Guarda cada cierto número de éxitos para no saturar el disco
         if health.total_successes % 10 == 0 {
             self.save().await?;
         }
-        
+
         Ok(())
     }
 
@@ -269,7 +298,8 @@ impl RpcHealthPersistence {
 
     /// Obtiene endpoints que deberían evitarse
     pub fn get_problematic_endpoints(&self, hours_to_consider: u64) -> Vec<String> {
-        self.endpoints.iter()
+        self.endpoints
+            .iter()
             .filter(|(_, health)| health.should_avoid_endpoint(hours_to_consider))
             .map(|(url, _)| url.clone())
             .collect()
@@ -277,14 +307,16 @@ impl RpcHealthPersistence {
 
     /// Obtiene endpoints recomendados ordenados por confiabilidad
     pub fn get_recommended_endpoints(&self) -> Vec<(String, f64)> {
-        let mut endpoints: Vec<_> = self.endpoints.iter()
+        let mut endpoints: Vec<_> = self
+            .endpoints
+            .iter()
             .filter(|(_, health)| !health.should_avoid_endpoint(24))
             .map(|(url, health)| (url.clone(), health.reliability_score))
             .collect();
-        
+
         // Ordena por score de confiabilidad (mayor primero)
         endpoints.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         endpoints
     }
 
@@ -300,22 +332,33 @@ impl RpcHealthPersistence {
 
         // Estadísticas generales
         let total_endpoints = self.endpoints.len();
-        let healthy_endpoints = self.endpoints.iter()
+        let healthy_endpoints = self
+            .endpoints
+            .iter()
             .filter(|(_, health)| !health.should_avoid_endpoint(24))
             .count();
-        
-        report.push_str(&format!("📊 Overview: {}/{} endpoints healthy\n\n", 
-                                healthy_endpoints, total_endpoints));
+
+        report.push_str(&format!(
+            "📊 Overview: {}/{} endpoints healthy\n\n",
+            healthy_endpoints, total_endpoints
+        ));
 
         // Detalles por endpoint
         let mut sorted_endpoints: Vec<_> = self.endpoints.iter().collect();
-        sorted_endpoints.sort_by(|a, b| b.1.reliability_score.partial_cmp(&a.1.reliability_score)
-            .unwrap_or(std::cmp::Ordering::Equal));
+        sorted_endpoints.sort_by(|a, b| {
+            b.1.reliability_score
+                .partial_cmp(&a.1.reliability_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         for (url, health) in sorted_endpoints {
-            let status = if health.should_avoid_endpoint(24) { "❌ AVOID" } else { "✅ OK" };
+            let status = if health.should_avoid_endpoint(24) {
+                "❌ AVOID"
+            } else {
+                "✅ OK"
+            };
             let total_requests = health.total_successes + health.total_failures;
-            
+
             report.push_str(&format!(
                 "{} {} (Score: {:.2})\n   Requests: {} | Success Rate: {:.1}% | Avg: {}ms | Consecutive Fails: {}\n",
                 status,

@@ -157,7 +157,7 @@ pub struct LpSniperConfig {
     pub stop_loss_percent: f64, // Stop loss percentage
     pub take_profit_percent: f64, // Take profit percentage
     pub trading_wallet_name: String, // Name of wallet to use for trading
-    pub devnet_mode: bool, // Whether to use devnet
+    pub devnet_mode: bool,   // Whether to use devnet
     pub monitoring_interval_ms: u64, // How often to check for opportunities
     pub target_pools: Vec<String>, // Pool addresses to monitor
     pub max_market_cap: f64, // Maximum market cap to consider
@@ -173,11 +173,11 @@ impl Default for LpSniperConfig {
             max_slippage_percent: 5.0,
             min_liquidity_usd: 10000.0,
             max_pool_age_seconds: 3600, // 1 hour
-            risk_per_trade: 5.0, // 5% of balance per trade
+            risk_per_trade: 5.0,        // 5% of balance per trade
             stop_loss_percent: 20.0,
             take_profit_percent: 50.0,
             trading_wallet_name: "trading".to_string(),
-            devnet_mode: true, // Default to devnet for safety
+            devnet_mode: true,            // Default to devnet for safety
             monitoring_interval_ms: 1000, // 1 second
             target_pools: vec![],
             max_market_cap: 1000000.0, // $1M max market cap
@@ -192,13 +192,13 @@ pub struct ArbitrageConfig {
     pub enabled: bool,
     pub initial_capital: f64,
     pub max_position_size: f64, // As percentage of capital (0.0 to 1.0)
-    pub daily_loss_limit: f64, // As percentage of capital (0.0 to 1.0)
+    pub daily_loss_limit: f64,  // As percentage of capital (0.0 to 1.0)
     pub max_concurrent_trades: u32,
     pub min_profit_threshold: f64, // Minimum profit percentage to execute
     pub max_slippage_percent: f64, // Maximum acceptable slippage
-    pub devnet_mode: bool, // Whether to use devnet
+    pub devnet_mode: bool,         // Whether to use devnet
     pub monitoring_interval_ms: u64, // How often to check for opportunities
-    pub dex_list: Vec<String>, // DEXs to monitor
+    pub dex_list: Vec<String>,     // DEXs to monitor
     pub target_pairs: Vec<String>, // Trading pairs to focus on
     pub settings: HashMap<String, serde_json::Value>,
 }
@@ -212,10 +212,14 @@ impl Default for ArbitrageConfig {
             daily_loss_limit: 0.05, // 5%
             max_concurrent_trades: 3,
             min_profit_threshold: 0.01, // 1%
-            max_slippage_percent: 0.5, // 0.5%
+            max_slippage_percent: 0.5,  // 0.5%
             devnet_mode: true,
             monitoring_interval_ms: 100,
-            dex_list: vec!["Jupiter".to_string(), "Raydium".to_string(), "Orca".to_string()],
+            dex_list: vec![
+                "Jupiter".to_string(),
+                "Raydium".to_string(),
+                "Orca".to_string(),
+            ],
             target_pairs: vec!["SOL/USDC".to_string()],
             settings: HashMap::new(),
         }
@@ -248,16 +252,16 @@ pub enum BotCommand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PriceData {
     pub token: Pubkey,
-    pub token_address: String,          // String version for compatibility
+    pub token_address: String, // String version for compatibility
     pub price_usd: f64,
     pub price_sol: Option<f64>,
     pub volume_24h: f64,
     pub price_change_24h: f64,
     pub market_cap: Option<f64>,
-    pub liquidity_usd: f64,             // Added for real data
+    pub liquidity_usd: f64, // Added for real data
     pub timestamp: DateTime<Utc>,
-    pub source: String,                 // Added for real data source tracking
-    pub confidence: f64,                // Added for real data confidence scoring
+    pub source: String,  // Added for real data source tracking
+    pub confidence: f64, // Added for real data confidence scoring
 }
 
 // ============================================================================
@@ -381,18 +385,18 @@ pub enum TradeType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradeResult {
-    pub id: Uuid,                    // Add unique ID for trade result
+    pub id: Uuid, // Add unique ID for trade result
     pub bot_id: BotId,
-    pub trade_type: TradeType,       // Use TradeType instead of ActionType
-    pub pool_id: Pubkey,             // Add pool information
+    pub trade_type: TradeType, // Use TradeType instead of ActionType
+    pub pool_id: Pubkey,       // Add pool information
     pub token_in: Pubkey,
     pub token_out: Pubkey,
-    pub amount_in: f64,              // Change to f64 for easier handling
-    pub amount_out: f64,             // Change to f64 for easier handling
-    pub executed_price: f64,         // Add executed price
-    pub slippage: f64,               // Add slippage information
-    pub gas_fee: f64,                // Add gas fee in SOL
-    pub timestamp: DateTime<Utc>,    // Rename from executed_at for clarity
+    pub amount_in: f64,           // Change to f64 for easier handling
+    pub amount_out: f64,          // Change to f64 for easier handling
+    pub executed_price: f64,      // Add executed price
+    pub slippage: f64,            // Add slippage information
+    pub gas_fee: f64,             // Add gas fee in SOL
+    pub timestamp: DateTime<Utc>, // Rename from executed_at for clarity
     pub status: TradeStatus,
     pub error_message: Option<String>,
     pub metadata: serde_json::Value, // Add metadata for additional info

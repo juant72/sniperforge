@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -60,32 +60,32 @@ async fn main() -> Result<()> {
 
     // ESTRATEGIA: Usar parámetros similares a los exitosos de 2C
     let investment_amounts = vec![0.01, 0.015, 0.02]; // Probar múltiples cantidades
-    
+
     for (index, amount) in investment_amounts.iter().enumerate() {
         info!("\n💫 === ANÁLISIS {} - {} SOL ===", index + 1, amount);
-        
+
         match calculate_optimized_risk(&client, *amount).await {
             Ok(risk_calc) => {
                 display_optimized_risk_calculation(&risk_calc);
-                
+
                 if risk_calc.is_profitable {
                     info!("\n✅ PARÁMETROS ÓPTIMOS ENCONTRADOS");
                     info!("   💰 Cantidad óptima: {} SOL", amount);
                     info!("   📈 Profit margin: {:.2}x", risk_calc.profit_margin);
-                    
+
                     // Ejecutar con parámetros optimizados
                     match execute_optimized_arbitrage(&client, &wallet, &risk_calc).await {
                         Ok(actual_profit) => {
                             let final_balance = check_sol_balance(&client, &user_pubkey).await?;
-                            
+
                             analyze_optimized_results(
                                 initial_balance,
                                 final_balance,
                                 &risk_calc,
                                 actual_profit,
-                                *amount
+                                *amount,
                             );
-                            
+
                             // Si fue exitoso, no probar más cantidades
                             if actual_profit > 0.0 {
                                 info!("🎉 ¡OPTIMIZACIÓN EXITOSA! No necesitamos probar más parámetros");
@@ -106,47 +106,64 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn calculate_optimized_risk(client: &RpcClient, amount_sol: f64) -> Result<OptimizedRiskCalculation> {
+async fn calculate_optimized_risk(
+    client: &RpcClient,
+    amount_sol: f64,
+) -> Result<OptimizedRiskCalculation> {
     let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
-    
+
     info!("   🔍 Calculando riesgo optimizado...");
 
     // 1. Rent exempt (conocido y fijo)
     let rent_exempt_cost = client.get_minimum_balance_for_rent_exemption(165)?;
-    
+
     // 2. Fees optimizados (basados en datos reales observados)
     // De nuestras pruebas: las fees reales son ~5,000-15,000 lamports
     let optimized_fees = 12_000u64; // Promedio observado
-    info!("     💸 Fees optimizados: {} lamports ({:.9} SOL)", 
-           optimized_fees, optimized_fees as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "     💸 Fees optimizados: {} lamports ({:.9} SOL)",
+        optimized_fees,
+        optimized_fees as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     // 3. Safety buffer reducido (2% en lugar de 5%)
     let safety_buffer = (amount_lamports as f64 * 0.02) as u64;
-    info!("     🛡️ Safety buffer optimizado (2%): {} lamports ({:.9} SOL)", 
-           safety_buffer, safety_buffer as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "     🛡️ Safety buffer optimizado (2%): {} lamports ({:.9} SOL)",
+        safety_buffer,
+        safety_buffer as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     // 4. Balance mínimo optimizado
-    let minimum_balance_needed = amount_lamports + rent_exempt_cost + optimized_fees + safety_buffer;
-    
+    let minimum_balance_needed =
+        amount_lamports + rent_exempt_cost + optimized_fees + safety_buffer;
+
     // 5. Profit esperado REALISTA basado en datos históricos
     // 2C: 0.012029280 SOL profit con ~0.012 SOL total cost = 100% profit
     // Seamos conservadores: 50% profit esperado
     let expected_profit_rate = 0.50; // 50% conservador pero realista
     let expected_profit = (amount_lamports as f64 * expected_profit_rate) as u64;
-    info!("     📈 Profit esperado realista ({:.0}%): {} lamports ({:.9} SOL)", 
-           expected_profit_rate * 100.0, expected_profit, expected_profit as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "     📈 Profit esperado realista ({:.0}%): {} lamports ({:.9} SOL)",
+        expected_profit_rate * 100.0,
+        expected_profit,
+        expected_profit as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     // 6. Break-even optimizado
     let break_even_point = optimized_fees + rent_exempt_cost;
-    info!("     ⚖️ Break-even optimizado: {} lamports ({:.9} SOL)", 
-           break_even_point, break_even_point as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "     ⚖️ Break-even optimizado: {} lamports ({:.9} SOL)",
+        break_even_point,
+        break_even_point as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     // 7. Profit margin real
     let total_costs = optimized_fees + rent_exempt_cost;
     let profit_margin = expected_profit as f64 / total_costs as f64;
-    
+
     // 8. Risk score optimizado
-    let risk_score = if profit_margin > 3.0 { 
+    let risk_score = if profit_margin > 3.0 {
         2.0 // Bajo riesgo
     } else if profit_margin > 2.0 {
         4.0 // Riesgo medio
@@ -156,16 +173,25 @@ async fn calculate_optimized_risk(client: &RpcClient, amount_sol: f64) -> Result
         10.0 // Riesgo muy alto
     };
 
-    info!("     🎯 Profit margin optimizado: {:.2}x costs", profit_margin);
+    info!(
+        "     🎯 Profit margin optimizado: {:.2}x costs",
+        profit_margin
+    );
     info!("     📊 Risk score optimizado: {:.1}/10", risk_score);
 
     // 9. Profitability optimizada
     let is_profitable = profit_margin > 2.0; // Más realista: 2x en lugar de 1.5x
-    
+
     let recommendation = if is_profitable {
-        format!("✅ RECOMENDADO - Profit margin: {:.2}x, Risk: {:.1}/10", profit_margin, risk_score)
+        format!(
+            "✅ RECOMENDADO - Profit margin: {:.2}x, Risk: {:.1}/10",
+            profit_margin, risk_score
+        )
     } else {
-        format!("❌ NO RECOMENDADO - Profit margin insuficiente: {:.2}x (necesitamos >2.0x)", profit_margin)
+        format!(
+            "❌ NO RECOMENDADO - Profit margin insuficiente: {:.2}x (necesitamos >2.0x)",
+            profit_margin
+        )
     };
 
     Ok(OptimizedRiskCalculation {
@@ -185,15 +211,40 @@ async fn calculate_optimized_risk(client: &RpcClient, amount_sol: f64) -> Result
 
 fn display_optimized_risk_calculation(calc: &OptimizedRiskCalculation) {
     info!("\n📊 === ANÁLISIS OPTIMIZADO ===");
-    info!("   💰 Inversión: {:.9} SOL", calc.amount_to_invest as f64 / LAMPORTS_PER_SOL as f64);
-    info!("   💸 Fees optimizados: {:.9} SOL", calc.estimated_total_fees as f64 / LAMPORTS_PER_SOL as f64);
-    info!("   🏠 Rent exempt: {:.9} SOL", calc.rent_exempt_cost as f64 / LAMPORTS_PER_SOL as f64);
-    info!("   🛡️ Safety buffer: {:.9} SOL", calc.safety_buffer as f64 / LAMPORTS_PER_SOL as f64);
-    info!("   📈 Profit esperado: {:.9} SOL", calc.expected_profit as f64 / LAMPORTS_PER_SOL as f64);
-    info!("   ⚖️ Break-even: {:.9} SOL", calc.break_even_point as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "   💰 Inversión: {:.9} SOL",
+        calc.amount_to_invest as f64 / LAMPORTS_PER_SOL as f64
+    );
+    info!(
+        "   💸 Fees optimizados: {:.9} SOL",
+        calc.estimated_total_fees as f64 / LAMPORTS_PER_SOL as f64
+    );
+    info!(
+        "   🏠 Rent exempt: {:.9} SOL",
+        calc.rent_exempt_cost as f64 / LAMPORTS_PER_SOL as f64
+    );
+    info!(
+        "   🛡️ Safety buffer: {:.9} SOL",
+        calc.safety_buffer as f64 / LAMPORTS_PER_SOL as f64
+    );
+    info!(
+        "   📈 Profit esperado: {:.9} SOL",
+        calc.expected_profit as f64 / LAMPORTS_PER_SOL as f64
+    );
+    info!(
+        "   ⚖️ Break-even: {:.9} SOL",
+        calc.break_even_point as f64 / LAMPORTS_PER_SOL as f64
+    );
     info!("   🎯 Profit margin: {:.2}x", calc.profit_margin);
     info!("   📊 Risk score: {:.1}/10", calc.risk_score);
-    info!("   ✅ Recomendación: {}", if calc.is_profitable { "PROCEDER" } else { "NO PROCEDER" });
+    info!(
+        "   ✅ Recomendación: {}",
+        if calc.is_profitable {
+            "PROCEDER"
+        } else {
+            "NO PROCEDER"
+        }
+    );
     info!("   💡 {}", calc.recommendation);
 }
 
@@ -203,31 +254,35 @@ async fn execute_optimized_arbitrage(
     calc: &OptimizedRiskCalculation,
 ) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
-    
+
     info!("\n💫 === EJECUTANDO ARBITRAJE OPTIMIZADO ===");
-    info!("   🎯 Con parámetros validados y profit margin {:.2}x", calc.profit_margin);
+    info!(
+        "   🎯 Con parámetros validados y profit margin {:.2}x",
+        calc.profit_margin
+    );
 
     let balance_before = client.get_balance(&user_pubkey)?;
-    
+
     // Usar método exitoso de 2C con parámetros optimizados
     let wsol_account = setup_optimized_wsol_account(client, wallet).await?;
-    
+
     info!("   🔄 Wrap optimizado...");
-    let _wrap_sig = execute_optimized_wrap(client, wallet, &wsol_account, calc.amount_to_invest).await?;
-    
+    let _wrap_sig =
+        execute_optimized_wrap(client, wallet, &wsol_account, calc.amount_to_invest).await?;
+
     // Timing optimizado basado en el exitoso 2C
     tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-    
+
     info!("   🔄 Unwrap optimizado...");
     let _unwrap_sig = execute_optimized_unwrap(client, wallet, &wsol_account).await?;
-    
+
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    
+
     let balance_after = client.get_balance(&user_pubkey)?;
     let profit = (balance_after as i64 - balance_before as i64) as f64 / LAMPORTS_PER_SOL as f64;
-    
+
     info!("   📊 Resultado optimizado: {:.9} SOL", profit);
-    
+
     Ok(profit)
 }
 
@@ -245,23 +300,33 @@ fn analyze_optimized_results(
     } else {
         0.0
     };
-    
+
     let actual_roi = if investment > 0.0 {
         (actual_profit / investment) * 100.0
     } else {
         0.0
     };
-    
+
     info!("\n📊 === ANÁLISIS DE OPTIMIZACIÓN ===");
     info!("   💰 Inversión: {} SOL", investment);
-    info!("   📈 Profit predicho: {:.9} SOL", calc.expected_profit as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "   📈 Profit predicho: {:.9} SOL",
+        calc.expected_profit as f64 / LAMPORTS_PER_SOL as f64
+    );
     info!("   📈 Profit real: {:.9} SOL", actual_profit);
     info!("   💸 Costo predicho: {:.9} SOL", predicted_cost);
     info!("   💸 Costo real: {:.9} SOL", actual_cost);
     info!("   📊 Precisión predicción: {:.1}%", cost_accuracy);
     info!("   📈 ROI real: {:.2}%", actual_roi);
-    info!("   🎯 Profit margin real: {:.2}x", if actual_cost > 0.0 { actual_profit / actual_cost } else { 0.0 });
-    
+    info!(
+        "   🎯 Profit margin real: {:.2}x",
+        if actual_cost > 0.0 {
+            actual_profit / actual_cost
+        } else {
+            0.0
+        }
+    );
+
     if actual_profit > 0.0 {
         info!("   🎉 ¡OPTIMIZACIÓN EXITOSA!");
         info!("   ✅ Sistema de risk management funcionando");
@@ -274,18 +339,17 @@ fn analyze_optimized_results(
 async fn setup_optimized_wsol_account(client: &RpcClient, wallet: &Keypair) -> Result<Pubkey> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     if client.get_account(&wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
 
         let recent_blockhash = client.get_latest_blockhash()?;
         let transaction = Transaction::new_signed_with_payer(
@@ -354,7 +418,7 @@ async fn execute_optimized_unwrap(
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

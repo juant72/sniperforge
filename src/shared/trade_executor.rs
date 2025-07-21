@@ -1,28 +1,28 @@
 //! Real Trade Execution Engine
-//! 
+//!
 //! Handles actual trade execution using 100% real Jupiter API and blockchain data
 //! All simulation, mock, and virtual trading modes have been removed
 
-use anyhow::{Result, anyhow};
-use solana_sdk::{signature::Keypair, signer::Signer, pubkey::Pubkey};
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use tracing::{info, warn, error, debug};
-use std::time::{Instant, Duration};
-use serde::{Serialize, Deserialize};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use std::time::{Duration, Instant};
+use tracing::{debug, error, info, warn};
 
-use crate::shared::jupiter::{JupiterClient, JupiterConfig, QuoteResponse, QuoteRequest, Jupiter};
 use crate::config::Config;
-use uuid::Uuid;
+use crate::shared::jupiter::{Jupiter, JupiterClient, JupiterConfig, QuoteRequest, QuoteResponse};
 use tokio::time::timeout;
+use uuid::Uuid;
 
-use super::wallet_manager::WalletManager;
 use super::rpc_pool::RpcConnectionPool;
+use super::wallet_manager::WalletManager;
 
 /// Real trading mode - only actual blockchain execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TradingMode {
-    DevNet,     // Real transactions on DevNet
-    MainNet,    // Real transactions on MainNet
+    DevNet,  // Real transactions on DevNet
+    MainNet, // Real transactions on MainNet
 }
 
 /// Real trade execution request
@@ -70,27 +70,27 @@ impl TradeExecutor {
     /// Create new trade executor
     pub async fn new(config: Config, trading_mode: TradingMode) -> Result<Self> {
         info!("🎯 Initializing Trade Executor in mode: {:?}", trading_mode);
-        
+
         // Setup Jupiter configuration from platform config
         let jupiter_config = JupiterConfig::from_network_config(&config.network);
 
         let jupiter_client = JupiterClient::new(&jupiter_config).await?;
         let jupiter = Jupiter::new(&jupiter_config).await?;
-        
+
         // Use RPC endpoint from network configuration
         let rpc_url = config.network.primary_rpc().to_string();
-        
+
         let rpc_pool = RpcConnectionPool::new(&config).await?;
         let wallet_manager = WalletManager::new(&config).await?;
         let _rpc_client = RpcClient::new(rpc_url.to_string()); // Legacy client - TODO: Remove        // TODO: Re-enable when cache_free_trader_simple is implemented
-        // Initialize cache-free trader for maximum safety
-        // let cache_free_trader = match CacheFreeTraderSimple::new(TradingSafetyConfig::default()).await {
-        //     Ok(trader) => {
-        //         info!("🛡️ Cache-free trader initialized for safe trading");
-        //         Some(trader)
-        //     }
-        //     Err(e) => {
-        
+                                                               // Initialize cache-free trader for maximum safety
+                                                               // let cache_free_trader = match CacheFreeTraderSimple::new(TradingSafetyConfig::default()).await {
+                                                               //     Ok(trader) => {
+                                                               //         info!("🛡️ Cache-free trader initialized for safe trading");
+                                                               //         Some(trader)
+                                                               //     }
+                                                               //     Err(e) => {
+
         info!("✅ Trade Executor initialized successfully");
 
         Ok(Self {
@@ -107,16 +107,23 @@ impl TradeExecutor {
     /// Execute a trade
     pub async fn execute_trade(&self, request: TradeRequest) -> Result<TradeResult> {
         let start_time = Instant::now();
-        
-        info!("🎯 Executing trade: {} -> {} ({})", 
-              request.input_mint, request.output_mint, request.amount_in);
-        info!("   Mode: {:?} | Wallet: {} | Slippage: {}bps", 
-              request.trading_mode, request.wallet_name, request.slippage_bps);
+
+        info!(
+            "🎯 Executing trade: {} -> {} ({})",
+            request.input_mint, request.output_mint, request.amount_in
+        );
+        info!(
+            "   Mode: {:?} | Wallet: {} | Slippage: {}bps",
+            request.trading_mode, request.wallet_name, request.slippage_bps
+        );
 
         // Validate wallet availability
         let wallet_balance_before = self.get_wallet_balance(&request.wallet_name).await?;
-        
-        if !self.validate_trade_request(&request, wallet_balance_before).await? {
+
+        if !self
+            .validate_trade_request(&request, wallet_balance_before)
+            .await?
+        {
             return Ok(TradeResult {
                 success: false,
                 transaction_signature: None,
@@ -174,17 +181,23 @@ impl TradeExecutor {
                 wallet_balance_before,
                 wallet_balance_after: wallet_balance_before,
             });
-        }        // Execute trade based on mode
+        } // Execute trade based on mode
         let result = match request.trading_mode {
             TradingMode::DevNet => self.execute_devnet_trade(&quote, &request).await?,
             TradingMode::MainNet => self.execute_mainnet_real_trade(&quote, &request).await?,
         };
 
-        let wallet_balance_after = self.get_wallet_balance(&request.wallet_name).await.unwrap_or(wallet_balance_before);
-        
+        let wallet_balance_after = self
+            .get_wallet_balance(&request.wallet_name)
+            .await
+            .unwrap_or(wallet_balance_before);
+
         let execution_time = start_time.elapsed().as_millis() as u64;
-        
-        info!("🎯 Trade completed in {} ms | Success: {}", execution_time, result.success);
+
+        info!(
+            "🎯 Trade completed in {} ms | Success: {}",
+            execution_time, result.success
+        );
 
         Ok(TradeResult {
             success: result.success,
@@ -201,13 +214,16 @@ impl TradeExecutor {
             wallet_balance_before,
             wallet_balance_after,
         })
-    }    /// Execute a safe trade using cache-free pricing (RECOMMENDED for real trading)
+    }
+    /// Execute a safe trade using cache-free pricing (RECOMMENDED for real trading)
     pub async fn execute_safe_trade(&self, request: TradeRequest) -> Result<TradeResult> {
         let _start_time = Instant::now();
-        
-        info!("🛡️ Executing SAFE trade with cache-free pricing: {} -> {} ({})", 
-              request.input_mint, request.output_mint, request.amount_in);
-                // TODO: Re-enable when cache_free_trader_simple is implemented
+
+        info!(
+            "🛡️ Executing SAFE trade with cache-free pricing: {} -> {} ({})",
+            request.input_mint, request.output_mint, request.amount_in
+        );
+        // TODO: Re-enable when cache_free_trader_simple is implemented
         // Use cache-free trader if available
         // if let Some(ref cache_free_trader) = self.cache_free_trader {
         //     match cache_free_trader.execute_safe_swap(
@@ -251,7 +267,7 @@ impl TradeExecutor {
         //         }
         //     }
         // }
-        
+
         // Fallback to regular execution since cache-free trader is not available
         warn!("⚠️ Cache-free trader not available, falling back to regular execution");
         return self.execute_trade(request).await;
@@ -259,18 +275,28 @@ impl TradeExecutor {
 
     /// Get Jupiter quote for trade
     async fn get_quote(&self, request: &TradeRequest) -> Result<QuoteResponse> {
-        self.jupiter.get_quote(
-            &request.input_mint.to_string(),
-            &request.output_mint.to_string(),
-            request.amount_in as f64 / 1_000_000_000.0, // Convert lamports to SOL
-            request.slippage_bps,
-        ).await
+        self.jupiter
+            .get_quote(
+                &request.input_mint.to_string(),
+                &request.output_mint.to_string(),
+                request.amount_in as f64 / 1_000_000_000.0, // Convert lamports to SOL
+                request.slippage_bps,
+            )
+            .await
     }
 
     /// Validate trade request
-    async fn validate_trade_request(&self, request: &TradeRequest, wallet_balance: f64) -> Result<bool> {
+    async fn validate_trade_request(
+        &self,
+        request: &TradeRequest,
+        wallet_balance: f64,
+    ) -> Result<bool> {
         // Check if wallet exists and has sufficient balance
-        if !self.wallet_manager.is_wallet_available(&request.wallet_name, 0.01).await? {
+        if !self
+            .wallet_manager
+            .is_wallet_available(&request.wallet_name, 0.01)
+            .await?
+        {
             warn!("❌ Wallet {} not available", request.wallet_name);
             return Ok(false);
         }
@@ -278,7 +304,10 @@ impl TradeExecutor {
         // Basic balance check (simplified)
         let required_sol = request.amount_in as f64 / 1_000_000_000.0;
         if wallet_balance < required_sol {
-            warn!("❌ Insufficient balance: {} SOL < {} SOL", wallet_balance, required_sol);
+            warn!(
+                "❌ Insufficient balance: {} SOL < {} SOL",
+                wallet_balance, required_sol
+            );
             return Ok(false);
         }
 
@@ -288,9 +317,12 @@ impl TradeExecutor {
     /// Validate Jupiter quote
     async fn validate_quote(&self, quote: &QuoteResponse, request: &TradeRequest) -> Result<bool> {
         let price_impact: f64 = quote.price_impact_pct();
-        
+
         if price_impact > request.max_price_impact {
-            warn!("❌ Price impact too high: {}% > {}%", price_impact, request.max_price_impact);
+            warn!(
+                "❌ Price impact too high: {}% > {}%",
+                price_impact, request.max_price_impact
+            );
             return Ok(false);
         }
 
@@ -303,14 +335,18 @@ impl TradeExecutor {
     }
 
     /// Execute real trade on DevNet
-    async fn execute_devnet_trade(&self, quote: &QuoteResponse, request: &TradeRequest) -> Result<TradeExecutionResult> {
+    async fn execute_devnet_trade(
+        &self,
+        quote: &QuoteResponse,
+        request: &TradeRequest,
+    ) -> Result<TradeExecutionResult> {
         info!("🔄 Executing REAL trade on DevNet");
-        
+
         // Real DevNet trading implementation would go here
         // For now, return success but with safety checks
-        
+
         tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
-        
+
         Ok(TradeExecutionResult {
             success: true,
             transaction_signature: Some(format!("DEVNET_REAL_{}", uuid::Uuid::new_v4())),
@@ -322,9 +358,13 @@ impl TradeExecutor {
     }
 
     /// Execute REAL trade on MainNet (Phase 5B)
-    async fn execute_mainnet_real_trade(&self, quote: &QuoteResponse, _request: &TradeRequest) -> Result<TradeExecutionResult> {
+    async fn execute_mainnet_real_trade(
+        &self,
+        quote: &QuoteResponse,
+        _request: &TradeRequest,
+    ) -> Result<TradeExecutionResult> {
         println!("🚨 Executing REAL TRADE on MainNet - USING REAL MONEY!");
-        
+
         // Extra safety checks for real money trading
         if quote.price_impact_pct() > 2.0 {
             return Ok(TradeExecutionResult {
@@ -345,36 +385,44 @@ impl TradeExecutor {
         // 5. Handle any failures with proper rollback
 
         error!("🚫 REAL MAINNET TRADING NOT YET IMPLEMENTED");
-        Err(anyhow::anyhow!("Real trading not implemented - safety check"))
+        Err(anyhow::anyhow!(
+            "Real trading not implemented - safety check"
+        ))
     }
 
     /// Get real wallet balance from blockchain
     async fn get_wallet_balance(&self, wallet_name: &str) -> Result<f64> {
         debug!("💰 Getting REAL wallet balance for: {}", wallet_name);
-        
+
         // Get wallet address from wallet manager
-        let wallet_pubkey = if let Some(pubkey) = self.wallet_manager.get_wallet_pubkey(wallet_name).await {
-            pubkey
-        } else {
-            error!("❌ Wallet '{}' not found in wallet manager", wallet_name);
-            return Err(anyhow!("Wallet not found: {}", wallet_name));
-        };
+        let wallet_pubkey =
+            if let Some(pubkey) = self.wallet_manager.get_wallet_pubkey(wallet_name).await {
+                pubkey
+            } else {
+                error!("❌ Wallet '{}' not found in wallet manager", wallet_name);
+                return Err(anyhow!("Wallet not found: {}", wallet_name));
+            };
 
         // Get real SOL balance from RPC
-        let balance_result = timeout(Duration::from_secs(10),
-            self.rpc_pool.get_balance(&wallet_pubkey)
-        ).await;
+        let balance_result = timeout(
+            Duration::from_secs(10),
+            self.rpc_pool.get_balance(&wallet_pubkey),
+        )
+        .await;
 
         match balance_result {
             Ok(Ok(balance_lamports)) => {
                 let balance_sol = balance_lamports as f64 / 1_000_000_000.0;
-                info!("✅ Real wallet balance: {} SOL for {}", balance_sol, wallet_name);
+                info!(
+                    "✅ Real wallet balance: {} SOL for {}",
+                    balance_sol, wallet_name
+                );
                 Ok(balance_sol)
-            },
+            }
             Ok(Err(e)) => {
                 error!("❌ Failed to get real balance for {}: {}", wallet_name, e);
                 Err(anyhow!("RPC balance error: {}", e))
-            },
+            }
             Err(_) => {
                 error!("❌ Balance request timeout for {}", wallet_name);
                 Err(anyhow!("Balance request timeout"))
@@ -395,22 +443,24 @@ impl TradeExecutor {
         amount_in: u64,
         slippage_bps: Option<u16>,
     ) -> Result<QuoteResponse> {
-        self.jupiter.get_quote(
-            input_mint,
-            output_mint,
-            amount_in as f64 / 1_000_000_000.0, // Convert lamports to SOL
-            slippage_bps.unwrap_or(50),
-        ).await
+        self.jupiter
+            .get_quote(
+                input_mint,
+                output_mint,
+                amount_in as f64 / 1_000_000_000.0, // Convert lamports to SOL
+                slippage_bps.unwrap_or(50),
+            )
+            .await
     }
 
     /// Health check
     pub async fn health_check(&self) -> Result<()> {
         // Check Jupiter connectivity
         self.jupiter_client.health_check().await?;
-        
+
         // Check wallet manager
         self.wallet_manager.health_check().await?;
-        
+
         Ok(())
     }
 }

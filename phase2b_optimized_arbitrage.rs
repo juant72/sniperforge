@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error};
+use tracing::{error, info};
 
 // Token mints
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
@@ -108,11 +108,8 @@ async fn execute_dust_optimization(client: &RpcClient, wallet: &Keypair) -> Resu
 
     // Distribuir pequeñas cantidades
     for temp_account in &temp_accounts {
-        let transfer_ix = system_instruction::transfer(
-            &user_pubkey,
-            &temp_account.pubkey(),
-            micro_amount,
-        );
+        let transfer_ix =
+            system_instruction::transfer(&user_pubkey, &temp_account.pubkey(), micro_amount);
         instructions.push(transfer_ix);
     }
 
@@ -145,7 +142,7 @@ async fn execute_timing_arbitrage(client: &RpcClient, wallet: &Keypair) -> Resul
     // Crear cuenta temporal con rent-exempt amount
     let temp_account = Keypair::new();
     let rent_exempt_amount = client.get_minimum_balance_for_rent_exemption(0)?;
-    
+
     info!("   💰 Rent exempt amount: {} lamports", rent_exempt_amount);
 
     // FASE 1: Transfer con rent exempt
@@ -199,10 +196,8 @@ async fn execute_fee_optimization(client: &RpcClient, wallet: &Keypair) -> Resul
 
     // Crear wrapped SOL account para fee optimization
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     let wrap_amount = 5_000_000u64; // 0.005 SOL
 
@@ -210,18 +205,26 @@ async fn execute_fee_optimization(client: &RpcClient, wallet: &Keypair) -> Resul
     let mut instructions = Vec::new();
 
     if client.get_account(&wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
     // Wrap pequeña cantidad
-    instructions.push(system_instruction::transfer(&user_pubkey, &wsol_account, wrap_amount));
-    instructions.push(spl_token::instruction::sync_native(&spl_token::id(), &wsol_account)?);
+    instructions.push(system_instruction::transfer(
+        &user_pubkey,
+        &wsol_account,
+        wrap_amount,
+    ));
+    instructions.push(spl_token::instruction::sync_native(
+        &spl_token::id(),
+        &wsol_account,
+    )?);
 
     let recent_blockhash = client.get_latest_blockhash()?;
     let wrap_transaction = Transaction::new_signed_with_payer(
@@ -264,7 +267,7 @@ async fn execute_fee_optimization(client: &RpcClient, wallet: &Keypair) -> Resul
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

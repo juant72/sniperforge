@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -57,8 +57,11 @@ async fn main() -> Result<()> {
             if actual_profit > 0.0 {
                 info!("🎉 ¡ARBITRAJE EXITOSO!");
                 info!("   ✅ Ganancia real: +{:.9} SOL", actual_profit);
-                info!("   ✅ Porcentaje: +{:.4}%", (actual_profit / initial_balance) * 100.0);
-                
+                info!(
+                    "   ✅ Porcentaje: +{:.4}%",
+                    (actual_profit / initial_balance) * 100.0
+                );
+
                 // Actualizar plan con resultado exitoso
                 update_phase2_success(actual_profit).await?;
             } else {
@@ -74,21 +77,29 @@ async fn main() -> Result<()> {
 
 async fn execute_legitimate_arbitrage(client: &RpcClient, wallet: &Keypair) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
-    
+
     info!("🔧 === ESTRATEGIA WRAPPED SOL ARBITRAGE ===");
     info!("   Concepto: Aprovechar diferencias en timing de wrapped SOL");
 
     // PASO 1: Obtener rent exempt amount para wrapped SOL
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?; // Token account size
-    info!("   💰 Rent exempt requerido: {} lamports ({:.9} SOL)", rent_exempt, rent_exempt as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "   💰 Rent exempt requerido: {} lamports ({:.9} SOL)",
+        rent_exempt,
+        rent_exempt as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     let arbitrage_amount = 10_000_000u64; // 0.01 SOL
     let total_needed = arbitrage_amount + rent_exempt + 5_000_000; // Extra para fees
 
-    info!("   📊 Arbitraje amount: {} lamports ({:.6} SOL)", arbitrage_amount, arbitrage_amount as f64 / LAMPORTS_PER_SOL as f64);
+    info!(
+        "   📊 Arbitraje amount: {} lamports ({:.6} SOL)",
+        arbitrage_amount,
+        arbitrage_amount as f64 / LAMPORTS_PER_SOL as f64
+    );
 
     let initial_balance_lamports = client.get_balance(&user_pubkey)?;
-    
+
     // PASO 2: Ejecutar wrapped SOL cycle con timing optimization
     let profit = execute_wsol_timing_cycle(client, wallet, arbitrage_amount, rent_exempt).await?;
 
@@ -104,20 +115,19 @@ async fn execute_wsol_timing_cycle(
 ) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    
+
     info!("\n💫 === WRAPPED SOL TIMING CYCLE ===");
 
     // Obtener ATA address
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     let initial_balance = client.get_balance(&user_pubkey)?;
-    
+
     // OPERACIÓN 1: Create + Wrap en una transacción
     info!("   🔄 OPERACIÓN 1: Crear y wrap SOL...");
-    let wrap_sig = execute_optimized_wrap(client, wallet, &wsol_account, amount + rent_exempt).await?;
+    let wrap_sig =
+        execute_optimized_wrap(client, wallet, &wsol_account, amount + rent_exempt).await?;
     info!("     ✅ Wrap signature: {}", wrap_sig);
 
     // OPERACIÓN 2: Timing optimization
@@ -135,8 +145,11 @@ async fn execute_wsol_timing_cycle(
     let net_change = final_balance as i64 - initial_balance as i64;
     let profit = net_change as f64 / LAMPORTS_PER_SOL as f64;
 
-    info!("   📊 Balance change: {} lamports ({:.9} SOL)", net_change, profit);
-    
+    info!(
+        "   📊 Balance change: {} lamports ({:.9} SOL)",
+        net_change, profit
+    );
+
     Ok(profit)
 }
 
@@ -153,12 +166,13 @@ async fn execute_optimized_wrap(
 
     // Solo crear ATA si no existe
     if client.get_account(wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
@@ -221,7 +235,7 @@ async fn update_phase2_success(profit: f64) -> Result<()> {
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

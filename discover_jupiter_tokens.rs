@@ -2,7 +2,7 @@ use anyhow::Result;
 use sniperforge::shared::jupiter_api::Jupiter;
 use sniperforge::shared::jupiter_config::JupiterConfig;
 use std::env;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -18,9 +18,10 @@ async fn main() -> Result<()> {
     info!("======================================================");
 
     // Create Jupiter client
-    let rpc_url = env::var("SOLANA_RPC_URL")
-        .unwrap_or_else(|_| "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg".to_string());
-    
+    let rpc_url = env::var("SOLANA_RPC_URL").unwrap_or_else(|_| {
+        "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg".to_string()
+    });
+
     let jupiter_config = JupiterConfig {
         base_url: "https://quote-api.jup.ag".to_string(),
         api_key: None,
@@ -35,10 +36,10 @@ async fn main() -> Result<()> {
 
     // Get token list from Jupiter
     info!("\n🔍 Obteniendo lista de tokens de Jupiter...");
-    
+
     // Try to get token list (this is a hypothetical endpoint)
     // Since we don't have direct access to token list, let's test known tokens
-    
+
     let test_tokens = vec![
         ("SOL", "So11111111111111111111111111111111111111112"),
         ("wSOL", "So11111111111111111111111111111111111111112"),
@@ -98,14 +99,17 @@ async fn main() -> Result<()> {
 
     for (symbol, mint) in test_tokens {
         info!("🔍 Probando {}: {}", symbol, mint);
-        
+
         // Try to get a quote from SOL to this token
-        match jupiter.get_quote(
-            "So11111111111111111111111111111111111111112", // SOL
-            mint,
-            0.001, // 0.001 SOL
-            100 // 1% slippage
-        ).await {
+        match jupiter
+            .get_quote(
+                "So11111111111111111111111111111111111111112", // SOL
+                mint,
+                0.001, // 0.001 SOL
+                100,   // 1% slippage
+            )
+            .await
+        {
             Ok(quote) => {
                 let output_amount = quote.outAmount.parse::<u64>().unwrap_or(0);
                 info!("  ✅ {} FUNCIONA! Output: {}", symbol, output_amount);
@@ -123,7 +127,7 @@ async fn main() -> Result<()> {
                 failed_tokens.push((symbol, mint, error_msg));
             }
         }
-        
+
         // Small delay to avoid rate limiting
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
@@ -134,7 +138,7 @@ async fn main() -> Result<()> {
     for (symbol, mint) in &working_tokens {
         info!("  {} - {}", symbol, mint);
     }
-    
+
     info!("❌ Tokens que no funcionan: {}", failed_tokens.len());
     for (symbol, _mint, error) in &failed_tokens {
         if error.contains("TOKEN_NOT_TRADABLE") {

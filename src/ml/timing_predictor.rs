@@ -1,5 +1,5 @@
 //! Timing Predictor Module
-//! 
+//!
 //! Advanced ML-powered timing optimization for trade execution.
 //! Predicts optimal entry/exit points and minimizes slippage.
 
@@ -97,7 +97,7 @@ impl TimingPredictor {
     /// Create a new timing predictor instance
     pub fn new(config: TimingPredictorConfig) -> Self {
         info!("Initializing Timing Predictor with config: {:?}", config);
-        
+
         Self {
             config,
             historical_data: Vec::new(),
@@ -109,21 +109,23 @@ impl TimingPredictor {
     /// Update market microstructure data
     pub fn update_market_data(&mut self, data: MarketMicrostructure) -> Result<()> {
         debug!("Updating market microstructure data: {:?}", data);
-        
+
         self.historical_data.push(data);
-        
+
         // Keep only recent data within prediction window
-        let cutoff_time = Utc::now() - chrono::Duration::minutes(
-            self.config.prediction_window_minutes as i64 * 2
-        );
-        
+        let cutoff_time = Utc::now()
+            - chrono::Duration::minutes(self.config.prediction_window_minutes as i64 * 2);
+
         self.historical_data.retain(|d| d.timestamp > cutoff_time);
-        
+
         Ok(())
     }
 
     /// Update timing models with new market data
-    pub async fn update_timing_models(&mut self, _market_data: &[super::FeatureVector]) -> Result<()> {
+    pub async fn update_timing_models(
+        &mut self,
+        _market_data: &[super::FeatureVector],
+    ) -> Result<()> {
         // Placeholder for model updates
         tracing::info!("Timing models updated");
         Ok(())
@@ -136,7 +138,10 @@ impl TimingPredictor {
         trade_size: f64,
         target_direction: TradeDirection,
     ) -> Result<TimingPrediction> {
-        info!("Predicting optimal timing for {} trade of size {}", symbol, trade_size);
+        info!(
+            "Predicting optimal timing for {} trade of size {}",
+            symbol, trade_size
+        );
 
         if self.historical_data.is_empty() {
             warn!("No historical data available for timing prediction");
@@ -145,18 +150,16 @@ impl TimingPredictor {
 
         // Calculate market features
         let features = self.extract_timing_features(&target_direction, trade_size)?;
-        
+
         // Predict liquidity
         let liquidity_score = self.liquidity_model.predict(&features);
-        
+
         // Predict slippage
         let expected_slippage = self.slippage_model.predict(&features);
-        
+
         // Determine execution priority
-        let execution_priority = self.determine_execution_priority(
-            liquidity_score,
-            expected_slippage,
-        );
+        let execution_priority =
+            self.determine_execution_priority(liquidity_score, expected_slippage);
 
         // Calculate confidence based on data quality and model certainty
         let confidence = self.calculate_prediction_confidence(&features);
@@ -188,7 +191,10 @@ impl TimingPredictor {
         total_size: f64,
         max_slippage: f64,
     ) -> Result<ExecutionStrategy> {
-        info!("Optimizing execution strategy for {} total size: {}", symbol, total_size);
+        info!(
+            "Optimizing execution strategy for {} total size: {}",
+            symbol, total_size
+        );
 
         let chunks = self.calculate_optimal_chunks(total_size, max_slippage)?;
         let timing_windows = self.identify_optimal_windows(chunks.len())?;
@@ -212,7 +218,7 @@ impl TimingPredictor {
         }
 
         let latest = &self.historical_data[self.historical_data.len() - 1];
-        
+
         let mut features = vec![
             latest.bid_ask_spread,
             latest.order_book_depth,
@@ -241,10 +247,12 @@ impl TimingPredictor {
             return 0.0;
         }
 
-        let recent_volatility: f64 = self.historical_data
+        let recent_volatility: f64 = self
+            .historical_data
             .windows(2)
             .map(|w| (w[1].price_impact - w[0].price_impact).abs())
-            .sum::<f64>() / (self.historical_data.len() - 1) as f64;
+            .sum::<f64>()
+            / (self.historical_data.len() - 1) as f64;
 
         recent_volatility.clamp(0.0, 1.0)
     }
@@ -257,8 +265,9 @@ impl TimingPredictor {
     ) -> ExecutionPriority {
         if expected_slippage > self.config.slippage_threshold * 2.0 {
             ExecutionPriority::Avoid
-        } else if liquidity_score > self.config.min_liquidity_threshold 
-                && expected_slippage < self.config.slippage_threshold * 0.5 {
+        } else if liquidity_score > self.config.min_liquidity_threshold
+            && expected_slippage < self.config.slippage_threshold * 0.5
+        {
             ExecutionPriority::Immediate
         } else if expected_slippage < self.config.slippage_threshold {
             ExecutionPriority::Optimal
@@ -284,19 +293,20 @@ impl TimingPredictor {
     fn predict_next_optimal_window(&self) -> Result<DateTime<Utc>> {
         // Simple heuristic: look for low volatility periods
         let base_time = Utc::now();
-        
+
         // For demo, predict 5-15 minutes ahead based on current market stress
         let stress = self.calculate_market_stress();
         let minutes_ahead = if stress > 0.7 {
             15 // Wait longer during high stress
         } else if stress < 0.3 {
-            2  // Execute quickly during calm periods
+            2 // Execute quickly during calm periods
         } else {
-            7  // Standard wait time
+            7 // Standard wait time
         };
 
         Ok(base_time + chrono::Duration::minutes(minutes_ahead))
-    }    /// Calculate optimal trade chunks for large orders
+    }
+    /// Calculate optimal trade chunks for large orders
     fn calculate_optimal_chunks(&self, total_size: f64, _max_slippage: f64) -> Result<Vec<f64>> {
         let base_chunk_size = total_size * 0.1; // Start with 10% chunks
         let mut chunks = Vec::new();
@@ -308,12 +318,16 @@ impl TimingPredictor {
             } else {
                 base_chunk_size
             };
-            
+
             chunks.push(chunk_size);
             remaining -= chunk_size;
         }
 
-        debug!("Calculated {} chunks for total size {}", chunks.len(), total_size);
+        debug!(
+            "Calculated {} chunks for total size {}",
+            chunks.len(),
+            total_size
+        );
         Ok(chunks)
     }
 
@@ -321,15 +335,13 @@ impl TimingPredictor {
     fn identify_optimal_windows(&self, num_chunks: usize) -> Result<Vec<DateTime<Utc>>> {
         let mut windows = Vec::new();
         let base_time = Utc::now();
-        
+
         // Space chunks 3-8 minutes apart based on market conditions
         let stress = self.calculate_market_stress();
         let interval_minutes = if stress > 0.7 { 8 } else { 3 };
-        
+
         for i in 0..num_chunks {
-            let window_time = base_time + chrono::Duration::minutes(
-                (i as i64) * interval_minutes
-            );
+            let window_time = base_time + chrono::Duration::minutes((i as i64) * interval_minutes);
             windows.push(window_time);
         }
 
@@ -393,22 +405,26 @@ impl Default for SlippageModel {
 
 impl LiquidityModel {
     fn predict(&self, features: &[f64]) -> f64 {
-        let prediction: f64 = features.iter()
+        let prediction: f64 = features
+            .iter()
             .zip(&self.weights)
             .map(|(f, w)| f * w)
-            .sum::<f64>() + self.bias;
-        
+            .sum::<f64>()
+            + self.bias;
+
         prediction.max(0.0) // Ensure non-negative liquidity
     }
 }
 
 impl SlippageModel {
     fn predict(&self, features: &[f64]) -> f64 {
-        let prediction: f64 = features.iter()
+        let prediction: f64 = features
+            .iter()
             .zip(&self.weights)
             .map(|(f, w)| f * w)
-            .sum::<f64>() + self.bias;
-        
+            .sum::<f64>()
+            + self.bias;
+
         prediction.max(0.0001).min(0.1) // Clamp between 0.01% and 10%
     }
 }
@@ -421,7 +437,7 @@ mod tests {
     async fn test_timing_predictor_creation() {
         let config = TimingPredictorConfig::default();
         let predictor = TimingPredictor::new(config);
-        
+
         assert_eq!(predictor.historical_data.len(), 0);
     }
 
@@ -429,7 +445,7 @@ mod tests {
     async fn test_market_data_update() {
         let config = TimingPredictorConfig::default();
         let mut predictor = TimingPredictor::new(config);
-        
+
         let market_data = MarketMicrostructure {
             timestamp: Utc::now(),
             bid_ask_spread: 0.001,
@@ -438,7 +454,7 @@ mod tests {
             volume_imbalance: 0.1,
             price_impact: 0.005,
         };
-        
+
         predictor.update_market_data(market_data).unwrap();
         assert_eq!(predictor.historical_data.len(), 1);
     }
@@ -447,13 +463,11 @@ mod tests {
     async fn test_timing_prediction() {
         let config = TimingPredictorConfig::default();
         let predictor = TimingPredictor::new(config);
-        
-        let prediction = predictor.predict_optimal_timing(
-            "SOL/USDC",
-            100.0,
-            TradeDirection::Buy,
-        ).unwrap();
-        
+
+        let prediction = predictor
+            .predict_optimal_timing("SOL/USDC", 100.0, TradeDirection::Buy)
+            .unwrap();
+
         assert!(prediction.confidence >= 0.0 && prediction.confidence <= 1.0);
         assert!(prediction.expected_slippage >= 0.0);
     }
@@ -462,13 +476,11 @@ mod tests {
     async fn test_execution_strategy() {
         let config = TimingPredictorConfig::default();
         let predictor = TimingPredictor::new(config);
-        
-        let strategy = predictor.optimize_execution_strategy(
-            "SOL/USDC",
-            1000.0,
-            0.01,
-        ).unwrap();
-        
+
+        let strategy = predictor
+            .optimize_execution_strategy("SOL/USDC", 1000.0, 0.01)
+            .unwrap();
+
         assert!(!strategy.chunks.is_empty());
         assert_eq!(strategy.chunks.len(), strategy.timing_windows.len());
         assert!(strategy.chunks.iter().sum::<f64>() - 1000.0 < 0.001);

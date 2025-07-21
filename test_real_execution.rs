@@ -1,16 +1,16 @@
 use anyhow::Result;
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
 use sniperforge::shared::jupiter_api::Jupiter;
 use sniperforge::shared::jupiter_config::JupiterConfig;
-use std::env;
-use std::time::Duration;
-use tracing::{info, warn, error};
-use solana_sdk::signature::{Keypair, Signer};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::signature::{Keypair, Signer};
 use solana_sdk::transaction::Transaction;
 use solana_transaction_status::UiTransactionEncoding;
-use base64::Engine;
-use base64::engine::general_purpose::STANDARD as BASE64;
+use std::env;
+use std::time::Duration;
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -31,16 +31,17 @@ async fn main() -> Result<()> {
     info!("✅ Wallet cargado: {}", wallet_pubkey);
 
     // Create RPC client
-    let rpc_url = env::var("SOLANA_RPC_URL")
-        .unwrap_or_else(|_| "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg".to_string());
+    let rpc_url = env::var("SOLANA_RPC_URL").unwrap_or_else(|_| {
+        "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg".to_string()
+    });
     let rpc_client = RpcClient::new_with_commitment(rpc_url.clone(), CommitmentConfig::confirmed());
-    
+
     // Check wallet balance
     info!("💰 Verificando balance del wallet...");
     let balance = rpc_client.get_balance(&wallet_pubkey)?;
     let balance_sol = balance as f64 / 1_000_000_000.0;
     info!("   Balance: {:.9} SOL", balance_sol);
-    
+
     if balance_sol < 0.05 {
         error!("❌ Balance insuficiente para trading. Necesitas al menos 0.05 SOL");
         return Ok(());
@@ -61,7 +62,7 @@ async fn main() -> Result<()> {
 
     // Execute real swap trades
     info!("\n🎯 === EJECUTANDO SWAPS REALES ===");
-    
+
     // Test 1: Small SOL -> BONK swap
     info!("\n📊 Test 1: Swap SOL -> BONK (0.001 SOL)");
     execute_real_swap(
@@ -74,8 +75,9 @@ async fn main() -> Result<()> {
         "SOL",
         "BONK",
         9,
-        5
-    ).await?;
+        5,
+    )
+    .await?;
 
     // Wait between trades
     info!("⏱️ Esperando 5 segundos...");
@@ -93,23 +95,27 @@ async fn main() -> Result<()> {
         "SOL",
         "RAY",
         9,
-        6
-    ).await?;
+        6,
+    )
+    .await?;
 
     // Final balance check
     info!("\n💰 === BALANCE FINAL ===");
     let final_balance = rpc_client.get_balance(&wallet_pubkey)?;
     let final_balance_sol = final_balance as f64 / 1_000_000_000.0;
     let balance_change = final_balance_sol - balance_sol;
-    
+
     info!("   Balance inicial: {:.9} SOL", balance_sol);
     info!("   Balance final: {:.9} SOL", final_balance_sol);
     info!("   Cambio neto: {:.9} SOL", balance_change);
-    
+
     if balance_change > 0.0 {
         info!("   🎯 GANANCIA: +{:.9} SOL", balance_change);
     } else {
-        info!("   📉 PÉRDIDA: {:.9} SOL (incluye fees)", balance_change.abs());
+        info!(
+            "   📉 PÉRDIDA: {:.9} SOL (incluye fees)",
+            balance_change.abs()
+        );
     }
 
     info!("\n🎯 === CONCLUSIONES ===");
@@ -133,20 +139,29 @@ async fn execute_real_swap(
     input_decimals: u8,
     output_decimals: u8,
 ) -> Result<()> {
-    info!("🔄 Ejecutando swap real: {} {} -> {}", amount, input_symbol, output_symbol);
-    
+    info!(
+        "🔄 Ejecutando swap real: {} {} -> {}",
+        amount, input_symbol, output_symbol
+    );
+
     // Step 1: Get quote from Jupiter
     info!("  1️⃣ Obteniendo quote de Jupiter...");
-    let quote = match jupiter.get_quote(input_mint, output_mint, amount, 100).await {
+    let quote = match jupiter
+        .get_quote(input_mint, output_mint, amount, 100)
+        .await
+    {
         Ok(quote) => {
             let output_amount = quote.outAmount.parse::<u64>().unwrap_or(0);
             let output_tokens = output_amount as f64 / 10_u64.pow(output_decimals as u32) as f64;
-            
+
             info!("    ✅ Quote obtenido:");
             info!("       Input: {} {}", amount, input_symbol);
             info!("       Output: {:.6} {}", output_tokens, output_symbol);
-            info!("       Price Impact: {:.2}%", quote.priceImpactPct.parse::<f64>().unwrap_or(0.0) * 100.0);
-            
+            info!(
+                "       Price Impact: {:.2}%",
+                quote.priceImpactPct.parse::<f64>().unwrap_or(0.0) * 100.0
+            );
+
             quote
         }
         Err(e) => {
@@ -158,7 +173,7 @@ async fn execute_real_swap(
     // Step 2: Build swap transaction using Jupiter client directly
     info!("  2️⃣ Construyendo transacción...");
     let wallet_address = wallet_keypair.pubkey().to_string();
-    
+
     // Create swap request
     let swap_request = sniperforge::shared::jupiter_types::SwapRequest {
         quoteResponse: quote.clone(),
@@ -169,11 +184,11 @@ async fn execute_real_swap(
             priorityLevelWithMaxLamports: sniperforge::shared::jupiter_types::PriorityLevelConfig {
                 maxLamports: 1000000, // 0.001 SOL max priority fee for devnet
                 priorityLevel: "medium".to_string(),
-            }
+            },
         }),
         asLegacyTransaction: Some(true),
     };
-    
+
     let swap_response = match jupiter.client.build_swap_transaction(swap_request).await {
         Ok(response) => {
             info!("    ✅ Transacción construida exitosamente");
@@ -187,7 +202,7 @@ async fn execute_real_swap(
 
     // Step 3: Prepare and sign transaction
     info!("  3️⃣ Firmando transacción...");
-    
+
     // Decode the transaction from base64
     let tx_data = match BASE64.decode(&swap_response.swapTransaction) {
         Ok(data) => data,
@@ -212,18 +227,21 @@ async fn execute_real_swap(
 
     // Sign the transaction
     transaction.sign(&[wallet_keypair], recent_blockhash);
-    
+
     info!("    ✅ Transacción firmada exitosamente");
 
     // Step 4: Send transaction
     info!("  4️⃣ Enviando transacción a la blockchain...");
-    
+
     match rpc_client.send_and_confirm_transaction(&transaction) {
         Ok(signature) => {
             info!("    ✅ TRANSACCIÓN CONFIRMADA!");
             info!("       Signature: {}", signature);
-            info!("       Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-            
+            info!(
+                "       Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
+
             // Verify the transaction was successful
             match rpc_client.get_transaction(&signature, UiTransactionEncoding::Json) {
                 Ok(confirmed_tx) => {
@@ -249,12 +267,12 @@ async fn execute_real_swap(
     // Step 5: Check balance changes
     info!("  5️⃣ Verificando cambios de balance...");
     tokio::time::sleep(Duration::from_secs(3)).await; // Wait for confirmation
-    
+
     let new_balance = rpc_client.get_balance(&wallet_keypair.pubkey())?;
     let new_balance_sol = new_balance as f64 / 1_000_000_000.0;
-    
+
     info!("    💰 Nuevo balance: {:.9} SOL", new_balance_sol);
-    
+
     Ok(())
 }
 
@@ -270,11 +288,11 @@ fn load_wallet_from_env() -> Result<Keypair> {
                 .map(|s| s.trim().parse::<u8>())
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow::anyhow!("Invalid private key format: {}", e))?;
-            
+
             if bytes.len() != 64 {
                 return Err(anyhow::anyhow!("Private key must be 64 bytes long"));
             }
-            
+
             Ok(Keypair::from_bytes(&bytes)?)
         } else {
             // Base58 format
@@ -284,6 +302,8 @@ fn load_wallet_from_env() -> Result<Keypair> {
             Ok(Keypair::from_bytes(&bytes)?)
         }
     } else {
-        Err(anyhow::anyhow!("SOLANA_PRIVATE_KEY environment variable not found"))
+        Err(anyhow::anyhow!(
+            "SOLANA_PRIVATE_KEY environment variable not found"
+        ))
     }
 }

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use anyhow::Result;
+use serde_json::json;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -9,11 +9,11 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::str::FromStr;
-use tracing::{info, warn, error};
-use serde_json::json;
+use std::time::Duration;
+use tracing::{error, info, warn};
 
 use sniperforge::shared::{
-    dex_fallback_manager::{DexFallbackManager, UnifiedQuoteRequest, DexProvider},
+    dex_fallback_manager::{DexFallbackManager, DexProvider, UnifiedQuoteRequest},
     jupiter::JupiterClient,
     orca_client::OrcaClient,
 };
@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
 
     // Inicializar clientes DEX
     let jupiter_client = std::sync::Arc::new(
-        JupiterClient::new(&sniperforge::shared::jupiter::JupiterConfig::default()).await?
+        JupiterClient::new(&sniperforge::shared::jupiter::JupiterConfig::default()).await?,
     );
     let orca_client = std::sync::Arc::new(OrcaClient::new("devnet"));
 
@@ -76,7 +76,7 @@ async fn main() -> Result<()> {
     // Verificar balance final
     let final_balance = check_balance(&client, &user_pubkey).await?;
     info!("💰 Balance final: {} SOL", final_balance);
-    
+
     let profit = final_balance - initial_balance;
     if profit > 0.0 {
         info!("🎉 ¡ARBITRAJE EXITOSO! Ganancia: +{:.9} SOL", profit);
@@ -108,13 +108,16 @@ async fn execute_multi_dex_arbitrage(
     let test_amount = 10_000_000u64; // 0.01 SOL en lamports
 
     for (input_token, output_token) in token_pairs {
-        info!("\n🎯 === PROBANDO PAR: {} -> {} ===", 
-              get_token_symbol(input_token), get_token_symbol(output_token));
+        info!(
+            "\n🎯 === PROBANDO PAR: {} -> {} ===",
+            get_token_symbol(input_token),
+            get_token_symbol(output_token)
+        );
 
         // Obtener cotizaciones de ambos DEXs
-        let quotes = get_quotes_from_multiple_dexs(
-            dex_manager, input_token, output_token, test_amount
-        ).await?;
+        let quotes =
+            get_quotes_from_multiple_dexs(dex_manager, input_token, output_token, test_amount)
+                .await?;
 
         if quotes.is_empty() {
             warn!("❌ No se obtuvieron cotizaciones para este par");
@@ -129,7 +132,8 @@ async fn execute_multi_dex_arbitrage(
             info!("   Profit estimado: {:.2}%", opportunity.profit_percentage);
 
             // Ejecutar arbitraje si es rentable
-            if opportunity.profit_percentage > 5.0 { // Mínimo 5% para cubrir fees
+            if opportunity.profit_percentage > 5.0 {
+                // Mínimo 5% para cubrir fees
                 execute_arbitrage_trade(dex_manager, client, wallet, &opportunity).await?;
             } else {
                 info!("📊 Profit muy bajo, saltando...");
@@ -156,13 +160,18 @@ async fn get_quotes_from_multiple_dexs(
         slippage_bps: 100, // 1% slippage
     };
 
-    match dex_manager.get_quote_with_fallback(quote_request.clone()).await {
+    match dex_manager
+        .get_quote_with_fallback(quote_request.clone())
+        .await
+    {
         Ok(quote) => {
-            info!("✅ Cotización de {}: {} -> {} tokens", 
-                  quote.dex_provider.as_str(), 
-                  quote.in_amount, 
-                  quote.out_amount);
-            
+            info!(
+                "✅ Cotización de {}: {} -> {} tokens",
+                quote.dex_provider.as_str(),
+                quote.in_amount,
+                quote.out_amount
+            );
+
             quotes.push(QuoteWithDex {
                 dex: quote.dex_provider,
                 input_amount: quote.in_amount,
@@ -177,7 +186,7 @@ async fn get_quotes_from_multiple_dexs(
 
     // Intentar obtener cotización del otro DEX directamente para comparación
     // (esto es para tener ambas cotizaciones y poder comparar)
-    
+
     Ok(quotes)
 }
 
@@ -218,10 +227,19 @@ fn analyze_arbitrage_opportunity(quotes: &[QuoteWithDex]) -> Option<ArbitrageOpp
         ((rate2 - rate1) / rate1) * 100.0
     };
 
-    if profit_percentage > 1.0 { // Mínimo 1% diferencia
+    if profit_percentage > 1.0 {
+        // Mínimo 1% diferencia
         Some(ArbitrageOpportunity {
-            buy_dex: if rate1 > rate2 { quote2.dex.as_str().to_string() } else { quote1.dex.as_str().to_string() },
-            sell_dex: if rate1 > rate2 { quote1.dex.as_str().to_string() } else { quote2.dex.as_str().to_string() },
+            buy_dex: if rate1 > rate2 {
+                quote2.dex.as_str().to_string()
+            } else {
+                quote1.dex.as_str().to_string()
+            },
+            sell_dex: if rate1 > rate2 {
+                quote1.dex.as_str().to_string()
+            } else {
+                quote2.dex.as_str().to_string()
+            },
             profit_percentage,
             input_token: quote1.quote_data.input_mint.clone(),
             output_token: quote1.quote_data.output_mint.clone(),
@@ -239,8 +257,14 @@ async fn execute_arbitrage_trade(
     opportunity: &ArbitrageOpportunity,
 ) -> Result<()> {
     info!("🚀 === EJECUTANDO ARBITRAJE ===");
-    info!("   Par: {} -> {}", opportunity.input_token, opportunity.output_token);
-    info!("   Estrategia: Comprar en {} / Vender en {}", opportunity.buy_dex, opportunity.sell_dex);
+    info!(
+        "   Par: {} -> {}",
+        opportunity.input_token, opportunity.output_token
+    );
+    info!(
+        "   Estrategia: Comprar en {} / Vender en {}",
+        opportunity.buy_dex, opportunity.sell_dex
+    );
 
     // Por ahora, ejecutar un trade simple para demostrar funcionalidad
     // En una implementación completa, harías dos trades simultáneos
@@ -255,17 +279,17 @@ async fn execute_arbitrage_trade(
     match dex_manager.get_quote_with_fallback(quote_request).await {
         Ok(quote) => {
             info!("✅ Cotización obtenida de {}", quote.dex_provider.as_str());
-            
+
             // Para este demo, simplemente mostramos la información
             // En producción, ejecutarías el swap aquí
             info!("📊 Trade simulado exitoso:");
             info!("   Input: {} tokens", quote.in_amount);
             info!("   Output: {} tokens", quote.out_amount);
             info!("   DEX utilizado: {}", quote.dex_provider.as_str());
-            
+
             // Simular un pequeño delay de ejecución
             tokio::time::sleep(Duration::from_secs(1)).await;
-            
+
             info!("✅ Arbitraje completado (modo demostración)");
         }
         Err(e) => {
@@ -279,7 +303,7 @@ async fn execute_arbitrage_trade(
 async fn load_wallet() -> Result<Keypair> {
     // Cargar desde el wallet JSON que sabemos que funciona
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;
@@ -299,9 +323,9 @@ async fn check_balance(client: &RpcClient, pubkey: &Pubkey) -> Result<f64> {
 fn get_token_symbol(mint: &str) -> &str {
     match mint {
         SOL_MINT => "SOL",
-        BONK_MINT => "BONK", 
+        BONK_MINT => "BONK",
         RAY_MINT => "RAY",
         USDC_MINT => "USDC",
-        _ => "UNKNOWN"
+        _ => "UNKNOWN",
     }
 }

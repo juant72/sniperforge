@@ -3,27 +3,27 @@
 // Based on proven working Jupiter integration
 
 use anyhow::Result;
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
+    commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
+    pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    pubkey::Pubkey,
-    native_token::LAMPORTS_PER_SOL,
-    commitment_config::CommitmentConfig,
 };
-use solana_client::rpc_client::RpcClient;
-use std::env;
-use std::str::FromStr;
-use tracing::{info, error, warn};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::fs;
+use std::str::FromStr;
+use std::sync::Arc;
+use tracing::{error, info, warn};
 
 // 🚀 IMPORT EXPERT SPEED ENGINE (REAL MODULE)
 mod expert_speed_engine;
 use expert_speed_engine::{ExpertSpeedEngine, FastOpportunity};
-use tokio::time::{sleep, Duration, Instant};
 use reqwest;
+use tokio::time::{sleep, Duration, Instant};
 
 // 🔥 REAL JUPITER API INTEGRATION
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,7 +122,10 @@ impl RealExpertArbitrageEngine {
         // 🔑 REAL WALLET LOADING
         let wallet_path = "mainnet_wallet.json";
         if !std::path::Path::new(wallet_path).exists() {
-            return Err(anyhow::anyhow!("❌ MAINNET WALLET NOT FOUND: {}", wallet_path));
+            return Err(anyhow::anyhow!(
+                "❌ MAINNET WALLET NOT FOUND: {}",
+                wallet_path
+            ));
         }
 
         let json_str = fs::read_to_string(wallet_path)?;
@@ -152,7 +155,10 @@ impl RealExpertArbitrageEngine {
                 Some(engine)
             }
             Err(e) => {
-                warn!("⚠️ Expert engine failed to initialize: {}, continuing without it", e);
+                warn!(
+                    "⚠️ Expert engine failed to initialize: {}, continuing without it",
+                    e
+                );
                 None
             }
         };
@@ -192,26 +198,33 @@ impl RealExpertArbitrageEngine {
 
         // 💡 REAL TRADE SIZES
         let trade_sizes = vec![
-            (0.1 * LAMPORTS_PER_SOL as f64) as u64,  // 0.1 SOL
-            (0.5 * LAMPORTS_PER_SOL as f64) as u64,  // 0.5 SOL
-            (1.0 * LAMPORTS_PER_SOL as f64) as u64,  // 1.0 SOL
+            (0.1 * LAMPORTS_PER_SOL as f64) as u64, // 0.1 SOL
+            (0.5 * LAMPORTS_PER_SOL as f64) as u64, // 0.5 SOL
+            (1.0 * LAMPORTS_PER_SOL as f64) as u64, // 1.0 SOL
         ];
 
         for path in real_paths {
             for &trade_size in &trade_sizes {
-                if let Ok(opportunity) = self.check_real_arbitrage_path(path.clone(), trade_size).await {
+                if let Ok(opportunity) = self
+                    .check_real_arbitrage_path(path.clone(), trade_size)
+                    .await
+                {
                     if opportunity.net_profit_after_fees > 0 {
                         opportunities.push(opportunity);
                     }
                 }
-                
+
                 // Rate limiting for real API
                 sleep(Duration::from_millis(100)).await;
             }
         }
 
         let scan_time = start_time.elapsed().as_millis();
-        info!("📊 REAL SCAN COMPLETE: {} opportunities in {}ms", opportunities.len(), scan_time);
+        info!(
+            "📊 REAL SCAN COMPLETE: {} opportunities in {}ms",
+            opportunities.len(),
+            scan_time
+        );
 
         // Sort by profit
         opportunities.sort_by(|a, b| b.net_profit_after_fees.cmp(&a.net_profit_after_fees));
@@ -232,31 +245,41 @@ impl RealExpertArbitrageEngine {
         }
 
         // Step 1: Get real quote for first swap
-        let mint_a = self.mainnet_tokens.get(path[0])
+        let mint_a = self
+            .mainnet_tokens
+            .get(path[0])
             .ok_or_else(|| anyhow::anyhow!("Token {} not found", path[0]))?;
-        let mint_b = self.mainnet_tokens.get(path[1])
+        let mint_b = self
+            .mainnet_tokens
+            .get(path[1])
             .ok_or_else(|| anyhow::anyhow!("Token {} not found", path[1]))?;
 
-        let quote_1 = self.get_real_jupiter_quote(mint_a, mint_b, amount_in).await?;
+        let quote_1 = self
+            .get_real_jupiter_quote(mint_a, mint_b, amount_in)
+            .await?;
         let intermediate_amount = quote_1.out_amount.parse::<u64>()?;
 
         // Step 2: Get real quote for second swap
-        let mint_c = self.mainnet_tokens.get(path[2])
+        let mint_c = self
+            .mainnet_tokens
+            .get(path[2])
             .ok_or_else(|| anyhow::anyhow!("Token {} not found", path[2]))?;
 
-        let quote_2 = self.get_real_jupiter_quote(mint_b, mint_c, intermediate_amount).await?;
+        let quote_2 = self
+            .get_real_jupiter_quote(mint_b, mint_c, intermediate_amount)
+            .await?;
         let final_amount = quote_2.out_amount.parse::<u64>()?;
 
         // 🧮 REAL PROFIT CALCULATION
         let gross_profit = final_amount as i64 - amount_in as i64;
-        
+
         // Real transaction costs
         let tx_cost_lamports = 10_000i64; // ~0.00001 SOL per transaction
         let total_tx_costs = tx_cost_lamports * 2; // Two transactions
-        
+
         // Real priority fees for speed
         let priority_fees = 5_000i64; // 0.000005 SOL for priority
-        
+
         let total_costs = total_tx_costs + priority_fees;
         let net_profit = gross_profit - total_costs;
 
@@ -296,7 +319,8 @@ impl RealExpertArbitrageEngine {
             input_mint, output_mint, amount
         );
 
-        let response = self.jupiter_client
+        let response = self
+            .jupiter_client
             .get(&url)
             .timeout(Duration::from_secs(5))
             .send()
@@ -311,7 +335,11 @@ impl RealExpertArbitrageEngine {
     }
 
     // 🎯 CALCULATE REAL CONFIDENCE SCORE
-    fn calculate_real_confidence(&self, quote_1: &JupiterQuoteResponse, quote_2: &JupiterQuoteResponse) -> f64 {
+    fn calculate_real_confidence(
+        &self,
+        quote_1: &JupiterQuoteResponse,
+        quote_2: &JupiterQuoteResponse,
+    ) -> f64 {
         let mut confidence = 1.0;
 
         // Reduce confidence based on price impact
@@ -332,13 +360,19 @@ impl RealExpertArbitrageEngine {
     }
 
     // 🚀 EXECUTE REAL ARBITRAGE
-    pub async fn execute_real_arbitrage(&self, opportunity: &RealArbitrageOpportunity) -> Result<String> {
-        info!("🚀 EXECUTING REAL ARBITRAGE: {} with {:.6} SOL", 
-            opportunity.route_info, opportunity.amount_in as f64 / LAMPORTS_PER_SOL as f64);
+    pub async fn execute_real_arbitrage(
+        &self,
+        opportunity: &RealArbitrageOpportunity,
+    ) -> Result<String> {
+        info!(
+            "🚀 EXECUTING REAL ARBITRAGE: {} with {:.6} SOL",
+            opportunity.route_info,
+            opportunity.amount_in as f64 / LAMPORTS_PER_SOL as f64
+        );
 
         // For safety in demo, we'll simulate the execution
         // In production, this would call Jupiter's swap API with real transactions
-        
+
         let execution_start = Instant::now();
 
         // Simulate realistic execution time
@@ -346,13 +380,18 @@ impl RealExpertArbitrageEngine {
 
         let execution_time = execution_start.elapsed().as_millis();
 
-        info!("✅ REAL ARBITRAGE EXECUTED: Profit {:.6} SOL in {}ms", 
-            opportunity.net_profit_after_fees as f64 / LAMPORTS_PER_SOL as f64, 
-            execution_time);
+        info!(
+            "✅ REAL ARBITRAGE EXECUTED: Profit {:.6} SOL in {}ms",
+            opportunity.net_profit_after_fees as f64 / LAMPORTS_PER_SOL as f64,
+            execution_time
+        );
 
-        Ok(format!("SUCCESS_SIMULATION_{}", std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs()))
+        Ok(format!(
+            "SUCCESS_SIMULATION_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs()
+        ))
     }
 
     // 🔄 RUN REAL EXPERT ARBITRAGE SESSION
@@ -368,26 +407,30 @@ impl RealExpertArbitrageEngine {
 
         for cycle in 1..=10 {
             info!("🔄 REAL CYCLE #{}: Scanning opportunities...", cycle);
-            
+
             let cycle_start = Instant::now();
-            
+
             // Scan real opportunities
             let opportunities = self.scan_real_opportunities().await?;
             total_opportunities += opportunities.len();
 
             if !opportunities.is_empty() {
                 info!("📊 FOUND {} REAL OPPORTUNITIES:", opportunities.len());
-                
+
                 for (i, opp) in opportunities.iter().enumerate().take(3) {
-                    info!("  #{}: {} | Profit: {:.6} SOL | Confidence: {:.1}%",
-                        i + 1, opp.route_info, 
+                    info!(
+                        "  #{}: {} | Profit: {:.6} SOL | Confidence: {:.1}%",
+                        i + 1,
+                        opp.route_info,
                         opp.net_profit_after_fees as f64 / LAMPORTS_PER_SOL as f64,
-                        opp.confidence_score * 100.0);
+                        opp.confidence_score * 100.0
+                    );
                 }
 
                 // Execute best opportunity (if profitable enough)
                 let best = &opportunities[0];
-                if best.net_profit_after_fees > 1_000_000 { // > 0.001 SOL
+                if best.net_profit_after_fees > 1_000_000 {
+                    // > 0.001 SOL
                     match self.execute_real_arbitrage(best).await {
                         Ok(_) => {
                             session_profit += best.net_profit_after_fees;
@@ -412,11 +455,18 @@ impl RealExpertArbitrageEngine {
         info!("🎯 REAL SESSION COMPLETE:");
         info!("   Total Opportunities: {}", total_opportunities);
         info!("   Executed Trades: {}", executed_trades);
-        info!("   Session Profit: {:.9} SOL", session_profit as f64 / LAMPORTS_PER_SOL as f64);
-        info!("   Success Rate: {:.1}%", 
-            if total_opportunities > 0 { 
-                (executed_trades as f64 / total_opportunities as f64) * 100.0 
-            } else { 0.0 });
+        info!(
+            "   Session Profit: {:.9} SOL",
+            session_profit as f64 / LAMPORTS_PER_SOL as f64
+        );
+        info!(
+            "   Success Rate: {:.1}%",
+            if total_opportunities > 0 {
+                (executed_trades as f64 / total_opportunities as f64) * 100.0
+            } else {
+                0.0
+            }
+        );
 
         Ok(())
     }

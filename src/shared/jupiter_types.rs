@@ -1,10 +1,10 @@
 //! Jupiter API Types and Data Structures
-//! 
+//!
 //! All Jupiter API request/response types, configurations, and data structures.
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// Jupiter price response structure for V3 API - CORREGIDO para respuesta real
 #[derive(Debug, Deserialize)]
@@ -79,7 +79,7 @@ pub struct QuoteResponse {
     pub contextSlot: u64,
     #[serde(rename = "timeTaken")]
     pub timeTaken: f64,
-    
+
     // Computed fields (not from API)
     #[serde(rename = "simplerRouteUsed")]
     pub simplerRouteUsed: bool,
@@ -279,7 +279,7 @@ impl TransactionConfirmation {
             error: None,
         }
     }
-    
+
     pub fn failed(signature: String, error: String) -> Self {
         Self {
             signature,

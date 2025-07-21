@@ -1,8 +1,8 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
+use crate::qa::{qa_assert, qa_assert_eq, qa_test, QATestResult, QATestSuite};
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::info;
@@ -32,7 +32,10 @@ impl ArbitrageBotIntegrationTests {
         suite.add_result(result);
 
         // Test 2: WebSocket Price Feed Integration
-        let result = qa_test!("WebSocket Price Feed Integration", self.test_websocket_price_feed());
+        let result = qa_test!(
+            "WebSocket Price Feed Integration",
+            self.test_websocket_price_feed()
+        );
         suite.add_result(result);
 
         // Test 3: Market Data Fetching
@@ -64,7 +67,10 @@ impl ArbitrageBotIntegrationTests {
         suite.add_result(result);
 
         // Test 10: Configuration Validation
-        let result = qa_test!("Configuration Validation", self.test_configuration_validation());
+        let result = qa_test!(
+            "Configuration Validation",
+            self.test_configuration_validation()
+        );
         suite.add_result(result);
 
         suite
@@ -73,8 +79,11 @@ impl ArbitrageBotIntegrationTests {
     async fn test_bot_creation(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
         details.push(format!("Wallet address: {}", wallet_address));
 
         let bot = ArbitrageBot::new(
@@ -82,12 +91,17 @@ impl ArbitrageBotIntegrationTests {
             100.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let status = bot.get_status();
         qa_assert!(status.is_running, "Bot should be running after creation");
         qa_assert_eq!(status.total_trades, 0, "Bot should start with 0 trades");
-        qa_assert_eq!(status.emergency_stop, false, "Emergency stop should be false initially");
+        qa_assert_eq!(
+            status.emergency_stop,
+            false,
+            "Emergency stop should be false initially"
+        );
 
         details.push("Bot created successfully".to_string());
         details.push(format!("Initial capital: $100.00"));
@@ -99,22 +113,26 @@ impl ArbitrageBotIntegrationTests {
     async fn test_websocket_price_feed(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         // Test price fetching
         match bot.get_jupiter_price("SOL", "USDC").await {
             Ok(price) => {
                 qa_assert!(price > 0.0, "Price should be positive");
                 details.push(format!("SOL price fetched: ${:.6}", price));
-            },
+            }
             Err(e) => {
                 // This is expected in DevNet
                 details.push(format!("Price fetch failed (expected in DevNet): {}", e));
@@ -129,9 +147,12 @@ impl ArbitrageBotIntegrationTests {
                 qa_assert!(market_data.spread >= 0.0, "Spread should be non-negative");
 
                 details.push(format!("Market data - Price: ${:.6}", market_data.price));
-                details.push(format!("Bid: ${:.6}, Ask: ${:.6}", market_data.bid, market_data.ask));
+                details.push(format!(
+                    "Bid: ${:.6}, Ask: ${:.6}",
+                    market_data.bid, market_data.ask
+                ));
                 details.push(format!("Spread: ${:.6}", market_data.spread));
-            },
+            }
             Err(e) => {
                 details.push(format!("Market data fetch failed: {}", e));
             }
@@ -143,15 +164,19 @@ impl ArbitrageBotIntegrationTests {
     async fn test_market_data_fetching(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let market_data = bot.get_real_market_data().await?;
 
@@ -172,28 +197,41 @@ impl ArbitrageBotIntegrationTests {
     async fn test_opportunity_detection(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let signals = bot.detect_opportunities_using_strategy().await?;
 
         details.push(format!("Detected {} opportunities", signals.len()));
 
         for (i, signal) in signals.iter().enumerate() {
-            qa_assert!(signal.confidence >= 0.0 && signal.confidence <= 1.0,
-                      "Confidence should be between 0 and 1");
-            qa_assert!(signal.position_size > 0.0, "Position size should be positive");
+            qa_assert!(
+                signal.confidence >= 0.0 && signal.confidence <= 1.0,
+                "Confidence should be between 0 and 1"
+            );
+            qa_assert!(
+                signal.position_size > 0.0,
+                "Position size should be positive"
+            );
             qa_assert!(!signal.symbol.is_empty(), "Symbol should not be empty");
 
-            details.push(format!("Signal {}: {} (confidence: {:.1}%)",
-                               i + 1, signal.strategy_name, signal.confidence * 100.0));
+            details.push(format!(
+                "Signal {}: {} (confidence: {:.1}%)",
+                i + 1,
+                signal.strategy_name,
+                signal.confidence * 100.0
+            ));
         }
 
         Ok(details)
@@ -202,8 +240,11 @@ impl ArbitrageBotIntegrationTests {
     async fn test_risk_management(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         // Test with small capital to trigger risk limits
         let bot = ArbitrageBot::new(
@@ -211,13 +252,17 @@ impl ArbitrageBotIntegrationTests {
             10.0, // Small capital
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let status = bot.get_status();
 
         // Risk management should be active
         qa_assert!(status.is_running, "Bot should be running");
-        qa_assert!(!status.emergency_stop, "Emergency stop should not be triggered initially");
+        qa_assert!(
+            !status.emergency_stop,
+            "Emergency stop should not be triggered initially"
+        );
 
         details.push("Risk management initialized".to_string());
         details.push(format!("Initial capital: $10.00"));
@@ -229,33 +274,49 @@ impl ArbitrageBotIntegrationTests {
     async fn test_emergency_stop(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         // Bot should be running initially
         let initial_status = bot.get_status();
         qa_assert!(initial_status.is_running, "Bot should be running initially");
-        qa_assert!(!initial_status.emergency_stop, "Emergency stop should be false initially");
+        qa_assert!(
+            !initial_status.emergency_stop,
+            "Emergency stop should be false initially"
+        );
 
         // Activate emergency stop
         bot.emergency_stop();
 
         // Check status after emergency stop
         let final_status = bot.get_status();
-        qa_assert!(!final_status.is_running, "Bot should not be running after emergency stop");
+        qa_assert!(
+            !final_status.is_running,
+            "Bot should not be running after emergency stop"
+        );
         qa_assert!(final_status.emergency_stop, "Emergency stop should be true");
 
         details.push("Emergency stop test completed".to_string());
-        details.push(format!("Initial running state: {}", initial_status.is_running));
+        details.push(format!(
+            "Initial running state: {}",
+            initial_status.is_running
+        ));
         details.push(format!("Final running state: {}", final_status.is_running));
-        details.push(format!("Emergency stop activated: {}", final_status.emergency_stop));
+        details.push(format!(
+            "Emergency stop activated: {}",
+            final_status.emergency_stop
+        ));
 
         Ok(details)
     }
@@ -263,15 +324,19 @@ impl ArbitrageBotIntegrationTests {
     async fn test_trading_loop(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         // Test trading loop with simple timeout approach
         let start_time = std::time::Instant::now();
@@ -294,27 +359,36 @@ impl ArbitrageBotIntegrationTests {
                 for i in 0..3 {
                     match bot.detect_opportunities_using_strategy().await {
                         Ok(signals) => {
-                            details.push(format!("Cycle {}: Found {} signals", i+1, signals.len()));
-                        },
+                            details.push(format!(
+                                "Cycle {}: Found {} signals",
+                                i + 1,
+                                signals.len()
+                            ));
+                        }
                         Err(e) => {
-                            details.push(format!("Cycle {}: Error detecting opportunities: {}", i+1, e));
+                            details.push(format!(
+                                "Cycle {}: Error detecting opportunities: {}",
+                                i + 1,
+                                e
+                            ));
                         }
                     }
                     tokio::time::sleep(Duration::from_millis(500)).await;
                 }
                 Ok::<(), anyhow::Error>(())
-            }
-        ).await;
+            },
+        )
+        .await;
 
         let duration = start_time.elapsed();
 
         match result {
             Ok(Ok(_)) => {
                 details.push("Trading loop test completed successfully".to_string());
-            },
+            }
             Ok(Err(e)) => {
                 details.push(format!("Trading loop test failed: {}", e));
-            },
+            }
             Err(_) => {
                 details.push("Trading loop test timed out (this is expected)".to_string());
             }
@@ -323,7 +397,10 @@ impl ArbitrageBotIntegrationTests {
         let final_status = bot.get_status();
 
         details.push(format!("Loop duration: {}ms", duration.as_millis()));
-        details.push(format!("Opportunities detected: {}", final_status.opportunities_detected));
+        details.push(format!(
+            "Opportunities detected: {}",
+            final_status.opportunities_detected
+        ));
         details.push(format!("Trades executed: {}", final_status.total_trades));
 
         Ok(details)
@@ -332,28 +409,44 @@ impl ArbitrageBotIntegrationTests {
     async fn test_status_reporting(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let status = bot.get_status();
 
         // Validate status fields
         qa_assert!(status.uptime_seconds >= 0, "Uptime should be non-negative");
-        qa_assert!(status.total_trades >= 0, "Total trades should be non-negative");
-        qa_assert!(status.successful_trades <= status.total_trades,
-                  "Successful trades should not exceed total trades");
-        qa_assert!(status.success_rate_percent >= 0.0 && status.success_rate_percent <= 100.0,
-                  "Success rate should be between 0 and 100");
-        qa_assert!(status.opportunities_detected >= 0, "Opportunities detected should be non-negative");
-        qa_assert!(status.opportunities_executed <= status.opportunities_detected,
-                  "Opportunities executed should not exceed detected");
+        qa_assert!(
+            status.total_trades >= 0,
+            "Total trades should be non-negative"
+        );
+        qa_assert!(
+            status.successful_trades <= status.total_trades,
+            "Successful trades should not exceed total trades"
+        );
+        qa_assert!(
+            status.success_rate_percent >= 0.0 && status.success_rate_percent <= 100.0,
+            "Success rate should be between 0 and 100"
+        );
+        qa_assert!(
+            status.opportunities_detected >= 0,
+            "Opportunities detected should be non-negative"
+        );
+        qa_assert!(
+            status.opportunities_executed <= status.opportunities_detected,
+            "Opportunities executed should not exceed detected"
+        );
 
         details.push(format!("Running: {}", status.is_running));
         details.push(format!("Uptime: {} seconds", status.uptime_seconds));
@@ -373,27 +466,42 @@ impl ArbitrageBotIntegrationTests {
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await {
+        )
+        .await
+        {
             Ok(_) => {
                 // If it doesn't fail, that's also valid (wallet manager might handle it)
-                details.push("Bot creation with invalid wallet succeeded (handled gracefully)".to_string());
-            },
+                details.push(
+                    "Bot creation with invalid wallet succeeded (handled gracefully)".to_string(),
+                );
+            }
             Err(e) => {
-                details.push(format!("Bot creation with invalid wallet failed as expected: {}", e));
+                details.push(format!(
+                    "Bot creation with invalid wallet failed as expected: {}",
+                    e
+                ));
             }
         }
 
         // Test with zero capital
         match ArbitrageBot::new(
-            self.shared_services.wallet_manager().get_wallet_address("devnet-trading").await?,
+            self.shared_services
+                .wallet_manager()
+                .get_wallet_address("devnet-trading")
+                .await?,
             0.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await {
+        )
+        .await
+        {
             Ok(bot) => {
                 let status = bot.get_status();
-                details.push(format!("Bot created with zero capital, status: running={}", status.is_running));
-            },
+                details.push(format!(
+                    "Bot created with zero capital, status: running={}",
+                    status.is_running
+                ));
+            }
             Err(e) => {
                 details.push(format!("Bot creation with zero capital failed: {}", e));
             }
@@ -410,14 +518,28 @@ impl ArbitrageBotIntegrationTests {
         // Test if configuration is properly loaded
         let empty_string = String::new();
         let rpc_url = if self.config.network.environment == "devnet" {
-            self.config.network.devnet_primary_rpc.as_ref().unwrap_or(&empty_string)
+            self.config
+                .network
+                .devnet_primary_rpc
+                .as_ref()
+                .unwrap_or(&empty_string)
         } else {
-            self.config.network.mainnet_primary_rpc.as_ref().unwrap_or(&empty_string)
+            self.config
+                .network
+                .mainnet_primary_rpc
+                .as_ref()
+                .unwrap_or(&empty_string)
         };
         qa_assert!(!rpc_url.is_empty(), "RPC URL should not be empty");
-        qa_assert!(!self.config.network.environment.is_empty(), "Environment should not be empty");
+        qa_assert!(
+            !self.config.network.environment.is_empty(),
+            "Environment should not be empty"
+        );
 
-        details.push(format!("Network environment: {}", self.config.network.environment));
+        details.push(format!(
+            "Network environment: {}",
+            self.config.network.environment
+        ));
         details.push(format!("RPC URL: {}", rpc_url));
 
         // Test shared services initialization

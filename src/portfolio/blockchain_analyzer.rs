@@ -1,10 +1,10 @@
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Signature};
-use std::str::FromStr;
 use std::collections::HashMap;
-use tokio::time::{Duration, timeout};
+use std::str::FromStr;
+use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionHistory {
@@ -92,18 +92,22 @@ impl BlockchainAnalyzer {
         })
     }
 
-    pub async fn get_transaction_history(&self, wallet_address: &str, _limit: usize) -> Result<TransactionHistory> {
+    pub async fn get_transaction_history(
+        &self,
+        wallet_address: &str,
+        _limit: usize,
+    ) -> Result<TransactionHistory> {
         println!("📊 Analyzing transaction history for: {}", wallet_address);
 
-        let pubkey = Pubkey::from_str(wallet_address)
-            .context("Invalid wallet address format")?;
+        let pubkey = Pubkey::from_str(wallet_address).context("Invalid wallet address format")?;
 
         // Get recent transaction signatures with timeout
         let signatures = timeout(Duration::from_secs(20), async {
             self.rpc_client.get_signatures_for_address(&pubkey)
-        }).await
-            .context("Timeout getting transaction signatures")?
-            .context("Failed to get transaction signatures")?;
+        })
+        .await
+        .context("Timeout getting transaction signatures")?
+        .context("Failed to get transaction signatures")?;
 
         let mut transactions = Vec::new();
         let mut processed = 0;
@@ -114,13 +118,19 @@ impl BlockchainAnalyzer {
                 break;
             }
 
-            match self.analyze_transaction(&sig_info.signature, wallet_address).await {
+            match self
+                .analyze_transaction(&sig_info.signature, wallet_address)
+                .await
+            {
                 Ok(tx_record) => {
                     transactions.push(tx_record);
                     processed += 1;
-                },
+                }
                 Err(e) => {
-                    eprintln!("⚠️ Failed to analyze transaction {}: {}", sig_info.signature, e);
+                    eprintln!(
+                        "⚠️ Failed to analyze transaction {}: {}",
+                        sig_info.signature, e
+                    );
                 }
             }
 
@@ -136,9 +146,12 @@ impl BlockchainAnalyzer {
         })
     }
 
-    async fn analyze_transaction(&self, signature: &str, wallet_address: &str) -> Result<TransactionRecord> {
-        let sig = Signature::from_str(signature)
-            .context("Invalid transaction signature")?;
+    async fn analyze_transaction(
+        &self,
+        signature: &str,
+        wallet_address: &str,
+    ) -> Result<TransactionRecord> {
+        let sig = Signature::from_str(signature).context("Invalid transaction signature")?;
 
         let transaction = timeout(Duration::from_secs(10), async {
             self.rpc_client.get_transaction_with_config(
@@ -149,17 +162,20 @@ impl BlockchainAnalyzer {
                     max_supported_transaction_version: Some(0),
                 },
             )
-        }).await
-            .context("Timeout getting transaction details")?
-            .context("Failed to get transaction details")?;
+        })
+        .await
+        .context("Timeout getting transaction details")?
+        .context("Failed to get transaction details")?;
 
         let block_time = transaction.block_time;
         let slot = transaction.slot;
 
         // Extract transaction metadata
-        let meta = transaction.transaction.meta.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("Transaction metadata not available")
-        })?;
+        let meta = transaction
+            .transaction
+            .meta
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Transaction metadata not available"))?;
         let fee = meta.fee as f64 / 1_000_000_000.0; // Convert lamports to SOL
 
         // Determine transaction status
@@ -174,7 +190,9 @@ impl BlockchainAnalyzer {
         let sol_change = 0.0;
 
         // Analyze token changes (simplified)
-        let token_changes = self.analyze_token_changes(&meta, wallet_address).await
+        let token_changes = self
+            .analyze_token_changes(&meta, wallet_address)
+            .await
             .unwrap_or_default();
 
         // Determine transaction type based on program interactions (simplified)
@@ -196,17 +214,28 @@ impl BlockchainAnalyzer {
         })
     }
 
-    async fn analyze_token_changes(&self, _meta: &solana_transaction_status::UiTransactionStatusMeta, _wallet_address: &str) -> Result<Vec<TokenChange>> {
+    async fn analyze_token_changes(
+        &self,
+        _meta: &solana_transaction_status::UiTransactionStatusMeta,
+        _wallet_address: &str,
+    ) -> Result<Vec<TokenChange>> {
         // This is a simplified implementation
         // In a full implementation, we would parse the transaction logs and account changes
         // to determine exact token balance changes
         Ok(Vec::new())
     }
 
-    fn classify_transaction(&self, programs: &[String], token_changes: &[TokenChange]) -> TransactionType {
+    fn classify_transaction(
+        &self,
+        programs: &[String],
+        token_changes: &[TokenChange],
+    ) -> TransactionType {
         // Simplified classification based on program interactions
         for program in programs {
-            if program.contains("Jupiter") || program.contains("Raydium") || program.contains("Orca") {
+            if program.contains("Jupiter")
+                || program.contains("Raydium")
+                || program.contains("Orca")
+            {
                 return TransactionType::TokenSwap;
             }
             if program.contains("Stake") {
@@ -224,8 +253,15 @@ impl BlockchainAnalyzer {
         }
     }
 
-    pub async fn calculate_portfolio_performance(&self, wallet_address: &str, time_period_days: u32) -> Result<PortfolioPerformance> {
-        println!("📈 Calculating portfolio performance for: {}", wallet_address);
+    pub async fn calculate_portfolio_performance(
+        &self,
+        wallet_address: &str,
+        time_period_days: u32,
+    ) -> Result<PortfolioPerformance> {
+        println!(
+            "📈 Calculating portfolio performance for: {}",
+            wallet_address
+        );
 
         // This is a simplified implementation
         // In a full implementation, we would:
@@ -235,11 +271,11 @@ impl BlockchainAnalyzer {
 
         let history = self.get_transaction_history(wallet_address, 100).await?;
 
-        let total_fees = history.transactions.iter()
-            .map(|tx| tx.fee)
-            .sum::<f64>();
+        let total_fees = history.transactions.iter().map(|tx| tx.fee).sum::<f64>();
 
-        let successful_txs = history.transactions.iter()
+        let successful_txs = history
+            .transactions
+            .iter()
             .filter(|tx| matches!(tx.status, TransactionStatus::Success))
             .count();
 

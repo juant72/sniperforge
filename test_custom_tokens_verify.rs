@@ -1,20 +1,20 @@
 use anyhow::Result;
-use solana_sdk::signature::{Keypair, Signer};
+use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
-use solana_sdk::transaction::Transaction;
-use solana_sdk::system_instruction;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use spl_token::instruction as token_instruction;
-use spl_associated_token_account::instruction as ata_instruction;
 use solana_sdk::pubkey::Pubkey;
-use std::env;
-use std::str::FromStr;
-use tracing::{info, error};
-use serde::{Deserialize, Serialize};
+use solana_sdk::signature::{Keypair, Signer};
+use solana_sdk::system_instruction;
+use solana_sdk::transaction::Transaction;
+use spl_associated_token_account::instruction as ata_instruction;
+use spl_token::instruction as token_instruction;
 use std::collections::HashMap;
+use std::env;
 use std::fs;
+use std::str::FromStr;
+use tracing::{error, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConfigFile {
@@ -56,20 +56,21 @@ async fn main() -> Result<()> {
     let config_path = "config/devnet-automated.json";
     let config_content = fs::read_to_string(config_path)?;
     let config: ConfigFile = serde_json::from_str(&config_content)?;
-    
+
     info!("📋 Configuración cargada: {}", config.network);
     info!("🔗 RPC: {}", config.cluster_url);
     info!("🪙 Tokens disponibles: {}", config.tokens.len());
 
     // Create RPC client
-    let rpc_client = RpcClient::new_with_commitment(config.cluster_url.clone(), CommitmentConfig::confirmed());
-    
+    let rpc_client =
+        RpcClient::new_with_commitment(config.cluster_url.clone(), CommitmentConfig::confirmed());
+
     // Check wallet balance
     info!("💰 Verificando balance del wallet...");
     let balance = rpc_client.get_balance(&wallet_pubkey)?;
     let balance_sol = balance as f64 / LAMPORTS_PER_SOL as f64;
     info!("   Balance: {:.9} SOL", balance_sol);
-    
+
     if balance_sol < 0.01 {
         error!("❌ Balance insuficiente. Necesitas al menos 0.01 SOL");
         return Ok(());
@@ -77,13 +78,13 @@ async fn main() -> Result<()> {
 
     // Test our custom tokens
     info!("\n🎯 === VERIFICANDO TOKENS CUSTOM ===");
-    
+
     // Test each custom token
     for (symbol, token_info) in &config.tokens {
         if symbol == "SOL" {
             continue; // Skip SOL
         }
-        
+
         info!("\n📊 Probando token: {} ({})", symbol, token_info.name);
         test_token_account(&rpc_client, &wallet_keypair, token_info).await?;
     }
@@ -103,37 +104,47 @@ async fn test_token_account(
     token_info: &TokenInfo,
 ) -> Result<()> {
     info!("🔄 Verificando token: {}", token_info.symbol);
-    
+
     // Parse mint address
     let mint_pubkey = Pubkey::from_str(&token_info.mint)?;
     let token_program = spl_token::ID;
-    
+
     // Get associated token account
     let ata_pubkey = spl_associated_token_account::get_associated_token_address(
         &wallet_keypair.pubkey(),
         &mint_pubkey,
     );
-    
+
     info!("   Mint: {}", mint_pubkey);
     info!("   ATA: {}", ata_pubkey);
-    
+
     // Check if ATA exists
     match rpc_client.get_account(&ata_pubkey) {
         Ok(account) => {
             info!("   ✅ ATA exists, checking balance...");
-            
+
             // Get token balance
             match rpc_client.get_token_account_balance(&ata_pubkey) {
                 Ok(balance) => {
                     let amount = balance.amount.parse::<u64>().unwrap_or(0);
                     let ui_amount = amount as f64 / 10_u64.pow(token_info.decimals as u32) as f64;
-                    info!("   💰 Balance: {} {} (raw: {})", ui_amount, token_info.symbol, amount);
-                    
+                    info!(
+                        "   💰 Balance: {} {} (raw: {})",
+                        ui_amount, token_info.symbol, amount
+                    );
+
                     if amount > 0 {
                         info!("   🎯 TOKEN DISPONIBLE PARA USAR");
-                        
+
                         // Try a small transfer to test the token works
-                        test_token_transfer(rpc_client, wallet_keypair, &ata_pubkey, &mint_pubkey, 1).await?;
+                        test_token_transfer(
+                            rpc_client,
+                            wallet_keypair,
+                            &ata_pubkey,
+                            &mint_pubkey,
+                            1,
+                        )
+                        .await?;
                     } else {
                         info!("   ⚠️ Balance cero, token existe pero no tiene fondos");
                     }
@@ -147,7 +158,7 @@ async fn test_token_account(
             info!("   ❌ ATA no existe, token no disponible");
         }
     }
-    
+
     Ok(())
 }
 
@@ -159,13 +170,11 @@ async fn test_token_transfer(
     amount: u64,
 ) -> Result<()> {
     info!("   🔄 Probando transferencia de {} unidades...", amount);
-    
+
     // Create a temporary destination account (self-transfer)
-    let dest_ata = spl_associated_token_account::get_associated_token_address(
-        &wallet_keypair.pubkey(),
-        mint,
-    );
-    
+    let dest_ata =
+        spl_associated_token_account::get_associated_token_address(&wallet_keypair.pubkey(), mint);
+
     // Create transfer instruction
     let transfer_instruction = token_instruction::transfer(
         &spl_token::ID,
@@ -175,29 +184,30 @@ async fn test_token_transfer(
         &[],
         amount,
     )?;
-    
+
     // Get recent blockhash
     let recent_blockhash = rpc_client.get_latest_blockhash()?;
-    
+
     // Create and sign transaction
-    let mut transaction = Transaction::new_with_payer(
-        &[transfer_instruction],
-        Some(&wallet_keypair.pubkey()),
-    );
-    
+    let mut transaction =
+        Transaction::new_with_payer(&[transfer_instruction], Some(&wallet_keypair.pubkey()));
+
     transaction.sign(&[wallet_keypair], recent_blockhash);
-    
+
     // Send transaction
     match rpc_client.send_and_confirm_transaction(&transaction) {
         Ok(signature) => {
             info!("   ✅ Transferencia exitosa: {}", signature);
-            info!("   🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            info!(
+                "   🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
         }
         Err(e) => {
             info!("   ❌ Error en transferencia: {}", e);
         }
     }
-    
+
     Ok(())
 }
 
@@ -213,11 +223,11 @@ fn load_wallet_from_env() -> Result<Keypair> {
                 .map(|s| s.trim().parse::<u8>())
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow::anyhow!("Invalid private key format: {}", e))?;
-            
+
             if bytes.len() != 64 {
                 return Err(anyhow::anyhow!("Private key must be 64 bytes long"));
             }
-            
+
             Ok(Keypair::from_bytes(&bytes)?)
         } else {
             // Base58 format
@@ -227,6 +237,8 @@ fn load_wallet_from_env() -> Result<Keypair> {
             Ok(Keypair::from_bytes(&bytes)?)
         }
     } else {
-        Err(anyhow::anyhow!("SOLANA_PRIVATE_KEY environment variable not found"))
+        Err(anyhow::anyhow!(
+            "SOLANA_PRIVATE_KEY environment variable not found"
+        ))
     }
 }

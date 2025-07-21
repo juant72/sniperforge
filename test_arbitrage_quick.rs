@@ -35,12 +35,17 @@ async fn main() -> Result<()> {
     println!("   Success rate: {:.1}%", status.success_rate_percent);
     println!("   Total profit: ${:.2}", status.total_profit_usd);
     println!("   Daily profit: ${:.2}", status.daily_profit_usd);
-    println!("   Opportunities detected: {}", status.opportunities_detected);
+    println!(
+        "   Opportunities detected: {}",
+        status.opportunities_detected
+    );
     println!("   Average latency: {:.1}ms", status.average_latency_ms);
 
     // Test 2: Verify ArbitrageBot module imports
     println!("\nTest 2: Verifying ArbitrageBot imports...");
-    use sniperforge::bots::arbitrage_bot::{ArbitrageBot, ArbitrageTradeResult, StrategySignal, MarketData};
+    use sniperforge::bots::arbitrage_bot::{
+        ArbitrageBot, ArbitrageTradeResult, MarketData, StrategySignal,
+    };
     println!("✅ All ArbitrageBot types imported successfully");
 
     // Test 3: Create minimal structures to verify compilation
@@ -86,9 +91,19 @@ async fn main() -> Result<()> {
         volume_history: vec![1000000.0, 1200000.0, 1100000.0],
     };
 
-    println!("✅ Trade result: Success = {}, Profit = ${:.2}", trade_result.success, trade_result.actual_profit_usd);
-    println!("✅ Strategy signal: {} with {:.1}% confidence", signal.signal_type, signal.confidence * 100.0);
-    println!("✅ Market data: {} at ${:.2}", market_data.symbol, market_data.current_price);
+    println!(
+        "✅ Trade result: Success = {}, Profit = ${:.2}",
+        trade_result.success, trade_result.actual_profit_usd
+    );
+    println!(
+        "✅ Strategy signal: {} with {:.1}% confidence",
+        signal.signal_type,
+        signal.confidence * 100.0
+    );
+    println!(
+        "✅ Market data: {} at ${:.2}",
+        market_data.symbol, market_data.current_price
+    );
 
     println!("\n🎉 All tests passed successfully!");
     println!("✅ ArbitrageBot compilation and structures are working correctly");

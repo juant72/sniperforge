@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -45,8 +45,8 @@ async fn main() -> Result<()> {
 
     // Configuración optimizada
     let config = ArbitrageConfig {
-        cycles: 5,                    // 5 ciclos automáticos
-        amount_per_cycle: 0.02,       // 0.02 SOL por ciclo (2x más que antes)
+        cycles: 5,              // 5 ciclos automáticos
+        amount_per_cycle: 0.02, // 0.02 SOL por ciclo (2x más que antes)
         timing_optimization: true,
         advanced_strategies: true,
     };
@@ -61,16 +61,22 @@ async fn main() -> Result<()> {
             info!("💰 Balance final: {} SOL", final_balance);
             info!("📈 Profit calculado: {:.9} SOL", total_profit);
             info!("📈 Profit real: {:.9} SOL", actual_profit);
-            info!("📊 Profit por SOL: {:.4}%", (actual_profit / initial_balance) * 100.0);
+            info!(
+                "📊 Profit por SOL: {:.4}%",
+                (actual_profit / initial_balance) * 100.0
+            );
 
             if actual_profit > 0.0 {
                 let hourly_rate = actual_profit * 12.0; // Si repetimos cada 5 min
                 info!("🎉 ¡ARBITRAJE OPTIMIZADO EXITOSO!");
                 info!("   ✅ Ganancia total: +{:.9} SOL", actual_profit);
                 info!("   💰 Valor USD aprox: +${:.2}", actual_profit * 200.0);
-                info!("   📈 ROI: +{:.4}%", (actual_profit / initial_balance) * 100.0);
+                info!(
+                    "   📈 ROI: +{:.4}%",
+                    (actual_profit / initial_balance) * 100.0
+                );
                 info!("   ⚡ Tasa horaria estimada: {:.6} SOL/hora", hourly_rate);
-                
+
                 update_optimization_success(actual_profit, &config).await?;
             } else {
                 warn!("⚠️ Resultado negativo: {:.9} SOL", actual_profit);
@@ -97,7 +103,7 @@ async fn execute_optimized_multi_arbitrage(
 ) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
     let mut total_profit = 0.0;
-    
+
     info!("🔧 === CONFIGURACIÓN OPTIMIZADA ===");
     info!("   🔄 Ciclos: {}", config.cycles);
     info!("   💰 Cantidad por ciclo: {} SOL", config.amount_per_cycle);
@@ -109,34 +115,27 @@ async fn execute_optimized_multi_arbitrage(
 
     for cycle in 1..=config.cycles {
         info!("\n💫 === CICLO {}/{} ===", cycle, config.cycles);
-        
+
         let cycle_start_balance = client.get_balance(&user_pubkey)?;
-        
+
         // Ejecutar ciclo optimizado
         let cycle_profit = if config.advanced_strategies {
-            execute_advanced_arbitrage_cycle(
-                client, 
-                wallet, 
-                amount_per_cycle, 
-                rent_exempt,
-                cycle
-            ).await?
+            execute_advanced_arbitrage_cycle(client, wallet, amount_per_cycle, rent_exempt, cycle)
+                .await?
         } else {
-            execute_basic_arbitrage_cycle(
-                client, 
-                wallet, 
-                amount_per_cycle, 
-                rent_exempt
-            ).await?
+            execute_basic_arbitrage_cycle(client, wallet, amount_per_cycle, rent_exempt).await?
         };
 
         total_profit += cycle_profit;
-        
+
         let cycle_end_balance = client.get_balance(&user_pubkey)?;
-        let real_cycle_profit = (cycle_end_balance as i64 - cycle_start_balance as i64) as f64 / LAMPORTS_PER_SOL as f64;
-        
-        info!("   📊 Ciclo {} profit: {:.9} SOL (calculado: {:.9})", 
-               cycle, real_cycle_profit, cycle_profit);
+        let real_cycle_profit = (cycle_end_balance as i64 - cycle_start_balance as i64) as f64
+            / LAMPORTS_PER_SOL as f64;
+
+        info!(
+            "   📊 Ciclo {} profit: {:.9} SOL (calculado: {:.9})",
+            cycle, real_cycle_profit, cycle_profit
+        );
 
         // Optimización de timing entre ciclos
         if config.timing_optimization && cycle < config.cycles {
@@ -147,7 +146,10 @@ async fn execute_optimized_multi_arbitrage(
         // Verificar que tenemos suficiente balance para continuar
         let current_balance = check_sol_balance(client, &user_pubkey).await?;
         if current_balance < config.amount_per_cycle + 0.01 {
-            warn!("   ⚠️ Balance insuficiente para ciclo {}, terminando early", cycle + 1);
+            warn!(
+                "   ⚠️ Balance insuficiente para ciclo {}, terminando early",
+                cycle + 1
+            );
             break;
         }
     }
@@ -165,44 +167,46 @@ async fn execute_advanced_arbitrage_cycle(
 ) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    
+
     info!("   🚀 ADVANCED STRATEGY - Ciclo {}", cycle_number);
 
     // Estrategia avanzada: cantidad variable por ciclo
     let adjusted_amount = match cycle_number {
-        1 => amount,                    // Normal
-        2 => amount + 2_000_000,       // +0.002 SOL
-        3 => amount + 5_000_000,       // +0.005 SOL  
-        4 => amount + 3_000_000,       // +0.003 SOL
-        _ => amount + 1_000_000,       // +0.001 SOL
+        1 => amount,             // Normal
+        2 => amount + 2_000_000, // +0.002 SOL
+        3 => amount + 5_000_000, // +0.005 SOL
+        4 => amount + 3_000_000, // +0.003 SOL
+        _ => amount + 1_000_000, // +0.001 SOL
     };
 
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     let initial_balance = client.get_balance(&user_pubkey)?;
-    
+
     // FASE 1: Advanced wrap con optimización
-    info!("     💫 Advanced wrap (amount: {} lamports)...", adjusted_amount + rent_exempt);
+    info!(
+        "     💫 Advanced wrap (amount: {} lamports)...",
+        adjusted_amount + rent_exempt
+    );
     let wrap_sig = execute_advanced_wrap(
-        client, 
-        wallet, 
-        &wsol_account, 
+        client,
+        wallet,
+        &wsol_account,
         adjusted_amount + rent_exempt,
-        cycle_number
-    ).await?;
-    
+        cycle_number,
+    )
+    .await?;
+
     // FASE 2: Timing optimization avanzado
     let optimization_delay = match cycle_number {
-        1 => 600,   // 0.6s
-        2 => 800,   // 0.8s
-        3 => 1000,  // 1.0s
-        4 => 700,   // 0.7s
-        _ => 900,   // 0.9s
+        1 => 600,  // 0.6s
+        2 => 800,  // 0.8s
+        3 => 1000, // 1.0s
+        4 => 700,  // 0.7s
+        _ => 900,  // 0.9s
     };
-    
+
     info!("     ⏰ Advanced timing ({}ms)...", optimization_delay);
     tokio::time::sleep(std::time::Duration::from_millis(optimization_delay)).await;
 
@@ -219,7 +223,7 @@ async fn execute_advanced_arbitrage_cycle(
     info!("     📊 Advanced cycle profit: {:.9} SOL", profit);
     info!("     🔗 Wrap: {}...", &wrap_sig.to_string()[..8]);
     info!("     🔗 Unwrap: {}...", &unwrap_sig.to_string()[..8]);
-    
+
     Ok(profit)
 }
 
@@ -232,14 +236,13 @@ async fn execute_basic_arbitrage_cycle(
     // Implementación básica similar a phase2c pero optimizada
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     let initial_balance = client.get_balance(&user_pubkey)?;
-    
-    let wrap_sig = execute_optimized_wrap(client, wallet, &wsol_account, amount + rent_exempt).await?;
+
+    let wrap_sig =
+        execute_optimized_wrap(client, wallet, &wsol_account, amount + rent_exempt).await?;
     tokio::time::sleep(std::time::Duration::from_millis(800)).await;
     let unwrap_sig = execute_optimized_unwrap(client, wallet, &wsol_account).await?;
 
@@ -264,12 +267,13 @@ async fn execute_advanced_wrap(
 
     // Optimización: solo crear ATA en el primer ciclo
     if cycle == 1 && client.get_account(wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
@@ -332,17 +336,25 @@ async fn execute_optimized_wrap(
     let mut instructions = Vec::new();
 
     if client.get_account(wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
-    instructions.push(system_instruction::transfer(&user_pubkey, wsol_account, amount));
-    instructions.push(spl_token::instruction::sync_native(&spl_token::id(), wsol_account)?);
+    instructions.push(system_instruction::transfer(
+        &user_pubkey,
+        wsol_account,
+        amount,
+    ));
+    instructions.push(spl_token::instruction::sync_native(
+        &spl_token::id(),
+        wsol_account,
+    )?);
 
     let recent_blockhash = client.get_latest_blockhash()?;
     let transaction = Transaction::new_signed_with_payer(
@@ -355,7 +367,11 @@ async fn execute_optimized_wrap(
     Ok(client.send_and_confirm_transaction(&transaction)?)
 }
 
-async fn execute_optimized_unwrap(client: &RpcClient, wallet: &Keypair, wsol_account: &Pubkey) -> Result<Signature> {
+async fn execute_optimized_unwrap(
+    client: &RpcClient,
+    wallet: &Keypair,
+    wsol_account: &Pubkey,
+) -> Result<Signature> {
     let user_pubkey = wallet.pubkey();
 
     let close_ix = spl_token::instruction::close_account(
@@ -381,7 +397,10 @@ async fn update_optimization_success(profit: f64, config: &ArbitrageConfig) -> R
     info!("\n🎯 === OPTIMIZACIÓN COMPLETADA ===");
     info!("   ✅ Fase 2D exitosa con {} ciclos", config.cycles);
     info!("   ✅ Profit total: {:.9} SOL", profit);
-    info!("   ✅ Profit por ciclo promedio: {:.9} SOL", profit / config.cycles as f64);
+    info!(
+        "   ✅ Profit por ciclo promedio: {:.9} SOL",
+        profit / config.cycles as f64
+    );
     info!("   🚀 Sistema optimizado y escalable");
     info!("   🎯 Listo para Fase 3: MainNet scaling");
     Ok(())
@@ -389,7 +408,7 @@ async fn update_optimization_success(profit: f64, config: &ArbitrageConfig) -> R
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

@@ -1,11 +1,11 @@
 //! Portfolio Correlation Analyzer - Advanced correlation and diversification analysis
-//! 
+//!
 //! Provides correlation analysis, diversification metrics, and risk concentration measurements
 
 use anyhow::Result;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, Duration};
 use uuid::Uuid;
 
 use super::Position;
@@ -106,7 +106,7 @@ impl CorrelationAnalyzer {
     /// Update price data for correlation analysis
     pub fn update_prices(&mut self, symbol: &str, price: f64) {
         let now = Utc::now();
-        
+
         // Calculate return if we have previous price
         let return_pct = if let Some(history) = self.price_history.get(symbol) {
             if let Some(last_point) = history.last() {
@@ -129,7 +129,8 @@ impl CorrelationAnalyzer {
         };
 
         // Add to history
-        self.price_history.entry(symbol.to_string())
+        self.price_history
+            .entry(symbol.to_string())
             .or_insert_with(Vec::new)
             .push(price_point);
 
@@ -150,7 +151,7 @@ impl CorrelationAnalyzer {
     /// Calculate correlation matrix for all assets
     pub fn calculate_correlation_matrix(&mut self, period_days: i64) -> Result<CorrelationMatrix> {
         let cutoff_date = Utc::now() - Duration::days(period_days);
-        
+
         // Get all assets with sufficient data
         let mut assets = Vec::new();
         let mut filtered_data = HashMap::new();
@@ -158,18 +159,22 @@ impl CorrelationAnalyzer {
         // Collect filtered data without borrowing self
         let price_history = self.price_history.clone();
         for (symbol, history) in &price_history {
-            let recent_data: Vec<_> = history.iter()
+            let recent_data: Vec<_> = history
+                .iter()
                 .filter(|p| p.timestamp >= cutoff_date)
                 .collect();
 
-            if recent_data.len() >= 10 { // Minimum 10 observations
+            if recent_data.len() >= 10 {
+                // Minimum 10 observations
                 assets.push(symbol.clone());
                 filtered_data.insert(symbol.clone(), recent_data);
             }
         }
 
         if assets.len() < 2 {
-            return Err(anyhow::anyhow!("Insufficient data for correlation analysis"));
+            return Err(anyhow::anyhow!(
+                "Insufficient data for correlation analysis"
+            ));
         }
 
         assets.sort();
@@ -183,9 +188,9 @@ impl CorrelationAnalyzer {
                     matrix[i][j] = 1.0;
                 } else {
                     let correlation = self.calculate_correlation_from_data(
-                        &assets[i], 
-                        &assets[j], 
-                        &filtered_data
+                        &assets[i],
+                        &assets[j],
+                        &filtered_data,
                     )?;
                     matrix[i][j] = correlation;
                     matrix[j][i] = correlation; // Symmetric matrix
@@ -193,7 +198,8 @@ impl CorrelationAnalyzer {
             }
         }
 
-        let observations = filtered_data.values()
+        let observations = filtered_data
+            .values()
             .map(|data| data.len())
             .min()
             .unwrap_or(0);
@@ -225,13 +231,15 @@ impl CorrelationAnalyzer {
             return Ok(cached_corr);
         }
 
-        let returns1 = data.get(asset1)
+        let returns1 = data
+            .get(asset1)
             .ok_or_else(|| anyhow::anyhow!("No data for asset1"))?
             .iter()
             .map(|p| p.return_pct)
             .collect::<Vec<_>>();
 
-        let returns2 = data.get(asset2)
+        let returns2 = data
+            .get(asset2)
             .ok_or_else(|| anyhow::anyhow!("No data for asset2"))?
             .iter()
             .map(|p| p.return_pct)
@@ -242,10 +250,10 @@ impl CorrelationAnalyzer {
         }
 
         let correlation = self.pearson_correlation(&returns1, &returns2);
-        
+
         // Cache the result
         self.correlation_cache.insert(cache_key, correlation);
-        
+
         Ok(correlation)
     }
 
@@ -266,14 +274,14 @@ impl CorrelationAnalyzer {
         for i in 0..x.len() {
             let diff_x = x[i] - mean_x;
             let diff_y = y[i] - mean_y;
-            
+
             numerator += diff_x * diff_y;
             sum_sq_x += diff_x * diff_x;
             sum_sq_y += diff_y * diff_y;
         }
 
         let denominator = (sum_sq_x * sum_sq_y).sqrt();
-        
+
         if denominator == 0.0 {
             0.0
         } else {
@@ -294,20 +302,23 @@ impl CorrelationAnalyzer {
 
         // Calculate correlation matrix
         let correlation_matrix = self.calculate_correlation_matrix(period_days)?;
-        
+
         // Calculate portfolio weights
         let total_value: f64 = positions.values().map(|p| p.value_usd).sum();
         let mut weights = HashMap::new();
-        
+
         for position in positions.values() {
-            let weight = if total_value > 0.0 { position.value_usd / total_value } else { 0.0 };
+            let weight = if total_value > 0.0 {
+                position.value_usd / total_value
+            } else {
+                0.0
+            };
             weights.insert(position.symbol.clone(), weight);
         }
 
         // Calculate portfolio correlation score
-        let portfolio_correlation_score = self.calculate_portfolio_correlation_score(
-            &correlation_matrix, &weights
-        );
+        let portfolio_correlation_score =
+            self.calculate_portfolio_correlation_score(&correlation_matrix, &weights);
 
         // Calculate effective number of assets (diversification index)
         let effective_number_of_assets = self.calculate_effective_number_of_assets(&weights);
@@ -316,31 +327,29 @@ impl CorrelationAnalyzer {
         let concentration_hhi = weights.values().map(|w| w * w).sum::<f64>();
 
         // Calculate diversification ratio
-        let diversification_ratio = self.calculate_diversification_ratio(
-            &correlation_matrix, &weights
-        );
+        let diversification_ratio =
+            self.calculate_diversification_ratio(&correlation_matrix, &weights);
 
         // Calculate correlation risk contribution
-        let correlation_risk_contribution = self.calculate_correlation_risk_contribution(
-            &correlation_matrix, &weights
-        );
+        let correlation_risk_contribution =
+            self.calculate_correlation_risk_contribution(&correlation_matrix, &weights);
 
         // Analyze individual asset correlations
-        let asset_correlations = self.analyze_asset_correlations(
-            &correlation_matrix, &weights, positions
-        );
+        let asset_correlations =
+            self.analyze_asset_correlations(&correlation_matrix, &weights, positions);
 
         // Analyze strategy correlations
         let strategy_correlations = self.analyze_strategy_correlations(positions);
 
         // Identify high correlation pairs
-        let high_correlation_pairs = self.identify_high_correlation_pairs(
-            &correlation_matrix, &weights, 0.7
-        );
+        let high_correlation_pairs =
+            self.identify_high_correlation_pairs(&correlation_matrix, &weights, 0.7);
 
         // Generate diversification recommendations
         let diversification_recommendations = self.generate_diversification_recommendations(
-            &asset_correlations, &high_correlation_pairs, concentration_hhi
+            &asset_correlations,
+            &high_correlation_pairs,
+            concentration_hhi,
         );
 
         Ok(DiversificationMetrics {
@@ -369,11 +378,11 @@ impl CorrelationAnalyzer {
             for j in (i + 1)..matrix.assets.len() {
                 let asset1 = &matrix.assets[i];
                 let asset2 = &matrix.assets[j];
-                
+
                 let weight1 = weights.get(asset1).unwrap_or(&0.0);
                 let weight2 = weights.get(asset2).unwrap_or(&0.0);
                 let combined_weight = weight1 * weight2;
-                
+
                 weighted_correlation += matrix.matrix[i][j] * combined_weight;
                 total_weight += combined_weight;
             }
@@ -406,7 +415,7 @@ impl CorrelationAnalyzer {
         // In practice, this would require individual asset volatilities
         let avg_correlation = self.calculate_portfolio_correlation_score(matrix, weights);
         let concentration = weights.values().map(|w| w * w).sum::<f64>();
-        
+
         // Higher correlation and concentration = lower diversification
         1.0 - (avg_correlation * concentration)
     }
@@ -420,7 +429,7 @@ impl CorrelationAnalyzer {
         // Risk contribution from correlations
         let portfolio_correlation = self.calculate_portfolio_correlation_score(matrix, weights);
         let concentration = weights.values().map(|w| w * w).sum::<f64>();
-        
+
         portfolio_correlation * concentration
     }
 
@@ -435,7 +444,7 @@ impl CorrelationAnalyzer {
 
         for (i, asset) in matrix.assets.iter().enumerate() {
             let mut correlations = Vec::new();
-            
+
             // Get correlations with all other assets
             for (j, _) in matrix.assets.iter().enumerate() {
                 if i != j {
@@ -461,13 +470,16 @@ impl CorrelationAnalyzer {
             // Diversification benefit
             let diversification_benefit = 1.0 - avg_correlation.abs();
 
-            asset_correlations.insert(asset.clone(), AssetCorrelationMetrics {
-                avg_correlation,
-                max_correlation,
-                correlation_with_portfolio,
-                risk_contribution,
-                diversification_benefit,
-            });
+            asset_correlations.insert(
+                asset.clone(),
+                AssetCorrelationMetrics {
+                    avg_correlation,
+                    max_correlation,
+                    correlation_with_portfolio,
+                    risk_contribution,
+                    diversification_benefit,
+                },
+            );
         }
 
         asset_correlations
@@ -483,7 +495,8 @@ impl CorrelationAnalyzer {
         // Group positions by strategy
         let mut strategy_groups: HashMap<String, Vec<&Position>> = HashMap::new();
         for position in positions.values() {
-            strategy_groups.entry(position.strategy.clone())
+            strategy_groups
+                .entry(position.strategy.clone())
                 .or_insert_with(Vec::new)
                 .push(position);
         }
@@ -504,7 +517,8 @@ impl CorrelationAnalyzer {
             // Concentration risk within strategy
             let total_strategy_value: f64 = positions.iter().map(|p| p.value_usd).sum();
             let concentration_risk = if total_strategy_value > 0.0 {
-                positions.iter()
+                positions
+                    .iter()
                     .map(|p| (p.value_usd / total_strategy_value).powi(2))
                     .sum::<f64>()
             } else {
@@ -514,12 +528,15 @@ impl CorrelationAnalyzer {
             // Performance correlation (simplified)
             let performance_correlation = internal_correlation * 0.8;
 
-            strategy_metrics.insert(strategy, StrategyCorrelationMetrics {
-                internal_correlation,
-                cross_strategy_correlation,
-                concentration_risk,
-                performance_correlation,
-            });
+            strategy_metrics.insert(
+                strategy,
+                StrategyCorrelationMetrics {
+                    internal_correlation,
+                    cross_strategy_correlation,
+                    concentration_risk,
+                    performance_correlation,
+                },
+            );
         }
 
         strategy_metrics
@@ -537,14 +554,14 @@ impl CorrelationAnalyzer {
         for i in 0..matrix.assets.len() {
             for j in (i + 1)..matrix.assets.len() {
                 let correlation = matrix.matrix[i][j];
-                
+
                 if correlation.abs() > threshold {
                     let asset1 = &matrix.assets[i];
                     let asset2 = &matrix.assets[j];
                     let weight1 = weights.get(asset1).unwrap_or(&0.0);
                     let weight2 = weights.get(asset2).unwrap_or(&0.0);
                     let combined_weight = weight1 + weight2;
-                    
+
                     // Risk impact from high correlation
                     let risk_impact = correlation.abs() * combined_weight;
 
@@ -562,9 +579,7 @@ impl CorrelationAnalyzer {
         }
 
         // Sort by risk impact
-        high_correlation_pairs.sort_by(|a, b| 
-            b.risk_impact.partial_cmp(&a.risk_impact).unwrap()
-        );
+        high_correlation_pairs.sort_by(|a, b| b.risk_impact.partial_cmp(&a.risk_impact).unwrap());
 
         high_correlation_pairs
     }
@@ -581,7 +596,8 @@ impl CorrelationAnalyzer {
         // High concentration warning
         if concentration_hhi > 0.25 {
             recommendations.push(
-                "Portfolio is highly concentrated - consider adding more diverse assets".to_string()
+                "Portfolio is highly concentrated - consider adding more diverse assets"
+                    .to_string(),
             );
         }
 
@@ -618,17 +634,34 @@ impl CorrelationAnalyzer {
         let mut summary = String::new();
         summary.push_str(&format!("🔗 Correlation Analysis\n"));
         summary.push_str(&format!("═══════════════════════\n"));
-        summary.push_str(&format!("📊 Portfolio Correlation: {:.3}\n", metrics.portfolio_correlation_score));
-        summary.push_str(&format!("🎯 Effective Assets: {:.1}\n", metrics.effective_number_of_assets));
-        summary.push_str(&format!("📈 Concentration (HHI): {:.3}\n", metrics.concentration_hhi));
-        summary.push_str(&format!("🌈 Diversification Ratio: {:.3}\n", metrics.diversification_ratio));
-        summary.push_str(&format!("⚠️ Correlation Risk: {:.3}\n", metrics.correlation_risk_contribution));
+        summary.push_str(&format!(
+            "📊 Portfolio Correlation: {:.3}\n",
+            metrics.portfolio_correlation_score
+        ));
+        summary.push_str(&format!(
+            "🎯 Effective Assets: {:.1}\n",
+            metrics.effective_number_of_assets
+        ));
+        summary.push_str(&format!(
+            "📈 Concentration (HHI): {:.3}\n",
+            metrics.concentration_hhi
+        ));
+        summary.push_str(&format!(
+            "🌈 Diversification Ratio: {:.3}\n",
+            metrics.diversification_ratio
+        ));
+        summary.push_str(&format!(
+            "⚠️ Correlation Risk: {:.3}\n",
+            metrics.correlation_risk_contribution
+        ));
 
         if !metrics.high_correlation_pairs.is_empty() {
             summary.push_str(&format!("\n🔴 High Correlation Pairs:\n"));
             for pair in metrics.high_correlation_pairs.iter().take(5) {
-                summary.push_str(&format!("  {} ↔ {}: {:.2} (Risk: {:.3})\n", 
-                    pair.asset1, pair.asset2, pair.correlation, pair.risk_impact));
+                summary.push_str(&format!(
+                    "  {} ↔ {}: {:.2} (Risk: {:.3})\n",
+                    pair.asset1, pair.asset2, pair.correlation, pair.risk_impact
+                ));
             }
         }
 
@@ -690,10 +723,10 @@ mod tests {
     #[test]
     fn test_price_updates() {
         let mut analyzer = CorrelationAnalyzer::new();
-        
+
         analyzer.update_prices("SOL", 100.0);
         analyzer.update_prices("SOL", 105.0);
-        
+
         assert_eq!(analyzer.price_history.len(), 1);
         assert_eq!(analyzer.price_history["SOL"].len(), 2);
         assert_eq!(analyzer.price_history["SOL"][1].return_pct, 5.0);
@@ -702,13 +735,13 @@ mod tests {
     #[test]
     fn test_pearson_correlation() {
         let analyzer = CorrelationAnalyzer::new();
-        
+
         let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y = vec![2.0, 4.0, 6.0, 8.0, 10.0];
-        
+
         let correlation = analyzer.pearson_correlation(&x, &y);
         assert!((correlation - 1.0).abs() < 0.001); // Perfect positive correlation
-        
+
         let z = vec![5.0, 4.0, 3.0, 2.0, 1.0];
         let neg_correlation = analyzer.pearson_correlation(&x, &z);
         assert!((neg_correlation + 1.0).abs() < 0.001); // Perfect negative correlation
@@ -717,22 +750,22 @@ mod tests {
     #[test]
     fn test_effective_number_of_assets() {
         let analyzer = CorrelationAnalyzer::new();
-        
+
         // Equal weights
         let mut weights = HashMap::new();
         weights.insert("A".to_string(), 0.25);
         weights.insert("B".to_string(), 0.25);
         weights.insert("C".to_string(), 0.25);
         weights.insert("D".to_string(), 0.25);
-        
+
         let effective = analyzer.calculate_effective_number_of_assets(&weights);
         assert!((effective - 4.0).abs() < 0.001);
-        
+
         // Concentrated weights
         let mut concentrated = HashMap::new();
         concentrated.insert("A".to_string(), 0.7);
         concentrated.insert("B".to_string(), 0.3);
-        
+
         let effective_concentrated = analyzer.calculate_effective_number_of_assets(&concentrated);
         assert!(effective_concentrated < 2.0);
     }
@@ -740,16 +773,22 @@ mod tests {
     #[tokio::test]
     async fn test_diversification_analysis() {
         let mut analyzer = CorrelationAnalyzer::new();
-        
+
         // Add some price history
         analyzer.update_prices("SOL", 100.0);
         analyzer.update_prices("SOL", 105.0);
         analyzer.update_prices("ETH", 2000.0);
         analyzer.update_prices("ETH", 2100.0);
-        
+
         let mut positions = HashMap::new();
-        positions.insert(Uuid::new_v4(), create_test_position("SOL", "trend", 5000.0, 105.0));
-        positions.insert(Uuid::new_v4(), create_test_position("ETH", "momentum", 5000.0, 2100.0));
+        positions.insert(
+            Uuid::new_v4(),
+            create_test_position("SOL", "trend", 5000.0, 105.0),
+        );
+        positions.insert(
+            Uuid::new_v4(),
+            create_test_position("ETH", "momentum", 5000.0, 2100.0),
+        );
 
         // This might fail due to insufficient data, but tests the structure
         let _result = analyzer.analyze_diversification(&positions, 7);

@@ -1,10 +1,10 @@
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 /// Simple QA Test Result
 #[derive(Debug)]
@@ -184,14 +184,12 @@ where
         Ok(Ok(details)) => {
             let duration = start_time.elapsed().as_millis() as u64;
             TestResult::success(test_name, duration, details)
-        },
+        }
         Ok(Err(e)) => {
             let duration = start_time.elapsed().as_millis() as u64;
             TestResult::failure(test_name, duration, e.to_string())
-        },
-        Err(_) => {
-            TestResult::failure(test_name, 30000, "Test timeout (30s)".to_string())
         }
+        Err(_) => TestResult::failure(test_name, 30000, "Test timeout (30s)".to_string()),
     }
 }
 
@@ -208,7 +206,10 @@ async fn test_arbitrage_bot_creation() -> Result<Vec<String>> {
     let shared_services = Arc::new(SharedServices::new(&config).await?);
     details.push("✅ Shared services initialized".to_string());
 
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
     details.push(format!("✅ Wallet address: {}", wallet_address));
 
     let bot = ArbitrageBot::new(
@@ -216,7 +217,8 @@ async fn test_arbitrage_bot_creation() -> Result<Vec<String>> {
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
     details.push("✅ ArbitrageBot created successfully".to_string());
 
     let status = bot.get_status();
@@ -237,14 +239,18 @@ async fn test_price_feed_integration() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     details.push("✅ Bot initialized for price feed test".to_string());
 
@@ -255,9 +261,12 @@ async fn test_price_feed_integration() -> Result<Vec<String>> {
                 return Err(anyhow::anyhow!("Price should be positive"));
             }
             details.push(format!("✅ Jupiter price: ${:.6}", price));
-        },
+        }
         Err(e) => {
-            details.push(format!("⚠️ Jupiter price failed (expected in DevNet): {}", e));
+            details.push(format!(
+                "⚠️ Jupiter price failed (expected in DevNet): {}",
+                e
+            ));
         }
     }
 
@@ -269,14 +278,18 @@ async fn test_market_data_fetching() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     details.push("✅ Bot initialized for market data test".to_string());
 
@@ -292,7 +305,7 @@ async fn test_market_data_fetching() -> Result<Vec<String>> {
             details.push(format!("✅ Market data for {}", market_data.symbol));
             details.push(format!("  Price: ${:.6}", market_data.price));
             details.push(format!("  Spread: ${:.6}", market_data.spread));
-        },
+        }
         Err(e) => {
             details.push(format!("⚠️ Market data failed (expected in DevNet): {}", e));
             details.push("✅ Using real market data method".to_string());
@@ -307,14 +320,18 @@ async fn test_opportunity_detection() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     details.push("✅ Bot initialized for opportunity detection".to_string());
 
@@ -332,8 +349,12 @@ async fn test_opportunity_detection() -> Result<Vec<String>> {
             return Err(anyhow::anyhow!("Position size should be non-negative"));
         }
 
-        details.push(format!("  Signal {}: {} ({:.1}%)",
-                           i + 1, signal.strategy_name, signal.confidence * 100.0));
+        details.push(format!(
+            "  Signal {}: {} ({:.1}%)",
+            i + 1,
+            signal.strategy_name,
+            signal.confidence * 100.0
+        ));
     }
 
     if signals.is_empty() {
@@ -348,14 +369,18 @@ async fn test_emergency_stop() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     details.push("✅ Bot initialized for emergency stop test".to_string());
 
@@ -369,7 +394,9 @@ async fn test_emergency_stop() -> Result<Vec<String>> {
 
     let stopped_status = bot.get_status();
     if !stopped_status.emergency_stop {
-        return Err(anyhow::anyhow!("Emergency stop should be true after activation"));
+        return Err(anyhow::anyhow!(
+            "Emergency stop should be true after activation"
+        ));
     }
 
     details.push("✅ Emergency stop state verified".to_string());
@@ -382,14 +409,18 @@ async fn test_status_reporting() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     details.push("✅ Bot initialized for status test".to_string());
 
@@ -407,7 +438,10 @@ async fn test_status_reporting() -> Result<Vec<String>> {
 
     details.push(format!("✅ Uptime: {}s", status.uptime_seconds));
     details.push(format!("✅ Trades: {}", status.total_trades));
-    details.push(format!("✅ Success rate: {:.1}%", status.success_rate_percent));
+    details.push(format!(
+        "✅ Success rate: {:.1}%",
+        status.success_rate_percent
+    ));
 
     Ok(details)
 }
@@ -506,7 +540,10 @@ async fn test_rapid_bot_creation() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let start_time = Instant::now();
 
@@ -516,7 +553,8 @@ async fn test_rapid_bot_creation() -> Result<Vec<String>> {
             50.0,
             &config.network,
             shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         details.push(format!("✅ Bot {} created", i + 1));
     }
@@ -525,7 +563,9 @@ async fn test_rapid_bot_creation() -> Result<Vec<String>> {
     details.push(format!("✅ Created 3 bots in {}ms", elapsed.as_millis()));
 
     if elapsed.as_secs() >= 30 {
-        return Err(anyhow::anyhow!("Bot creation should complete within 30 seconds"));
+        return Err(anyhow::anyhow!(
+            "Bot creation should complete within 30 seconds"
+        ));
     }
 
     Ok(details)
@@ -536,14 +576,18 @@ async fn test_continuous_market_data() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     let start_time = Instant::now();
 
@@ -553,7 +597,10 @@ async fn test_continuous_market_data() -> Result<Vec<String>> {
     }
 
     let elapsed = start_time.elapsed();
-    details.push(format!("✅ 3 market data fetches in {}ms", elapsed.as_millis()));
+    details.push(format!(
+        "✅ 3 market data fetches in {}ms",
+        elapsed.as_millis()
+    ));
 
     Ok(details)
 }
@@ -569,14 +616,18 @@ async fn test_initialization_speed() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let _bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     let elapsed = start_time.elapsed();
     let elapsed_ms = elapsed.as_millis();
@@ -584,7 +635,9 @@ async fn test_initialization_speed() -> Result<Vec<String>> {
     details.push(format!("✅ Bot initialized in {}ms", elapsed_ms));
 
     if elapsed_ms >= 5000 {
-        return Err(anyhow::anyhow!("Initialization should complete within 5 seconds"));
+        return Err(anyhow::anyhow!(
+            "Initialization should complete within 5 seconds"
+        ));
     }
 
     // Performance benchmarks
@@ -603,14 +656,18 @@ async fn test_market_data_latency() -> Result<Vec<String>> {
 
     let config = Config::load("config/devnet.toml")?;
     let shared_services = Arc::new(SharedServices::new(&config).await?);
-    let wallet_address = shared_services.wallet_manager().get_wallet_address("devnet-trading").await?;
+    let wallet_address = shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await?;
 
     let mut bot = ArbitrageBot::new(
         wallet_address,
         50.0,
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     let start_time = Instant::now();
     let _market_data = bot.get_real_market_data().await;
@@ -620,7 +677,9 @@ async fn test_market_data_latency() -> Result<Vec<String>> {
     details.push(format!("✅ Market data fetched in {}ms", elapsed_ms));
 
     if elapsed_ms >= 2000 {
-        return Err(anyhow::anyhow!("Market data fetch should complete within 2 seconds"));
+        return Err(anyhow::anyhow!(
+            "Market data fetch should complete within 2 seconds"
+        ));
     }
 
     // Performance benchmarks
@@ -683,12 +742,12 @@ fn generate_report(results: &[TestResult], total_duration: std::time::Duration) 
             info!("🎉 QUALITY GATE: PASSED");
             info!("✅ ArbitrageBot meets production quality standards");
             info!("🚀 Ready for deployment");
-        },
+        }
         rate if rate >= 80.0 => {
             warn!("⚠️ QUALITY GATE: WARNING");
             warn!("🔶 ArbitrageBot has some issues but is functional");
             warn!("🛠️ Consider fixing failed tests before deployment");
-        },
+        }
         _ => {
             error!("❌ QUALITY GATE: FAILED");
             error!("🚨 ArbitrageBot has significant issues");

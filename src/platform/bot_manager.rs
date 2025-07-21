@@ -1,16 +1,18 @@
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
-use anyhow::Result;
-use tracing::{info, warn, error, debug};
+use tokio::sync::{mpsc, RwLock};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
+use crate::bots::arbitrage_bot::ArbitrageBot;
 use crate::config::Config;
-use crate::shared::SharedServices;
 use crate::platform::event_bus::EventBus;
 use crate::platform::resource_coordinator::ResourceCoordinator;
-use crate::types::{BotType, BotStatus, BotConfig, BotInstance, BotCommand, BotEvent, PlatformError, BotMetrics};
-use crate::bots::arbitrage_bot::ArbitrageBot;
+use crate::shared::SharedServices;
+use crate::types::{
+    BotCommand, BotConfig, BotEvent, BotInstance, BotMetrics, BotStatus, BotType, PlatformError,
+};
 
 /// Manages all bot instances in the platform
 pub struct BotManager {
@@ -96,7 +98,8 @@ impl BotManager {
 
         info!("Created bot: {} ({})", bot_type, bot_id);
         Ok(bot_id)
-    }    /// Start enabled bots from configuration
+    }
+    /// Start enabled bots from configuration
     pub async fn start_enabled_bots(&self) -> Result<()> {
         info!("🤖 Starting enabled bots from configuration");
 
@@ -120,43 +123,59 @@ impl BotManager {
         info!("🚀 Starting bot: {:?}", bot_type);
 
         match bot_type {
-            BotType::LpSniper => {                // Create and start LP Sniper bot
-                let bot_config = self.config.bots.lp_sniper.clone();                let bot_id = self.create_bot(bot_type, BotConfig::LpSniper(crate::types::LpSniperConfig {
-                    enabled: bot_config.enabled,
-                    trade_amount_sol: 0.5, // Default values
-                    max_slippage_percent: 5.0,
-                    min_liquidity_usd: 10000.0,
-                    max_pool_age_seconds: 3600,
-                    risk_per_trade: 5.0, // Max 5% of balance per trade
-                    stop_loss_percent: 20.0, // 20% stop loss
-                    take_profit_percent: 50.0, // 50% take profit
-                    trading_wallet_name: "trading".to_string(), // Default wallet name
-                    devnet_mode: true, // Default to devnet for safety
-                    monitoring_interval_ms: 1000, // Check every second
-                    target_pools: vec![], // No specific pools by default
-                    max_market_cap: 1000000.0, // $1M max market cap
-                    slippage_tolerance: 5.0, // 5% slippage tolerance
-                    settings: HashMap::new(), // Empty for now
-                })).await?;
+            BotType::LpSniper => {
+                // Create and start LP Sniper bot
+                let bot_config = self.config.bots.lp_sniper.clone();
+                let bot_id = self
+                    .create_bot(
+                        bot_type,
+                        BotConfig::LpSniper(crate::types::LpSniperConfig {
+                            enabled: bot_config.enabled,
+                            trade_amount_sol: 0.5, // Default values
+                            max_slippage_percent: 5.0,
+                            min_liquidity_usd: 10000.0,
+                            max_pool_age_seconds: 3600,
+                            risk_per_trade: 5.0, // Max 5% of balance per trade
+                            stop_loss_percent: 20.0, // 20% stop loss
+                            take_profit_percent: 50.0, // 50% take profit
+                            trading_wallet_name: "trading".to_string(), // Default wallet name
+                            devnet_mode: true,   // Default to devnet for safety
+                            monitoring_interval_ms: 1000, // Check every second
+                            target_pools: vec![], // No specific pools by default
+                            max_market_cap: 1000000.0, // $1M max market cap
+                            slippage_tolerance: 5.0, // 5% slippage tolerance
+                            settings: HashMap::new(), // Empty for now
+                        }),
+                    )
+                    .await?;
                 self.start_bot_instance(bot_id).await?;
             }
             BotType::Arbitrage => {
                 // Create and start Arbitrage bot
                 info!("🔄 Starting Arbitrage Bot");
-                let bot_id = self.create_bot(bot_type, BotConfig::Arbitrage(crate::types::ArbitrageConfig {
-                    enabled: true,
-                    initial_capital: 1000.0, // $1000 initial capital
-                    max_position_size: 0.2, // 20% of capital
-                    daily_loss_limit: 0.05, // 5% daily loss limit
-                    max_concurrent_trades: 3,
-                    min_profit_threshold: 0.01, // 1% minimum profit
-                    max_slippage_percent: 0.5, // 0.5% max slippage
-                    devnet_mode: true, // Default to devnet
-                    monitoring_interval_ms: 100, // Check every 100ms
-                    dex_list: vec!["Jupiter".to_string(), "Raydium".to_string(), "Orca".to_string()],
-                    target_pairs: vec!["SOL/USDC".to_string()], // Focus on SOL/USDC
-                    settings: HashMap::new(),
-                })).await?;
+                let bot_id = self
+                    .create_bot(
+                        bot_type,
+                        BotConfig::Arbitrage(crate::types::ArbitrageConfig {
+                            enabled: true,
+                            initial_capital: 1000.0, // $1000 initial capital
+                            max_position_size: 0.2,  // 20% of capital
+                            daily_loss_limit: 0.05,  // 5% daily loss limit
+                            max_concurrent_trades: 3,
+                            min_profit_threshold: 0.01, // 1% minimum profit
+                            max_slippage_percent: 0.5,  // 0.5% max slippage
+                            devnet_mode: true,          // Default to devnet
+                            monitoring_interval_ms: 100, // Check every 100ms
+                            dex_list: vec![
+                                "Jupiter".to_string(),
+                                "Raydium".to_string(),
+                                "Orca".to_string(),
+                            ],
+                            target_pairs: vec!["SOL/USDC".to_string()], // Focus on SOL/USDC
+                            settings: HashMap::new(),
+                        }),
+                    )
+                    .await?;
                 self.start_bot_instance(bot_id).await?;
             }
             _ => {
@@ -197,12 +216,18 @@ impl BotManager {
     pub async fn health_check(&self) -> Result<crate::types::HealthStatus> {
         let bots = self.bots.read().await;
         let total_bots = bots.len();
-        let error_bots = bots.values().filter(|b| matches!(b.status, BotStatus::Error(_))).count();
-          Ok(crate::types::HealthStatus {
+        let error_bots = bots
+            .values()
+            .filter(|b| matches!(b.status, BotStatus::Error(_)))
+            .count();
+        Ok(crate::types::HealthStatus {
             is_healthy: error_bots == 0,
             component: "bot_manager".to_string(),
             message: if error_bots > 0 {
-                Some(format!("{} bots in error state out of {}", error_bots, total_bots))
+                Some(format!(
+                    "{} bots in error state out of {}",
+                    error_bots, total_bots
+                ))
             } else {
                 None
             },
@@ -222,18 +247,21 @@ impl BotManager {
                     info!("Starting bot: {} ({})", bot.name, bot_id);
 
                     // Actually spawn the bot based on its type
-                    match &bot.bot_type {                        BotType::Arbitrage => {
+                    match &bot.bot_type {
+                        BotType::Arbitrage => {
                             if let BotConfig::Arbitrage(config) = &bot.config {
                                 // Get wallet address from shared services
-                                let wallet_address = self.shared_services.get_wallet_address().await?;
+                                let wallet_address =
+                                    self.shared_services.get_wallet_address().await?;
 
                                 // Create and start the arbitrage bot
                                 let arbitrage_bot = ArbitrageBot::new(
                                     wallet_address,
                                     config.initial_capital,
                                     &self.config.network,
-                                    self.shared_services.clone()
-                                ).await?;
+                                    self.shared_services.clone(),
+                                )
+                                .await?;
 
                                 // Store bot instance and spawn background task
                                 let bot_id = bot.id;
@@ -250,7 +278,10 @@ impl BotManager {
 
                                 info!("✅ Arbitrage bot {} started successfully", bot_id);
                             } else {
-                                return Err(PlatformError::BotManagement("Invalid config for Arbitrage bot".to_string()).into());
+                                return Err(PlatformError::BotManagement(
+                                    "Invalid config for Arbitrage bot".to_string(),
+                                )
+                                .into());
                             }
                         }
                         _ => {
@@ -264,7 +295,10 @@ impl BotManager {
                 }
                 _ => {
                     warn!("Bot {} is already running or starting", bot_id);
-                    Err(PlatformError::BotManagement("Bot is not in stopped state".to_string()).into())
+                    Err(
+                        PlatformError::BotManagement("Bot is not in stopped state".to_string())
+                            .into(),
+                    )
                 }
             }
         } else {
@@ -284,15 +318,19 @@ impl BotManager {
 
                     // Send stop command
                     let command = BotCommand::Stop { bot_id };
-                    self.command_tx.send(command)
-                        .map_err(|_| PlatformError::BotManagement("Failed to send stop command".to_string()))?;
+                    self.command_tx.send(command).map_err(|_| {
+                        PlatformError::BotManagement("Failed to send stop command".to_string())
+                    })?;
 
                     bot.status = BotStatus::Stopped;
                     Ok(())
                 }
                 _ => {
                     warn!("Bot {} is not running", bot_id);
-                    Err(PlatformError::BotManagement("Bot is not in running state".to_string()).into())
+                    Err(
+                        PlatformError::BotManagement("Bot is not in running state".to_string())
+                            .into(),
+                    )
                 }
             }
         } else {
@@ -310,7 +348,8 @@ impl BotManager {
     pub async fn list_bots(&self) -> Vec<BotInstance> {
         let bots = self.bots.read().await;
         bots.values().cloned().collect()
-    }    /// Update bot metrics
+    }
+    /// Update bot metrics
     pub async fn update_bot_metrics(&self, bot_id: Uuid, metrics: BotMetrics) -> Result<()> {
         let mut bots = self.bots.write().await;
 
@@ -321,14 +360,16 @@ impl BotManager {
             Ok(())
         } else {
             Err(PlatformError::BotManagement("Bot not found".to_string()).into())
-        }    }
+        }
+    }
 
     /// Handle bot events
     async fn handle_bot_event(&self, event: BotEvent) -> Result<()> {
         match event {
             BotEvent::StatusChanged(status) => {
                 info!("Global bot status changed to: {:?}", status);
-            }            BotEvent::BotError(bot_id, error) => {
+            }
+            BotEvent::BotError(bot_id, error) => {
                 let mut bots = self.bots.write().await;
                 if let Some(bot) = bots.get_mut(&bot_id.0) {
                     bot.status = BotStatus::Error(error.clone());
@@ -381,7 +422,12 @@ impl BotManager {
             // Check if bot is inactive for too long
             let inactive_duration = now.signed_duration_since(bot.last_activity);
             if inactive_duration.num_minutes() > 5 && bot.status == BotStatus::Running {
-                warn!("Bot {} appears inactive for {} minutes", bot_id, inactive_duration.num_minutes());
-            }        }
+                warn!(
+                    "Bot {} appears inactive for {} minutes",
+                    bot_id,
+                    inactive_duration.num_minutes()
+                );
+            }
+        }
     }
 }

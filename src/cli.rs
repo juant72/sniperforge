@@ -42,10 +42,9 @@ use sniperforge::portfolio::professional_integration::run_professional_portfolio
 
 // DEV2 Trading Engine imports
 use sniperforge::trading::{
-    StrategyExecutor, OrderManager, ExecutionOptimizer,
-    DCAConfig, MomentumConfig, GridConfig,
-    StopLossParams, TakeProfitParams, TrailingStopParams,
-    TrailingDirection, TradeParams, TradeUrgency
+    DCAConfig, ExecutionOptimizer, GridConfig, MomentumConfig, OrderManager, StopLossParams,
+    StrategyExecutor, TakeProfitParams, TradeParams, TradeUrgency, TrailingDirection,
+    TrailingStopParams,
 };
 
 // TODO: Re-enable when ML module compilation is fixed
@@ -1361,13 +1360,23 @@ pub async fn run_cli() -> Result<()> {
         // DEV2 Trading Engine command handlers
         Some(("strategy-run", sub_matches)) => handle_strategy_run_command(sub_matches).await?,
         Some(("order-create", sub_matches)) => handle_order_create_command(sub_matches).await?,
-        Some(("execution-optimize", sub_matches)) => handle_execution_optimize_command(sub_matches).await?,
+        Some(("execution-optimize", sub_matches)) => {
+            handle_execution_optimize_command(sub_matches).await?
+        }
         // Phase 6A command handlers
-        Some(("multi-strategy-trading", sub_matches)) => handle_multi_strategy_trading_command(sub_matches).await?,
-        Some(("strategy-backtest", sub_matches)) => handle_strategy_backtest_command(sub_matches).await?,
-        Some(("pattern-analysis", sub_matches)) => handle_pattern_analysis_command(sub_matches).await?,
+        Some(("multi-strategy-trading", sub_matches)) => {
+            handle_multi_strategy_trading_command(sub_matches).await?
+        }
+        Some(("strategy-backtest", sub_matches)) => {
+            handle_strategy_backtest_command(sub_matches).await?
+        }
+        Some(("pattern-analysis", sub_matches)) => {
+            handle_pattern_analysis_command(sub_matches).await?
+        }
         Some(("arbitrage-scan", sub_matches)) => handle_arbitrage_scan_command(sub_matches).await?,
-        Some(("arbitrage-execute", sub_matches)) => handle_arbitrage_execute_command(sub_matches).await?,
+        Some(("arbitrage-execute", sub_matches)) => {
+            handle_arbitrage_execute_command(sub_matches).await?
+        }
         // Phase 6B ML command handlers
         Some(("ml", sub_matches)) => handle_ml_command(sub_matches).await?,
         // Phase 6C Portfolio Management command handlers
@@ -1528,15 +1537,9 @@ async fn handle_config_command(matches: &ArgMatches) -> Result<()> {
 
 async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
-        Some(("balance", sub_matches)) => {
-            handle_wallet_balance_command(sub_matches).await
-        }
-        Some(("airdrop", sub_matches)) => {
-            handle_wallet_airdrop_command(sub_matches).await
-        }
-        Some(("generate", sub_matches)) => {
-            handle_wallet_generate_command(sub_matches).await
-        }
+        Some(("balance", sub_matches)) => handle_wallet_balance_command(sub_matches).await,
+        Some(("airdrop", sub_matches)) => handle_wallet_airdrop_command(sub_matches).await,
+        Some(("generate", sub_matches)) => handle_wallet_generate_command(sub_matches).await,
         _ => {
             println!("{}", "Unknown wallet command".red());
             Ok(())
@@ -1546,9 +1549,7 @@ async fn handle_wallet_command(matches: &ArgMatches) -> Result<()> {
 
 async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
     match matches.subcommand() {
-        Some(("swap-real", sub_matches)) => {
-            handle_swap_real_command(sub_matches).await
-        }
+        Some(("swap-real", sub_matches)) => handle_swap_real_command(sub_matches).await,
         Some(("all", _)) => {
             println!("🧪 Running all tests...");
             // TODO: Implement comprehensive test suite
@@ -1602,13 +1603,19 @@ async fn handle_test_command(matches: &ArgMatches) -> Result<()> {
 }
 
 async fn handle_interactive_command(_matches: &ArgMatches) -> Result<()> {
-    println!("{}", "Interactive command - implementation pending".yellow());
+    println!(
+        "{}",
+        "Interactive command - implementation pending".yellow()
+    );
     // TODO: Implement interactive mode
     Ok(())
 }
 
 async fn handle_check_balance_command(_matches: &ArgMatches) -> Result<()> {
-    println!("{}", "Check balance command - implementation pending".yellow());
+    println!(
+        "{}",
+        "Check balance command - implementation pending".yellow()
+    );
     // TODO: Implement balance checking
     Ok(())
 }
@@ -1619,7 +1626,10 @@ async fn handle_ml_command(_matches: &ArgMatches) -> Result<()> {
     Ok(())
 }
 
-async fn handle_portfolio_command(_matches: &ArgMatches, _parent_matches: &ArgMatches) -> Result<()> {
+async fn handle_portfolio_command(
+    _matches: &ArgMatches,
+    _parent_matches: &ArgMatches,
+) -> Result<()> {
     println!("{}", "Portfolio command - implementation pending".yellow());
     // TODO: Implement portfolio management commands
     Ok(())
@@ -1637,14 +1647,22 @@ async fn show_main_menu() -> Result<()> {
 
 /// Handle strategy-run command
 async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
-    use sniperforge::trading::{StrategyExecutor, DCAConfig, MomentumConfig, GridConfig};
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
     use sniperforge::shared::orca_client::OrcaClient;
     use sniperforge::shared::wallet_manager::WalletManager;
+    use sniperforge::trading::{DCAConfig, GridConfig, MomentumConfig, StrategyExecutor};
     use std::fs;
 
-    println!("{}", "🚀 STRATEGY EXECUTION WITH MULTI-DEX FALLBACK".bright_blue().bold());
-    println!("{}", "==================================================".bright_blue());
+    println!(
+        "{}",
+        "🚀 STRATEGY EXECUTION WITH MULTI-DEX FALLBACK"
+            .bright_blue()
+            .bold()
+    );
+    println!(
+        "{}",
+        "==================================================".bright_blue()
+    );
 
     let strategy_type = matches.get_one::<String>("type").unwrap();
     let config_file = matches.get_one::<String>("config").unwrap();
@@ -1672,7 +1690,11 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
 
     // Initialize Orca client (optional - fallback if fails)
-    let orca_client = match OrcaClient::new(if network == "mainnet" { "mainnet" } else { "devnet" }) {
+    let orca_client = match OrcaClient::new(if network == "mainnet" {
+        "mainnet"
+    } else {
+        "devnet"
+    }) {
         client => {
             println!("✅ Orca client initialized successfully");
             Some(client)
@@ -1721,20 +1743,32 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
     // Display results
     println!();
     println!("{}", "📊 EXECUTION RESULTS".bright_green().bold());
-    println!("{}", "========================================".bright_green());
+    println!(
+        "{}",
+        "========================================".bright_green()
+    );
     println!("✅ Status: {:?}", result.status);
     println!("🔄 Trades Executed: {}", result.trades_executed.len());
     println!("💰 Total Volume: ${:.2}", result.total_volume);
     println!("💸 Total Fees: ${:.4}", result.total_fees);
-    println!("⏱️  Execution Time: {}", result.execution_time.format("%Y-%m-%d %H:%M:%S UTC"));
+    println!(
+        "⏱️  Execution Time: {}",
+        result.execution_time.format("%Y-%m-%d %H:%M:%S UTC")
+    );
 
     if !result.trades_executed.is_empty() {
         println!();
         println!("{}", "📋 TRADE DETAILS".bright_yellow().bold());
         for (i, trade) in result.trades_executed.iter().enumerate() {
-            println!("  Trade {}: {} {} → {} {} (${:.4} fees)", 
-                i + 1, trade.amount_in, trade.from_token, 
-                trade.amount_out, trade.to_token, trade.fees);
+            println!(
+                "  Trade {}: {} {} → {} {} (${:.4} fees)",
+                i + 1,
+                trade.amount_in,
+                trade.from_token,
+                trade.amount_out,
+                trade.to_token,
+                trade.fees
+            );
         }
     }
 
@@ -1749,11 +1783,16 @@ async fn handle_strategy_run_command(matches: &ArgMatches) -> Result<()> {
 
 /// Handle order-create command
 async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
-    use sniperforge::trading::{OrderManager, StopLossParams, TakeProfitParams, TrailingStopParams, TrailingDirection};
     use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig};
+    use sniperforge::trading::{
+        OrderManager, StopLossParams, TakeProfitParams, TrailingDirection, TrailingStopParams,
+    };
 
     println!("{}", "📋 ORDER CREATION".bright_blue().bold());
-    println!("{}", "========================================".bright_blue());
+    println!(
+        "{}",
+        "========================================".bright_blue()
+    );
 
     let order_type = matches.get_one::<String>("type").unwrap();
     let token = matches.get_one::<String>("token").unwrap();
@@ -1761,9 +1800,11 @@ async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
     let trigger_str = matches.get_one::<String>("trigger").unwrap();
     let network = matches.get_one::<String>("network").unwrap();
 
-    let amount: f64 = amount_str.parse()
+    let amount: f64 = amount_str
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid amount: {}", amount_str))?;
-    let trigger_price: f64 = trigger_str.parse()
+    let trigger_price: f64 = trigger_str
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid trigger price: {}", trigger_str))?;
 
     println!("📋 Order Type: {}", order_type.bright_cyan());
@@ -1806,11 +1847,14 @@ async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
             order_manager.create_take_profit(params).await?
         }
         "trailing-stop" => {
-            let trail_distance = if let Some(distance_str) = matches.get_one::<String>("trail-distance") {
-                distance_str.parse().map_err(|_| anyhow::anyhow!("Invalid trail distance"))?
-            } else {
-                trigger_price * 0.05 // Default 5% trail distance
-            };
+            let trail_distance =
+                if let Some(distance_str) = matches.get_one::<String>("trail-distance") {
+                    distance_str
+                        .parse()
+                        .map_err(|_| anyhow::anyhow!("Invalid trail distance"))?
+                } else {
+                    trigger_price * 0.05 // Default 5% trail distance
+                };
 
             let params = TrailingStopParams {
                 token: token.clone(),
@@ -1826,16 +1870,20 @@ async fn handle_order_create_command(matches: &ArgMatches) -> Result<()> {
 
     println!();
     println!("{}", "✅ ORDER CREATED SUCCESSFULLY".bright_green().bold());
-    println!("{}", "========================================".bright_green());
+    println!(
+        "{}",
+        "========================================".bright_green()
+    );
     println!("🆔 Order ID: {}", order_id.bright_cyan());
     println!("📊 Status: Active");
-    println!("🎯 Will trigger when {} price {} ${}", 
-        token, 
+    println!(
+        "🎯 Will trigger when {} price {} ${}",
+        token,
         match order_type.as_str() {
             "stop-loss" => "falls below",
-            "take-profit" => "rises above", 
+            "take-profit" => "rises above",
             "trailing-stop" => "triggers trailing condition at",
-            _ => "reaches"
+            _ => "reaches",
         },
         trigger_price
     );
@@ -1851,7 +1899,10 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     use sniperforge::trading::{ExecutionOptimizer, TradeParams, TradeUrgency};
 
     println!("{}", "⚡ EXECUTION OPTIMIZATION".bright_blue().bold());
-    println!("{}", "========================================".bright_blue());
+    println!(
+        "{}",
+        "========================================".bright_blue()
+    );
 
     let trade_size_str = matches.get_one::<String>("trade-size").unwrap();
     let token = matches.get_one::<String>("token").unwrap();
@@ -1859,7 +1910,8 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     let urgency_str = matches.get_one::<String>("urgency").unwrap();
     let network = matches.get_one::<String>("network").unwrap();
 
-    let trade_size: f64 = trade_size_str.parse()
+    let trade_size: f64 = trade_size_str
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid trade size: {}", trade_size_str))?;
 
     let urgency = match urgency_str.as_str() {
@@ -1908,20 +1960,34 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     println!("✅ Best route found: {}", best_route.dex_name);
 
     // Calculate execution costs
-    let execution_costs = optimizer.calculate_execution_costs(&trade_params, &best_route).await?;
-    
+    let execution_costs = optimizer
+        .calculate_execution_costs(&trade_params, &best_route)
+        .await?;
+
     // Apply MEV protection
     let protected_trade = optimizer.apply_mev_protection(&trade_params).await?;
 
     println!();
     println!("{}", "📊 OPTIMIZATION RESULTS".bright_green().bold());
-    println!("{}", "========================================".bright_green());
-    
-    println!("🎯 Recommended Route: {}", best_route.dex_name.bright_cyan());
-    println!("📈 Expected Output: {} {}", best_route.expected_output, target_token);
-    println!("⚡ Estimated Time: {} seconds", best_route.estimated_execution_time);
+    println!(
+        "{}",
+        "========================================".bright_green()
+    );
+
+    println!(
+        "🎯 Recommended Route: {}",
+        best_route.dex_name.bright_cyan()
+    );
+    println!(
+        "📈 Expected Output: {} {}",
+        best_route.expected_output, target_token
+    );
+    println!(
+        "⚡ Estimated Time: {} seconds",
+        best_route.estimated_execution_time
+    );
     println!("🎲 Confidence: {:.1}%", best_route.confidence_score * 100.0);
-    
+
     println!();
     println!("{}", "💸 COST BREAKDOWN".bright_yellow().bold());
     println!("  DEX Fee: ${:.4}", execution_costs.dex_fee);
@@ -1929,25 +1995,32 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
     println!("  Slippage Cost: ${:.4}", execution_costs.slippage_cost);
     println!("  Price Impact: ${:.4}", execution_costs.price_impact_cost);
     println!("  MEV Risk: ${:.4}", execution_costs.mev_risk_cost);
-    println!("  {} ${:.4} ({:.2}%)", "Total Cost:".bold(), 
-        execution_costs.total_cost, execution_costs.cost_percentage * 100.0);
+    println!(
+        "  {} ${:.4} ({:.2}%)",
+        "Total Cost:".bold(),
+        execution_costs.total_cost,
+        execution_costs.cost_percentage * 100.0
+    );
 
     println!();
     println!("{}", "🛡️  MEV PROTECTION".bright_blue().bold());
     if !protected_trade.protection_strategies.is_empty() {
-        println!("  Strategies Applied: {}", protected_trade.protection_strategies.len());
+        println!(
+            "  Strategies Applied: {}",
+            protected_trade.protection_strategies.len()
+        );
         for strategy in &protected_trade.protection_strategies {
             println!("    ✓ {}", strategy);
         }
-        
+
         if let Some(timing) = &protected_trade.timing_delay {
             println!("  ⏱️  Timing Delay: {} seconds", timing.delay_seconds);
         }
-        
+
         if let Some(splitting) = &protected_trade.split_orders {
             println!("  🔄 Order Splitting: {} parts", splitting.num_splits);
         }
-        
+
         if protected_trade.private_mempool {
             println!("  🔒 Private Mempool: Enabled");
         }
@@ -1966,14 +2039,33 @@ async fn handle_execution_optimize_command(matches: &ArgMatches) -> Result<()> {
 // =============================================================================
 
 async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[MULTI-STRATEGY] Initializing multiple trading strategies...".bright_green());
-    
-    let strategies = matches.get_one::<String>("strategies").unwrap().split(',').collect::<Vec<&str>>();
-    let duration: u64 = matches.get_one::<String>("duration").unwrap().parse().unwrap_or(300);
-    let capital_per_strategy: f64 = matches.get_one::<String>("capital-per-strategy").unwrap().parse().unwrap_or(5000.0);
-    let timeframes = matches.get_one::<String>("timeframes").unwrap().split(',').collect::<Vec<&str>>();
+    println!(
+        "{}",
+        "[MULTI-STRATEGY] Initializing multiple trading strategies...".bright_green()
+    );
+
+    let strategies = matches
+        .get_one::<String>("strategies")
+        .unwrap()
+        .split(',')
+        .collect::<Vec<&str>>();
+    let duration: u64 = matches
+        .get_one::<String>("duration")
+        .unwrap()
+        .parse()
+        .unwrap_or(300);
+    let capital_per_strategy: f64 = matches
+        .get_one::<String>("capital-per-strategy")
+        .unwrap()
+        .parse()
+        .unwrap_or(5000.0);
+    let timeframes = matches
+        .get_one::<String>("timeframes")
+        .unwrap()
+        .split(',')
+        .collect::<Vec<&str>>();
     let network = matches.get_one::<String>("network").unwrap();
-    
+
     println!("📊 Configuration:");
     println!("  • Strategies: {}", strategies.join(", "));
     println!("  • Duration: {} seconds", duration);
@@ -1981,7 +2073,7 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
     println!("  • Timeframes: {}", timeframes.join(", "));
     println!("  • Network: {}", network);
     println!();
-    
+
     // Initialize strategy engines
     for strategy in &strategies {
         match *strategy {
@@ -1989,62 +2081,95 @@ async fn handle_multi_strategy_trading_command(matches: &ArgMatches) -> Result<(
                 println!("🔍 Initializing Trend Following Strategy...");
                 // Create real trend following strategy instance
                 let _trend_strategy = TrendFollowingStrategy::new();
-                println!("  ✅ Trend strategy ready with ${:.2} capital", capital_per_strategy);
-            },
+                println!(
+                    "  ✅ Trend strategy ready with ${:.2} capital",
+                    capital_per_strategy
+                );
+            }
             "momentum" => {
                 println!("⚡ Initializing Momentum Strategy...");
                 // Create real momentum strategy instance
                 let _momentum_strategy = MomentumStrategy::new();
-                println!("  ✅ Momentum strategy ready with ${:.2} capital", capital_per_strategy);
-            },
+                println!(
+                    "  ✅ Momentum strategy ready with ${:.2} capital",
+                    capital_per_strategy
+                );
+            }
             "mean-reversion" => {
                 println!("🔄 Initializing Mean Reversion Strategy...");
                 // Create real mean reversion strategy instance
                 let _mean_rev_strategy = MeanReversionStrategy::new();
-                println!("  ✅ Mean reversion strategy ready with ${:.2} capital", capital_per_strategy);
-            },
+                println!(
+                    "  ✅ Mean reversion strategy ready with ${:.2} capital",
+                    capital_per_strategy
+                );
+            }
             "arbitrage" => {
                 println!("🔁 Initializing Arbitrage Strategy...");
                 // Create real arbitrage strategy instance
                 let _arbitrage_strategy = ArbitrageStrategy::new();
-                println!("  ✅ Arbitrage strategy ready with ${:.2} capital", capital_per_strategy);
-            },
+                println!(
+                    "  ✅ Arbitrage strategy ready with ${:.2} capital",
+                    capital_per_strategy
+                );
+            }
             _ => {
                 println!("⚠️  Unknown strategy: {}", strategy);
             }
         }
     }
-    
+
     // Initialize multi-timeframe analyzer
     println!("📈 Initializing Multi-Timeframe Analyzer...");
     let _analyzer = MultiTimeframeAnalyzer::new();
-    println!("  ✅ Analyzer ready for timeframes: {}", timeframes.join(", "));
-    
+    println!(
+        "  ✅ Analyzer ready for timeframes: {}",
+        timeframes.join(", ")
+    );
+
     println!();
-    println!("🚀 All strategies initialized! Trading session will run for {} seconds.", duration);
+    println!(
+        "🚀 All strategies initialized! Trading session will run for {} seconds.",
+        duration
+    );
     println!("📊 Monitor real-time performance in the output below...");
     println!();
-    
+
     // Simulate trading session
     let start_time = std::time::Instant::now();
     while start_time.elapsed().as_secs() < duration {
-        println!("⏱️  Session time: {}s / {}s", start_time.elapsed().as_secs(), duration);
+        println!(
+            "⏱️  Session time: {}s / {}s",
+            start_time.elapsed().as_secs(),
+            duration
+        );
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
-    
+
     println!("✅ Multi-strategy trading session completed!");
     Ok(())
 }
 
 async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[BACKTEST] Starting strategy backtesting...".bright_cyan());
-    
+    println!(
+        "{}",
+        "[BACKTEST] Starting strategy backtesting...".bright_cyan()
+    );
+
     let strategy = matches.get_one::<String>("strategy").unwrap();
-    let period: u32 = matches.get_one::<String>("period").unwrap().parse().unwrap_or(7);
-    let initial_capital: f64 = matches.get_one::<String>("initial-capital").unwrap().parse().unwrap_or(10000.0);
+    let period: u32 = matches
+        .get_one::<String>("period")
+        .unwrap()
+        .parse()
+        .unwrap_or(7);
+    let initial_capital: f64 = matches
+        .get_one::<String>("initial-capital")
+        .unwrap()
+        .parse()
+        .unwrap_or(10000.0);
     let export_file = matches.get_one::<String>("export");
     let network = matches.get_one::<String>("network").unwrap();
-    
+
     println!("📊 Backtest Configuration:");
     println!("  • Strategy: {}", strategy);
     println!("  • Period: {} days", period);
@@ -2054,44 +2179,54 @@ async fn handle_strategy_backtest_command(matches: &ArgMatches) -> Result<()> {
         println!("  • Export to: {}", file);
     }
     println!();
-    
+
     println!("📈 Running backtest simulation...");
-    
+
     // Simulate backtest results
     let final_capital = initial_capital * 1.15; // 15% return simulation
     let total_trades = 42;
     let winning_trades = 28;
     let win_rate = (winning_trades as f64 / total_trades as f64) * 100.0;
-    
+
     println!("📊 Backtest Results:");
     println!("  • Initial Capital: ${:.2}", initial_capital);
     println!("  • Final Capital: ${:.2}", final_capital);
-    println!("  • Total Return: {:.2}%", ((final_capital - initial_capital) / initial_capital) * 100.0);
+    println!(
+        "  • Total Return: {:.2}%",
+        ((final_capital - initial_capital) / initial_capital) * 100.0
+    );
     println!("  • Total Trades: {}", total_trades);
     println!("  • Winning Trades: {}", winning_trades);
     println!("  • Win Rate: {:.1}%", win_rate);
     println!("  • Sharpe Ratio: 1.82");
     println!("  • Max Drawdown: -3.2%");
-    
+
     if let Some(file) = export_file {
         println!();
         println!("💾 Exporting results to: {}", file);
         // Here we would implement actual file export
         println!("  ✅ Results exported successfully!");
     }
-    
+
     Ok(())
 }
 
 async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
-    println!("{}", "[PATTERN-ANALYSIS] Starting market pattern analysis...".bright_magenta());
-    
+    println!(
+        "{}",
+        "[PATTERN-ANALYSIS] Starting market pattern analysis...".bright_magenta()
+    );
+
     let pattern_type = matches.get_one::<String>("pattern-type").unwrap();
     let timeframe = matches.get_one::<String>("timeframe").unwrap();
-    let duration: u64 = matches.get_one::<String>("duration").unwrap().parse().unwrap_or(180);
+    let duration: u64 = matches
+        .get_one::<String>("duration")
+        .unwrap()
+        .parse()
+        .unwrap_or(180);
     let export_file = matches.get_one::<String>("export");
     let network = matches.get_one::<String>("network").unwrap();
-    
+
     println!("🔍 Analysis Configuration:");
     println!("  • Pattern Type: {}", pattern_type);
     println!("  • Timeframe: {}", timeframe);
@@ -2101,14 +2236,14 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
         println!("  • Export to: {}", file);
     }
     println!();
-    
+
     println!("📊 Initializing Pattern Recognizer...");
     let _pattern_recognizer = PatternRecognizer::new();
     println!("  ✅ Pattern recognizer ready");
-    
+
     println!();
     println!("🔍 Analyzing market patterns...");
-    
+
     // Simulate pattern analysis
     let start_time = std::time::Instant::now();
     while start_time.elapsed().as_secs() < duration {
@@ -2118,7 +2253,7 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
         }
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
-    
+
     println!();
     println!("📊 Pattern Analysis Results:");
     println!("  • Support Levels: 3 detected");
@@ -2126,48 +2261,51 @@ async fn handle_pattern_analysis_command(matches: &ArgMatches) -> Result<()> {
     println!("  • Breakout Patterns: 1 confirmed");
     println!("  • Reversal Signals: 2 potential");
     println!("  • Overall Market Trend: Bullish");
-    
+
     if let Some(file) = export_file {
         println!();
         println!("💾 Exporting analysis to: {}", file);
         println!("  ✅ Analysis exported successfully!");
     }
-    
+
     Ok(())
 }
 
 async fn handle_swap_real_command(matches: &ArgMatches) -> Result<()> {
+    use crate::shared::network_config::NetworkConfig;
     use solana_client::rpc_client::RpcClient;
     use solana_sdk::{
         commitment_config::CommitmentConfig,
+        native_token::LAMPORTS_PER_SOL,
         signature::{Keypair, Signer},
         system_instruction,
         transaction::Transaction,
-        native_token::LAMPORTS_PER_SOL,
     };
-    use crate::shared::network_config::NetworkConfig;
 
     println!("🚀 SPRINT 1: Real swap execution test");
     println!("⚠️  WARNING: This command executes REAL transactions on blockchain!");
-    
+
     // Parse arguments
     let default_network = "devnet".to_string();
-    let network = matches.get_one::<String>("network").unwrap_or(&default_network);
+    let network = matches
+        .get_one::<String>("network")
+        .unwrap_or(&default_network);
     let wallet_file = matches.get_one::<String>("wallet");
-    let amount = matches.get_one::<String>("amount")
+    let amount = matches
+        .get_one::<String>("amount")
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.00001);
     let confirm = matches.get_flag("confirm");
-    
+
     println!("📊 Network: {}", network);
     println!("💰 Amount: {} SOL", amount);
-    
+
     if confirm {
         println!("🔥 REAL TRANSACTION MODE - Will execute on blockchain!");
     } else {
         println!("🧪 SIMULATION MODE - No real transaction sent");
     }
-    
+
     // Load wallet
     let wallet_keypair = if let Some(wallet_path) = wallet_file {
         println!("💼 Loading wallet from: {}", wallet_path);
@@ -2181,7 +2319,6 @@ async fn handle_swap_real_command(matches: &ArgMatches) -> Result<()> {
             Err(_) => {
                 println!("⚠️  Wallet file not found, using environment variable");
                 load_wallet_from_env()?
-
             }
         }
     } else {
@@ -2190,54 +2327,61 @@ async fn handle_swap_real_command(matches: &ArgMatches) -> Result<()> {
     };
 
     println!("🔑 Wallet address: {}", wallet_keypair.pubkey());
-    
+
     // Get network configuration
     let network_config = match network.as_str() {
         "devnet" => NetworkConfig::devnet(),
         "mainnet" => NetworkConfig::mainnet(),
         _ => return Err(anyhow::anyhow!("Unsupported network: {}", network)),
     };
-    
+
     println!("🌐 RPC endpoint: {}", network_config.rpc_endpoint);
-    
+
     // Create RPC client
     let rpc_client = RpcClient::new_with_commitment(
         network_config.rpc_endpoint.clone(),
         CommitmentConfig::confirmed(),
     );
-    
+
     // Check wallet balance
     let balance = rpc_client.get_balance(&wallet_keypair.pubkey())?;
     let balance_sol = balance as f64 / LAMPORTS_PER_SOL as f64;
     println!("💰 Current balance: {:.9} SOL", balance_sol);
-    
+
     if balance_sol < amount {
-        return Err(anyhow::anyhow!("Insufficient balance. Need {} SOL, have {:.9} SOL", amount, balance_sol));
+        return Err(anyhow::anyhow!(
+            "Insufficient balance. Need {} SOL, have {:.9} SOL",
+            amount,
+            balance_sol
+        ));
     }
-    
+
     // Convert SOL amount to lamports
     let amount_lamports = (amount * LAMPORTS_PER_SOL as f64) as u64;
-    
+
     if confirm {
         println!("🎯 Executing REAL arbitrage transaction...");
-        
+
         // Execute real swap logic here
         match execute_real_arbitrage(&wallet_keypair, &rpc_client, amount_lamports, network).await {
             Ok(signature) => {
                 println!("✅ Transaction successful!");
                 println!("📜 Signature: {}", signature);
                 if network == "devnet" {
-                    println!("🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+                    println!(
+                        "🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                        signature
+                    );
                 } else {
                     println!("🔗 Explorer: https://explorer.solana.com/tx/{}", signature);
                 }
-                
+
                 // Check new balance
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 let new_balance = rpc_client.get_balance(&wallet_keypair.pubkey())?;
                 let new_balance_sol = new_balance as f64 / LAMPORTS_PER_SOL as f64;
                 let profit = new_balance_sol - balance_sol;
-                
+
                 println!("💰 New balance: {:.9} SOL", new_balance_sol);
                 if profit > 0.0 {
                     println!("🎯 Profit: +{:.9} SOL", profit);
@@ -2252,7 +2396,7 @@ async fn handle_swap_real_command(matches: &ArgMatches) -> Result<()> {
         }
     } else {
         println!("🧪 SIMULATION MODE - Analyzing arbitrage opportunities...");
-        
+
         // Simulate arbitrage without real transaction
         match simulate_arbitrage(&wallet_keypair, &rpc_client, amount_lamports, network).await {
             Ok(profit) => {
@@ -2270,15 +2414,17 @@ async fn handle_swap_real_command(matches: &ArgMatches) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 fn load_wallet_from_env() -> Result<Keypair> {
     let private_key = std::env::var("SOLANA_PRIVATE_KEY")
         .or_else(|_| std::env::var("PRIVATE_KEY"))
-        .map_err(|_| anyhow::anyhow!("SOLANA_PRIVATE_KEY or PRIVATE_KEY environment variable not set"))?;
-    
+        .map_err(|_| {
+            anyhow::anyhow!("SOLANA_PRIVATE_KEY or PRIVATE_KEY environment variable not set")
+        })?;
+
     Ok(Keypair::from_base58_string(&private_key))
 }
 
@@ -2289,38 +2435,48 @@ async fn execute_real_arbitrage(
     network: &str,
 ) -> Result<String> {
     use rand::Rng;
-    
+
     println!("🔄 Setting up REAL arbitrage execution...");
-    
+
     // REAL ARBITRAGE STRATEGY: SOL -> USDC -> SOL with profit
     println!("💰 Executing REAL arbitrage: SOL → USDC → SOL");
-    
+
     let sol_amount = amount_lamports;
-    println!("🎯 Initial SOL amount: {} lamports ({:.6} SOL)", sol_amount, sol_amount as f64 / 1_000_000_000.0);
-    
+    println!(
+        "🎯 Initial SOL amount: {} lamports ({:.6} SOL)",
+        sol_amount,
+        sol_amount as f64 / 1_000_000_000.0
+    );
+
     // Simulate real market analysis
     println!("📊 Step 1: Analyzing SOL → USDC market...");
     tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
-    
+
     // Simulate getting real prices from Jupiter
     let mut rng = rand::thread_rng();
     let sol_usdc_rate = rng.gen_range(0.000022..0.000025); // DevNet USDC per lamport
     let usdc_amount = (sol_amount as f64 * sol_usdc_rate) as u64;
-    println!("✅ SOL → USDC conversion: {} USDC (rate: {:.8})", usdc_amount, sol_usdc_rate);
-    
+    println!(
+        "✅ SOL → USDC conversion: {} USDC (rate: {:.8})",
+        usdc_amount, sol_usdc_rate
+    );
+
     // Step 2: Analyze return path with profit opportunity
     println!("📊 Step 2: Analyzing USDC → SOL return path...");
     tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
-    
+
     // Simulate finding profitable return rate
     let profit_margin = rng.gen_range(1.002..1.008); // 0.2% to 0.8% profit
     let profitable_usdc_amount = (usdc_amount as f64 * profit_margin) as u64;
-    
+
     let usdc_sol_rate = rng.gen_range(42000.0..45000.0); // Lamports per USDC
     let final_sol_amount = (profitable_usdc_amount as f64 * usdc_sol_rate) as u64;
-    
-    println!("✅ USDC → SOL conversion: {} SOL lamports (rate: {:.2})", final_sol_amount, usdc_sol_rate);
-    
+
+    println!(
+        "✅ USDC → SOL conversion: {} SOL lamports (rate: {:.2})",
+        final_sol_amount, usdc_sol_rate
+    );
+
     // Calculate profit
     let profit_lamports = if final_sol_amount > sol_amount {
         final_sol_amount - sol_amount
@@ -2329,22 +2485,25 @@ async fn execute_real_arbitrage(
         let min_profit = (sol_amount as f64 * 0.001) as u64; // 0.1% minimum
         min_profit
     };
-    
+
     let adjusted_final_amount = sol_amount + profit_lamports;
     let profit_sol = profit_lamports as f64 / 1_000_000_000.0;
     let profit_percentage = (profit_lamports as f64 / sol_amount as f64) * 100.0;
-    
+
     println!("🎉 PROFITABLE ARBITRAGE OPPORTUNITY FOUND!");
-    println!("💰 Expected profit: +{:.9} SOL ({:.3}%)", profit_sol, profit_percentage);
+    println!(
+        "💰 Expected profit: +{:.9} SOL ({:.3}%)",
+        profit_sol, profit_percentage
+    );
     println!("📈 Route: SOL/USDC spread capture on Jupiter/Raydium");
-    
+
     // Execute the arbitrage transaction
     println!("🚀 Executing REAL arbitrage transaction...");
     println!("⚡ Broadcasting multi-step swap to DevNet...");
-    
+
     // Simulate transaction execution time
     tokio::time::sleep(tokio::time::Duration::from_millis(1500)).await;
-    
+
     // Create a real transaction that demonstrates the arbitrage
     let transaction_amount = (profit_lamports / 10).max(1000); // Use part of profit for demo
     let instruction = system_instruction::transfer(
@@ -2352,7 +2511,7 @@ async fn execute_real_arbitrage(
         &wallet_keypair.pubkey(),
         transaction_amount,
     );
-    
+
     let recent_blockhash = rpc_client.get_latest_blockhash()?;
     let transaction = Transaction::new_signed_with_payer(
         &[instruction],
@@ -2360,15 +2519,15 @@ async fn execute_real_arbitrage(
         &[wallet_keypair],
         recent_blockhash,
     );
-    
+
     println!("📤 Submitting arbitrage transaction to blockchain...");
     let signature = rpc_client.send_and_confirm_transaction(&transaction)?;
-    
+
     println!("✅ ARBITRAGE COMPLETED SUCCESSFULLY!");
     println!("🎯 Profit generated: +{:.9} SOL", profit_sol);
     println!("� Strategy: Cross-DEX price difference exploitation");
     println!("🔄 Path: SOL/USDC spread capture on Jupiter/Raydium");
-    
+
     Ok(signature.to_string())
 }
 
@@ -2380,38 +2539,44 @@ async fn simulate_arbitrage(
 ) -> Result<f64> {
     use rand::Rng;
     use solana_sdk::native_token::LAMPORTS_PER_SOL;
-    
+
     println!("🔍 Analyzing market data...");
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-    
+
     println!("📊 Checking Jupiter quotes...");
     tokio::time::sleep(tokio::time::Duration::from_millis(800)).await;
-    
+
     println!("💹 Calculating arbitrage routes...");
     tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
-    
+
     // Simulate realistic arbitrage detection
     let mut rng = rand::thread_rng();
     let market_volatility = rng.gen_range(0.995..1.005); // ±0.5% market movement
-    
+
     // Calculate potential profit (realistic small amounts)
     let base_amount_sol = amount_lamports as f64 / LAMPORTS_PER_SOL as f64;
-    let simulated_profit_percentage = if base_amount_sol >= 0.01 && rng.gen_bool(0.7) { // 70% chance with enough capital
+    let simulated_profit_percentage = if base_amount_sol >= 0.01 && rng.gen_bool(0.7) {
+        // 70% chance with enough capital
         rng.gen_range(0.002..0.008) // 0.2% to 0.8% profit
-    } else if base_amount_sol >= 0.005 && rng.gen_bool(0.5) { // 50% chance with moderate capital
+    } else if base_amount_sol >= 0.005 && rng.gen_bool(0.5) {
+        // 50% chance with moderate capital
         rng.gen_range(0.001..0.004) // 0.1% to 0.4% profit
     } else {
         -rng.gen_range(0.0005..0.002) // Small loss due to fees
     };
-    
+
     let profit_sol = base_amount_sol * simulated_profit_percentage * market_volatility;
-    
+
     if profit_sol > 0.0 {
         println!("✅ Arbitrage opportunity detected!");
         println!("📈 Estimated route: SOL -> USDC -> RAY -> SOL");
-        println!("💰 Estimated profit: +{:.9} SOL ({:.2}%)", profit_sol, simulated_profit_percentage * 100.0);
+        println!(
+            "💰 Estimated profit: +{:.9} SOL ({:.2}%)",
+            profit_sol,
+            simulated_profit_percentage * 100.0
+        );
     }
-    
+
     Ok(profit_sol)
 }
 
@@ -2421,23 +2586,26 @@ async fn simulate_arbitrage(
 
 async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
     use solana_client::rpc_client::RpcClient;
-    use solana_sdk::{commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey};
+    use solana_sdk::{
+        commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,
+    };
     use std::str::FromStr;
-    
+
     println!("💼 Checking wallet balance...");
-    
+
     let default_network = "devnet".to_string();
-    let network = matches.get_one::<String>("network").unwrap_or(&default_network);
+    let network = matches
+        .get_one::<String>("network")
+        .unwrap_or(&default_network);
     let wallet_file = matches.get_one::<String>("wallet_file");
     let address_str = matches.get_one::<String>("address");
-    
+
     println!("🌐 Network: {}", network);
-    
+
     // Get wallet address
     let wallet_address = if let Some(addr_str) = address_str {
         // Use provided address
-        Pubkey::from_str(addr_str)
-            .map_err(|e| anyhow::anyhow!("Invalid wallet address: {}", e))?
+        Pubkey::from_str(addr_str).map_err(|e| anyhow::anyhow!("Invalid wallet address: {}", e))?
     } else if let Some(wallet_path) = wallet_file {
         // Load from wallet file
         println!("📂 Loading wallet from: {}", wallet_path);
@@ -2454,31 +2622,32 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         let keypair = load_wallet_from_env()?;
         keypair.pubkey()
     };
-    
+
     println!("🔍 Wallet address: {}", wallet_address);
-    
+
     // Get RPC endpoint
     let rpc_endpoint = match network.as_str() {
         "devnet" => "https://api.devnet.solana.com",
         "mainnet" => "https://api.mainnet-beta.solana.com",
         _ => return Err(anyhow::anyhow!("Unsupported network: {}", network)),
     };
-    
+
     println!("🌐 RPC endpoint: {}", rpc_endpoint);
-    
+
     // Create RPC client and check balance
-    let rpc_client = RpcClient::new_with_commitment(
-        rpc_endpoint.to_string(),
-        CommitmentConfig::confirmed(),
-    );
-    
+    let rpc_client =
+        RpcClient::new_with_commitment(rpc_endpoint.to_string(), CommitmentConfig::confirmed());
+
     println!("💰 Fetching balance...");
     let balance = rpc_client.get_balance(&wallet_address)?;
     let balance_sol = balance as f64 / LAMPORTS_PER_SOL as f64;
-    
+
     println!("✅ Balance check complete!");
-    println!("💰 Current Balance: {:.9} SOL ({} lamports)", balance_sol, balance);
-    
+    println!(
+        "💰 Current Balance: {:.9} SOL ({} lamports)",
+        balance_sol, balance
+    );
+
     if balance == 0 {
         println!("⚠️  Wallet has no SOL balance");
         if network == "devnet" {
@@ -2486,47 +2655,60 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
         }
         return Ok(());
     }
-    
+
     // Calculate arbitrage potential with current balance
     println!("\n📈 Calculating arbitrage potential with current balance...");
-    
+
     // Get current arbitrage opportunities
     let opportunities = scan_arbitrage_opportunities(0.1).await?;
-    
+
     if !opportunities.is_empty() {
         let best_opportunity = &opportunities[0];
-        
+
         println!("\n🎯 Best Arbitrage Opportunity:");
         println!("   📊 Profit: {:.3}%", best_opportunity.profit_percentage);
         println!("   🏪 Buy from: {}", best_opportunity.dex_buy);
         println!("   💰 Sell to: {}", best_opportunity.dex_sell);
-        println!("   🔥 Confidence: {:.1}%", best_opportunity.confidence_score);
-        
+        println!(
+            "   🔥 Confidence: {:.1}%",
+            best_opportunity.confidence_score
+        );
+
         // Calculate potential profits for different amounts
-        let amounts_to_test = [0.01, 0.1, 0.5, 1.0, balance_sol * 0.25, balance_sol * 0.5, balance_sol * 0.9];
-        
+        let amounts_to_test = [
+            0.01,
+            0.1,
+            0.5,
+            1.0,
+            balance_sol * 0.25,
+            balance_sol * 0.5,
+            balance_sol * 0.9,
+        ];
+
         println!("\n💹 Potential Profits by Investment Amount:");
         println!("   Investment  →  Estimated Profit  →  New Balance");
         println!("   ─────────────────────────────────────────────");
-        
+
         for &amount in &amounts_to_test {
             if amount > 0.0 && amount <= balance_sol {
                 let profit_sol = amount * (best_opportunity.profit_percentage / 100.0);
                 let new_balance = balance_sol - amount + amount + profit_sol;
                 let profit_usd = profit_sol * best_opportunity.price_buy; // Approximate USD value
-                
-                println!("   {:.3} SOL     →  +{:.6} SOL    →  {:.6} SOL (≈${:.2})", 
-                         amount, profit_sol, new_balance, profit_usd);
+
+                println!(
+                    "   {:.3} SOL     →  +{:.6} SOL    →  {:.6} SOL (≈${:.2})",
+                    amount, profit_sol, new_balance, profit_usd
+                );
             }
         }
-        
+
         // Risk analysis
         println!("\n⚠️  Risk Analysis:");
         println!("   • DevNet prices may not reflect real market conditions");
         println!("   • Arbitrage requires two transactions (buy + sell)");
         println!("   • Price can change between transactions");
         println!("   • Consider transaction fees (~0.000005 SOL per tx)");
-        
+
         // Recommendations
         println!("\n💡 Recommendations:");
         if balance_sol < 0.01 {
@@ -2539,33 +2721,34 @@ async fn handle_wallet_balance_command(matches: &ArgMatches) -> Result<()> {
             println!("   • Consider using 5-15% of balance per arbitrage");
             println!("   • Multiple small arbitrages may be safer than one large");
         }
-        
+
         println!("\n🚀 Ready to execute arbitrage:");
         println!("   cargo run --bin sniperforge -- arbitrage-execute --wallet <wallet-file> --network {} --amount 0.01", network);
-        
     } else {
         println!("📭 No arbitrage opportunities currently available");
         println!("💡 Try running: cargo run --bin sniperforge -- arbitrage-scan --network {} --min-profit 0.05 --continuous", network);
     }
-    
+
     Ok(())
 }
 
 async fn handle_wallet_airdrop_command(matches: &ArgMatches) -> Result<()> {
     use solana_client::rpc_client::RpcClient;
     use solana_sdk::{commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL};
-    
+
     println!("🎯 Requesting DevNet airdrop...");
-    
+
     // Get wallet file and network from arguments
     let wallet_file = matches.get_one::<String>("wallet_file");
     let default_network = "devnet".to_string();
-    let network = matches.get_one::<String>("network").unwrap_or(&default_network);
-    
+    let network = matches
+        .get_one::<String>("network")
+        .unwrap_or(&default_network);
+
     if network != "devnet" {
         return Err(anyhow::anyhow!("Airdrop is only available on DevNet"));
     }
-    
+
     // Load wallet
     let wallet_keypair = if let Some(wallet_path) = wallet_file {
         println!("📂 Loading wallet from: {}", wallet_path);
@@ -2580,37 +2763,40 @@ async fn handle_wallet_airdrop_command(matches: &ArgMatches) -> Result<()> {
         load_wallet_from_env()?
     };
     println!("🔑 Wallet address: {}", wallet_keypair.pubkey());
-    
+
     // Create DevNet RPC client
     let rpc_client = RpcClient::new_with_commitment(
         "https://api.devnet.solana.com".to_string(),
         CommitmentConfig::confirmed(),
     );
-    
+
     // Check current balance
     let current_balance = rpc_client.get_balance(&wallet_keypair.pubkey())?;
     let current_balance_sol = current_balance as f64 / LAMPORTS_PER_SOL as f64;
     println!("💰 Current balance: {:.9} SOL", current_balance_sol);
-    
+
     // Request airdrop (1 SOL)
     println!("💸 Requesting 1 SOL airdrop...");
     let airdrop_amount = LAMPORTS_PER_SOL;
-    
+
     match rpc_client.request_airdrop(&wallet_keypair.pubkey(), airdrop_amount) {
         Ok(signature) => {
             println!("✅ Airdrop requested successfully!");
             println!("📜 Transaction signature: {}", signature);
-            println!("🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
-            
+            println!(
+                "🔗 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
+
             // Wait for confirmation
             println!("⏳ Waiting for confirmation...");
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-            
+
             // Check new balance
             let new_balance = rpc_client.get_balance(&wallet_keypair.pubkey())?;
             let new_balance_sol = new_balance as f64 / LAMPORTS_PER_SOL as f64;
             println!("💰 New balance: {:.9} SOL", new_balance_sol);
-            
+
             let received = new_balance_sol - current_balance_sol;
             if received > 0.0 {
                 println!("🎯 Received: +{:.9} SOL", received);
@@ -2618,96 +2804,123 @@ async fn handle_wallet_airdrop_command(matches: &ArgMatches) -> Result<()> {
         }
         Err(e) => {
             println!("❌ Airdrop failed: {}", e);
-            println!("💡 Note: DevNet airdrops are limited. Try again later or use a different wallet.");
+            println!(
+                "💡 Note: DevNet airdrops are limited. Try again later or use a different wallet."
+            );
             return Err(anyhow::anyhow!("Airdrop request failed: {}", e));
         }
     }
-    
+
     Ok(())
 }
 
 async fn handle_wallet_generate_command(matches: &ArgMatches) -> Result<()> {
     use solana_sdk::signer::Signer;
     use std::fs;
-    
+
     println!("🔧 Generating new wallet...");
-    
+
     let output_file = matches.get_one::<String>("output").unwrap();
     let network = matches.get_one::<String>("network").unwrap();
-    
+
     println!("📂 Output file: {}", output_file);
     println!("🌐 Network: {}", network);
-    
+
     // Generate new keypair
     let new_keypair = Keypair::new();
     let public_key = new_keypair.pubkey();
-    
+
     println!("🔑 Generated wallet address: {}", public_key);
-    
+
     // Convert keypair to bytes for JSON serialization
     let keypair_bytes = new_keypair.to_bytes();
     let keypair_json = serde_json::to_string_pretty(&keypair_bytes.to_vec())
         .map_err(|e| anyhow::anyhow!("Failed to serialize keypair: {}", e))?;
-    
+
     // Write to file
     fs::write(output_file, keypair_json)
         .map_err(|e| anyhow::anyhow!("Failed to write wallet file: {}", e))?;
-    
+
     println!("✅ Wallet generated successfully!");
     println!("📄 Saved to: {}", output_file);
     println!("🔑 Public key: {}", public_key);
-    
+
     if network == "devnet" {
         println!();
         println!("💡 Next steps for DevNet:");
-        println!("  1. Fund your wallet: sniperforge wallet airdrop --wallet {} --network devnet", output_file);
-        println!("  2. Check balance: sniperforge wallet balance {} --network devnet", output_file);
-        println!("  3. Test trading: sniperforge test swap-real --wallet {} --network devnet", output_file);
+        println!(
+            "  1. Fund your wallet: sniperforge wallet airdrop --wallet {} --network devnet",
+            output_file
+        );
+        println!(
+            "  2. Check balance: sniperforge wallet balance {} --network devnet",
+            output_file
+        );
+        println!(
+            "  3. Test trading: sniperforge test swap-real --wallet {} --network devnet",
+            output_file
+        );
     } else {
         println!();
         println!("⚠️  MAINNET wallet generated!");
         println!("💰 Send SOL to this address to fund the wallet");
         println!("🚨 Keep the wallet file secure - it contains your private key!");
     }
-    
+
     Ok(())
 }
 
 /// Handler para el comando arbitrage-scan
 async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
     println!("🔍 Escaneando oportunidades de arbitraje garantizado...");
-    
+
     let network = matches.get_one::<String>("network").unwrap();
-    let min_profit: f64 = matches.get_one::<String>("min-profit").unwrap().parse()
+    let min_profit: f64 = matches
+        .get_one::<String>("min-profit")
+        .unwrap()
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid min-profit value"))?;
     let continuous = matches.get_flag("continuous");
     let interval_ms: u64 = *matches.get_one::<u64>("interval").unwrap();
-    
+
     println!("🌐 Network: {}", network);
     println!("📈 Min profit required: {:.2}%", min_profit);
-    
+
     if network != "devnet" {
         println!("⚠️  Arbitraje garantizado solo disponible en DevNet por seguridad");
         return Ok(());
     }
-    
+
     if continuous {
         println!("🔄 Modo continuo activado (Ctrl+C para detener)");
         println!("⏱️  Intervalo de escaneo: {}ms", interval_ms);
-        
+
         loop {
             let start_time = std::time::Instant::now();
-            
+
             match scan_arbitrage_opportunities(min_profit).await {
                 Ok(opportunities) => {
                     if opportunities.is_empty() {
-                        println!("📭 No hay oportunidades encontradas (min: {:.2}%)", min_profit);
+                        println!(
+                            "📭 No hay oportunidades encontradas (min: {:.2}%)",
+                            min_profit
+                        );
                     } else {
                         let timestamp = chrono::Utc::now().format("%H:%M:%S%.3f");
-                        println!("\n[{}] 💰 {} oportunidades encontradas:", timestamp, opportunities.len());
+                        println!(
+                            "\n[{}] 💰 {} oportunidades encontradas:",
+                            timestamp,
+                            opportunities.len()
+                        );
                         for (i, opp) in opportunities.iter().take(5).enumerate() {
-                            println!("{}. {} → {} | {:.2}% profit | Confianza: {:.0}%", 
-                                     i + 1, opp.dex_buy, opp.dex_sell, opp.profit_percentage, opp.confidence_score);
+                            println!(
+                                "{}. {} → {} | {:.2}% profit | Confianza: {:.0}%",
+                                i + 1,
+                                opp.dex_buy,
+                                opp.dex_sell,
+                                opp.profit_percentage,
+                                opp.confidence_score
+                            );
                         }
                     }
                 }
@@ -2715,14 +2928,14 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
                     println!("❌ Error escaneando: {}", e);
                 }
             }
-            
+
             let elapsed = start_time.elapsed();
             let sleep_duration = if elapsed.as_millis() < interval_ms as u128 {
                 interval_ms - elapsed.as_millis() as u64
             } else {
                 0
             };
-            
+
             if sleep_duration > 0 {
                 tokio::time::sleep(tokio::time::Duration::from_millis(sleep_duration)).await;
             }
@@ -2731,23 +2944,32 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
         match scan_arbitrage_opportunities(min_profit).await {
             Ok(opportunities) => {
                 if opportunities.is_empty() {
-                    println!("📭 No hay oportunidades encontradas (min: {:.2}%)", min_profit);
+                    println!(
+                        "📭 No hay oportunidades encontradas (min: {:.2}%)",
+                        min_profit
+                    );
                     println!("💡 Intenta con un profit mínimo menor: --min-profit 0.1");
                 } else {
                     println!("\n💰 {} oportunidades encontradas:", opportunities.len());
                     for (i, opp) in opportunities.iter().enumerate() {
-                        println!("{}. {} → {} | {:.2}% profit | Estimado: {:.6} SOL | Confianza: {:.0}%", 
-                                 i + 1, opp.dex_buy, opp.dex_sell, opp.profit_percentage, 
-                                 opp.estimated_profit_sol, opp.confidence_score);
+                        println!(
+                            "{}. {} → {} | {:.2}% profit | Estimado: {:.6} SOL | Confianza: {:.0}%",
+                            i + 1,
+                            opp.dex_buy,
+                            opp.dex_sell,
+                            opp.profit_percentage,
+                            opp.estimated_profit_sol,
+                            opp.confidence_score
+                        );
                     }
-                    
+
                     if let Some(best) = opportunities.first() {
                         println!("\n🎯 Mejor oportunidad:");
                         println!("   💹 Profit: {:.2}%", best.profit_percentage);
                         println!("   🏪 Comprar en: {}", best.dex_buy);
                         println!("   💰 Vender en: {}", best.dex_sell);
                         println!("   📊 Confianza: {:.0}%", best.confidence_score);
-                        
+
                         if best.confidence_score > 70.0 {
                             println!("\n✅ Oportunidad recomendada para ejecución");
                             println!("🚀 Ejecutar: cargo run --bin sniperforge -- arbitrage-execute --wallet test-cli-wallet.json --network devnet --confirm");
@@ -2760,58 +2982,66 @@ async fn handle_arbitrage_scan_command(matches: &ArgMatches) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// Handler para el comando arbitrage-execute  
 async fn handle_arbitrage_execute_command(matches: &ArgMatches) -> Result<()> {
     println!("🚀 Iniciando arbitraje con ganancias garantizadas...");
-    
+
     let wallet_file = matches.get_one::<String>("wallet").unwrap();
-    let amount: f64 = matches.get_one::<String>("amount").unwrap().parse()
+    let amount: f64 = matches
+        .get_one::<String>("amount")
+        .unwrap()
+        .parse()
         .map_err(|_| anyhow::anyhow!("Invalid amount value"))?;
     let network = matches.get_one::<String>("network").unwrap();
     let confirm = matches.get_flag("confirm");
-    let auto_minutes = matches.get_one::<String>("auto").and_then(|s| s.parse::<u64>().ok());
+    let auto_minutes = matches
+        .get_one::<String>("auto")
+        .and_then(|s| s.parse::<u64>().ok());
     let interval_ms: u64 = *matches.get_one::<u64>("interval").unwrap();
-    
+
     if !confirm {
         println!("⚠️  Debes confirmar la ejecución con --confirm");
         println!("🚨 Esto ejecutará transacciones REALES en blockchain");
         return Ok(());
     }
-    
+
     if network != "devnet" {
         println!("⚠️  Arbitraje garantizado solo disponible en DevNet por seguridad");
         return Ok(());
     }
-    
+
     println!("💼 Wallet: {}", wallet_file);
     println!("💰 Amount: {:.6} SOL", amount);
     println!("🌐 Network: {}", network);
     if auto_minutes.is_some() {
         println!("⏱️  Intervalo de ejecución: {}ms", interval_ms);
     }
-    
+
     // Cargar wallet
     match load_wallet_from_file(wallet_file) {
         Ok(wallet) => {
             println!("✅ Wallet cargada: {}", wallet.pubkey());
-            
+
             // Verificar balance
             let rpc_client = RpcClient::new("https://api.devnet.solana.com".to_string());
             match rpc_client.get_balance(&wallet.pubkey()) {
                 Ok(balance) => {
                     let balance_sol = balance as f64 / 1_000_000_000.0;
                     println!("💰 Balance actual: {:.6} SOL", balance_sol);
-                    
+
                     if balance_sol < amount * 1.1 {
-                        println!("❌ Balance insuficiente. Necesitas al menos {:.6} SOL", amount * 1.1);
+                        println!(
+                            "❌ Balance insuficiente. Necesitas al menos {:.6} SOL",
+                            amount * 1.1
+                        );
                         println!("💡 Solicita SOL: cargo run --bin sniperforge -- wallet airdrop {} --network devnet", wallet_file);
                         return Ok(());
                     }
-                    
+
                     if let Some(minutes) = auto_minutes {
                         println!("🤖 Modo automático por {} minutos", minutes);
                         execute_auto_arbitrage(wallet, amount, minutes, interval_ms).await?;
@@ -2831,77 +3061,96 @@ async fn handle_arbitrage_execute_command(matches: &ArgMatches) -> Result<()> {
             return Err(anyhow::anyhow!("Failed to load wallet"));
         }
     }
-    
+
     Ok(())
 }
 
 /// Ejecuta un arbitraje individual usando Jupiter API REAL
 async fn execute_single_arbitrage(wallet: Keypair, amount: f64) -> Result<()> {
+    use sniperforge::shared::jupiter::{tokens, JupiterClient, JupiterConfig, QuoteRequest};
     use std::collections::HashMap;
-    use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, QuoteRequest, tokens};
-    
+
     println!("🔍 Buscando oportunidad de arbitraje REAL...");
-    
+
     let opportunities = scan_arbitrage_opportunities(0.2).await?;
-    
+
     if opportunities.is_empty() {
         println!("📭 No hay oportunidades reales disponibles en este momento");
         return Ok(());
     }
-    
+
     let best_opportunity = &opportunities[0];
-    
+
     if best_opportunity.confidence_score < 60.0 {
-        println!("⚠️  Oportunidad con baja confianza ({:.0}%), cancelando por seguridad", 
-                 best_opportunity.confidence_score);
+        println!(
+            "⚠️  Oportunidad con baja confianza ({:.0}%), cancelando por seguridad",
+            best_opportunity.confidence_score
+        );
         return Ok(());
     }
-    
+
     println!("🎯 Ejecutando arbitraje REAL:");
-    println!("   📊 Profit esperado: {:.2}%", best_opportunity.profit_percentage);
-    println!("   💰 Ganancia estimada: {:.6} SOL", best_opportunity.estimated_profit_sol * amount / 0.01);
-    println!("   🏪 Ruta: {} → {}", best_opportunity.dex_buy, best_opportunity.dex_sell);
-    
+    println!(
+        "   📊 Profit esperado: {:.2}%",
+        best_opportunity.profit_percentage
+    );
+    println!(
+        "   💰 Ganancia estimada: {:.6} SOL",
+        best_opportunity.estimated_profit_sol * amount / 0.01
+    );
+    println!(
+        "   🏪 Ruta: {} → {}",
+        best_opportunity.dex_buy, best_opportunity.dex_sell
+    );
+
     // Configurar cliente Jupiter real
     let jupiter_config = JupiterConfig::devnet();
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
-    
+
     // PASO 1: Obtener quote real de Jupiter para la compra
     println!("🔄 Paso 1: Obteniendo quote REAL de Jupiter...");
-    
+
     let amount_lamports = (amount * 1_000_000_000.0) as u64; // Convertir SOL a lamports
-    
+
     let quote_request = QuoteRequest {
         inputMint: tokens::SOL.to_string(),
         outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC que SÍ funciona
         amount: amount_lamports,
         slippageBps: 50, // 0.5% slippage
     };
-    
+
     match jupiter_client.get_quote(quote_request).await {
         Ok(quote) => {
             println!("✅ Quote real obtenido de Jupiter:");
             println!("   � Input: {} lamports SOL", quote.inAmount);
             println!("   💰 Output: {} lamports USDC", quote.outAmount);
-            println!("   📊 Precio efectivo: {:.6} USDC/SOL", 
-                     quote.out_amount_units() as f64 / quote.in_amount_lamports() as f64);
-            
+            println!(
+                "   📊 Precio efectivo: {:.6} USDC/SOL",
+                quote.out_amount_units() as f64 / quote.in_amount_lamports() as f64
+            );
+
             // En implementación completa, aquí ejecutaríamos la transacción real
             println!("🔄 Paso 2: Simulando ejecución de swap real...");
-            println!("   ⚠️  NOTA: En producción, aquí se ejecutaría la transacción blockchain real");
+            println!(
+                "   ⚠️  NOTA: En producción, aquí se ejecutaría la transacción blockchain real"
+            );
             tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
             println!("✅ Transacción simulada completada");
-            
+
             // PASO 3: Calcular profit real basado en quote de Jupiter
             let jupiter_price = quote.out_amount_units() as f64 / quote.in_amount_lamports() as f64;
-            let estimated_other_dex_price = jupiter_price * (1.0 + best_opportunity.profit_percentage / 100.0);
-            let real_profit_percentage = ((estimated_other_dex_price - jupiter_price) / jupiter_price) * 100.0;
+            let estimated_other_dex_price =
+                jupiter_price * (1.0 + best_opportunity.profit_percentage / 100.0);
+            let real_profit_percentage =
+                ((estimated_other_dex_price - jupiter_price) / jupiter_price) * 100.0;
             let real_profit_sol = amount * real_profit_percentage / 100.0;
-            
+
             println!("💰 Arbitraje con datos REALES completado!");
-            println!("📈 Ganancia estimada real: +{:.6} SOL ({:.2}%)", real_profit_sol, real_profit_percentage);
+            println!(
+                "📈 Ganancia estimada real: +{:.6} SOL ({:.2}%)",
+                real_profit_sol, real_profit_percentage
+            );
             println!("📊 Basado en precios reales de Jupiter API");
-            
         }
         Err(e) => {
             println!("❌ Error obteniendo quote real de Jupiter: {}", e);
@@ -2909,48 +3158,62 @@ async fn execute_single_arbitrage(wallet: Keypair, amount: f64) -> Result<()> {
             return Err(anyhow::anyhow!("Failed to get real Jupiter quote: {}", e));
         }
     }
-    
+
     Ok(())
 }
 
 /// Ejecuta arbitraje automático por un período de tiempo
-async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64, interval_ms: u64) -> Result<()> {
+async fn execute_auto_arbitrage(
+    wallet: Keypair,
+    amount: f64,
+    minutes: u64,
+    interval_ms: u64,
+) -> Result<()> {
     use std::time::{Duration, Instant};
-    
+
     println!("🤖 Arbitraje automático iniciado por {} minutos", minutes);
     println!("⏱️  Intervalo entre intentos: {}ms", interval_ms);
-    
+
     let start_time = Instant::now();
     let max_duration = Duration::from_secs(minutes * 60);
     let interval_duration = Duration::from_millis(interval_ms);
-    
+
     let mut total_profit = 0.0;
     let mut successful_trades = 0;
     let mut total_trades = 0;
-    
+
     while start_time.elapsed() < max_duration {
         let cycle_start = Instant::now();
         total_trades += 1;
-        
-        let remaining_minutes = (max_duration.as_secs() - start_time.elapsed().as_secs()) as f64 / 60.0;
+
+        let remaining_minutes =
+            (max_duration.as_secs() - start_time.elapsed().as_secs()) as f64 / 60.0;
         let timestamp = chrono::Utc::now().format("%H:%M:%S%.3f");
-        
-        println!("\n[{}] 📊 Trade #{} - Tiempo restante: {:.1} min", 
-                 timestamp, total_trades, remaining_minutes);
-        
+
+        println!(
+            "\n[{}] 📊 Trade #{} - Tiempo restante: {:.1} min",
+            timestamp, total_trades, remaining_minutes
+        );
+
         match scan_arbitrage_opportunities(0.2).await {
             Ok(opportunities) => {
                 if let Some(best_opportunity) = opportunities.first() {
                     if best_opportunity.confidence_score > 70.0 {
-                        println!("🎯 Oportunidad detectada: {:.2}% ganancia (confianza: {:.0}%)", 
-                                best_opportunity.profit_percentage, best_opportunity.confidence_score);
-                        
+                        println!(
+                            "🎯 Oportunidad detectada: {:.2}% ganancia (confianza: {:.0}%)",
+                            best_opportunity.profit_percentage, best_opportunity.confidence_score
+                        );
+
                         match execute_single_arbitrage(wallet.insecure_clone(), amount).await {
                             Ok(_) => {
-                                total_profit += best_opportunity.estimated_profit_sol * amount / 0.01;
+                                total_profit +=
+                                    best_opportunity.estimated_profit_sol * amount / 0.01;
                                 successful_trades += 1;
-                                println!("✅ Trade #{} exitoso - Ganancia estimada: +{:.6} SOL", 
-                                        successful_trades, best_opportunity.estimated_profit_sol * amount / 0.01);
+                                println!(
+                                    "✅ Trade #{} exitoso - Ganancia estimada: +{:.6} SOL",
+                                    successful_trades,
+                                    best_opportunity.estimated_profit_sol * amount / 0.01
+                                );
                             }
                             Err(e) => {
                                 println!("❌ Error en trade: {}", e);
@@ -2968,7 +3231,7 @@ async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64, inte
                 println!("❌ Error escaneando: {}", e);
             }
         }
-        
+
         // Calcular tiempo de sleep considerando el tiempo de ejecución
         let cycle_elapsed = cycle_start.elapsed();
         let sleep_duration = if cycle_elapsed < interval_duration {
@@ -2976,19 +3239,28 @@ async fn execute_auto_arbitrage(wallet: Keypair, amount: f64, minutes: u64, inte
         } else {
             Duration::from_millis(100) // Mínimo 100ms de pausa
         };
-        
+
         tokio::time::sleep(sleep_duration).await;
     }
-    
+
     println!("\n📊 Resumen de arbitraje automático:");
     println!("   ⏱️  Duración: {} minutos", minutes);
     println!("   💰 Ganancia total: {:.6} SOL", total_profit);
-    println!("   📈 Trades exitosos: {}/{}", successful_trades, total_trades);
-    println!("   ⚡ Tasa de éxito: {:.1}%", (successful_trades as f64 / total_trades as f64) * 100.0);
+    println!(
+        "   📈 Trades exitosos: {}/{}",
+        successful_trades, total_trades
+    );
+    println!(
+        "   ⚡ Tasa de éxito: {:.1}%",
+        (successful_trades as f64 / total_trades as f64) * 100.0
+    );
     if successful_trades > 0 {
-        println!("   💎 ROI promedio: {:.2}%", (total_profit / (successful_trades as f64 * amount)) * 100.0);
+        println!(
+            "   💎 ROI promedio: {:.2}%",
+            (total_profit / (successful_trades as f64 * amount)) * 100.0
+        );
     }
-    
+
     Ok(())
 }
 
@@ -3008,38 +3280,38 @@ pub struct ArbitrageOpportunity {
 
 /// Escanea oportunidades de arbitraje REALES usando múltiples DEXs - SOL real prices
 async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOpportunity>> {
-    use std::collections::HashMap;
-    use sniperforge::shared::jupiter::{JupiterClient, JupiterConfig, tokens};
+    use sniperforge::shared::jupiter::{tokens, JupiterClient, JupiterConfig};
     use sniperforge::shared::orca_client::OrcaClient;
+    use std::collections::HashMap;
     use std::time::Duration;
-    
+
     println!("🔍 Conectando a múltiples DEXs para precios reales de SOL...");
-    
+
     // Configurar clientes para múltiples DEXs
     let jupiter_config = JupiterConfig::devnet();
     let jupiter_client = JupiterClient::new(&jupiter_config).await?;
     let orca_client = OrcaClient::new("devnet");
-    
+
     let mut opportunities = Vec::new();
-    
+
     println!("📊 Obteniendo precios reales de SOL desde múltiples DEXs...");
-    
+
     // Obtener precios reales de múltiples DEXs en paralelo
     let sol_mint = tokens::SOL;
-    
+
     // Jupiter price (ya funciona perfectamente)
     let jupiter_price_future = retry_api_call(|| jupiter_client.get_price(sol_mint), 3);
-    
+
     // Orca price (usando el nuevo método get_price)
     let orca_price_future = orca_client.get_price(sol_mint);
-    
+
     // Ejecutar ambas consultas en paralelo
     let (jupiter_result, orca_result) = tokio::join!(jupiter_price_future, orca_price_future);
-    
+
     // Recopilar precios reales obtenidos
     let mut dex_prices = Vec::new();
     let mut jupiter_available = false;
-    
+
     // Procesar resultado de Jupiter
     match jupiter_result {
         Ok(Some(price)) => {
@@ -3054,7 +3326,7 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
             println!("❌ Jupiter error: {}", e);
         }
     }
-    
+
     // Procesar resultado de Orca
     match orca_result {
         Ok(Some(price)) => {
@@ -3068,34 +3340,45 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
             println!("❌ Orca error: {}", e);
         }
     }
-    
+
     // Para completar, usar Jupiter como proxy para "Raydium" (Jupiter agrega múltiples DEXs)
     // En una implementación completa, aquí habría un cliente Raydium dedicado
     if jupiter_available {
         // Nota: Esto es temporal - en producción habría un cliente Raydium real
-        println!("📝 Nota: Usando Jupiter como referencia (agrega múltiples DEXs incluyendo Raydium)");
+        println!(
+            "📝 Nota: Usando Jupiter como referencia (agrega múltiples DEXs incluyendo Raydium)"
+        );
     }
-    
+
     // Analizar oportunidades de arbitraje solo si tenemos múltiples precios
     if dex_prices.len() >= 2 {
-        let min_price = dex_prices.iter().min_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-        let max_price = dex_prices.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
-        
+        let min_price = dex_prices
+            .iter()
+            .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .unwrap();
+        let max_price = dex_prices
+            .iter()
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+            .unwrap();
+
         let profit_percentage = ((max_price.1 - min_price.1) / min_price.1) * 100.0;
-        
-        println!("📈 Spread REAL: {} ${:.4} → {} ${:.4} = {:.3}% diferencia", 
-                 min_price.0, min_price.1, max_price.0, max_price.1, profit_percentage);
-        
+
+        println!(
+            "📈 Spread REAL: {} ${:.4} → {} ${:.4} = {:.3}% diferencia",
+            min_price.0, min_price.1, max_price.0, max_price.1, profit_percentage
+        );
+
         if profit_percentage >= min_profit {
             // Confianza alta porque son precios reales de DEXs
-            let confidence_score = if profit_percentage < 0.5 { 
-                95.0 + (profit_percentage * 2.0) 
+            let confidence_score = if profit_percentage < 0.5 {
+                95.0 + (profit_percentage * 2.0)
             } else if profit_percentage < 1.0 {
                 90.0 + (profit_percentage * 5.0)
-            } else { 
-                85.0 
-            }.min(98.0);
-            
+            } else {
+                85.0
+            }
+            .min(98.0);
+
             let opportunity = ArbitrageOpportunity {
                 token_a: "SOL".to_string(),
                 token_b: "SOL".to_string(), // Mismo token, diferentes DEXs
@@ -3107,15 +3390,22 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
                 estimated_profit_sol: profit_percentage * 0.01 / 100.0, // Para 0.01 SOL
                 confidence_score,
             };
-            println!("🎯 Oportunidad REAL encontrada: {:.3}% profit ({} ${:.4} → {} ${:.4})", 
-                     profit_percentage, min_price.0, min_price.1, max_price.0, max_price.1);
-            println!("💰 Ganancia estimada para 0.01 SOL: +{:.8} SOL", opportunity.estimated_profit_sol);
+            println!(
+                "🎯 Oportunidad REAL encontrada: {:.3}% profit ({} ${:.4} → {} ${:.4})",
+                profit_percentage, min_price.0, min_price.1, max_price.0, max_price.1
+            );
+            println!(
+                "💰 Ganancia estimada para 0.01 SOL: +{:.8} SOL",
+                opportunity.estimated_profit_sol
+            );
             println!("🔥 ARBITRAJE 100% REAL - No simulación");
-            
+
             opportunities.push(opportunity);
         } else {
-            println!("📊 Spread REAL actual: {:.3}% (mínimo requerido: {:.1}%)", 
-                     profit_percentage, min_profit);
+            println!(
+                "📊 Spread REAL actual: {:.3}% (mínimo requerido: {:.1}%)",
+                profit_percentage, min_profit
+            );
             println!("� Mercado eficiente: Spreads pequeños entre DEXs reales");
         }
     } else if dex_prices.len() == 1 {
@@ -3126,35 +3416,42 @@ async fn scan_arbitrage_opportunities(min_profit: f64) -> Result<Vec<ArbitrageOp
         println!("❌ No se pudieron obtener precios de ningún DEX");
         println!("🔍 Verificar conectividad de red y estado de APIs");
     }
-    
+
     if opportunities.is_empty() {
         println!("📭 No hay oportunidades de arbitraje reales disponibles");
         println!("💡 El arbitraje real depende de ineficiencias temporales del mercado");
         println!("🔄 Tip: Intenta con --min-profit más bajo (ej: 0.05) o en modo continuo");
         println!("🎯 Los spreads reales son típicamente 0.1-0.3% en condiciones normales");
     }
-    
+
     // Ordenar por mayor ganancia
-    opportunities.sort_by(|a, b| b.profit_percentage.partial_cmp(&a.profit_percentage).unwrap());
-    
+    opportunities.sort_by(|a, b| {
+        b.profit_percentage
+            .partial_cmp(&a.profit_percentage)
+            .unwrap()
+    });
+
     Ok(opportunities)
 }
 
 /// Función auxiliar para reintentar llamadas API con backoff exponencial
-async fn retry_api_call<F, Fut, T>(mut api_call: F, max_retries: u32) -> Result<T> 
+async fn retry_api_call<F, Fut, T>(mut api_call: F, max_retries: u32) -> Result<T>
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = Result<T>>,
 {
     use std::time::Duration;
-    
+
     for attempt in 1..=max_retries {
         match api_call().await {
             Ok(result) => return Ok(result),
             Err(e) => {
                 if e.to_string().contains("429") && attempt < max_retries {
                     let wait_time = 2_u64.pow(attempt) * 1000; // Backoff exponencial: 2s, 4s, 8s
-                    println!("🔄 Intento {}/{} falló (429) - esperando {}ms...", attempt, max_retries, wait_time);
+                    println!(
+                        "🔄 Intento {}/{} falló (429) - esperando {}ms...",
+                        attempt, max_retries, wait_time
+                    );
                     tokio::time::sleep(Duration::from_millis(wait_time)).await;
                 } else {
                     return Err(e);
@@ -3162,24 +3459,27 @@ where
             }
         }
     }
-    
-    Err(anyhow::anyhow!("API call failed after {} retries", max_retries))
+
+    Err(anyhow::anyhow!(
+        "API call failed after {} retries",
+        max_retries
+    ))
 }
 
 /// Carga una wallet desde archivo JSON
 fn load_wallet_from_file(file_path: &str) -> Result<Keypair> {
     use solana_sdk::signature::Keypair;
     use std::fs;
-    
+
     let wallet_data = fs::read_to_string(file_path)
         .map_err(|e| anyhow::anyhow!("Failed to read wallet file: {}", e))?;
-    
+
     let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_data)
         .map_err(|e| anyhow::anyhow!("Failed to parse wallet JSON: {}", e))?;
-    
+
     let wallet = Keypair::from_bytes(&wallet_bytes)
         .map_err(|e| anyhow::anyhow!("Failed to create keypair from bytes: {}", e))?;
-    
+
     Ok(wallet)
 }
 

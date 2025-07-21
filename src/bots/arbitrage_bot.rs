@@ -1,16 +1,18 @@
-use crate::shared::pool_detector::{TradingOpportunity, OpportunityType, DetectedPool, TokenInfo, RiskScore};
+use crate::config::NetworkConfig;
+use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
 use crate::shared::jupiter::Jupiter;
 use crate::shared::jupiter_config::JupiterConfig;
-use crate::shared::cache_free_trader_simple::{CacheFreeTraderSimple, TradingSafetyConfig};
+use crate::shared::pool_detector::{
+    DetectedPool, OpportunityType, RiskScore, TokenInfo, TradingOpportunity,
+};
 use crate::shared::websocket_price_feed::WebSocketPriceFeed;
 use crate::shared::SharedServices;
-use crate::config::NetworkConfig;
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tracing::{info, warn, error};
 use tokio::time::timeout;
+use tracing::{error, info, warn};
 
 /// Simple strategy signal for arbitrage bot
 #[derive(Debug, Clone)]
@@ -80,18 +82,31 @@ impl ArbitrageStrategy {
         Ok(signals)
     }
 
-    pub fn analyze(&self, opportunity: &TradingOpportunity, _market_data: &MarketData) -> Option<StrategySignal> {
+    pub fn analyze(
+        &self,
+        opportunity: &TradingOpportunity,
+        _market_data: &MarketData,
+    ) -> Option<StrategySignal> {
         // Real arbitrage analysis based on actual opportunity data
         if opportunity.expected_profit_usd > 0.0 && opportunity.confidence > 0.5 {
             Some(StrategySignal {
                 signal_type: "ARBITRAGE".to_string(),
                 confidence: opportunity.confidence,
-                symbol: format!("{}/{}", opportunity.pool.token_a.symbol, opportunity.pool.token_b.symbol),
+                symbol: format!(
+                    "{}/{}",
+                    opportunity.pool.token_a.symbol, opportunity.pool.token_b.symbol
+                ),
                 timeframe: "INSTANT".to_string(),
                 metadata: HashMap::from([
-                    ("pool_address".to_string(), opportunity.pool.pool_address.clone()),
+                    (
+                        "pool_address".to_string(),
+                        opportunity.pool.pool_address.clone(),
+                    ),
                     ("dex".to_string(), opportunity.pool.dex.clone()),
-                    ("expected_profit".to_string(), opportunity.expected_profit_usd.to_string()),
+                    (
+                        "expected_profit".to_string(),
+                        opportunity.expected_profit_usd.to_string(),
+                    ),
                 ]),
                 position_size: opportunity.recommended_size_usd,
                 strategy_name: "RealArbitrageStrategy".to_string(),
@@ -137,8 +152,8 @@ pub struct ArbitrageExecutor {
 
 /// Risk management for arbitrage trading
 pub struct RiskManager {
-    daily_loss_limit: f64,    // 5%
-    max_position_size: f64,   // 20%
+    daily_loss_limit: f64,      // 5%
+    max_position_size: f64,     // 20%
     max_concurrent_trades: u32, // 3
     emergency_stop: bool,
     current_daily_loss: f64,
@@ -214,7 +229,10 @@ impl ArbitrageBot {
         network_config: &NetworkConfig,
         shared_services: Arc<SharedServices>,
     ) -> Result<Self> {
-        info!("🤖 Initializing Arbitrage Bot with ${:.2} capital", initial_capital);
+        info!(
+            "🤖 Initializing Arbitrage Bot with ${:.2} capital",
+            initial_capital
+        );
 
         // Initialize the arbitrage strategy
         let strategy = ArbitrageStrategy::new();
@@ -224,20 +242,21 @@ impl ArbitrageBot {
             max_price_age_ms: 50,
             fresh_data_timeout_ms: 1000,
             price_tolerance_percent: 0.5,
-        };        // Get the actual wallet keypair from shared services
-        let wallet_keypair_arc = shared_services.wallet_manager()
-            .get_wallet_keypair("devnet-trading").await
+        }; // Get the actual wallet keypair from shared services
+        let wallet_keypair_arc = shared_services
+            .wallet_manager()
+            .get_wallet_keypair("devnet-trading")
+            .await
             .map_err(|e| anyhow!("Failed to get wallet keypair: {}", e))?;
 
         // Create a new keypair from the secret bytes
-        let wallet_keypair = solana_sdk::signature::Keypair::from_bytes(&wallet_keypair_arc.to_bytes())
-            .map_err(|e| anyhow!("Failed to create wallet keypair: {}", e))?;
+        let wallet_keypair =
+            solana_sdk::signature::Keypair::from_bytes(&wallet_keypair_arc.to_bytes())
+                .map_err(|e| anyhow!("Failed to create wallet keypair: {}", e))?;
 
-        let cache_free_trader = CacheFreeTraderSimple::new_with_wallet(
-            safety_config,
-            network_config,
-            wallet_keypair
-        ).await?;
+        let cache_free_trader =
+            CacheFreeTraderSimple::new_with_wallet(safety_config, network_config, wallet_keypair)
+                .await?;
 
         // Initialize executor
         let executor = ArbitrageExecutor {
@@ -278,7 +297,8 @@ impl ArbitrageBot {
 
         // Initialize WebSocket price feed for real prices (MainNet for DevNet too)
         info!("🌐 Initializing WebSocket Price Feed for real market data");
-        let price_feed = WebSocketPriceFeed::new_mainnet_prices().await
+        let price_feed = WebSocketPriceFeed::new_mainnet_prices()
+            .await
             .map_err(|e| anyhow!("Failed to initialize price feed: {}", e))?;
 
         info!("✅ Price feed initialized with real MainNet prices");
@@ -323,20 +343,24 @@ impl ArbitrageBot {
                                 Ok(result) => {
                                     if result.success {
                                         info!("✅ Arbitrage trade executed successfully: ${:.2} profit", result.actual_profit_usd);
-                                        self.profit_tracker.total_profit_usd += result.actual_profit_usd;
+                                        self.profit_tracker.total_profit_usd +=
+                                            result.actual_profit_usd;
                                         self.profit_tracker.successful_trades += 1;
                                     } else {
-                                        warn!("❌ Arbitrage trade failed: {:?}", result.error_message);
+                                        warn!(
+                                            "❌ Arbitrage trade failed: {:?}",
+                                            result.error_message
+                                        );
                                     }
                                     self.profit_tracker.total_trades += 1;
-                                },
+                                }
                                 Err(e) => {
                                     error!("💥 Error executing arbitrage trade: {}", e);
                                 }
                             }
                         }
                     }
-                },
+                }
                 Err(e) => {
                     error!("💥 Error detecting opportunities: {}", e);
                 }
@@ -384,7 +408,8 @@ impl ArbitrageBot {
         }
 
         Ok(signals)
-    }    /// Get real market data from APIs
+    }
+    /// Get real market data from APIs
     pub async fn get_real_market_data(&mut self) -> Result<MarketData> {
         info!("📊 Fetching REAL market data using WebSocket Price Feed");
 
@@ -398,7 +423,7 @@ impl ArbitrageBot {
             Ok(None) => {
                 warn!("⚠️ No SOL price from WebSocket feed, using fallback");
                 100.0 // Fallback price
-            },
+            }
             Err(e) => {
                 warn!("⚠️ WebSocket price feed error for SOL: {}", e);
                 100.0 // Fallback price
@@ -408,7 +433,7 @@ impl ArbitrageBot {
         let usdc_price = match self.price_feed.get_price_hybrid(usdc_mint).await {
             Ok(Some(price)) => price,
             Ok(None) => 1.0, // USDC is always ~$1
-            Err(_) => 1.0
+            Err(_) => 1.0,
         };
 
         // Calculate SOL/USDC price
@@ -435,7 +460,10 @@ impl ArbitrageBot {
         // Calculate bid/ask from price differences if we have multiple sources
         let (bid, ask) = if prices.len() > 1 {
             let min_price = prices.iter().map(|(_, p)| *p).fold(f64::INFINITY, f64::min);
-            let max_price = prices.iter().map(|(_, p)| *p).fold(f64::NEG_INFINITY, f64::max);
+            let max_price = prices
+                .iter()
+                .map(|(_, p)| *p)
+                .fold(f64::NEG_INFINITY, f64::max);
             (min_price, max_price)
         } else {
             // If only one source, use small spread estimate
@@ -450,8 +478,13 @@ impl ArbitrageBot {
             0.0 // Will be 0 until we implement volume API
         };
 
-        info!("📈 Real market data - Price: ${:.6}, Bid: ${:.6}, Ask: ${:.6}, Sources: {}",
-              current_price, bid, ask, prices.len());
+        info!(
+            "📈 Real market data - Price: ${:.6}, Bid: ${:.6}, Ask: ${:.6}, Sources: {}",
+            current_price,
+            bid,
+            ask,
+            prices.len()
+        );
 
         Ok(MarketData {
             symbol: "SOL/USDC".to_string(),
@@ -467,7 +500,7 @@ impl ArbitrageBot {
             liquidity: if current_price == 100.0 { 10000.0 } else { 0.0 }, // Mock liquidity for DevNet
             bid_ask_spread: ask - bid,
             order_book_depth: if current_price == 100.0 { 5000.0 } else { 0.0 }, // Mock depth for DevNet
-            price_history: vec![], // Would need historical API
+            price_history: vec![],  // Would need historical API
             volume_history: vec![], // Would need historical API
         })
     }
@@ -476,7 +509,8 @@ impl ArbitrageBot {
     async fn update_price_feeds(&mut self) -> Result<()> {
         // Get prices from different DEXs
         if let Ok(jupiter_price) = self.get_jupiter_price("SOL", "USDC").await {
-            self.strategy.update_price_feed("Jupiter".to_string(), jupiter_price);
+            self.strategy
+                .update_price_feed("Jupiter".to_string(), jupiter_price);
         }
 
         // Only try other DEXs if they have real implementations
@@ -491,7 +525,10 @@ impl ArbitrageBot {
         if from_token == "SOL" && to_token == "USDC" {
             let sol_mint = "So11111111111111111111111111111111111111112";
             if let Ok(Some(price)) = self.price_feed.get_price_hybrid(sol_mint).await {
-                info!("⚡ WebSocket price for {}/{}: ${:.6}", from_token, to_token, price);
+                info!(
+                    "⚡ WebSocket price for {}/{}: ${:.6}",
+                    from_token, to_token, price
+                );
                 return Ok(price);
             }
         }
@@ -503,9 +540,12 @@ impl ArbitrageBot {
         match jupiter.get_quote(from_token, to_token, 1.0, 10000).await {
             Ok(quote) => {
                 let price = quote.out_amount() as f64 / quote.in_amount() as f64;
-                info!("🔥 Real Jupiter price for {}/{}: ${:.6}", from_token, to_token, price);
+                info!(
+                    "🔥 Real Jupiter price for {}/{}: ${:.6}",
+                    from_token, to_token, price
+                );
                 Ok(price)
-            },
+            }
             Err(e) => {
                 error!("❌ Failed to get Jupiter price: {}", e);
                 Err(anyhow!("Jupiter API error: {}", e))
@@ -515,7 +555,10 @@ impl ArbitrageBot {
 
     /// Get price from Raydium API
     async fn get_raydium_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        info!("🔥 Attempting to get Raydium price for {}/{}", from_token, to_token);
+        info!(
+            "🔥 Attempting to get Raydium price for {}/{}",
+            from_token, to_token
+        );
 
         // Real implementation would need:
         // 1. Raydium pool address lookup
@@ -527,18 +570,26 @@ impl ArbitrageBot {
 
     /// Get price from Orca API
     async fn get_orca_price(&self, from_token: &str, to_token: &str) -> Result<f64> {
-        info!("🔥 Attempting to get Orca price for {}/{}", from_token, to_token);
+        info!(
+            "🔥 Attempting to get Orca price for {}/{}",
+            from_token, to_token
+        );
 
         // Real implementation would need:
         // 1. Orca Whirlpool SDK integration
         // 2. Pool discovery and data fetching
         // 3. Price calculation from tick data
 
-        Err(anyhow!("Orca integration not yet implemented - requires Whirlpool SDK integration"))
+        Err(anyhow!(
+            "Orca integration not yet implemented - requires Whirlpool SDK integration"
+        ))
     }
 
     /// Execute an arbitrage trade
-    pub async fn execute_arbitrage_trade(&mut self, signal: &StrategySignal) -> Result<ArbitrageTradeResult> {
+    pub async fn execute_arbitrage_trade(
+        &mut self,
+        signal: &StrategySignal,
+    ) -> Result<ArbitrageTradeResult> {
         let start_time = Instant::now();
 
         // Risk management checks
@@ -557,17 +608,21 @@ impl ArbitrageBot {
             });
         }
 
-        info!("⚡ Executing REAL arbitrage trade: {} with confidence {:.1}%",
-              signal.strategy_name, signal.confidence * 100.0);
+        info!(
+            "⚡ Executing REAL arbitrage trade: {} with confidence {:.1}%",
+            signal.strategy_name,
+            signal.confidence * 100.0
+        );
 
         // Execute the actual trade using CacheFreeTraderSimple
-        match self.executor.cache_free_trader.execute_real_trade(
-            &signal.symbol,
-            signal.position_size,
-            signal.confidence,
-        ).await {
+        match self
+            .executor
+            .cache_free_trader
+            .execute_real_trade(&signal.symbol, signal.position_size, signal.confidence)
+            .await
+        {
             Ok(trade_result) => {
-                info!("✅ Real trade executed successfully");                // Parse actual transaction results from blockchain
+                info!("✅ Real trade executed successfully"); // Parse actual transaction results from blockchain
                 if let Some(transaction_id) = &trade_result.transaction_id {
                     let actual_amounts = self.parse_transaction_amounts(transaction_id).await?;
                     let actual_profit = actual_amounts.total_received - actual_amounts.total_cost;
@@ -590,7 +645,7 @@ impl ArbitrageBot {
                 } else {
                     Err(anyhow!("Trade succeeded but no transaction ID returned"))
                 }
-            },
+            }
             Err(e) => {
                 error!("❌ Real trade execution failed: {}", e);
 
@@ -612,7 +667,10 @@ impl ArbitrageBot {
 
     /// Parse actual transaction amounts from blockchain
     async fn parse_transaction_amounts(&self, transaction_id: &str) -> Result<TransactionAmounts> {
-        info!("🔍 Parsing real transaction amounts for: {}", transaction_id);
+        info!(
+            "🔍 Parsing real transaction amounts for: {}",
+            transaction_id
+        );
 
         // Use shared RPC pool to fetch transaction details
         let rpc_client = self.shared_services.rpc_pool();
@@ -636,19 +694,21 @@ impl ArbitrageBot {
                 // Transaction fee
                 let fees = tx_details.fee;
 
-                info!("💰 Real transaction amounts - Cost: ${:.6}, Received: ${:.6}, Fees: ${:.6}",
-                      total_cost, total_received, fees);
+                info!(
+                    "💰 Real transaction amounts - Cost: ${:.6}, Received: ${:.6}, Fees: ${:.6}",
+                    total_cost, total_received, fees
+                );
 
                 Ok(TransactionAmounts {
                     total_cost,
                     total_received,
                     fees,
                 })
-            },
+            }
             Ok(None) => {
                 error!("❌ Transaction {} not found", transaction_id);
                 Err(anyhow::anyhow!("Transaction {} not found", transaction_id))
-            },
+            }
             Err(e) => {
                 error!("❌ Failed to parse transaction {}: {}", transaction_id, e);
                 Err(anyhow!("Transaction parsing failed: {}", e))
@@ -660,7 +720,8 @@ impl ArbitrageBot {
     pub fn get_status(&self) -> ArbitrageBotStatus {
         let uptime = self.monitoring.start_time.elapsed().as_secs();
         let success_rate = if self.profit_tracker.total_trades > 0 {
-            (self.profit_tracker.successful_trades as f64 / self.profit_tracker.total_trades as f64) * 100.0
+            (self.profit_tracker.successful_trades as f64 / self.profit_tracker.total_trades as f64)
+                * 100.0
         } else {
             0.0
         };

@@ -1,16 +1,16 @@
-use anyhow::Result;
-use tracing::{info, error, warn};
 use crate::config::Config;
 use crate::shared::rpc_pool::RpcConnectionPool;
+use anyhow::Result;
+use tracing::{error, info, warn};
 
 /// Test Solana connectivity and basic functionality
 pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
     info!("🧪 Testing Solana connectivity...");
-    
+
     // Create RPC pool
     let rpc_pool = RpcConnectionPool::new(config).await?;
     rpc_pool.start().await?;
-    
+
     // Test 1: Get current slot
     info!("📡 Test 1: Getting current slot...");
     match rpc_pool.get_current_slot().await {
@@ -22,7 +22,7 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
             return Err(e);
         }
     }
-    
+
     // Test 2: Get latest blockhash
     info!("📡 Test 2: Getting latest blockhash...");
     match rpc_pool.get_latest_blockhash().await {
@@ -34,7 +34,7 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
             return Err(e);
         }
     }
-    
+
     // Test 3: Check Raydium pools (optional - quick check only)
     info!("📡 Test 3: Checking Raydium pools...");
     match rpc_pool.get_raydium_pools().await {
@@ -44,11 +44,16 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
                 info!("    This is expected on mainnet - alternative pool detection is active");
             } else {
                 info!("✅ Found {} Raydium pool accounts via RPC", pools.len());
-                
+
                 // Show first few pools for verification
                 for (i, (pubkey, account)) in pools.iter().take(3).enumerate() {
-                    info!("  Pool {}: {} (data size: {} bytes, balance: {} lamports)", 
-                          i + 1, pubkey, account.data.len(), account.lamports);
+                    info!(
+                        "  Pool {}: {} (data size: {} bytes, balance: {} lamports)",
+                        i + 1,
+                        pubkey,
+                        account.data.len(),
+                        account.lamports
+                    );
                 }
             }
         }
@@ -58,7 +63,7 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
             // Don't return error - continue with other tests
         }
     }
-    
+
     // Test 4: Get RPC stats
     let stats = rpc_pool.get_stats().await;
     info!("📊 RPC Pool Statistics:");
@@ -66,7 +71,7 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
     info!("  Successful: {}", stats.successful_requests);
     info!("  Failed: {}", stats.failed_requests);
     info!("  Avg response time: {:.2}ms", stats.avg_response_time_ms);
-    
+
     info!("🎉 All Solana connectivity tests passed!");
     Ok(())
 }
@@ -74,26 +79,33 @@ pub async fn test_solana_connectivity(config: &Config) -> Result<()> {
 /// Test specific pool analysis
 pub async fn test_pool_analysis(config: &Config) -> Result<()> {
     info!("🧪 Testing pool analysis functionality...");
-    
+
     let rpc_pool = RpcConnectionPool::new(config).await?;
     rpc_pool.start().await?;
-    
+
     // Get some pools to analyze
-    let pools = rpc_pool.monitor_new_raydium_pools(Default::default()).await?;
-    
+    let pools = rpc_pool
+        .monitor_new_raydium_pools(Default::default())
+        .await?;
+
     if pools.is_empty() {
         info!("ℹ️ No pools found for analysis");
         return Ok(());
     }
-    
+
     // Analyze first pool
     let pool = &pools[0];
     info!("🔍 Analyzing pool: {}", pool);
-    
+
     // Test pool validation
-    let is_valid = rpc_pool.validate_pool_criteria(pool, &Default::default()).await?;
-    info!("✅ Pool validation result: {}", if is_valid { "VALID" } else { "INVALID" });
-    
+    let is_valid = rpc_pool
+        .validate_pool_criteria(pool, &Default::default())
+        .await?;
+    info!(
+        "✅ Pool validation result: {}",
+        if is_valid { "VALID" } else { "INVALID" }
+    );
+
     // Test market data extraction
     match rpc_pool.get_pool_market_data(pool).await {
         Ok(market_data) => {
@@ -106,7 +118,7 @@ pub async fn test_pool_analysis(config: &Config) -> Result<()> {
             info!("⚠️ Could not get market data: {}", e);
         }
     }
-    
+
     info!("🎉 Pool analysis tests completed!");
     Ok(())
 }

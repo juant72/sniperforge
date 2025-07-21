@@ -1,61 +1,61 @@
-pub mod rpc_pool;
-pub mod rpc_health_persistence;  // NEW: RPC endpoint health persistence
-pub mod premium_rpc_manager;     // NEW: Premium RPC endpoints with API keys
-pub mod tatum_rpc_client;        // NEW: Tatum client with header authentication
-pub mod wallet_manager;
+pub mod config_loader;
 pub mod data_feeds;
 pub mod monitoring;
-pub mod network_config;          // NEW: Network-specific configuration for Program IDs and tokens
-pub mod config_loader;           // NEW: JSON-based configuration loader
+pub mod network_config; // NEW: Network-specific configuration for Program IDs and tokens
+pub mod premium_rpc_manager; // NEW: Premium RPC endpoints with API keys
+pub mod rpc_health_persistence; // NEW: RPC endpoint health persistence
+pub mod rpc_pool;
+pub mod tatum_rpc_client; // NEW: Tatum client with header authentication
+pub mod wallet_manager; // NEW: JSON-based configuration loader
 
 // Jupiter API - Refactored into separate modules
-pub mod jupiter_types;           // Data structures and types
-pub mod jupiter_config;          // Configuration
-pub mod jupiter_client;          // HTTP client
-pub mod jupiter_api;             // Main business logic
-pub mod jupiter;                 // Legacy module (deprecated)
+pub mod jupiter;
+pub mod jupiter_api; // Main business logic
+pub mod jupiter_client; // HTTP client
+pub mod jupiter_config; // Configuration
+pub mod jupiter_types; // Data structures and types // Legacy module (deprecated)
 
 // Multi-DEX Integration - NEW
-pub mod orca_client;             // NEW: Orca DEX client for DevNet/Mainnet
-pub mod orca_sync_wrapper;       // NEW: Sync wrapper for Orca SDK async issues
-pub mod dex_fallback_manager;    // NEW: Multi-DEX fallback logic
+pub mod dex_fallback_manager;
+pub mod orca_client; // NEW: Orca DEX client for DevNet/Mainnet
+pub mod orca_sync_wrapper; // NEW: Sync wrapper for Orca SDK async issues // NEW: Multi-DEX fallback logic
 
-pub mod real_data_manager;  // NEW: Centralized real data management
-pub mod real_trade_executor; // NEW: Real-only trade execution
-pub mod trade_executor;
-pub mod risk_manager;
+pub mod alternative_apis; // NEW: Alternative API sources for resilience
+pub mod analytics; // Pool analytics and pattern detection
 pub mod automated_trader;
+pub mod cache_free_trader_simple; // Simplified cache-free trading
+pub mod cache_free_trading; // Phase 4: Cache-free trading engine
+pub mod helius_websocket; // NUEVO: Cliente Helius WebSocket
+pub mod mainnet_trading; // Phase 5B: MainNet real trading with minimal capital
+pub mod performance_profiler; // NEW: Sprint 2 performance profiling
 pub mod performance_tracker;
-pub mod performance_profiler;    // NEW: Sprint 2 performance profiling
-pub mod websocket_manager;
-pub mod websocket_price_feed;
-pub mod syndica_websocket;
-pub mod helius_websocket;  // NUEVO: Cliente Helius WebSocket
 pub mod pool_detector;
-pub mod analytics;         // Pool analytics and pattern detection
-pub mod cache_free_trading;        // Phase 4: Cache-free trading engine
-pub mod real_time_blockchain;      // Phase 5: Real-time blockchain integration
-pub mod real_time_trading;         // Phase 5A: Real-time trading with live blockchain integration
-pub mod alternative_apis;          // NEW: Alternative API sources for resilience
-pub mod mainnet_trading;           // Phase 5B: MainNet real trading with minimal capital
-pub mod transaction_monitor;     // Transaction monitoring for trading safety
-pub mod real_trading_engine;       // NEW: Real trading execution engine with Jupiter integration
-pub mod cache_free_trader_simple;   // Simplified cache-free trading
-pub mod test_wallet_integration;    // NEW: Test real wallet integration
+pub mod real_data_manager; // NEW: Centralized real data management
+pub mod real_time_blockchain; // Phase 5: Real-time blockchain integration
+pub mod real_time_trading; // Phase 5A: Real-time trading with live blockchain integration
+pub mod real_trade_executor; // NEW: Real-only trade execution
+pub mod real_trading_engine; // NEW: Real trading execution engine with Jupiter integration
+pub mod risk_manager;
+pub mod syndica_websocket;
+pub mod test_wallet_integration;
+pub mod trade_executor;
+pub mod transaction_monitor; // Transaction monitoring for trading safety
+pub mod websocket_manager;
+pub mod websocket_price_feed; // NEW: Test real wallet integration
 
 use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::config::Config;
 use crate::types::HealthStatus;
 
+use data_feeds::MarketDataFeeds;
+use jupiter_api::Jupiter;
+use monitoring::MonitoringSystem;
 use rpc_pool::RpcConnectionPool;
 use wallet_manager::WalletManager;
-use data_feeds::MarketDataFeeds;
-use monitoring::MonitoringSystem;
-use jupiter_api::Jupiter;
 use websocket_manager::WebSocketManager;
 
 pub struct SharedServices {
@@ -80,14 +80,15 @@ impl SharedServices {
 
         // Initialize market data feeds
         let data_feeds = Arc::new(MarketDataFeeds::new(config, rpc_pool.clone()).await?);
-          // Initialize monitoring system
+        // Initialize monitoring system
         let monitoring = Arc::new(MonitoringSystem::new(config)?);
-          // Initialize Jupiter integration
+        // Initialize Jupiter integration
         let jupiter_config = jupiter::JupiterConfig::default();
         let jupiter = Arc::new(Jupiter::new(&jupiter_config).await?);
 
         // Initialize WebSocket manager for real-time updates (with premium RPC pool)
-        let websocket_manager = Arc::new(WebSocketManager::new_with_rpc_pool(config, Some(rpc_pool.clone())).await?);
+        let websocket_manager =
+            Arc::new(WebSocketManager::new_with_rpc_pool(config, Some(rpc_pool.clone())).await?);
 
         Ok(Self {
             rpc_pool,
@@ -202,7 +203,8 @@ impl SharedServices {
     /// Get access to the monitoring system
     pub fn monitoring(&self) -> Arc<MonitoringSystem> {
         self.monitoring.clone()
-    }    /// Get access to Jupiter API integration
+    }
+    /// Get access to Jupiter API integration
     pub fn jupiter(&self) -> Arc<Jupiter> {
         self.jupiter.clone()
     }
@@ -221,11 +223,16 @@ impl SharedServices {
         let _monitoring_stats = self.monitoring.get_stats().await;
 
         // Get system metrics if available
-        let (cpu_usage, memory_usage, uptime) = if let Some(system_metrics) = self.monitoring.get_latest_system_metrics().await {
-            (system_metrics.cpu_usage_percent, system_metrics.memory_usage_mb, system_metrics.uptime_seconds)
-        } else {
-            (0.0, 0, 0)
-        };
+        let (cpu_usage, memory_usage, uptime) =
+            if let Some(system_metrics) = self.monitoring.get_latest_system_metrics().await {
+                (
+                    system_metrics.cpu_usage_percent,
+                    system_metrics.memory_usage_mb,
+                    system_metrics.uptime_seconds,
+                )
+            } else {
+                (0.0, 0, 0)
+            };
 
         Ok(SharedServicesMetrics {
             rpc_connections: rpc_stats.active_connections,

@@ -1,18 +1,18 @@
 //! Pattern Recognition Module using LSTM and ML algorithms
-//! 
+//!
 //! This module implements:
 //! - LSTM networks for time series pattern recognition
 //! - Technical indicator analysis with ML enhancement
 //! - Volume anomaly detection
 //! - Support/resistance level prediction
 
-use anyhow::{Result, anyhow};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use ndarray::{Array1, Array2};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-use super::{PatternRecognitionConfig, MLPrediction, FeatureVector};
+use super::{FeatureVector, MLPrediction, PatternRecognitionConfig};
 use crate::shared::real_data_manager::RealDataManager;
 
 /// LSTM-based pattern recognition for price movements
@@ -159,13 +159,15 @@ impl TechnicalIndicators {
 
         let recent_prices = &prices[prices.len() - self.bollinger_period..];
         let sma = recent_prices.iter().sum::<f64>() / self.bollinger_period as f64;
-        
-        let variance = recent_prices.iter()
+
+        let variance = recent_prices
+            .iter()
             .map(|price| (price - sma).powi(2))
-            .sum::<f64>() / self.bollinger_period as f64;
-        
+            .sum::<f64>()
+            / self.bollinger_period as f64;
+
         let std_dev = variance.sqrt();
-        
+
         let upper_band = sma + (self.bollinger_std * std_dev);
         let lower_band = sma - (self.bollinger_std * std_dev);
 
@@ -184,10 +186,12 @@ impl TechnicalIndicators {
             return Ok(0.0);
         }
 
-        let vwap = prices.iter()
+        let vwap = prices
+            .iter()
             .zip(volumes.iter())
             .map(|(price, volume)| price * volume)
-            .sum::<f64>() / total_volume;
+            .sum::<f64>()
+            / total_volume;
 
         Ok(vwap)
     }
@@ -196,7 +200,7 @@ impl TechnicalIndicators {
 impl PatternRecognizer {
     pub async fn new(config: PatternRecognitionConfig) -> Result<Self> {
         let lstm_model = Self::initialize_lstm_model(&config).await?;
-        
+
         Ok(Self {
             config,
             lstm_model: Some(lstm_model),
@@ -221,13 +225,13 @@ impl PatternRecognizer {
         // In production, this would load pre-trained weights
         let hidden_size = config.lstm_units;
         let input_size = config.technical_indicators.len();
-        
+
         let weights = vec![
             Array2::zeros((input_size, hidden_size)),
             Array2::zeros((hidden_size, hidden_size)),
             Array2::zeros((hidden_size, 1)),
         ];
-        
+
         let biases = vec![
             Array1::zeros(hidden_size),
             Array1::zeros(hidden_size),
@@ -243,12 +247,15 @@ impl PatternRecognizer {
     }
 
     /// Predict price movement using LSTM and technical analysis
-    pub async fn predict_price_movement(&mut self, features: &FeatureVector) -> Result<MLPrediction> {
+    pub async fn predict_price_movement(
+        &mut self,
+        features: &FeatureVector,
+    ) -> Result<MLPrediction> {
         let symbol = &features.symbol;
-          // Extract price and volume data from features
+        // Extract price and volume data from features
         let _price = features.features.get("price").unwrap_or(&0.0);
         let _volume = features.features.get("volume").unwrap_or(&0.0);
-        
+
         // For demo purposes, we'll use simplified pattern recognition
         // In production, this would use the full LSTM model
         let pattern_score = self.analyze_patterns(features).await?;
@@ -260,10 +267,14 @@ impl PatternRecognizer {
         let confidence = self.calculate_prediction_confidence(&combined_score);
 
         // Determine prediction direction and magnitude
-        let direction = if combined_score > 0.6 { 1.0 } 
-                       else if combined_score < 0.4 { -1.0 } 
-                       else { 0.0 };
-        
+        let direction = if combined_score > 0.6 {
+            1.0
+        } else if combined_score < 0.4 {
+            -1.0
+        } else {
+            0.0
+        };
+
         let magnitude = (combined_score - 0.5).abs() * 2.0; // 0 to 1
 
         let mut prediction = MLPrediction::new(
@@ -274,18 +285,28 @@ impl PatternRecognizer {
             "pattern_v1.0".to_string(),
         );
 
-        prediction.add_metadata("pattern_score".to_string(), 
-            serde_json::Value::Number(serde_json::Number::from_f64(pattern_score).unwrap()));
-        prediction.add_metadata("technical_score".to_string(), 
-            serde_json::Value::Number(serde_json::Number::from_f64(technical_score).unwrap()));
-        prediction.add_metadata("volume_score".to_string(), 
-            serde_json::Value::Number(serde_json::Number::from_f64(volume_score).unwrap()));
+        prediction.add_metadata(
+            "pattern_score".to_string(),
+            serde_json::Value::Number(serde_json::Number::from_f64(pattern_score).unwrap()),
+        );
+        prediction.add_metadata(
+            "technical_score".to_string(),
+            serde_json::Value::Number(serde_json::Number::from_f64(technical_score).unwrap()),
+        );
+        prediction.add_metadata(
+            "volume_score".to_string(),
+            serde_json::Value::Number(serde_json::Number::from_f64(volume_score).unwrap()),
+        );
 
         // Cache the pattern for future reference
         self.cache_pattern(symbol, &prediction).await?;
 
-        tracing::debug!("Pattern prediction for {}: direction={}, confidence={}", 
-                       symbol, direction, confidence);
+        tracing::debug!(
+            "Pattern prediction for {}: direction={}, confidence={}",
+            symbol,
+            direction,
+            confidence
+        );
 
         Ok(prediction)
     }
@@ -303,15 +324,19 @@ impl PatternRecognizer {
     async fn analyze_patterns(&self, features: &FeatureVector) -> Result<f64> {
         // Simplified pattern analysis
         // In production, this would use the LSTM model for complex pattern recognition
-        
+
         let price = features.features.get("price").unwrap_or(&0.0);
         let prev_price = features.features.get("prev_price").unwrap_or(price);
         let price_change = (price - prev_price) / prev_price;
 
         // Simple momentum pattern
-        let momentum_score = if price_change > 0.02 { 0.8 } 
-                            else if price_change < -0.02 { 0.2 } 
-                            else { 0.5 };
+        let momentum_score = if price_change > 0.02 {
+            0.8
+        } else if price_change < -0.02 {
+            0.2
+        } else {
+            0.5
+        };
 
         Ok(momentum_score)
     }
@@ -331,7 +356,10 @@ impl PatternRecognizer {
         }
 
         // MACD analysis
-        if let (Some(macd), Some(signal)) = (features.features.get("macd"), features.features.get("macd_signal")) {
+        if let (Some(macd), Some(signal)) = (
+            features.features.get("macd"),
+            features.features.get("macd_signal"),
+        ) {
             indicator_count += 1;
             if macd > signal {
                 technical_score += 0.15; // Bullish crossover
@@ -344,7 +372,7 @@ impl PatternRecognizer {
         if let (Some(price), Some(bb_upper), Some(bb_lower)) = (
             features.features.get("price"),
             features.features.get("bollinger_upper"),
-            features.features.get("bollinger_lower")
+            features.features.get("bollinger_lower"),
         ) {
             indicator_count += 1;
             let bb_position = (price - bb_lower) / (bb_upper - bb_lower);
@@ -353,7 +381,7 @@ impl PatternRecognizer {
             } else if bb_position < 0.2 {
                 technical_score -= 0.1; // Near lower band
             }
-        }        // Normalize score
+        } // Normalize score
         if indicator_count > 0 {
             technical_score = technical_score.clamp(0.0_f64, 1.0_f64);
         }
@@ -364,13 +392,13 @@ impl PatternRecognizer {
     async fn analyze_volume_anomalies(&self, features: &FeatureVector) -> Result<f64> {
         let volume = features.features.get("volume").unwrap_or(&0.0);
         let avg_volume = features.features.get("avg_volume").unwrap_or(volume);
-        
+
         if *avg_volume == 0.0 {
             return Ok(0.5);
         }
 
         let volume_ratio = volume / avg_volume;
-        
+
         // High volume can indicate strong conviction
         let volume_score = if volume_ratio > 2.0 {
             0.8 // High volume - strong signal
@@ -400,13 +428,15 @@ impl PatternRecognizer {
         };
 
         let real_price = data_manager.get_real_price(token_mint).await?;
-        
+
         // Get historical price data for pattern analysis
-        let price_history = data_manager.get_price_history(token_mint, timeframe_minutes as u64).await?;
-        
+        let price_history = data_manager
+            .get_price_history(token_mint, timeframe_minutes as u64)
+            .await?;
+
         let mut patterns = Vec::new();
         let mut technical_indicators = HashMap::new();
-        
+
         // Analyze support/resistance levels
         if let Some(support_resistance) = self.analyze_support_resistance(&price_history).await? {
             if support_resistance.confidence >= confidence_threshold {
@@ -424,10 +454,10 @@ impl PatternRecognizer {
         // Calculate real technical indicators
         if price_history.len() >= 14 {
             let prices: Vec<f64> = price_history.iter().map(|p| p.price_usd).collect();
-            
+
             if let Ok(rsi) = self.technical_indicators.calculate_rsi(&prices) {
                 technical_indicators.insert("RSI".to_string(), rsi);
-                
+
                 // RSI pattern analysis
                 if rsi > 70.0 && confidence_threshold <= 0.8 {
                     patterns.push(PatternMatch {
@@ -454,15 +484,17 @@ impl PatternRecognizer {
         // Volume analysis using real data
         if real_price.volume_24h > 0.0 {
             technical_indicators.insert("Volume_24h".to_string(), real_price.volume_24h);
-            
+
             // Volume trend pattern
             if price_history.len() >= 2 {
-                let recent_avg_volume = price_history.iter()
+                let recent_avg_volume = price_history
+                    .iter()
                     .rev()
                     .take(5)
                     .map(|p| p.volume_24h)
-                    .sum::<f64>() / 5.0;
-                
+                    .sum::<f64>()
+                    / 5.0;
+
                 if real_price.volume_24h > recent_avg_volume * 1.5 {
                     patterns.push(PatternMatch {
                         pattern_type: "High Volume Spike".to_string(),
@@ -478,12 +510,13 @@ impl PatternRecognizer {
 
         // Current price trend analysis
         if price_history.len() >= 3 {
-            let recent_prices: Vec<f64> = price_history.iter()
+            let recent_prices: Vec<f64> = price_history
+                .iter()
                 .rev()
                 .take(3)
                 .map(|p| p.price_usd)
                 .collect();
-            
+
             if recent_prices[0] > recent_prices[1] && recent_prices[1] > recent_prices[2] {
                 patterns.push(PatternMatch {
                     pattern_type: "Uptrend".to_string(),
@@ -522,41 +555,47 @@ impl PatternRecognizer {
         })
     }
 
-    async fn analyze_support_resistance(&self, price_history: &[crate::shared::real_data_manager::RealPriceData]) -> Result<Option<SupportResistanceLevel>> {
+    async fn analyze_support_resistance(
+        &self,
+        price_history: &[crate::shared::real_data_manager::RealPriceData],
+    ) -> Result<Option<SupportResistanceLevel>> {
         if price_history.len() < 10 {
             return Ok(None);
         }
 
         let prices: Vec<f64> = price_history.iter().map(|p| p.price_usd).collect();
         let current_price = prices[prices.len() - 1];
-        
+
         // Find local minima and maxima for support/resistance
         let mut support_levels = Vec::new();
         let mut resistance_levels = Vec::new();
-        
-        for i in 1..prices.len()-1 {
-            if prices[i] < prices[i-1] && prices[i] < prices[i+1] {
+
+        for i in 1..prices.len() - 1 {
+            if prices[i] < prices[i - 1] && prices[i] < prices[i + 1] {
                 support_levels.push(prices[i]);
             }
-            if prices[i] > prices[i-1] && prices[i] > prices[i+1] {
+            if prices[i] > prices[i - 1] && prices[i] > prices[i + 1] {
                 resistance_levels.push(prices[i]);
             }
         }
 
         // Find the most relevant support/resistance
-        let nearest_support = support_levels.iter()
+        let nearest_support = support_levels
+            .iter()
             .filter(|&&level| level < current_price)
             .max_by(|a, b| a.partial_cmp(b).unwrap());
-        
-        let nearest_resistance = resistance_levels.iter()
+
+        let nearest_resistance = resistance_levels
+            .iter()
             .filter(|&&level| level > current_price)
             .min_by(|a, b| a.partial_cmp(b).unwrap());
 
         if let (Some(&support), Some(&resistance)) = (nearest_support, nearest_resistance) {
             let distance_to_support = (current_price - support) / current_price;
             let distance_to_resistance = (resistance - current_price) / current_price;
-            
-            let (direction, strength, confidence) = if distance_to_support < distance_to_resistance {
+
+            let (direction, strength, confidence) = if distance_to_support < distance_to_resistance
+            {
                 // Closer to support - potential bounce up
                 (1.0, distance_to_support, 0.8)
             } else {
@@ -607,17 +646,23 @@ impl PatternRecognizer {
         // In production, this would implement proper LSTM training
         // For now, we'll just update the timestamp
         self.last_update = Utc::now();
-        
-        tracing::info!("Pattern recognition model retrained with {} samples", training_data.len());
+
+        tracing::info!(
+            "Pattern recognition model retrained with {} samples",
+            training_data.len()
+        );
         Ok(())
-    }    /// Get cached patterns for a symbol (internal use)
+    }
+    /// Get cached patterns for a symbol (internal use)
     fn get_cached_patterns(&self, symbol: &str) -> Option<&PatternCache> {
         self.pattern_cache.get(symbol)
     }
 
     /// Check if the model needs retraining
     pub fn needs_retraining(&self) -> bool {
-        let hours_since_update = Utc::now().signed_duration_since(self.last_update).num_hours();
+        let hours_since_update = Utc::now()
+            .signed_duration_since(self.last_update)
+            .num_hours();
         hours_since_update > 24 // Retrain daily
     }
 
@@ -625,9 +670,11 @@ impl PatternRecognizer {
     pub fn get_statistics(&self) -> PatternRecognitionStats {
         let total_patterns = self.pattern_cache.len();
         let avg_confidence = if total_patterns > 0 {
-            self.pattern_cache.values()
+            self.pattern_cache
+                .values()
                 .map(|cache| cache.confidence_score)
-                .sum::<f64>() / total_patterns as f64
+                .sum::<f64>()
+                / total_patterns as f64
         } else {
             0.0
         };
@@ -681,7 +728,7 @@ mod tests {
         };
 
         let mut recognizer = PatternRecognizer::new(config).await.unwrap();
-        
+
         let mut features = FeatureVector::new("SOL/USDC".to_string());
         features.add_feature("price".to_string(), 100.0);
         features.add_feature("volume".to_string(), 1000.0);
@@ -689,7 +736,7 @@ mod tests {
 
         let prediction = recognizer.predict_price_movement(&features).await;
         assert!(prediction.is_ok());
-        
+
         let pred = prediction.unwrap();
         assert!(pred.confidence > 0.0);
         assert!(pred.confidence <= 1.0);
@@ -698,12 +745,15 @@ mod tests {
     #[test]
     fn test_technical_indicators() {
         let indicators = TechnicalIndicators::new();
-        
-        let prices = vec![100.0, 101.0, 102.0, 101.5, 103.0, 102.0, 104.0, 103.5, 105.0, 104.0, 106.0, 105.5, 107.0, 106.0, 108.0];
-        
+
+        let prices = vec![
+            100.0, 101.0, 102.0, 101.5, 103.0, 102.0, 104.0, 103.5, 105.0, 104.0, 106.0, 105.5,
+            107.0, 106.0, 108.0,
+        ];
+
         let rsi = indicators.calculate_rsi(&prices);
         assert!(rsi.is_ok());
-        
+
         let rsi_value = rsi.unwrap();
         assert!(rsi_value >= 0.0);
         assert!(rsi_value <= 100.0);

@@ -1,33 +1,27 @@
 use anyhow::Result;
+use serde_json::Value;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::Signature,
-    transaction::Transaction,
-    account::Account,
-    slot_history::Slot,
+    account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature,
+    slot_history::Slot, transaction::Transaction,
 };
 use solana_transaction_status::{
-    EncodedConfirmedTransactionWithStatusMeta,
-    UiTransactionEncoding,
-    UiAccountsList,
+    EncodedConfirmedTransactionWithStatusMeta, UiAccountsList, UiTransactionEncoding,
     UiTransactionTokenBalance,
 };
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Semaphore};
-use tracing::{info, warn, error, debug};
-use serde_json::Value;
-use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use crate::config::Config;
-use crate::types::{HealthStatus, Priority};
 use crate::shared::alternative_apis::AlternativeApiManager;
-use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 use crate::shared::premium_rpc_manager::PremiumRpcManager;
+use crate::shared::rpc_health_persistence::RpcHealthPersistence;
 use crate::shared::tatum_rpc_client::TatumRpcClient;
+use crate::types::{HealthStatus, Priority};
 
 // Raydium Program IDs
 pub const RAYDIUM_AMM_PROGRAM_ID: &str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
@@ -61,7 +55,7 @@ pub struct RpcEndpointHealth {
     pub average_response_time: Duration,
     pub total_requests: u64,
     pub successful_requests: u64,
-    pub last_error_type: Option<String>,  // NEW: Track specific error types like "410 Gone"
+    pub last_error_type: Option<String>, // NEW: Track specific error types like "410 Gone"
     pub error_counts: std::collections::HashMap<String, u32>, // NEW: Count different error types
 }
 
@@ -92,8 +86,10 @@ impl RpcEndpointHealth {
         if self.average_response_time == Duration::from_millis(0) {
             self.average_response_time = response_time;
         } else {
-            let total_time = self.average_response_time.as_millis() as f64 * (self.successful_requests - 1) as f64;
-            let new_avg = (total_time + response_time.as_millis() as f64) / self.successful_requests as f64;
+            let total_time = self.average_response_time.as_millis() as f64
+                * (self.successful_requests - 1) as f64;
+            let new_avg =
+                (total_time + response_time.as_millis() as f64) / self.successful_requests as f64;
             self.average_response_time = Duration::from_millis(new_avg as u64);
         }
     }
@@ -133,21 +129,21 @@ impl RpcEndpointHealth {
 pub struct RpcConnectionPool {
     primary_client: Arc<RpcClient>,
     backup_clients: Vec<Arc<RpcClient>>,
-    premium_clients: Vec<Arc<RpcClient>>,  // NEW: Premium RPC clients
-    tatum_clients: Vec<Arc<TatumRpcClient>>,  // NEW: Tatum clients with header auth
-    premium_manager: Arc<tokio::sync::Mutex<PremiumRpcManager>>,  // NEW: Premium RPC manager
+    premium_clients: Vec<Arc<RpcClient>>, // NEW: Premium RPC clients
+    tatum_clients: Vec<Arc<TatumRpcClient>>, // NEW: Tatum clients with header auth
+    premium_manager: Arc<tokio::sync::Mutex<PremiumRpcManager>>, // NEW: Premium RPC manager
     connection_semaphore: Arc<Semaphore>,
     config: RpcPoolConfig,
     is_running: Arc<RwLock<bool>>,
     stats: Arc<RwLock<RpcStats>>,
     endpoint_health: Arc<RwLock<HashMap<String, RpcEndpointHealth>>>,
     alternative_apis: AlternativeApiManager,
-    health_persistence: Arc<tokio::sync::Mutex<RpcHealthPersistence>>,  // Fixed: Added Arc<Mutex>
+    health_persistence: Arc<tokio::sync::Mutex<RpcHealthPersistence>>, // Fixed: Added Arc<Mutex>
     // Store URLs for health checking
     primary_url: String,
     backup_urls: Vec<String>,
-    premium_urls: Vec<String>,  // NEW: Premium URLs
-    tatum_urls: Vec<String>,    // NEW: Tatum URLs
+    premium_urls: Vec<String>, // NEW: Premium URLs
+    tatum_urls: Vec<String>,   // NEW: Tatum URLs
 }
 
 #[derive(Debug, Clone)]
@@ -215,17 +211,30 @@ impl RpcConnectionPool {
         // Initialize crypto provider for rustls to fix "no process-level CryptoProvider available"
         Self::init_crypto_provider();
 
-        info!("🔧 RPC Pool Config - Environment: {}", config.network.environment);
-        info!("🔧 RPC Pool Config - Primary: {}", config.network.primary_rpc());
-        info!("🔧 RPC Pool Config - Backup URLs: {:?}", config.network.backup_rpc());
+        info!(
+            "🔧 RPC Pool Config - Environment: {}",
+            config.network.environment
+        );
+        info!(
+            "🔧 RPC Pool Config - Primary: {}",
+            config.network.primary_rpc()
+        );
+        info!(
+            "🔧 RPC Pool Config - Backup URLs: {:?}",
+            config.network.backup_rpc()
+        );
 
         // Initialize premium RPC manager
-        let premium_manager = crate::shared::premium_rpc_manager::PremiumRpcManager::new(&config.network)?;
+        let premium_manager =
+            crate::shared::premium_rpc_manager::PremiumRpcManager::new(&config.network)?;
         let premium_urls = premium_manager.get_non_tatum_urls(); // Exclude Tatum from regular RPC clients
 
         if premium_manager.has_premium_endpoints() {
             info!("🌟 {}", premium_manager.get_status_summary());
-            info!("🔧 Premium URLs: {:?}", Self::sanitize_urls_for_logging(&premium_urls));
+            info!(
+                "🔧 Premium URLs: {:?}",
+                Self::sanitize_urls_for_logging(&premium_urls)
+            );
         } else {
             info!("💡 No premium API keys found - using public endpoints only");
             info!("   Set HELIUS_API_KEY, ANKR_API_KEY, QUICKNODE_ENDPOINT, or ALCHEMY_API_KEY for premium access");
@@ -237,8 +246,8 @@ impl RpcConnectionPool {
             request_timeout: Duration::from_millis(config.network.request_timeout_ms),
             retry_attempts: config.network.retry_attempts as u32,
             retry_delay: Duration::from_millis(config.network.retry_delay_ms),
-            circuit_breaker_threshold: 5, // Default fallback
-            circuit_breaker_reset_seconds: 120, // Default fallback
+            circuit_breaker_threshold: 5,           // Default fallback
+            circuit_breaker_reset_seconds: 120,     // Default fallback
             rotation_strategy: "smart".to_string(), // Default fallback
         };
 
@@ -285,7 +294,10 @@ impl RpcConnectionPool {
             };
 
             if is_correct_network {
-                info!("🔑 Setting up Tatum client with header authentication for {}", url);
+                info!(
+                    "🔑 Setting up Tatum client with header authentication for {}",
+                    url
+                );
 
                 // Get the appropriate API key for this endpoint
                 if let Some(api_key) = PremiumRpcManager::get_tatum_api_key(&url) {
@@ -303,7 +315,10 @@ impl RpcConnectionPool {
                     warn!("⚠️ No API key found for Tatum endpoint {}", url);
                 }
             } else {
-                debug!("🔇 Skipping Tatum endpoint {} (wrong network for {})", url, config.network.environment);
+                debug!(
+                    "🔇 Skipping Tatum endpoint {} (wrong network for {})",
+                    url, config.network.environment
+                );
             }
         }
 
@@ -311,10 +326,9 @@ impl RpcConnectionPool {
         let mut health_persistence = RpcHealthPersistence::new("data/rpc_health.json");
 
         // Load persisted health data
-        health_persistence.load().await
-            .unwrap_or_else(|e| {
-                warn!("Failed to load RPC health persistence: {}", e);
-            });
+        health_persistence.load().await.unwrap_or_else(|e| {
+            warn!("Failed to load RPC health persistence: {}", e);
+        });
 
         let health_persistence = Arc::new(tokio::sync::Mutex::new(health_persistence));
 
@@ -325,14 +339,20 @@ impl RpcConnectionPool {
         {
             let persistence = health_persistence.lock().await;
             if let Some(persisted_health) = persistence.get_endpoint_health(&primary_url) {
-                if persisted_health.should_avoid_endpoint(1) { // Avoid if failed in last hour
-                    warn!("⚠️ Primary RPC {} has reliability issues (score: {:.2})",
-                          primary_url, persisted_health.reliability_score);
+                if persisted_health.should_avoid_endpoint(1) {
+                    // Avoid if failed in last hour
+                    warn!(
+                        "⚠️ Primary RPC {} has reliability issues (score: {:.2})",
+                        primary_url, persisted_health.reliability_score
+                    );
                 }
             }
         }
 
-        endpoint_health.insert(primary_url.clone(), RpcEndpointHealth::new(primary_url.clone()));
+        endpoint_health.insert(
+            primary_url.clone(),
+            RpcEndpointHealth::new(primary_url.clone()),
+        );
 
         // Add backup endpoints to health tracking
         for backup_url in &backup_urls {
@@ -341,26 +361,40 @@ impl RpcConnectionPool {
                 let persistence = health_persistence.lock().await;
                 if let Some(persisted_health) = persistence.get_endpoint_health(backup_url) {
                     if persisted_health.should_avoid_endpoint(1) {
-                        warn!("⚠️ Backup RPC {} has reliability issues (score: {:.2})",
-                              backup_url, persisted_health.reliability_score);
+                        warn!(
+                            "⚠️ Backup RPC {} has reliability issues (score: {:.2})",
+                            backup_url, persisted_health.reliability_score
+                        );
                     }
                 }
             }
-            endpoint_health.insert(backup_url.clone(), RpcEndpointHealth::new(backup_url.clone()));
+            endpoint_health.insert(
+                backup_url.clone(),
+                RpcEndpointHealth::new(backup_url.clone()),
+            );
         }
 
         // Add premium endpoints to health tracking (excluding Tatum - they're tracked separately)
         for premium_url in &premium_urls {
-            endpoint_health.insert(premium_url.clone(), RpcEndpointHealth::new(premium_url.clone()));
+            endpoint_health.insert(
+                premium_url.clone(),
+                RpcEndpointHealth::new(premium_url.clone()),
+            );
             let sanitized_url = Self::sanitize_url_for_logging(premium_url);
-            info!("📡 Added premium endpoint to health tracking: {}", sanitized_url);
+            info!(
+                "📡 Added premium endpoint to health tracking: {}",
+                sanitized_url
+            );
         }
 
         // Add Tatum endpoints to health tracking separately
         for tatum_url in &tatum_urls {
             endpoint_health.insert(tatum_url.clone(), RpcEndpointHealth::new(tatum_url.clone()));
             let sanitized_url = Self::sanitize_url_for_logging(tatum_url);
-            info!("📡 Added Tatum endpoint to health tracking: {}", sanitized_url);
+            info!(
+                "📡 Added Tatum endpoint to health tracking: {}",
+                sanitized_url
+            );
         }
 
         // Create connection semaphore
@@ -374,7 +408,7 @@ impl RpcConnectionPool {
             primary_client,
             backup_clients,
             premium_clients,
-            tatum_clients,  // NEW: Tatum clients with header authentication
+            tatum_clients, // NEW: Tatum clients with header authentication
             premium_manager: Arc::new(tokio::sync::Mutex::new(premium_manager)),
             connection_semaphore,
             config: pool_config,
@@ -382,7 +416,7 @@ impl RpcConnectionPool {
             stats: Arc::new(RwLock::new(RpcStats::default())),
             endpoint_health: Arc::new(RwLock::new(endpoint_health)),
             alternative_apis,
-            health_persistence,  // NEW: Add health persistence
+            health_persistence, // NEW: Add health persistence
             primary_url,
             backup_urls,
             premium_urls,
@@ -396,14 +430,21 @@ impl RpcConnectionPool {
         *self.is_running.write().await = true;
 
         // Test primary endpoint
-        if let Err(e) = self.test_and_update_health(self.primary_client.clone(), &self.primary_url).await {
+        if let Err(e) = self
+            .test_and_update_health(self.primary_client.clone(), &self.primary_url)
+            .await
+        {
             warn!("⚠️ Primary RPC connection test failed: {}", e);
         }
 
         // Test backup connections
         for (i, client) in self.backup_clients.iter().enumerate() {
             if let Some(backup_url) = self.backup_urls.get(i) {
-                if self.test_and_update_health(client.clone(), backup_url).await.is_ok() {
+                if self
+                    .test_and_update_health(client.clone(), backup_url)
+                    .await
+                    .is_ok()
+                {
                     info!("✅ Backup RPC {} is working", i);
                 }
             }
@@ -412,7 +453,11 @@ impl RpcConnectionPool {
         // Test premium connections
         for (i, client) in self.premium_clients.iter().enumerate() {
             if let Some(premium_url) = self.premium_urls.get(i) {
-                if self.test_and_update_health(client.clone(), premium_url).await.is_ok() {
+                if self
+                    .test_and_update_health(client.clone(), premium_url)
+                    .await
+                    .is_ok()
+                {
                     info!("✅ Premium RPC {} is working", i);
                 } else {
                     warn!("⚠️ Premium RPC {} failed connection test", premium_url);
@@ -437,12 +482,22 @@ impl RpcConnectionPool {
 
                         // Update persistence
                         let mut persistence = self.health_persistence.lock().await;
-                        if let Err(e) = persistence.record_endpoint_success(tatum_url, response_time.as_millis() as u64).await {
-                            warn!("Failed to persist Tatum success for {}: {}", Self::sanitize_url_for_logging(tatum_url), e);
+                        if let Err(e) = persistence
+                            .record_endpoint_success(tatum_url, response_time.as_millis() as u64)
+                            .await
+                        {
+                            warn!(
+                                "Failed to persist Tatum success for {}: {}",
+                                Self::sanitize_url_for_logging(tatum_url),
+                                e
+                            );
                         }
                         drop(persistence);
 
-                        info!("✅ Tatum RPC {} is working with header authentication", Self::sanitize_url_for_logging(tatum_url));
+                        info!(
+                            "✅ Tatum RPC {} is working with header authentication",
+                            Self::sanitize_url_for_logging(tatum_url)
+                        );
                     }
                     Err(e) => {
                         // Update health tracking for Tatum failure
@@ -454,12 +509,23 @@ impl RpcConnectionPool {
 
                         // Update persistence
                         let mut persistence = self.health_persistence.lock().await;
-                        if let Err(persist_err) = persistence.record_endpoint_failure(tatum_url, "tatum_auth_error").await {
-                            warn!("Failed to persist Tatum failure for {}: {}", Self::sanitize_url_for_logging(tatum_url), persist_err);
+                        if let Err(persist_err) = persistence
+                            .record_endpoint_failure(tatum_url, "tatum_auth_error")
+                            .await
+                        {
+                            warn!(
+                                "Failed to persist Tatum failure for {}: {}",
+                                Self::sanitize_url_for_logging(tatum_url),
+                                persist_err
+                            );
                         }
                         drop(persistence);
 
-                        warn!("⚠️ Tatum RPC {} failed connection test: {}", Self::sanitize_url_for_logging(tatum_url), e);
+                        warn!(
+                            "⚠️ Tatum RPC {} failed connection test: {}",
+                            Self::sanitize_url_for_logging(tatum_url),
+                            e
+                        );
                     }
                 }
             }
@@ -468,7 +534,8 @@ impl RpcConnectionPool {
         // Check if we have any working endpoints
         let health_map = self.endpoint_health.read().await;
         let healthy_endpoints: Vec<_> = health_map.values().filter(|h| h.is_healthy).collect();
-        let premium_healthy: Vec<_> = health_map.iter()
+        let premium_healthy: Vec<_> = health_map
+            .iter()
             .filter(|(url, health)| self.premium_urls.contains(url) && health.is_healthy)
             .collect();
 
@@ -476,8 +543,11 @@ impl RpcConnectionPool {
             warn!("⚠️ No RPC endpoints are working, but alternative APIs are available");
             info!("🔄 Will use alternative APIs for pool detection");
         } else {
-            info!("✅ Found {} healthy RPC endpoints ({} premium)",
-                  healthy_endpoints.len(), premium_healthy.len());
+            info!(
+                "✅ Found {} healthy RPC endpoints ({} premium)",
+                healthy_endpoints.len(),
+                premium_healthy.len()
+            );
         }
 
         info!("✅ RPC connection pool started with enhanced resilience");
@@ -498,12 +568,23 @@ impl RpcConnectionPool {
 
                 // Update persistence
                 let mut persistence = self.health_persistence.lock().await;
-                if let Err(e) = persistence.record_endpoint_success(url, response_time.as_millis() as u64).await {
-                    warn!("Failed to persist RPC success for {}: {}", Self::sanitize_url_for_logging(url), e);
+                if let Err(e) = persistence
+                    .record_endpoint_success(url, response_time.as_millis() as u64)
+                    .await
+                {
+                    warn!(
+                        "Failed to persist RPC success for {}: {}",
+                        Self::sanitize_url_for_logging(url),
+                        e
+                    );
                 }
                 drop(persistence);
 
-                info!("✅ RPC endpoint {} is healthy ({}ms)", Self::sanitize_url_for_logging(url), response_time.as_millis());
+                info!(
+                    "✅ RPC endpoint {} is healthy ({}ms)",
+                    Self::sanitize_url_for_logging(url),
+                    response_time.as_millis()
+                );
                 Ok(())
             }
             Err(e) => {
@@ -532,12 +613,21 @@ impl RpcConnectionPool {
 
                 // Update persistence
                 let mut persistence = self.health_persistence.lock().await;
-                if let Err(persist_err) = persistence.record_endpoint_failure(url, error_type).await {
-                    warn!("Failed to persist RPC failure for {}: {}", Self::sanitize_url_for_logging(url), persist_err);
+                if let Err(persist_err) = persistence.record_endpoint_failure(url, error_type).await
+                {
+                    warn!(
+                        "Failed to persist RPC failure for {}: {}",
+                        Self::sanitize_url_for_logging(url),
+                        persist_err
+                    );
                 }
                 drop(persistence);
 
-                warn!("❌ RPC endpoint {} failed: {}", Self::sanitize_url_for_logging(url), e);
+                warn!(
+                    "❌ RPC endpoint {} failed: {}",
+                    Self::sanitize_url_for_logging(url),
+                    e
+                );
                 Err(e)
             }
         }
@@ -558,7 +648,10 @@ impl RpcConnectionPool {
         drop(persistence);
 
         // Wait for all active connections to complete
-        let _permits = self.connection_semaphore.acquire_many(self.config.pool_size as u32).await?;
+        let _permits = self
+            .connection_semaphore
+            .acquire_many(self.config.pool_size as u32)
+            .await?;
 
         info!("✅ RPC connection pool stopped");
         Ok(())
@@ -584,12 +677,16 @@ impl RpcConnectionPool {
         for (i, client) in self.premium_clients.iter().enumerate() {
             if let Some(premium_url) = self.premium_urls.get(i) {
                 if let Some(health) = health_map.get(premium_url) {
-                    if health.is_healthy &&
-                       health.should_retry(self.config.circuit_breaker_reset_seconds) {
+                    if health.is_healthy
+                        && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                    {
                         // Premium endpoints always take priority unless they have very poor performance
-                        if best_endpoint.is_none() ||
-                           (!best_endpoint.as_ref().unwrap().2 && health.average_response_time < Duration::from_millis(5000)) ||
-                           (best_endpoint.as_ref().unwrap().2 && health.average_response_time < best_response_time) {
+                        if best_endpoint.is_none()
+                            || (!best_endpoint.as_ref().unwrap().2
+                                && health.average_response_time < Duration::from_millis(5000))
+                            || (best_endpoint.as_ref().unwrap().2
+                                && health.average_response_time < best_response_time)
+                        {
                             best_endpoint = Some((client.clone(), premium_url.clone(), true));
                             best_response_time = health.average_response_time;
                         }
@@ -602,10 +699,13 @@ impl RpcConnectionPool {
         if best_endpoint.is_none() || best_endpoint.as_ref().unwrap().2 == false {
             // Check primary if healthy
             if let Some(health) = health_map.get(&self.primary_url) {
-                if health.is_healthy &&
-                   health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                   (best_endpoint.is_none() || health.average_response_time < best_response_time) {
-                    best_endpoint = Some((self.primary_client.clone(), self.primary_url.clone(), false));
+                if health.is_healthy
+                    && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                    && (best_endpoint.is_none()
+                        || health.average_response_time < best_response_time)
+                {
+                    best_endpoint =
+                        Some((self.primary_client.clone(), self.primary_url.clone(), false));
                     best_response_time = health.average_response_time;
                 }
             }
@@ -614,9 +714,11 @@ impl RpcConnectionPool {
             for (i, client) in self.backup_clients.iter().enumerate() {
                 if let Some(backup_url) = self.backup_urls.get(i) {
                     if let Some(health) = health_map.get(backup_url) {
-                        if health.is_healthy &&
-                           health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                           (best_endpoint.is_none() || health.average_response_time < best_response_time) {
+                        if health.is_healthy
+                            && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                            && (best_endpoint.is_none()
+                                || health.average_response_time < best_response_time)
+                        {
                             best_endpoint = Some((client.clone(), backup_url.clone(), false));
                             best_response_time = health.average_response_time;
                         }
@@ -629,7 +731,12 @@ impl RpcConnectionPool {
 
         if let Some((client, url, is_premium)) = best_endpoint {
             let endpoint_type = if is_premium { "PREMIUM" } else { "PUBLIC" };
-            debug!("📡 Using {} RPC endpoint: {} (avg: {}ms)", endpoint_type, url, best_response_time.as_millis());
+            debug!(
+                "📡 Using {} RPC endpoint: {} (avg: {}ms)",
+                endpoint_type,
+                url,
+                best_response_time.as_millis()
+            );
             return Ok(RpcClientHandle {
                 client,
                 _permit,
@@ -642,7 +749,8 @@ impl RpcConnectionPool {
 
         let mut health_map = self.endpoint_health.write().await;
         for health in health_map.values_mut() {
-            if !health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds) {
+            if !health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds)
+            {
                 info!("🔄 Resetting circuit breaker for {}", health.url);
                 health.is_healthy = true;
                 health.consecutive_failures = 0;
@@ -663,7 +771,11 @@ impl RpcConnectionPool {
         }
 
         // Try primary after reset
-        if self.test_connection(self.primary_client.clone()).await.is_ok() {
+        if self
+            .test_connection(self.primary_client.clone())
+            .await
+            .is_ok()
+        {
             return Ok(RpcClientHandle {
                 client: self.primary_client.clone(),
                 _permit,
@@ -682,7 +794,9 @@ impl RpcConnectionPool {
             }
         }
 
-        Err(anyhow::anyhow!("No working RPC clients available after circuit breaker reset"))
+        Err(anyhow::anyhow!(
+            "No working RPC clients available after circuit breaker reset"
+        ))
     }
 
     pub async fn health_check(&self) -> Result<HealthStatus> {
@@ -700,19 +814,24 @@ impl RpcConnectionPool {
 
         // Test premium connections first
         let premium_healthy = if !self.premium_clients.is_empty() {
-            self.premium_clients.iter()
-                .any(|client| futures::executor::block_on(self.test_connection(client.clone())).is_ok())
+            self.premium_clients.iter().any(|client| {
+                futures::executor::block_on(self.test_connection(client.clone())).is_ok()
+            })
         } else {
             false
         };
 
         // Test primary connection
-        let primary_healthy = self.test_connection(self.primary_client.clone()).await.is_ok();
+        let primary_healthy = self
+            .test_connection(self.primary_client.clone())
+            .await
+            .is_ok();
 
         // Test at least one backup
         let backup_healthy = if !primary_healthy && !premium_healthy {
-            self.backup_clients.iter()
-                .any(|client| futures::executor::block_on(self.test_connection(client.clone())).is_ok())
+            self.backup_clients.iter().any(|client| {
+                futures::executor::block_on(self.test_connection(client.clone())).is_ok()
+            })
         } else {
             true
         };
@@ -752,18 +871,36 @@ impl RpcConnectionPool {
         let stats = self.stats.read().await;
         let mut metrics = std::collections::HashMap::new();
 
-        metrics.insert("total_requests".to_string(), stats.total_requests.to_string());
-        metrics.insert("successful_requests".to_string(), stats.successful_requests.to_string());
-        metrics.insert("failed_requests".to_string(), stats.failed_requests.to_string());
+        metrics.insert(
+            "total_requests".to_string(),
+            stats.total_requests.to_string(),
+        );
+        metrics.insert(
+            "successful_requests".to_string(),
+            stats.successful_requests.to_string(),
+        );
+        metrics.insert(
+            "failed_requests".to_string(),
+            stats.failed_requests.to_string(),
+        );
         metrics.insert("success_rate".to_string(), {
             if stats.total_requests > 0 {
-                format!("{:.2}%", (stats.successful_requests as f64 / stats.total_requests as f64) * 100.0)
+                format!(
+                    "{:.2}%",
+                    (stats.successful_requests as f64 / stats.total_requests as f64) * 100.0
+                )
             } else {
                 "0.00%".to_string()
             }
         });
-        metrics.insert("avg_response_time_ms".to_string(), format!("{:.2}", stats.avg_response_time_ms));
-        metrics.insert("active_connections".to_string(), stats.active_connections.to_string());
+        metrics.insert(
+            "avg_response_time_ms".to_string(),
+            format!("{:.2}", stats.avg_response_time_ms),
+        );
+        metrics.insert(
+            "active_connections".to_string(),
+            stats.active_connections.to_string(),
+        );
 
         metrics
     }
@@ -782,7 +919,10 @@ impl RpcConnectionPool {
         match tokio::task::spawn_blocking(move || client.get_slot()).await {
             Ok(Ok(slot)) => {
                 let response_time = start.elapsed().as_millis();
-                debug!("✅ RPC connection test successful - Current slot: {}, Response time: {}ms", slot, response_time);
+                debug!(
+                    "✅ RPC connection test successful - Current slot: {}, Response time: {}ms",
+                    slot, response_time
+                );
 
                 // Update stats
                 let mut stats = self.stats.write().await;
@@ -806,7 +946,8 @@ impl RpcConnectionPool {
                 Err(anyhow::anyhow!("Task join error: {}", e))
             }
         }
-    }/// Get current slot from blockchain
+    }
+    /// Get current slot from blockchain
     pub async fn get_current_slot(&self) -> Result<Slot> {
         self.execute_with_failover(|client| async move {
             let client_clone = client.clone();
@@ -815,20 +956,24 @@ impl RpcConnectionPool {
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                 Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
             }
-        }).await
+        })
+        .await
     }
 
     /// Get account info for a given pubkey
     pub async fn get_account_info(&self, pubkey: &Pubkey) -> Result<Option<Account>> {
         let pubkey = *pubkey;
-        match self.execute_with_failover(|client| async move {
-            let client_clone = client.clone();
-            match tokio::task::spawn_blocking(move || client_clone.get_account(&pubkey)).await {
-                Ok(Ok(account)) => Ok(account),
-                Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
-                Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
-            }
-        }).await {
+        match self
+            .execute_with_failover(|client| async move {
+                let client_clone = client.clone();
+                match tokio::task::spawn_blocking(move || client_clone.get_account(&pubkey)).await {
+                    Ok(Ok(account)) => Ok(account),
+                    Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
+                    Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
+                }
+            })
+            .await
+        {
             Ok(account) => Ok(Some(account)),
             Err(_) => Ok(None),
         }
@@ -844,11 +989,15 @@ impl RpcConnectionPool {
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                 Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
             }
-        }).await
+        })
+        .await
     }
 
     /// Send and confirm transaction
-    pub async fn send_and_confirm_transaction(&self, transaction: &Transaction) -> Result<Signature> {
+    pub async fn send_and_confirm_transaction(
+        &self,
+        transaction: &Transaction,
+    ) -> Result<Signature> {
         let transaction_clone = transaction.clone();
         self.execute_with_failover(move |client| {
             let transaction = transaction_clone.clone();
@@ -856,13 +1005,16 @@ impl RpcConnectionPool {
                 let client_clone = client.clone();
                 match tokio::task::spawn_blocking(move || {
                     client_clone.send_and_confirm_transaction(&transaction)
-                }).await {
+                })
+                .await
+                {
                     Ok(Ok(signature)) => Ok(signature),
                     Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                     Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
                 }
             }
-        }).await
+        })
+        .await
     }
 
     /// Get recent blockhash
@@ -874,22 +1026,29 @@ impl RpcConnectionPool {
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                 Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
             }
-        }).await
+        })
+        .await
     }
 
     /// Get program accounts (useful for pool detection)
-    pub async fn get_program_accounts(&self, program_id: &Pubkey) -> Result<Vec<(Pubkey, Account)>> {
+    pub async fn get_program_accounts(
+        &self,
+        program_id: &Pubkey,
+    ) -> Result<Vec<(Pubkey, Account)>> {
         let program_id = *program_id;
         self.execute_with_failover(|client| async move {
             let client_clone = client.clone();
             match tokio::task::spawn_blocking(move || {
                 client_clone.get_program_accounts(&program_id)
-            }).await {
+            })
+            .await
+            {
                 Ok(Ok(accounts)) => Ok(accounts),
                 Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
                 Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
             }
-        }).await
+        })
+        .await
     }
 
     /// Get Raydium pools - skip RPC queries entirely on mainnet
@@ -909,7 +1068,10 @@ impl RpcConnectionPool {
 
     /// Ultra-lightweight Raydium query - minimal data transfer
     /// Monitor for new Raydium pools
-    pub async fn monitor_new_raydium_pools(&self, _config: PoolDetectionConfig) -> Result<Vec<Pubkey>> {
+    pub async fn monitor_new_raydium_pools(
+        &self,
+        _config: PoolDetectionConfig,
+    ) -> Result<Vec<Pubkey>> {
         info!("🔍 Monitoring Raydium for new pools...");
 
         // Use alternative APIs instead of RPC queries
@@ -920,7 +1082,11 @@ impl RpcConnectionPool {
     }
 
     /// Validate if a pool meets our trading criteria
-    pub async fn validate_pool_criteria(&self, pool_pubkey: &Pubkey, _config: &PoolDetectionConfig) -> Result<bool> {
+    pub async fn validate_pool_criteria(
+        &self,
+        pool_pubkey: &Pubkey,
+        _config: &PoolDetectionConfig,
+    ) -> Result<bool> {
         // Get pool account data
         match self.get_account_info(pool_pubkey).await? {
             Some(account) => {
@@ -965,41 +1131,54 @@ impl RpcConnectionPool {
                 error!("🚫 POOL DATA PARSING NOT YET IMPLEMENTED - Use real data sources");
                 Err(anyhow::anyhow!("Pool data parsing not implemented"))
             }
-            None => Err(anyhow::anyhow!("Pool not found: {}", pool_pubkey))
+            None => Err(anyhow::anyhow!("Pool not found: {}", pool_pubkey)),
         }
     }
 
     /// Get transaction details by signature string
-    pub async fn get_transaction_details(&self, signature_str: &str) -> Result<Option<TransactionDetails>> {
-        let signature = signature_str.parse::<Signature>()
+    pub async fn get_transaction_details(
+        &self,
+        signature_str: &str,
+    ) -> Result<Option<TransactionDetails>> {
+        let signature = signature_str
+            .parse::<Signature>()
             .map_err(|e| anyhow::anyhow!("Invalid signature format: {}", e))?;
         self.get_transaction(&signature).await
     }
 
     /// Get transaction details with comprehensive parsing
-    pub async fn get_transaction(&self, signature: &Signature) -> Result<Option<TransactionDetails>> {
+    pub async fn get_transaction(
+        &self,
+        signature: &Signature,
+    ) -> Result<Option<TransactionDetails>> {
         let signature = *signature;
-        match self.execute_with_failover(|client| async move {
-            let client_clone = client.clone();
-            match tokio::task::spawn_blocking(move || {
-                client_clone.get_transaction_with_config(
-                    &signature,
-                    solana_client::rpc_config::RpcTransactionConfig {
-                        encoding: Some(UiTransactionEncoding::Json),
-                        commitment: Some(CommitmentConfig::confirmed()),
-                        max_supported_transaction_version: Some(0),
+        match self
+            .execute_with_failover(|client| async move {
+                let client_clone = client.clone();
+                match tokio::task::spawn_blocking(move || {
+                    client_clone.get_transaction_with_config(
+                        &signature,
+                        solana_client::rpc_config::RpcTransactionConfig {
+                            encoding: Some(UiTransactionEncoding::Json),
+                            commitment: Some(CommitmentConfig::confirmed()),
+                            max_supported_transaction_version: Some(0),
+                        },
+                    )
+                })
+                .await
+                {
+                    Ok(Ok(transaction)) => {
+                        // Parse the transaction details comprehensively
+                        let transaction_details =
+                            Self::parse_transaction_details(&signature, &transaction)?;
+                        Ok(transaction_details)
                     }
-                )
-            }).await {
-                Ok(Ok(transaction)) => {
-                    // Parse the transaction details comprehensively
-                    let transaction_details = Self::parse_transaction_details(&signature, &transaction)?;
-                    Ok(transaction_details)
-                },
-                Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
-                Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
-            }
-        }).await {
+                    Ok(Err(e)) => Err(anyhow::anyhow!("RPC error: {}", e)),
+                    Err(e) => Err(anyhow::anyhow!("Task join error: {}", e)),
+                }
+            })
+            .await
+        {
             Ok(transaction) => Ok(Some(transaction)),
             Err(_) => Ok(None),
         }
@@ -1010,7 +1189,10 @@ impl RpcConnectionPool {
         signature: &Signature,
         transaction: &EncodedConfirmedTransactionWithStatusMeta,
     ) -> Result<TransactionDetails> {
-        let meta = transaction.transaction.meta.as_ref()
+        let meta = transaction
+            .transaction
+            .meta
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Transaction meta not found"))?;
 
         // Extract actual fee from transaction
@@ -1045,7 +1227,8 @@ impl RpcConnectionPool {
         let pre_map: HashMap<String, &UiTransactionTokenBalance> = pre_balances
             .as_ref()
             .map(|balances| {
-                balances.iter()
+                balances
+                    .iter()
                     .filter_map(|balance| {
                         balance.owner.as_ref().map(|owner| (owner.clone(), balance))
                     })
@@ -1056,7 +1239,8 @@ impl RpcConnectionPool {
         let post_map: HashMap<String, &UiTransactionTokenBalance> = post_balances
             .as_ref()
             .map(|balances| {
-                balances.iter()
+                balances
+                    .iter()
                     .filter_map(|balance| {
                         balance.owner.as_ref().map(|owner| (owner.clone(), balance))
                     })
@@ -1081,7 +1265,8 @@ impl RpcConnectionPool {
                         post.ui_token_amount.ui_amount,
                     ) {
                         let change = post_amount - pre_amount;
-                        if change.abs() > 0.0001 { // Filter out negligible changes
+                        if change.abs() > 0.0001 {
+                            // Filter out negligible changes
                             changes.push(BalanceChange {
                                 account: account.clone(),
                                 mint: post.mint.clone(),
@@ -1122,7 +1307,10 @@ impl RpcConnectionPool {
                 }
                 (None, None) => {
                     // This shouldn't happen
-                    warn!("Account {} in both pre and post maps but both None", account);
+                    warn!(
+                        "Account {} in both pre and post maps but both None",
+                        account
+                    );
                 }
             }
         }
@@ -1200,7 +1388,8 @@ impl RpcConnectionPool {
         let mut stats = self.stats.write().await;
         stats.failed_requests += 1;
         stats.active_connections -= 1;
-    }    fn init_crypto_provider() {
+    }
+    fn init_crypto_provider() {
         use std::sync::Once;
         static INIT: Once = Once::new();
 
@@ -1236,7 +1425,9 @@ impl RpcConnectionPool {
     }
 
     /// Comprehensive pool detection using both RPC and alternative APIs
-    pub async fn get_pools_with_fallback(&self) -> Result<Vec<crate::shared::alternative_apis::RaydiumPoolInfo>> {
+    pub async fn get_pools_with_fallback(
+        &self,
+    ) -> Result<Vec<crate::shared::alternative_apis::RaydiumPoolInfo>> {
         info!("🔄 Attempting comprehensive pool detection...");
 
         // First try RPC-based detection
@@ -1251,7 +1442,10 @@ impl RpcConnectionPool {
                 }
             }
             Err(e) => {
-                warn!("⚠️ RPC pool detection failed: {}, using alternative APIs", e);
+                warn!(
+                    "⚠️ RPC pool detection failed: {}, using alternative APIs",
+                    e
+                );
             }
         }
 
@@ -1279,12 +1473,21 @@ impl RpcConnectionPool {
             if health.is_healthy {
                 healthy_count += 1;
                 report.push_str(&format!("✅ {} - HEALTHY\n", url));
-                report.push_str(&format!("   Avg response: {}ms\n", health.average_response_time.as_millis()));
-                report.push_str(&format!("   Success rate: {}/{}\n", health.successful_requests, health.total_requests));
+                report.push_str(&format!(
+                    "   Avg response: {}ms\n",
+                    health.average_response_time.as_millis()
+                ));
+                report.push_str(&format!(
+                    "   Success rate: {}/{}\n",
+                    health.successful_requests, health.total_requests
+                ));
             } else {
                 unhealthy_count += 1;
                 report.push_str(&format!("❌ {} - UNHEALTHY\n", url));
-                report.push_str(&format!("   Consecutive failures: {}\n", health.consecutive_failures));
+                report.push_str(&format!(
+                    "   Consecutive failures: {}\n",
+                    health.consecutive_failures
+                ));
                 if let Some(error_type) = &health.last_error_type {
                     report.push_str(&format!("   Last error: {}\n", error_type));
                 }
@@ -1360,9 +1563,10 @@ impl RpcConnectionPool {
         // Check premium endpoints first
         for premium_url in &self.premium_urls {
             if let Some(health) = health_map.get(premium_url) {
-                if health.is_healthy &&
-                   health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                   health.average_response_time < best_response_time {
+                if health.is_healthy
+                    && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                    && health.average_response_time < best_response_time
+                {
                     best_url = Some(premium_url.clone());
                     best_response_time = health.average_response_time;
                 }
@@ -1373,7 +1577,9 @@ impl RpcConnectionPool {
         if best_url.is_none() {
             // Check primary
             if let Some(health) = health_map.get(&self.primary_url) {
-                if health.is_healthy && health.should_retry(self.config.circuit_breaker_reset_seconds) {
+                if health.is_healthy
+                    && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                {
                     best_url = Some(self.primary_url.clone());
                     best_response_time = health.average_response_time;
                 }
@@ -1382,9 +1588,10 @@ impl RpcConnectionPool {
             // Check backups
             for backup_url in &self.backup_urls {
                 if let Some(health) = health_map.get(backup_url) {
-                    if health.is_healthy &&
-                       health.should_retry(self.config.circuit_breaker_reset_seconds) &&
-                       health.average_response_time < best_response_time {
+                    if health.is_healthy
+                        && health.should_retry(self.config.circuit_breaker_reset_seconds)
+                        && health.average_response_time < best_response_time
+                    {
                         best_url = Some(backup_url.clone());
                         best_response_time = health.average_response_time;
                     }
@@ -1408,7 +1615,9 @@ impl RpcConnectionPool {
 
     /// Sanitize URLs for logging by hiding API keys
     fn sanitize_urls_for_logging(urls: &[String]) -> Vec<String> {
-        urls.iter().map(|url| Self::sanitize_url_for_logging(url)).collect()
+        urls.iter()
+            .map(|url| Self::sanitize_url_for_logging(url))
+            .collect()
     }
 
     /// Sanitize a single URL for logging by hiding API keys
@@ -1427,7 +1636,11 @@ impl RpcConnectionPool {
             } else {
                 url.to_string()
             }
-        } else if url.contains("helius") || url.contains("ankr") || url.contains("alchemy") || url.contains("quicknode") {
+        } else if url.contains("helius")
+            || url.contains("ankr")
+            || url.contains("alchemy")
+            || url.contains("quicknode")
+        {
             // For other premium providers, just show the domain
             if let Ok(parsed_url) = url::Url::parse(url) {
                 if let Some(host) = parsed_url.host_str() {

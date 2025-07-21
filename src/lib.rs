@@ -1,25 +1,26 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-pub mod config;
-pub mod platform;
-pub mod bots;
-pub mod shared;
-pub mod types;
-pub mod solana_testing;
-pub mod simple_testing;
-pub mod jupiter_speed_test;
-pub mod websocket_rpc_test;
-pub mod ultimate_rpc_test;
-pub mod strategies;
 pub mod analysis;
-pub mod ml;  // Phase 6B ML module
-pub mod portfolio;  // Phase 6C Portfolio Management
-pub mod trading;  // DEV2 Trading Engine
-pub mod sprint_1_demo;  // Sprint 1 functionality demo
-pub mod dexscreener_testing;  // DexScreener API testing
-pub mod tatum_testing;  // Tatum RPC testing
-pub mod arbitrage;  // Arbitrage detection and execution
+pub mod arbitrage;
+pub mod bots;
+pub mod config;
+pub mod dexscreener_testing; // DexScreener API testing
+pub mod expert; // EXPERT SYSTEM MODULES
+pub mod jupiter_speed_test;
+pub mod ml; // Phase 6B ML module
+pub mod platform;
+pub mod portfolio; // Phase 6C Portfolio Management
+pub mod shared;
+pub mod simple_testing;
+pub mod solana_testing;
+pub mod sprint_1_demo; // Sprint 1 functionality demo
+pub mod strategies;
+pub mod tatum_testing; // Tatum RPC testing
+pub mod trading; // DEV2 Trading Engine
+pub mod types;
+pub mod ultimate_rpc_test;
+pub mod websocket_rpc_test; // Arbitrage detection and execution
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;

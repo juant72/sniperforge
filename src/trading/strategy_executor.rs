@@ -1,20 +1,22 @@
 //! Strategy Executor Framework
-//! 
+//!
 //! Pluggable strategy framework for executing different trading strategies
 //! with real Jupiter trades and wallet management.
 
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use std::collections::HashMap;
-use tracing::{info, warn, error, debug};
-use chrono::{DateTime, Utc, Duration};
+use std::sync::Arc;
 use tokio::time::{sleep, Duration as TokioDuration};
+use tracing::{debug, error, info, warn};
 
+use crate::shared::dex_fallback_manager::{
+    DexFallbackManager, DexProvider, UnifiedQuoteRequest, UnifiedSwapRequest,
+};
 use crate::shared::jupiter::{JupiterClient, QuoteRequest};
 use crate::shared::orca_client::OrcaClient;
-use crate::shared::dex_fallback_manager::{DexFallbackManager, DexProvider, UnifiedQuoteRequest, UnifiedSwapRequest};
 use crate::shared::wallet_manager::WalletManager;
 use crate::types::PlatformError;
 
@@ -75,21 +77,21 @@ pub struct StrategyExecutor {
 impl StrategyExecutor {
     /// Create new strategy executor with multi-DEX support
     pub fn new(
-        wallet_manager: WalletManager, 
+        wallet_manager: WalletManager,
         jupiter_client: JupiterClient,
         orca_client: Option<OrcaClient>,
     ) -> Self {
         // Convert to Arc for sharing
         let jupiter_client_arc = Arc::new(jupiter_client);
         let orca_client_arc = orca_client.map(Arc::new);
-        
+
         // Set up fallback chain: Orca -> SPL -> Jupiter
         let fallback_chain = vec![
             DexProvider::Orca,
             DexProvider::SplSwap,
             DexProvider::Jupiter,
         ];
-        
+
         let dex_fallback_manager = DexFallbackManager::new(
             orca_client_arc.clone(),
             Some(jupiter_client_arc.clone()),
@@ -97,7 +99,7 @@ impl StrategyExecutor {
             true, // Enable fallback
             3,    // Max retries
         );
-        
+
         Self {
             wallet_manager,
             jupiter_client: jupiter_client_arc,
@@ -114,8 +116,11 @@ impl StrategyExecutor {
 
     /// Execute DCA strategy with real trades and multi-DEX fallback
     pub async fn execute_dca_strategy(&self, config: DCAConfig) -> Result<ExecutionResult> {
-        info!("🚀 Starting DCA strategy execution with multi-DEX fallback: {:?}", config);
-        
+        info!(
+            "🚀 Starting DCA strategy execution with multi-DEX fallback: {:?}",
+            config
+        );
+
         let _strategy = DCAStrategy::new(config.clone());
         let mut execution_result = ExecutionResult {
             strategy_id: config.strategy_id.clone(),
@@ -131,12 +136,27 @@ impl StrategyExecutor {
         // Extract fallback configuration
         let preferred_dex = config.preferred_dex.as_deref().unwrap_or("jupiter");
         let enable_fallback = config.enable_fallback.unwrap_or(true);
-        let fallback_chain = config.fallback_chain.as_ref()
-            .map(|chain| chain.iter().filter_map(|s| DexProvider::from_str(s)).collect())
-            .unwrap_or_else(|| vec![DexProvider::Orca, DexProvider::SplSwap, DexProvider::Jupiter]);
-        
-        info!("📊 DEX Configuration: preferred={}, fallback={}, chain={:?}", 
-              preferred_dex, enable_fallback, fallback_chain);
+        let fallback_chain = config
+            .fallback_chain
+            .as_ref()
+            .map(|chain| {
+                chain
+                    .iter()
+                    .filter_map(|s| DexProvider::from_str(s))
+                    .collect()
+            })
+            .unwrap_or_else(|| {
+                vec![
+                    DexProvider::Orca,
+                    DexProvider::SplSwap,
+                    DexProvider::Jupiter,
+                ]
+            });
+
+        info!(
+            "📊 DEX Configuration: preferred={}, fallback={}, chain={:?}",
+            preferred_dex, enable_fallback, fallback_chain
+        );
 
         let mut remaining_amount = config.total_amount;
         let amount_per_interval = config.total_amount / config.intervals as f64;
@@ -147,24 +167,32 @@ impl StrategyExecutor {
             }
 
             let trade_amount = amount_per_interval.min(remaining_amount);
-            
-            match self.execute_single_trade_with_fallback(
-                &config.from_token,
-                &config.to_token,
-                trade_amount,
-                config.slippage_tolerance,
-                &fallback_chain,
-                enable_fallback
-            ).await {
+
+            match self
+                .execute_single_trade_with_fallback(
+                    &config.from_token,
+                    &config.to_token,
+                    trade_amount,
+                    config.slippage_tolerance,
+                    &fallback_chain,
+                    enable_fallback,
+                )
+                .await
+            {
                 Ok(trade) => {
                     execution_result.trades_executed.push(trade.clone());
                     execution_result.total_volume += trade.amount_in;
                     execution_result.total_fees += trade.fees;
                     remaining_amount -= trade.amount_in;
-                    
-                    info!("✅ DCA interval {} completed: {} {} -> {} {}", 
-                        interval + 1, trade.amount_in, config.from_token, 
-                        trade.amount_out, config.to_token);
+
+                    info!(
+                        "✅ DCA interval {} completed: {} {} -> {} {}",
+                        interval + 1,
+                        trade.amount_in,
+                        config.from_token,
+                        trade.amount_out,
+                        config.to_token
+                    );
                 }
                 Err(e) => {
                     error!("❌ DCA interval {} failed: {}", interval + 1, e);
@@ -187,9 +215,12 @@ impl StrategyExecutor {
     }
 
     /// Execute momentum strategy
-    pub async fn execute_momentum_strategy(&self, config: MomentumConfig) -> Result<ExecutionResult> {
+    pub async fn execute_momentum_strategy(
+        &self,
+        config: MomentumConfig,
+    ) -> Result<ExecutionResult> {
         info!("Starting momentum strategy execution: {:?}", config);
-        
+
         let mut execution_result = ExecutionResult {
             strategy_id: config.strategy_id.clone(),
             strategy_type: StrategyType::Momentum,
@@ -206,12 +237,17 @@ impl StrategyExecutor {
         info!("Current price for {}: {}", config.token, current_price);
 
         // Check momentum signal
-        let momentum_signal = self.calculate_momentum_signal(&config.token, config.lookback_periods).await?;
+        let momentum_signal = self
+            .calculate_momentum_signal(&config.token, config.lookback_periods)
+            .await?;
         info!("Momentum signal: {}", momentum_signal);
 
         if momentum_signal.abs() >= config.momentum_threshold {
             let trade_direction = if momentum_signal > 0.0 { "buy" } else { "sell" };
-            info!("Momentum signal triggered: {} with strength {}", trade_direction, momentum_signal);
+            info!(
+                "Momentum signal triggered: {} with strength {}",
+                trade_direction, momentum_signal
+            );
 
             let (from_token, to_token) = if momentum_signal > 0.0 {
                 ("USDC".to_string(), config.token.clone())
@@ -219,21 +255,26 @@ impl StrategyExecutor {
                 (config.token.clone(), "USDC".to_string())
             };
 
-            match self.execute_single_trade_with_fallback(
-                &from_token,
-                &to_token,
-                config.trade_amount,
-                config.slippage_tolerance,
-                &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
-                true // Enable fallback
-            ).await {
+            match self
+                .execute_single_trade_with_fallback(
+                    &from_token,
+                    &to_token,
+                    config.trade_amount,
+                    config.slippage_tolerance,
+                    &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
+                    true,                                       // Enable fallback
+                )
+                .await
+            {
                 Ok(trade) => {
                     execution_result.trades_executed.push(trade.clone());
                     execution_result.total_volume += trade.amount_in;
                     execution_result.total_fees += trade.fees;
-                    
-                    info!("Momentum trade executed: {} {} -> {} {}", 
-                        trade.amount_in, from_token, trade.amount_out, to_token);
+
+                    info!(
+                        "Momentum trade executed: {} {} -> {} {}",
+                        trade.amount_in, from_token, trade.amount_out, to_token
+                    );
                 }
                 Err(e) => {
                     error!("Momentum trade failed: {}", e);
@@ -242,8 +283,10 @@ impl StrategyExecutor {
                 }
             }
         } else {
-            info!("No momentum signal detected. Threshold: {}, Signal: {}", 
-                config.momentum_threshold, momentum_signal);
+            info!(
+                "No momentum signal detected. Threshold: {}, Signal: {}",
+                config.momentum_threshold, momentum_signal
+            );
             execution_result.status = ExecutionStatus::Success;
         }
 
@@ -253,7 +296,7 @@ impl StrategyExecutor {
     /// Execute grid trading strategy
     pub async fn execute_grid_strategy(&self, config: GridConfig) -> Result<ExecutionResult> {
         info!("Starting grid strategy execution: {:?}", config);
-        
+
         let mut execution_result = ExecutionResult {
             strategy_id: config.strategy_id.clone(),
             strategy_type: StrategyType::Grid,
@@ -287,21 +330,31 @@ impl StrategyExecutor {
 
             // For initial implementation, execute immediate trades
             // In production, this would place limit orders
-            match self.execute_single_trade_with_fallback(
-                &from_token,
-                &to_token,
-                amount_per_level,
-                config.slippage_tolerance,
-                &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
-                true // Enable fallback
-            ).await {
+            match self
+                .execute_single_trade_with_fallback(
+                    &from_token,
+                    &to_token,
+                    amount_per_level,
+                    config.slippage_tolerance,
+                    &[DexProvider::Orca, DexProvider::Jupiter], // Default fallback chain
+                    true,                                       // Enable fallback
+                )
+                .await
+            {
                 Ok(trade) => {
                     execution_result.trades_executed.push(trade.clone());
                     execution_result.total_volume += trade.amount_in;
                     execution_result.total_fees += trade.fees;
-                    
-                    info!("Grid level {} executed: {} {} -> {} {} at level {}", 
-                        i + 1, trade.amount_in, from_token, trade.amount_out, to_token, level);
+
+                    info!(
+                        "Grid level {} executed: {} {} -> {} {} at level {}",
+                        i + 1,
+                        trade.amount_in,
+                        from_token,
+                        trade.amount_out,
+                        to_token,
+                        level
+                    );
                 }
                 Err(e) => {
                     error!("Grid level {} failed: {}", i + 1, e);
@@ -331,8 +384,10 @@ impl StrategyExecutor {
         fallback_chain: &[DexProvider],
         enable_fallback: bool,
     ) -> Result<TradeExecution> {
-        info!("🚀 Executing trade with DEX fallback: {} {} -> {} {} (slippage: {}, fallback: {})", 
-            amount, from_token, to_token, amount, slippage_tolerance, enable_fallback);
+        info!(
+            "🚀 Executing trade with DEX fallback: {} {} -> {} {} (slippage: {}, fallback: {})",
+            amount, from_token, to_token, amount, slippage_tolerance, enable_fallback
+        );
 
         // Create unified quote request
         let quote_request = UnifiedQuoteRequest {
@@ -346,17 +401,32 @@ impl StrategyExecutor {
         let mut last_error = None;
         for (attempt, &dex) in fallback_chain.iter().enumerate() {
             info!("🎯 Attempt {} using DEX: {:?}", attempt + 1, dex);
-            
-            match self.try_single_dex_trade(&quote_request, dex, from_token, to_token, amount, slippage_tolerance).await {
+
+            match self
+                .try_single_dex_trade(
+                    &quote_request,
+                    dex,
+                    from_token,
+                    to_token,
+                    amount,
+                    slippage_tolerance,
+                )
+                .await
+            {
                 Ok(trade) => {
-                    info!("✅ Trade successful with {}: {} -> {} (tx: {})", 
-                          dex.as_str(), trade.amount_in, trade.amount_out, trade.transaction_signature);
+                    info!(
+                        "✅ Trade successful with {}: {} -> {} (tx: {})",
+                        dex.as_str(),
+                        trade.amount_in,
+                        trade.amount_out,
+                        trade.transaction_signature
+                    );
                     return Ok(trade);
                 }
                 Err(e) => {
                     warn!("❌ Trade failed with {}: {}", dex.as_str(), e);
                     last_error = Some(e);
-                    
+
                     if !enable_fallback {
                         break;
                     }
@@ -364,8 +434,9 @@ impl StrategyExecutor {
             }
         }
 
-        Err(last_error.unwrap_or_else(|| 
-            PlatformError::Trading("All DEX providers failed".to_string()).into()))
+        Err(last_error.unwrap_or_else(|| {
+            PlatformError::Trading("All DEX providers failed".to_string()).into()
+        }))
     }
 
     /// Try to execute trade with a specific DEX
@@ -381,13 +452,27 @@ impl StrategyExecutor {
         match dex {
             DexProvider::Orca => {
                 if let Some(_orca_client) = &self.orca_client {
-                    self.execute_orca_trade(quote_request, from_token, to_token, amount, slippage_tolerance).await
+                    self.execute_orca_trade(
+                        quote_request,
+                        from_token,
+                        to_token,
+                        amount,
+                        slippage_tolerance,
+                    )
+                    .await
                 } else {
                     Err(anyhow::anyhow!("Orca client not available"))
                 }
             }
             DexProvider::Jupiter => {
-                self.execute_jupiter_trade(quote_request, from_token, to_token, amount, slippage_tolerance).await
+                self.execute_jupiter_trade(
+                    quote_request,
+                    from_token,
+                    to_token,
+                    amount,
+                    slippage_tolerance,
+                )
+                .await
             }
             DexProvider::Raydium | DexProvider::SplSwap => {
                 Err(anyhow::anyhow!("{} not yet implemented", dex.as_str()))
@@ -405,7 +490,7 @@ impl StrategyExecutor {
         slippage_tolerance: f64,
     ) -> Result<TradeExecution> {
         let orca_client = self.orca_client.as_ref().unwrap();
-        
+
         // Get Orca quote
         let orca_quote_request = crate::shared::orca_client::OrcaQuoteRequest {
             input_mint: quote_request.input_mint.clone(),
@@ -413,10 +498,12 @@ impl StrategyExecutor {
             amount: quote_request.amount.to_string(),
             slippage_bps: quote_request.slippage_bps,
         };
-        
+
         let orca_quote = orca_client.get_quote(&orca_quote_request).await?;
-        info!("📊 Orca quote: {} -> {} (impact: {:?}%)", 
-              orca_quote.input_amount, orca_quote.output_amount, orca_quote.price_impact_pct);
+        info!(
+            "📊 Orca quote: {} -> {} (impact: {:?}%)",
+            orca_quote.input_amount, orca_quote.output_amount, orca_quote.price_impact_pct
+        );
 
         // Get wallet credentials
         let wallet_name = "devnet-trading";
@@ -429,13 +516,13 @@ impl StrategyExecutor {
             user_public_key: wallet_address.clone(),
             wrap_unwrap_sol: true,
         };
-        
+
         // Execute REAL swap on DevNet (not simulation)
         info!("🚀 Executing REAL Orca swap on DevNet...");
         let orca_swap = orca_client.execute_real_swap(&orca_swap_request).await?;
-        
+
         info!("✅ Real Orca swap executed: {}", orca_swap.transaction);
-        
+
         Ok(TradeExecution {
             timestamp: Utc::now(),
             from_token: from_token.to_string(),
@@ -464,8 +551,11 @@ impl StrategyExecutor {
             amount: quote_request.amount,
             slippageBps: quote_request.slippage_bps,
         };
-        
-        let quote = self.jupiter_client.get_quote(jupiter_quote_request).await
+
+        let quote = self
+            .jupiter_client
+            .get_quote(jupiter_quote_request)
+            .await
             .map_err(|e| PlatformError::Trading(format!("Jupiter quote failed: {}", e)))?;
 
         // Get wallet credentials
@@ -474,17 +564,26 @@ impl StrategyExecutor {
         let wallet_keypair = self.wallet_manager.get_wallet_keypair(wallet_name).await?;
 
         // Execute real swap with wallet integration
-        info!("🔄 Executing Jupiter swap: {} {} -> {} {}", amount, from_token, quote.out_amount(), to_token);
-        
-        let swap_result = self.jupiter_client.execute_swap_with_wallet(
-            &quote,
-            &wallet_address,
-            Some(&wallet_keypair)
-        ).await.map_err(|e| PlatformError::Trading(format!("Jupiter swap execution failed: {}", e)))?;
+        info!(
+            "🔄 Executing Jupiter swap: {} {} -> {} {}",
+            amount,
+            from_token,
+            quote.out_amount(),
+            to_token
+        );
+
+        let swap_result = self
+            .jupiter_client
+            .execute_swap_with_wallet(&quote, &wallet_address, Some(&wallet_keypair))
+            .await
+            .map_err(|e| PlatformError::Trading(format!("Jupiter swap execution failed: {}", e)))?;
 
         if !swap_result.success {
-            return Err(PlatformError::Trading(format!("Jupiter swap execution failed: {}", 
-                swap_result.transaction_signature)).into());
+            return Err(PlatformError::Trading(format!(
+                "Jupiter swap execution failed: {}",
+                swap_result.transaction_signature
+            ))
+            .into());
         }
 
         Ok(TradeExecution {
@@ -502,20 +601,25 @@ impl StrategyExecutor {
     /// Get current token price (REAL IMPLEMENTATION)
     async fn get_token_price(&self, token: &str) -> Result<f64> {
         let price = self.jupiter_client.get_price(token).await?;
-        price.ok_or_else(|| PlatformError::Trading(format!("No price found for token {}", token)).into())
+        price.ok_or_else(|| {
+            PlatformError::Trading(format!("No price found for token {}", token)).into()
+        })
     }
 
     /// Calculate momentum signal using real historical price data
     async fn calculate_momentum_signal(&self, token: &str, lookback_periods: u32) -> Result<f64> {
-        info!("📈 Calculating real momentum signal for {} with {} periods", token, lookback_periods);
-        
+        info!(
+            "📈 Calculating real momentum signal for {} with {} periods",
+            token, lookback_periods
+        );
+
         // Get current price
         let current_price = self.get_token_price(token).await?;
-        
+
         // Collect historical prices (simulate multiple calls for historical data)
         let mut historical_prices = Vec::new();
         let mut price_sum = 0.0;
-        
+
         // Method 1: Use multiple Jupiter API calls to simulate historical data
         // In production, this would use a proper historical data provider
         for i in 0..lookback_periods.min(10) {
@@ -523,7 +627,7 @@ impl StrategyExecutor {
             if i > 0 {
                 tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
             }
-            
+
             // Get price (in real scenario, this would be historical data)
             match self.jupiter_client.get_price(token).await {
                 Ok(Some(price)) => {
@@ -538,16 +642,23 @@ impl StrategyExecutor {
                     break;
                 }
                 Err(e) => {
-                    warn!("⚠️ Error getting historical price for {} period {}: {}", token, i, e);
+                    warn!(
+                        "⚠️ Error getting historical price for {} period {}: {}",
+                        token, i, e
+                    );
                     break;
                 }
             }
         }
-        
+
         if historical_prices.is_empty() {
-            return Err(PlatformError::Trading(format!("No historical prices available for {}", token)).into());
+            return Err(PlatformError::Trading(format!(
+                "No historical prices available for {}",
+                token
+            ))
+            .into());
         }
-        
+
         // Calculate momentum using price rate of change
         let average_historical = price_sum / historical_prices.len() as f64;
         let momentum = if average_historical > 0.0 {
@@ -555,26 +666,28 @@ impl StrategyExecutor {
         } else {
             0.0
         };
-        
+
         // Add volatility analysis
         let volatility = if historical_prices.len() > 1 {
-            let variance: f64 = historical_prices.iter()
+            let variance: f64 = historical_prices
+                .iter()
                 .map(|price| {
                     let diff = price - average_historical;
                     diff * diff
                 })
-                .sum::<f64>() / (historical_prices.len() - 1) as f64;
+                .sum::<f64>()
+                / (historical_prices.len() - 1) as f64;
             variance.sqrt() / average_historical
         } else {
             0.0
         };
-        
+
         // Combine momentum with volatility adjustment
         let adjusted_momentum = momentum * (1.0 - volatility.min(0.5)); // Reduce momentum in high volatility
-        
+
         info!("📊 Momentum analysis for {}: current={:.6}, avg_historical={:.6}, raw_momentum={:.4}, volatility={:.4}, adjusted={:.4}", 
               token, current_price, average_historical, momentum, volatility, adjusted_momentum);
-        
+
         // Clamp to reasonable range
         Ok(adjusted_momentum.max(-2.0).min(2.0))
     }
@@ -596,36 +709,53 @@ impl StrategyExecutor {
     /// Check health of all DEX providers
     pub async fn check_dex_health(&self) -> HashMap<String, bool> {
         info!("🏥 Performing DEX health check");
-        
+
         let health_results = self.dex_fallback_manager.health_check_all().await;
         let mut results = HashMap::new();
-        
+
         for (dex, healthy) in health_results {
-            let status = if healthy { "✅ HEALTHY" } else { "❌ UNHEALTHY" };
+            let status = if healthy {
+                "✅ HEALTHY"
+            } else {
+                "❌ UNHEALTHY"
+            };
             info!("{} {}", dex.as_str(), status);
             results.insert(dex.as_str().to_string(), healthy);
         }
-        
+
         results
     }
 
     /// Test quote from all DEX providers
-    pub async fn test_all_dex_quotes(&self, from_token: &str, to_token: &str, amount: f64) -> Result<()> {
+    pub async fn test_all_dex_quotes(
+        &self,
+        from_token: &str,
+        to_token: &str,
+        amount: f64,
+    ) -> Result<()> {
         info!("🧪 Testing quotes from all DEX providers");
-        
+
         let quote_request = UnifiedQuoteRequest {
             input_mint: from_token.to_string(),
             output_mint: to_token.to_string(),
             amount: (amount * 1_000_000.0) as u64,
             slippage_bps: 100, // 1% slippage
         };
-        
+
         // Try to get best quote (will test all DEXs)
-        match self.dex_fallback_manager.get_best_quote(quote_request).await {
+        match self
+            .dex_fallback_manager
+            .get_best_quote(quote_request)
+            .await
+        {
             Ok(best_quote) => {
-                info!("🏆 Best quote from {}: {} -> {} (impact: {:.4}%)", 
-                      best_quote.dex_provider.as_str(), best_quote.in_amount, 
-                      best_quote.out_amount, best_quote.price_impact_pct);
+                info!(
+                    "🏆 Best quote from {}: {} -> {} (impact: {:.4}%)",
+                    best_quote.dex_provider.as_str(),
+                    best_quote.in_amount,
+                    best_quote.out_amount,
+                    best_quote.price_impact_pct
+                );
                 Ok(())
             }
             Err(e) => {
@@ -634,7 +764,6 @@ impl StrategyExecutor {
             }
         }
     }
-
 }
 
 /// DCA (Dollar Cost Averaging) configuration
@@ -728,7 +857,9 @@ impl MomentumStrategy {
 #[async_trait]
 impl TradingStrategy for MomentumStrategy {
     async fn execute(&self, executor: &StrategyExecutor) -> Result<ExecutionResult> {
-        executor.execute_momentum_strategy(self.config.clone()).await
+        executor
+            .execute_momentum_strategy(self.config.clone())
+            .await
     }
 
     fn get_strategy_type(&self) -> StrategyType {

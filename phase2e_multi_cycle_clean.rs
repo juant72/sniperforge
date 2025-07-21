@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -63,12 +63,15 @@ async fn main() -> Result<()> {
                 info!("   ✅ Ganancia total: +{:.9} SOL", actual_profit);
                 info!("   📊 Profit por ciclo: {:.9} SOL", profit_per_cycle);
                 info!("   💰 Valor USD aprox: +${:.2}", actual_profit * 200.0);
-                info!("   📈 ROI total: +{:.4}%", (actual_profit / initial_balance) * 100.0);
-                
+                info!(
+                    "   📈 ROI total: +{:.4}%",
+                    (actual_profit / initial_balance) * 100.0
+                );
+
                 // Calcular eficiencia
                 let efficiency = (actual_profit / (base_amount * cycles as f64)) * 100.0;
                 info!("   ⚡ Eficiencia: {:.2}%", efficiency);
-                
+
                 update_multi_cycle_success(actual_profit, cycles).await?;
             } else {
                 warn!("⚠️ Resultado: {:.9} SOL", actual_profit);
@@ -88,7 +91,7 @@ async fn execute_multi_cycle_arbitrage(
     base_amount: f64,
 ) -> Result<f64> {
     let mut total_profit = 0.0;
-    
+
     info!("🔧 === CONFIGURACIÓN MULTI-CICLO ===");
     info!("   🔄 Total ciclos: {}", cycles);
     info!("   💰 Amount base: {} SOL", base_amount);
@@ -96,15 +99,18 @@ async fn execute_multi_cycle_arbitrage(
 
     for cycle in 1..=cycles {
         info!("\n💫 === CICLO {}/{} ===", cycle, cycles);
-        
+
         let cycle_amount = calculate_progressive_amount(base_amount, cycle);
         info!("   💰 Amount este ciclo: {} SOL", cycle_amount);
-        
+
         match execute_clean_arbitrage_cycle(client, wallet, cycle_amount, cycle).await {
             Ok(cycle_profit) => {
                 total_profit += cycle_profit;
-                info!("   ✅ Ciclo {} completado: {:.9} SOL profit", cycle, cycle_profit);
-                
+                info!(
+                    "   ✅ Ciclo {} completado: {:.9} SOL profit",
+                    cycle, cycle_profit
+                );
+
                 if cycle_profit > 0.0 {
                     info!("   🎉 Profit positivo en ciclo {}!", cycle);
                 } else {
@@ -127,9 +133,12 @@ async fn execute_multi_cycle_arbitrage(
         // Verificar balance disponible
         let current_balance = check_sol_balance(client, &wallet.pubkey()).await?;
         let next_amount = calculate_progressive_amount(base_amount, cycle + 1);
-        
+
         if current_balance < next_amount + 0.01 {
-            warn!("   ⚠️ Balance insuficiente para ciclo {}, terminando", cycle + 1);
+            warn!(
+                "   ⚠️ Balance insuficiente para ciclo {}, terminando",
+                cycle + 1
+            );
             break;
         }
     }
@@ -140,11 +149,11 @@ async fn execute_multi_cycle_arbitrage(
 
 fn calculate_progressive_amount(base: f64, cycle: u32) -> f64 {
     match cycle {
-        1 => base,                    // 0.015 SOL
-        2 => base + 0.003,           // 0.018 SOL  
-        3 => base + 0.005,           // 0.020 SOL
-        4 => base + 0.002,           // 0.017 SOL
-        _ => base + 0.001,           // 0.016 SOL
+        1 => base,         // 0.015 SOL
+        2 => base + 0.003, // 0.018 SOL
+        3 => base + 0.005, // 0.020 SOL
+        4 => base + 0.002, // 0.017 SOL
+        _ => base + 0.001, // 0.016 SOL
     }
 }
 
@@ -156,26 +165,27 @@ async fn execute_clean_arbitrage_cycle(
 ) -> Result<f64> {
     let user_pubkey = wallet.pubkey();
     let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
-    
-    info!("   🔄 Iniciando ciclo clean {} con {} lamports", cycle_number, amount_lamports);
+
+    info!(
+        "   🔄 Iniciando ciclo clean {} con {} lamports",
+        cycle_number, amount_lamports
+    );
 
     // Balance antes del ciclo
     let balance_before = client.get_balance(&user_pubkey)?;
-    
+
     // PASO 1: Crear nueva cuenta wrapped SOL con keypair único
     let temp_wsol_keypair = Keypair::new();
     let temp_wsol_account = temp_wsol_keypair.pubkey();
-    
-    info!("   💫 Creando cuenta temporal: {}...", &temp_wsol_account.to_string()[..8]);
-    
+
+    info!(
+        "   💫 Creando cuenta temporal: {}...",
+        &temp_wsol_account.to_string()[..8]
+    );
+
     // PASO 2: Create + Fund + Wrap en una transacción
-    let wrap_sig = execute_temp_wrap(
-        client, 
-        wallet, 
-        &temp_wsol_keypair, 
-        amount_lamports
-    ).await?;
-    
+    let wrap_sig = execute_temp_wrap(client, wallet, &temp_wsol_keypair, amount_lamports).await?;
+
     info!("     ✅ Temp wrap: {}...", &wrap_sig.to_string()[..8]);
 
     // PASO 3: Timing optimization
@@ -184,23 +194,22 @@ async fn execute_clean_arbitrage_cycle(
     tokio::time::sleep(std::time::Duration::from_millis(timing_delay)).await;
 
     // PASO 4: Close y recuperar SOL
-    let unwrap_sig = execute_temp_unwrap(
-        client, 
-        wallet, 
-        &temp_wsol_account
-    ).await?;
-    
+    let unwrap_sig = execute_temp_unwrap(client, wallet, &temp_wsol_account).await?;
+
     info!("     ✅ Temp unwrap: {}...", &unwrap_sig.to_string()[..8]);
 
     // PASO 5: Calcular profit real
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     let balance_after = client.get_balance(&user_pubkey)?;
-    
+
     let net_change = balance_after as i64 - balance_before as i64;
     let profit = net_change as f64 / LAMPORTS_PER_SOL as f64;
 
-    info!("   📊 Balance change: {} lamports ({:.9} SOL)", net_change, profit);
-    
+    info!(
+        "   📊 Balance change: {} lamports ({:.9} SOL)",
+        net_change, profit
+    );
+
     Ok(profit)
 }
 
@@ -212,7 +221,7 @@ async fn execute_temp_wrap(
 ) -> Result<Signature> {
     let user_pubkey = wallet.pubkey();
     let temp_wsol_account = temp_wsol_keypair.pubkey();
-    
+
     // Rent exempt para token account
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
     let total_amount = amount + rent_exempt;
@@ -239,18 +248,11 @@ async fn execute_temp_wrap(
     instructions.push(init_account_ix);
 
     // 3. Transfer SOL adicional
-    let transfer_ix = system_instruction::transfer(
-        &user_pubkey,
-        &temp_wsol_account,
-        amount,
-    );
+    let transfer_ix = system_instruction::transfer(&user_pubkey, &temp_wsol_account, amount);
     instructions.push(transfer_ix);
 
     // 4. Sync native
-    let sync_ix = spl_token::instruction::sync_native(
-        &spl_token::id(),
-        &temp_wsol_account,
-    )?;
+    let sync_ix = spl_token::instruction::sync_native(&spl_token::id(), &temp_wsol_account)?;
     instructions.push(sync_ix);
 
     let recent_blockhash = client.get_latest_blockhash()?;
@@ -305,7 +307,7 @@ async fn update_multi_cycle_success(profit: f64, cycles: u32) -> Result<()> {
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

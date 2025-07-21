@@ -21,6 +21,22 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
+name = "arbiter"
+path = "arbiter.rs"
+
+[[bin]]
+name = "arbiter_real_data"
+path = "arbiter_real_data.rs"
+
+[[bin]]
+name = "test_expert_math"
+path = "test_expert_math.rs"
+
+[[bin]]
+name = "military_arbitrage_simple_real"
+path = "military_arbitrage_simple_real.rs"
+
+[[bin]]
 name = "test_military_system"
 path = "test_military_system.rs"
 

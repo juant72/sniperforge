@@ -2,19 +2,17 @@
 // Este debería resolver el problema original de Program IDs incorrectos
 
 use anyhow::Result;
-use tracing::{info, error, warn};
-use solana_sdk::{signature::{Keypair, Signer}};
 use sniperforge::shared::{
-    jupiter_api::Jupiter,
-    jupiter_config::JupiterConfig,
-    network_config::NetworkConfig,
+    jupiter_api::Jupiter, jupiter_config::JupiterConfig, network_config::NetworkConfig,
 };
+use solana_sdk::signature::{Keypair, Signer};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load environment variables
     dotenv::dotenv().ok();
-    
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
@@ -26,29 +24,30 @@ async fn main() -> Result<()> {
     let private_key = std::env::var("SOLANA_PRIVATE_KEY")
         .expect("SOLANA_PRIVATE_KEY environment variable not set");
     let sender_keypair = Keypair::from_base58_string(&private_key);
-    
+
     info!("📋 Wallet loaded: {}", sender_keypair.pubkey());
 
     // Create network configuration for DevNet
     let network_config = NetworkConfig::devnet();
     info!("🌐 Network: {}", network_config.name);
     info!("🔗 RPC: {}", network_config.rpc_endpoint);
-    
+
     // Validate configuration
     if let Err(e) = network_config.validate() {
         error!("❌ Invalid network configuration: {}", e);
         return Ok(());
     }
-    
+
     // Check if Jupiter is available
     if !network_config.has_jupiter() {
         error!("❌ Jupiter not available for {}", network_config.name);
         return Ok(());
     }
-    
-    info!("✅ Jupiter Program ID for {}: {:?}", 
-          network_config.name, 
-          network_config.program_ids.jupiter_program);
+
+    info!(
+        "✅ Jupiter Program ID for {}: {:?}",
+        network_config.name, network_config.program_ids.jupiter_program
+    );
 
     // Create Jupiter configuration that matches the network
     let jupiter_config = JupiterConfig {
@@ -75,14 +74,17 @@ async fn main() -> Result<()> {
 
     // Get test token pair from network configuration
     let (input_token, output_token) = network_config.get_test_token_pair();
-    
+
     if output_token.is_none() {
-        warn!("⚠️ No output token configured for {} - using SOL transfer test", network_config.name);
+        warn!(
+            "⚠️ No output token configured for {} - using SOL transfer test",
+            network_config.name
+        );
         return Ok(());
     }
-    
+
     let output_token = output_token.unwrap();
-    
+
     info!("🔄 Testing Jupiter swap:");
     info!("   Input: {} (SOL)", input_token);
     info!("   Output: {} (USDC)", output_token);
@@ -90,12 +92,15 @@ async fn main() -> Result<()> {
 
     // Test 1: Get a quote
     info!("📊 Step 1: Getting quote from Jupiter...");
-    let quote = match jupiter.get_quote(
-        &input_token.to_string(),
-        &output_token.to_string(),
-        0.00001, // 0.00001 SOL
-        100, // 1% slippage
-    ).await {
+    let quote = match jupiter
+        .get_quote(
+            &input_token.to_string(),
+            &output_token.to_string(),
+            0.00001, // 0.00001 SOL
+            100,     // 1% slippage
+        )
+        .await
+    {
         Ok(quote) => {
             info!("✅ Quote received:");
             info!("   Input amount: {} SOL", quote.in_amount());
@@ -111,7 +116,10 @@ async fn main() -> Result<()> {
 
     // Test 2: Build transaction with correct Program IDs
     info!("🔧 Step 2: Building swap transaction with correct Program IDs...");
-    match jupiter.build_swap_transaction(&quote, &sender_keypair.pubkey().to_string()).await {
+    match jupiter
+        .build_swap_transaction(&quote, &sender_keypair.pubkey().to_string())
+        .await
+    {
         Ok(swap_result) => {
             info!("✅ Transaction built successfully:");
             info!("   Success: {}", swap_result.success);
@@ -125,14 +133,20 @@ async fn main() -> Result<()> {
     }
 
     // Test 3: Execute swap with wallet (REAL EXECUTION)
-    info!("🚀 Step 3: Executing REAL swap on {} with corrected Program IDs...", network_config.name);
+    info!(
+        "🚀 Step 3: Executing REAL swap on {} with corrected Program IDs...",
+        network_config.name
+    );
     warn!("⚠️  This will execute a REAL transaction on DevNet");
-    
-    match jupiter.execute_swap_with_wallet(
-        &quote,
-        &sender_keypair.pubkey().to_string(),
-        Some(&sender_keypair),
-    ).await {
+
+    match jupiter
+        .execute_swap_with_wallet(
+            &quote,
+            &sender_keypair.pubkey().to_string(),
+            Some(&sender_keypair),
+        )
+        .await
+    {
         Ok(result) => {
             if result.success {
                 info!("🎉 SWAP EXECUTED SUCCESSFULLY!");
@@ -140,9 +154,11 @@ async fn main() -> Result<()> {
                 info!("💰 Output amount: {} tokens", result.output_amount);
                 info!("📊 Actual slippage: {}%", result.actual_slippage);
                 info!("💸 Fee paid: {} SOL", result.fee_amount);
-                info!("🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", 
-                      result.transaction_signature);
-                
+                info!(
+                    "🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                    result.transaction_signature
+                );
+
                 info!("✅ SUCCESS: Jupiter swap completed with correct Program IDs!");
             } else {
                 warn!("⚠️ Swap not executed:");

@@ -4,7 +4,7 @@ use sniperforge::config::Config;
 use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -35,10 +35,14 @@ async fn main() -> Result<()> {
         wallet_address,
         initial_capital,
         &config.network,
-        shared_services.clone()
-    ).await?;
+        shared_services.clone(),
+    )
+    .await?;
 
-    info!("✅ ArbitrageBot created successfully with ${:.2} capital", initial_capital);
+    info!(
+        "✅ ArbitrageBot created successfully with ${:.2} capital",
+        initial_capital
+    );
 
     // Test 2: Check bot status
     info!("🔍 Test 2: Checking bot status");
@@ -63,13 +67,19 @@ async fn main() -> Result<()> {
         // In a real implementation, we would stop the bot gracefully
     });
 
-    info!("✅ Bot ran for {:.2} seconds", start_time.elapsed().as_secs_f64());
+    info!(
+        "✅ Bot ran for {:.2} seconds",
+        start_time.elapsed().as_secs_f64()
+    );
 
     // Test 5: Final status check
     info!("🔍 Test 5: Final status check");
     let final_status = bot_copy.get_status();
     info!("   Final uptime: {} seconds", final_status.uptime_seconds);
-    info!("   Opportunities detected: {}", final_status.opportunities_detected);
+    info!(
+        "   Opportunities detected: {}",
+        final_status.opportunities_detected
+    );
     info!("   Total trades: {}", final_status.total_trades);
 
     info!("✅ All tests completed successfully!");
@@ -100,12 +110,14 @@ async fn get_test_wallet_address() -> Result<String> {
 async fn test_basic_functions(bot: &ArbitrageBot) -> Result<()> {
     info!("   Testing bot status retrieval...");
     let status = bot.get_status();
-    info!("   ✅ Status retrieved: {} trades, {:.2}% success rate",
-          status.total_trades, status.success_rate_percent);
+    info!(
+        "   ✅ Status retrieved: {} trades, {:.2}% success rate",
+        status.total_trades, status.success_rate_percent
+    );
 
     info!("   Testing emergency stop function...");
     let mut bot_copy = bot.clone(); // This won't work, but shows the intent
-    // bot_copy.emergency_stop();
+                                    // bot_copy.emergency_stop();
     info!("   ✅ Emergency stop function available");
 
     info!("   Testing stats reset function...");

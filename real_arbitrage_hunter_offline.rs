@@ -1,15 +1,12 @@
 use anyhow::Result;
-use std::time::Duration;
-use tokio::time::sleep;
-use tracing::{info, warn, error};
 use chrono::{DateTime, Utc};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    signature::Keypair,
-    signer::Signer,
-    pubkey::Pubkey,
+    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer,
 };
+use std::time::Duration;
+use tokio::time::sleep;
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,14 +36,11 @@ struct RealArbitrageHunterOffline {
 impl RealArbitrageHunterOffline {
     async fn new() -> Result<Self> {
         // Load wallet
-        let wallet_paths = vec![
-            "mainnet_wallet.json".to_string(),
-            "wallet.json".to_string(),
-        ];
-        
+        let wallet_paths = vec!["mainnet_wallet.json".to_string(), "wallet.json".to_string()];
+
         let mut keypair_bytes = None;
         let mut used_path = String::new();
-        
+
         for path in wallet_paths {
             if std::path::Path::new(&path).exists() {
                 match std::fs::read_to_string(&path) {
@@ -63,11 +57,10 @@ impl RealArbitrageHunterOffline {
                 }
             }
         }
-        
-        let keypair_bytes = keypair_bytes.ok_or_else(|| {
-            anyhow::anyhow!("No valid wallet found")
-        })?;
-        
+
+        let keypair_bytes =
+            keypair_bytes.ok_or_else(|| anyhow::anyhow!("No valid wallet found"))?;
+
         let keypair = Keypair::from_bytes(&keypair_bytes)?;
         let wallet_address = keypair.pubkey();
 
@@ -78,7 +71,10 @@ impl RealArbitrageHunterOffline {
         // Get initial balance
         let initial_balance = client.get_balance(&wallet_address)? as f64 / 1_000_000_000.0;
 
-        info!("✅ Offline Arbitrage Hunter loaded: {} (from: {})", wallet_address, used_path);
+        info!(
+            "✅ Offline Arbitrage Hunter loaded: {} (from: {})",
+            wallet_address, used_path
+        );
         info!("💰 Initial balance: {:.9} SOL", initial_balance);
 
         Ok(Self {
@@ -103,7 +99,7 @@ impl RealArbitrageHunterOffline {
         loop {
             cycle_count += 1;
             let now: DateTime<Utc> = Utc::now();
-            
+
             info!("\n🌟 === OFFLINE ARBITRAGE CYCLE {} ===", cycle_count);
             info!("   📅 Time: {}", now.format("%H:%M:%S"));
 
@@ -112,7 +108,7 @@ impl RealArbitrageHunterOffline {
                 Ok((current_balance, net_profit)) => {
                     info!("   💰 Current balance: {:.9} SOL", current_balance);
                     info!("   📈 Net profit: {:.9} SOL", net_profit);
-                    
+
                     if current_balance < 0.005 {
                         warn!("   ⚠️ Low balance - hunting paused");
                         sleep(Duration::from_secs(60)).await;
@@ -132,20 +128,28 @@ impl RealArbitrageHunterOffline {
                     if opportunities.is_empty() {
                         info!("   💤 No offline arbitrage opportunities found");
                     } else {
-                        info!("   🎯 {} offline opportunities detected!", opportunities.len());
-                        
+                        info!(
+                            "   🎯 {} offline opportunities detected!",
+                            opportunities.len()
+                        );
+
                         // Sort by profitability
                         let mut sorted_opps = opportunities;
-                        sorted_opps.sort_by(|a, b| b.expected_profit.partial_cmp(&a.expected_profit).unwrap());
-                        
+                        sorted_opps.sort_by(|a, b| {
+                            b.expected_profit.partial_cmp(&a.expected_profit).unwrap()
+                        });
+
                         // Only execute if profit exceeds costs significantly
                         for opp in sorted_opps.iter().take(1) {
-                            if opp.expected_profit > 0.001 { // Minimum 0.001 SOL profit
+                            if opp.expected_profit > 0.001 {
+                                // Minimum 0.001 SOL profit
                                 info!("   🚀 EXECUTING OFFLINE ARBITRAGE:");
-                                info!("      📊 {} → {} ({:.2}% confidence)", 
-                                      opp.strategy, opp.target, opp.confidence_percentage);
+                                info!(
+                                    "      📊 {} → {} ({:.2}% confidence)",
+                                    opp.strategy, opp.target, opp.confidence_percentage
+                                );
                                 info!("      💰 Expected profit: {:.9} SOL", opp.expected_profit);
-                                
+
                                 match self.execute_offline_arbitrage(opp).await {
                                     Ok(profit) => {
                                         info!("   ✅ OFFLINE ARBITRAGE SUCCESSFUL!");
@@ -157,20 +161,33 @@ impl RealArbitrageHunterOffline {
                                         error!("   ❌ Offline arbitrage failed: {}", e);
                                     }
                                 }
-                                
+
                                 sleep(Duration::from_secs(5)).await;
                             } else {
-                                info!("   💡 Opportunity found but profit too low: {:.9} SOL", opp.expected_profit);
+                                info!(
+                                    "   💡 Opportunity found but profit too low: {:.9} SOL",
+                                    opp.expected_profit
+                                );
                             }
                         }
-                        
+
                         // Show all opportunities
                         info!("   📊 OFFLINE ARBITRAGE OPPORTUNITIES:");
                         for (i, opp) in sorted_opps.iter().take(5).enumerate() {
-                            let status = if opp.expected_profit > 0.001 { "🚀 PROFITABLE" } else { "💡 TOO SMALL" };
-                            info!("   {} {}: {} → {} ({:.9} SOL, {:.1}%)", 
-                                  i + 1, status, opp.strategy, opp.target, 
-                                  opp.expected_profit, opp.confidence_percentage);
+                            let status = if opp.expected_profit > 0.001 {
+                                "🚀 PROFITABLE"
+                            } else {
+                                "💡 TOO SMALL"
+                            };
+                            info!(
+                                "   {} {}: {} → {} ({:.9} SOL, {:.1}%)",
+                                i + 1,
+                                status,
+                                opp.strategy,
+                                opp.target,
+                                opp.expected_profit,
+                                opp.confidence_percentage
+                            );
                         }
                     }
                 }
@@ -183,14 +200,23 @@ impl RealArbitrageHunterOffline {
             if cycle_count % 5 == 0 {
                 info!("\n📊 === OFFLINE ARBITRAGE PERFORMANCE ===");
                 info!("   🔍 Cycles completed: {}", cycle_count);
-                info!("   ⏰ Running time: {:.1} minutes", (cycle_count * 15) as f64 / 60.0);
+                info!(
+                    "   ⏰ Running time: {:.1} minutes",
+                    (cycle_count * 15) as f64 / 60.0
+                );
                 info!("   🚀 Successful trades: {}", successful_trades);
                 info!("   💰 Total profit: {:.9} SOL", total_profit);
                 if successful_trades > 0 {
-                    info!("   📈 Average profit: {:.9} SOL", total_profit / successful_trades as f64);
+                    info!(
+                        "   📈 Average profit: {:.9} SOL",
+                        total_profit / successful_trades as f64
+                    );
                     info!("   💵 Estimated USD: ${:.2}", total_profit * 170.0);
                 }
-                info!("   🎯 Success rate: {:.1}%", (successful_trades as f64 / cycle_count as f64) * 100.0);
+                info!(
+                    "   🎯 Success rate: {:.1}%",
+                    (successful_trades as f64 / cycle_count as f64) * 100.0
+                );
             }
 
             // Wait 15 seconds between scans (no API rate limits to worry about)
@@ -200,43 +226,46 @@ impl RealArbitrageHunterOffline {
         Ok(())
     }
 
-    async fn scan_offline_arbitrage_opportunities(&self) -> Result<Vec<OfflineArbitrageOpportunity>> {
+    async fn scan_offline_arbitrage_opportunities(
+        &self,
+    ) -> Result<Vec<OfflineArbitrageOpportunity>> {
         info!("   🔍 Scanning blockchain-only arbitrage opportunities...");
         let mut opportunities = Vec::new();
-        
+
         // Strategy 1: Block timing arbitrage
         if let Ok(timing_opps) = self.scan_block_timing_arbitrage().await {
             opportunities.extend(timing_opps);
         }
-        
+
         // Strategy 2: Transaction volume patterns
         if let Ok(volume_opps) = self.scan_transaction_volume_patterns().await {
             opportunities.extend(volume_opps);
         }
-        
+
         // Strategy 3: Network congestion arbitrage
         if let Ok(congestion_opps) = self.scan_network_congestion_arbitrage().await {
             opportunities.extend(congestion_opps);
         }
-        
+
         Ok(opportunities)
     }
 
     async fn scan_block_timing_arbitrage(&self) -> Result<Vec<OfflineArbitrageOpportunity>> {
         info!("     ⏰ Scanning block timing patterns...");
         let mut opportunities = Vec::new();
-        
+
         // Get current slot and recent blockhash
         let current_slot = self.client.get_slot()?;
         let recent_blockhash = self.client.get_latest_blockhash()?;
-        
+
         // Calculate timing-based arbitrage opportunity
         let slot_variance = (current_slot % 1000) as f64 / 10000.0; // 0-0.1 range
         let hash_entropy = recent_blockhash.to_bytes()[0] as f64 / 2550.0; // 0-0.1 range
-        
+
         let timing_profit = slot_variance + hash_entropy;
-        
-        if timing_profit > 0.08 { // 8% threshold for high-confidence
+
+        if timing_profit > 0.08 {
+            // 8% threshold for high-confidence
             opportunities.push(OfflineArbitrageOpportunity {
                 strategy: "Block Timing".to_string(),
                 target: format!("Slot {}", current_slot),
@@ -244,24 +273,25 @@ impl RealArbitrageHunterOffline {
                 confidence_percentage: timing_profit * 500.0, // Scale to percentage
             });
         }
-        
+
         Ok(opportunities)
     }
 
     async fn scan_transaction_volume_patterns(&self) -> Result<Vec<OfflineArbitrageOpportunity>> {
         info!("     📊 Scanning transaction volume patterns...");
         let mut opportunities = Vec::new();
-        
+
         // Get recent block commitment for volume analysis
         let commitment_info = self.client.get_max_retransmit_slot()?;
-        
+
         // Calculate volume-based arbitrage potential
         let volume_factor = (commitment_info % 500) as f64 / 5000.0; // 0-0.1 range
         let timestamp_entropy = (chrono::Utc::now().timestamp() % 300) as f64 / 3000.0; // 0-0.1 range
-        
+
         let volume_profit = volume_factor + timestamp_entropy;
-        
-        if volume_profit > 0.07 { // 7% threshold
+
+        if volume_profit > 0.07 {
+            // 7% threshold
             opportunities.push(OfflineArbitrageOpportunity {
                 strategy: "Volume Pattern".to_string(),
                 target: format!("Commitment {}", commitment_info),
@@ -269,26 +299,27 @@ impl RealArbitrageHunterOffline {
                 confidence_percentage: volume_profit * 600.0, // Scale to percentage
             });
         }
-        
+
         Ok(opportunities)
     }
 
     async fn scan_network_congestion_arbitrage(&self) -> Result<Vec<OfflineArbitrageOpportunity>> {
         info!("     🚦 Scanning network congestion patterns...");
         let mut opportunities = Vec::new();
-        
+
         // Get recent performance samples
         if let Ok(recent_performance) = self.client.get_recent_performance_samples(Some(5)) {
             if !recent_performance.is_empty() {
                 let latest_sample = &recent_performance[0];
-                
+
                 // Calculate congestion-based arbitrage
                 let slot_factor = (latest_sample.slot % 100) as f64 / 1000.0; // 0-0.1 range
                 let tps_factor = (latest_sample.num_transactions as f64 % 500.0) / 5000.0; // 0-0.1 range
-                
+
                 let congestion_profit = slot_factor + tps_factor;
-                
-                if congestion_profit > 0.06 { // 6% threshold
+
+                if congestion_profit > 0.06 {
+                    // 6% threshold
                     opportunities.push(OfflineArbitrageOpportunity {
                         strategy: "Network Congestion".to_string(),
                         target: format!("TPS {}", latest_sample.num_transactions),
@@ -298,27 +329,34 @@ impl RealArbitrageHunterOffline {
                 }
             }
         }
-        
+
         Ok(opportunities)
     }
 
-    async fn execute_offline_arbitrage(&self, opportunity: &OfflineArbitrageOpportunity) -> Result<f64> {
+    async fn execute_offline_arbitrage(
+        &self,
+        opportunity: &OfflineArbitrageOpportunity,
+    ) -> Result<f64> {
         info!("   🚀 EJECUTANDO ARBITRAJE OFFLINE");
         info!("      📊 Strategy: {}", opportunity.strategy);
         info!("      🎯 Target: {}", opportunity.target);
         info!("      💰 Expected: {:.9} SOL", opportunity.expected_profit);
-        info!("      ✅ Confidence: {:.1}%", opportunity.confidence_percentage);
-        
+        info!(
+            "      ✅ Confidence: {:.1}%",
+            opportunity.confidence_percentage
+        );
+
         // Simulate profitable execution (preserves balance, no unnecessary transactions)
         sleep(Duration::from_millis(800)).await; // Simulate execution time
-        
+
         // Return the expected profit (simulation that preserves actual balance)
         info!("   ✅ OFFLINE ARBITRAGE COMPLETED - Balance preserved");
         Ok(opportunity.expected_profit)
     }
 
     async fn get_current_performance(&self) -> Result<(f64, f64)> {
-        let current_balance = self.client.get_balance(&self.wallet_address)? as f64 / 1_000_000_000.0;
+        let current_balance =
+            self.client.get_balance(&self.wallet_address)? as f64 / 1_000_000_000.0;
         let net_profit = current_balance - self.initial_balance;
         Ok((current_balance, net_profit))
     }

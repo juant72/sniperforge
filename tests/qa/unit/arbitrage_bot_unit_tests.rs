@@ -1,6 +1,6 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert, qa_assert_eq};
-use sniperforge::bots::arbitrage_bot::{ArbitrageStrategy, MarketData};
+use crate::qa::{qa_assert, qa_assert_eq, qa_test, QATestResult, QATestSuite};
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::{ArbitrageStrategy, MarketData};
 use std::time::Instant;
 
 /// ArbitrageBot Unit Tests
@@ -15,7 +15,10 @@ impl ArbitrageBotUnitTests {
         suite.add_result(result);
 
         // Test 2: Market Data Validation
-        let result = qa_test!("Market Data Validation", Self::test_market_data_validation());
+        let result = qa_test!(
+            "Market Data Validation",
+            Self::test_market_data_validation()
+        );
         suite.add_result(result);
 
         // Test 3: Signal Generation
@@ -45,7 +48,10 @@ impl ArbitrageBotUnitTests {
         // Strategy should be created with current time
         let now = Instant::now();
         let time_diff = now.duration_since(strategy.last_analysis_time);
-        qa_assert!(time_diff.as_secs() < 1, "Strategy should be created with recent timestamp");
+        qa_assert!(
+            time_diff.as_secs() < 1,
+            "Strategy should be created with recent timestamp"
+        );
 
         details.push("ArbitrageStrategy created successfully".to_string());
         details.push(format!("Last analysis time set to recent timestamp"));
@@ -76,17 +82,35 @@ impl ArbitrageBotUnitTests {
         };
 
         // Validate market data structure
-        qa_assert!(!valid_market_data.symbol.is_empty(), "Symbol should not be empty");
+        qa_assert!(
+            !valid_market_data.symbol.is_empty(),
+            "Symbol should not be empty"
+        );
         qa_assert!(valid_market_data.price > 0.0, "Price should be positive");
-        qa_assert!(valid_market_data.volume >= 0.0, "Volume should be non-negative");
-        qa_assert!(valid_market_data.bid <= valid_market_data.ask, "Bid should be <= Ask");
-        qa_assert!(valid_market_data.spread >= 0.0, "Spread should be non-negative");
-        qa_assert!(valid_market_data.liquidity >= 0.0, "Liquidity should be non-negative");
+        qa_assert!(
+            valid_market_data.volume >= 0.0,
+            "Volume should be non-negative"
+        );
+        qa_assert!(
+            valid_market_data.bid <= valid_market_data.ask,
+            "Bid should be <= Ask"
+        );
+        qa_assert!(
+            valid_market_data.spread >= 0.0,
+            "Spread should be non-negative"
+        );
+        qa_assert!(
+            valid_market_data.liquidity >= 0.0,
+            "Liquidity should be non-negative"
+        );
 
         details.push("Market data validation passed".to_string());
         details.push(format!("Symbol: {}", valid_market_data.symbol));
         details.push(format!("Price: ${:.2}", valid_market_data.price));
-        details.push(format!("Bid/Ask: ${:.2}/${:.2}", valid_market_data.bid, valid_market_data.ask));
+        details.push(format!(
+            "Bid/Ask: ${:.2}/${:.2}",
+            valid_market_data.bid, valid_market_data.ask
+        ));
 
         Ok(details)
     }
@@ -117,18 +141,42 @@ impl ArbitrageBotUnitTests {
 
         let signals = strategy.analyze_market(&profitable_market_data).await?;
 
-        qa_assert!(!signals.is_empty(), "Should generate signals for profitable spread");
+        qa_assert!(
+            !signals.is_empty(),
+            "Should generate signals for profitable spread"
+        );
 
         for signal in &signals {
-            qa_assert!(signal.confidence > 0.0, "Signal confidence should be positive");
-            qa_assert!(signal.confidence <= 1.0, "Signal confidence should be <= 1.0");
-            qa_assert!(signal.position_size > 0.0, "Position size should be positive");
-            qa_assert!(!signal.symbol.is_empty(), "Signal symbol should not be empty");
-            qa_assert!(!signal.strategy_name.is_empty(), "Strategy name should not be empty");
+            qa_assert!(
+                signal.confidence > 0.0,
+                "Signal confidence should be positive"
+            );
+            qa_assert!(
+                signal.confidence <= 1.0,
+                "Signal confidence should be <= 1.0"
+            );
+            qa_assert!(
+                signal.position_size > 0.0,
+                "Position size should be positive"
+            );
+            qa_assert!(
+                !signal.symbol.is_empty(),
+                "Signal symbol should not be empty"
+            );
+            qa_assert!(
+                !signal.strategy_name.is_empty(),
+                "Strategy name should not be empty"
+            );
         }
 
-        details.push(format!("Generated {} signals for profitable market", signals.len()));
-        details.push(format!("Signal confidence: {:.1}%", signals[0].confidence * 100.0));
+        details.push(format!(
+            "Generated {} signals for profitable market",
+            signals.len()
+        ));
+        details.push(format!(
+            "Signal confidence: {:.1}%",
+            signals[0].confidence * 100.0
+        ));
         details.push(format!("Position size: ${:.2}", signals[0].position_size));
 
         // Test with unprofitable spread
@@ -151,7 +199,10 @@ impl ArbitrageBotUnitTests {
         };
 
         let no_signals = strategy.analyze_market(&unprofitable_market_data).await?;
-        qa_assert!(no_signals.is_empty(), "Should not generate signals for unprofitable spread");
+        qa_assert!(
+            no_signals.is_empty(),
+            "Should not generate signals for unprofitable spread"
+        );
 
         details.push("No signals generated for unprofitable market (correct)".to_string());
 
@@ -191,7 +242,11 @@ impl ArbitrageBotUnitTests {
             };
 
             let signals = strategy.analyze_market(&market_data).await?;
-            details.push(format!("{}: {} signals generated", description, signals.len()));
+            details.push(format!(
+                "{}: {} signals generated",
+                description,
+                signals.len()
+            ));
         }
 
         Ok(details)
@@ -203,18 +258,23 @@ impl ArbitrageBotUnitTests {
         // Test spread calculations
         let test_cases = vec![
             (100.0, 99.0, 101.0, 2.0),  // Normal spread
-            (100.0, 99.5, 100.5, 1.0), // Tight spread
+            (100.0, 99.5, 100.5, 1.0),  // Tight spread
             (100.0, 95.0, 105.0, 10.0), // Wide spread
         ];
 
         for (price, bid, ask, expected_spread) in test_cases {
             let calculated_spread = ask - bid;
-            qa_assert_eq!(calculated_spread, expected_spread,
-                         format!("Spread calculation failed for price {}", price));
+            qa_assert_eq!(
+                calculated_spread,
+                expected_spread,
+                format!("Spread calculation failed for price {}", price)
+            );
 
             let spread_percentage = (calculated_spread / price) * 100.0;
-            details.push(format!("Price ${:.2}: spread ${:.2} ({:.1}%)",
-                               price, calculated_spread, spread_percentage));
+            details.push(format!(
+                "Price ${:.2}: spread ${:.2} ({:.1}%)",
+                price, calculated_spread, spread_percentage
+            ));
         }
 
         Ok(details)
@@ -229,10 +289,16 @@ impl ArbitrageBotUnitTests {
 
         for liquidity in liquidity_values {
             let position_size: f64 = liquidity.min(max_position);
-            qa_assert!(position_size <= max_position, "Position size should not exceed maximum");
+            qa_assert!(
+                position_size <= max_position,
+                "Position size should not exceed maximum"
+            );
             qa_assert!(position_size > 0.0, "Position size should be positive");
 
-            details.push(format!("Liquidity ${:.0} -> Position ${:.2}", liquidity, position_size));
+            details.push(format!(
+                "Liquidity ${:.0} -> Position ${:.2}",
+                liquidity, position_size
+            ));
         }
 
         // Test confidence thresholds
@@ -241,8 +307,11 @@ impl ArbitrageBotUnitTests {
 
         for confidence in confidence_values {
             let is_valid = confidence >= min_confidence;
-            details.push(format!("Confidence {:.1}: {}", confidence,
-                               if is_valid { "Valid" } else { "Too low" }));
+            details.push(format!(
+                "Confidence {:.1}: {}",
+                confidence,
+                if is_valid { "Valid" } else { "Too low" }
+            ));
         }
 
         Ok(details)

@@ -6,8 +6,8 @@ use std::path::Path;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     pub platform: PlatformConfig,
-    pub trading: Option<TradingConfig>,  // New for Sprint 1.5
-    pub wallets: Option<WalletsConfig>,  // New for Sprint 1.5
+    pub trading: Option<TradingConfig>, // New for Sprint 1.5
+    pub wallets: Option<WalletsConfig>, // New for Sprint 1.5
     pub network: NetworkConfig,
     pub shared_services: SharedServicesConfig,
     pub security: SecurityConfig,
@@ -36,7 +36,7 @@ pub struct AlternativeApisConfig {
     pub jupiter_api_base: Option<String>,
     pub birdeye_api_base: Option<String>,
     pub dexscreener_api_base: Option<String>,
-    pub birdeye_api_key_env: Option<String>,  // Environment variable name for Birdeye API key
+    pub birdeye_api_key_env: Option<String>, // Environment variable name for Birdeye API key
     pub rate_limits: Option<AlternativeApiRateLimits>,
 }
 
@@ -50,7 +50,7 @@ pub struct AlternativeApiRateLimits {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct NetworkConfig {
-    pub environment: String,  // "devnet" or "mainnet"
+    pub environment: String, // "devnet" or "mainnet"
 
     // Devnet configuration (optional - only needed in devnet configs)
     #[serde(default)]
@@ -119,16 +119,16 @@ impl NetworkConfig {
     /// Get the primary RPC URL for the current environment
     pub fn primary_rpc(&self) -> &str {
         match self.environment.as_str() {
-            "devnet" => {
-                self.devnet_primary_rpc.as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("https://api.devnet.solana.com")
-            },
-            "mainnet" => {
-                self.mainnet_primary_rpc.as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("https://api.mainnet-beta.solana.com")
-            },
+            "devnet" => self
+                .devnet_primary_rpc
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("https://api.devnet.solana.com"),
+            "mainnet" => self
+                .mainnet_primary_rpc
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("https://api.mainnet-beta.solana.com"),
             _ => "https://api.devnet.solana.com", // Default to devnet for safety
         }
     }
@@ -136,25 +136,25 @@ impl NetworkConfig {
     /// Get backup RPC URLs for the current environment
     pub fn backup_rpc(&self) -> Vec<String> {
         match self.environment.as_str() {
-            "devnet" => {
-                self.devnet_backup_rpc.as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| vec![
-                        "https://devnet.helius-rpc.com".to_string(),
-                        "https://rpc-devnet.hellomoon.io".to_string()
-                    ])
-            },
-            "mainnet" => {
-                self.mainnet_backup_rpc.as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| vec![
+            "devnet" => self.devnet_backup_rpc.as_ref().cloned().unwrap_or_else(|| {
+                vec![
+                    "https://devnet.helius-rpc.com".to_string(),
+                    "https://rpc-devnet.hellomoon.io".to_string(),
+                ]
+            }),
+            "mainnet" => self
+                .mainnet_backup_rpc
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| {
+                    vec![
                         "https://solana-api.projectserum.com".to_string(),
-                        "https://rpc.ankr.com/solana".to_string()
-                    ])
-            },
+                        "https://rpc.ankr.com/solana".to_string(),
+                    ]
+                }),
             _ => vec![
                 "https://devnet.helius-rpc.com".to_string(),
-                "https://rpc-devnet.hellomoon.io".to_string()
+                "https://rpc-devnet.hellomoon.io".to_string(),
             ], // Default to devnet for safety
         }
     }
@@ -162,16 +162,16 @@ impl NetworkConfig {
     /// Get WebSocket URL for the current environment
     pub fn websocket_url(&self) -> &str {
         match self.environment.as_str() {
-            "devnet" => {
-                self.devnet_websocket_url.as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("wss://api.devnet.solana.com")
-            },
-            "mainnet" => {
-                self.mainnet_websocket_url.as_ref()
-                    .map(|s| s.as_str())
-                    .unwrap_or("wss://api.mainnet-beta.solana.com")
-            },
+            "devnet" => self
+                .devnet_websocket_url
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("wss://api.devnet.solana.com"),
+            "mainnet" => self
+                .mainnet_websocket_url
+                .as_ref()
+                .map(|s| s.as_str())
+                .unwrap_or("wss://api.mainnet-beta.solana.com"),
             _ => "wss://api.devnet.solana.com", // Default to devnet for safety
         }
     }
@@ -253,7 +253,7 @@ pub struct PerformanceConfig {
 // New configurations for Sprint 1.5
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TradingConfig {
-    pub mode: String,  // "hybrid", "devnet_only", "mainnet_only"
+    pub mode: String, // "hybrid", "devnet_only", "mainnet_only"
     pub devnet_real_trading: bool,
     pub mainnet_paper_trading: bool,
 }
@@ -335,14 +335,16 @@ impl Config {
 
     /// Check if devnet real trading is enabled
     pub fn is_devnet_real_trading_enabled(&self) -> bool {
-        self.trading.as_ref()
+        self.trading
+            .as_ref()
             .map(|t| t.devnet_real_trading)
             .unwrap_or(false)
     }
 
     /// Check if mainnet paper trading is enabled
     pub fn is_mainnet_paper_trading_enabled(&self) -> bool {
-        self.trading.as_ref()
+        self.trading
+            .as_ref()
             .map(|t| t.mainnet_paper_trading)
             .unwrap_or(false)
     }
@@ -357,7 +359,8 @@ impl Config {
         self.wallets.as_ref().map(|w| &w.mainnet)
     }
 
-    pub fn validate(&self) -> Result<()> {        // Validate RPC URLs
+    pub fn validate(&self) -> Result<()> {
+        // Validate RPC URLs
         if self.network.primary_rpc().is_empty() {
             return Err(anyhow::anyhow!("Primary RPC URL cannot be empty"));
         }
@@ -398,7 +401,8 @@ impl Config {
             ));
         }
 
-        if total_memory > 8.0 {  // Assuming 8GB max
+        if total_memory > 8.0 {
+            // Assuming 8GB max
             tracing::warn!(
                 "High memory allocation: {:.1}GB. Ensure system has sufficient RAM",
                 total_memory
@@ -418,7 +422,8 @@ impl Default for Config {
                 max_concurrent_bots: 5,
                 resource_allocation_strategy: "priority_based".to_string(),
                 event_bus_buffer_size: 10000,
-            },            network: NetworkConfig {
+            },
+            network: NetworkConfig {
                 environment: "devnet".to_string(),
                 devnet_primary_rpc: Some("https://api.devnet.solana.com".to_string()),
                 devnet_backup_rpc: Some(vec![
@@ -443,13 +448,21 @@ impl Default for Config {
                 circuit_breaker_reset_seconds: Some(120),
                 premium_rpc: Some(PremiumRpcConfig {
                     enabled: false,
-                    helius_rpc_template: Some("https://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string()),
+                    helius_rpc_template: Some(
+                        "https://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string(),
+                    ),
                     ankr_rpc_template: Some("https://rpc.ankr.com/solana/{API_KEY}".to_string()),
                     quicknode_rpc_template: Some("{ENDPOINT}".to_string()),
-                    alchemy_rpc_template: Some("https://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
-                    tatum_rpc_template: None,  // Not hardcoded - loaded from config files when API key available
-                    helius_ws_template: Some("wss://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string()),
-                    alchemy_ws_template: Some("wss://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string()),
+                    alchemy_rpc_template: Some(
+                        "https://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string(),
+                    ),
+                    tatum_rpc_template: None, // Not hardcoded - loaded from config files when API key available
+                    helius_ws_template: Some(
+                        "wss://mainnet.helius-rpc.com/?api-key={API_KEY}".to_string(),
+                    ),
+                    alchemy_ws_template: Some(
+                        "wss://solana-mainnet.g.alchemy.com/v2/{API_KEY}".to_string(),
+                    ),
                     endpoint_priorities: Some(vec![
                         EndpointPriority {
                             provider: "helius".to_string(),
@@ -580,9 +593,10 @@ impl Default for Config {
                     initial_balance_sol: Some(0.5),
                     virtual_balance_sol: Some(0.1),
                     max_trade_amount_sol: 0.01,
-                },            }),
-            pool_detection: None, // Will be loaded from config file
-            trading_session: None, // Will be loaded from config file
+                },
+            }),
+            pool_detection: None,     // Will be loaded from config file
+            trading_session: None,    // Will be loaded from config file
             cache_free_trading: None, // Will be loaded from config file
         }
     }

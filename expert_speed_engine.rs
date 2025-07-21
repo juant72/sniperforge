@@ -1,6 +1,9 @@
 // 🚀 EXPERT SPEED OPTIMIZATION MODULE
 // High-performance arbitrage execution with <200ms latency
 
+use anyhow::{anyhow, Result};
+use futures::future::join_all;
+use serde_json::Value;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -9,12 +12,9 @@ use solana_sdk::{
     signer::Signer,
     transaction::Transaction,
 };
-use anyhow::{Result, anyhow};
-use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use futures::future::join_all;
-use serde_json::Value;
 
 // 🔥 EXPERT CONSTANTS FOR SPEED
 const EXPERT_EXECUTION_TIMEOUT: u64 = 150; // 150ms max execution time
@@ -66,7 +66,7 @@ impl ExpertSpeedEngine {
         // Primary fast client with optimized settings
         let fast_client = RpcClient::new_with_timeout_and_commitment(
             "https://api.mainnet-beta.solana.com".to_string(),
-            Duration::from_millis(100), // 100ms timeout
+            Duration::from_millis(100),    // 100ms timeout
             CommitmentConfig::processed(), // Fastest commitment
         );
 
@@ -106,24 +106,30 @@ impl ExpertSpeedEngine {
     }
 
     // ⚡ ULTRA-FAST ARBITRAGE OPPORTUNITY SCANNER
-    pub async fn scan_fast_opportunities(&self, pools: Vec<String>) -> Result<Vec<FastOpportunity>> {
+    pub async fn scan_fast_opportunities(
+        &self,
+        pools: Vec<String>,
+    ) -> Result<Vec<FastOpportunity>> {
         let scan_start = Instant::now();
-        
+
         // 🚀 PARALLEL PROCESSING - Process pools in chunks for maximum speed
         let chunks: Vec<_> = pools.chunks(EXPERT_PARALLEL_LIMIT).collect();
         let mut all_opportunities = Vec::new();
 
         for chunk in chunks {
             // Process each chunk in parallel
-            let chunk_futures: Vec<_> = chunk.iter()
+            let chunk_futures: Vec<_> = chunk
+                .iter()
                 .map(|pool_addr| self.check_pool_fast(pool_addr.clone()))
                 .collect();
 
             // Wait for all parallel checks with timeout
             match tokio::time::timeout(
                 Duration::from_millis(EXPERT_EXECUTION_TIMEOUT),
-                join_all(chunk_futures)
-            ).await {
+                join_all(chunk_futures),
+            )
+            .await
+            {
                 Ok(results) => {
                     for result in results {
                         if let Ok(Some(opportunity)) = result {
@@ -132,23 +138,33 @@ impl ExpertSpeedEngine {
                     }
                 }
                 Err(_) => {
-                    tracing::warn!("⚡ EXPERT TIMEOUT: Chunk processing exceeded {}ms", EXPERT_EXECUTION_TIMEOUT);
+                    tracing::warn!(
+                        "⚡ EXPERT TIMEOUT: Chunk processing exceeded {}ms",
+                        EXPERT_EXECUTION_TIMEOUT
+                    );
                     self.update_timeout_metrics().await;
                 }
             }
 
             // Break if we're taking too long
             if scan_start.elapsed().as_millis() > EXPERT_EXECUTION_TIMEOUT as u128 {
-                tracing::warn!("🚨 EXPERT SCAN TIMEOUT: Total scan exceeded {}ms", EXPERT_EXECUTION_TIMEOUT);
+                tracing::warn!(
+                    "🚨 EXPERT SCAN TIMEOUT: Total scan exceeded {}ms",
+                    EXPERT_EXECUTION_TIMEOUT
+                );
                 break;
             }
         }
 
         // Update performance metrics
-        self.update_speed_metrics(scan_start.elapsed().as_millis() as u64).await;
+        self.update_speed_metrics(scan_start.elapsed().as_millis() as u64)
+            .await;
 
-        tracing::info!("⚡ EXPERT SCAN COMPLETE: {} opportunities in {}ms", 
-            all_opportunities.len(), scan_start.elapsed().as_millis());
+        tracing::info!(
+            "⚡ EXPERT SCAN COMPLETE: {} opportunities in {}ms",
+            all_opportunities.len(),
+            scan_start.elapsed().as_millis()
+        );
 
         Ok(all_opportunities)
     }
@@ -175,9 +191,10 @@ impl ExpertSpeedEngine {
             Ok(account) => {
                 // 3. Cache the result for future use
                 self.cache_pool_data(&pool_addr, &account).await;
-                
+
                 // 4. Quick opportunity calculation
-                self.calculate_fast_opportunity_from_account(&pool_addr, &account).await
+                self.calculate_fast_opportunity_from_account(&pool_addr, &account)
+                    .await
             }
             Err(_) => Ok(None), // RPC error
         }
@@ -185,11 +202,10 @@ impl ExpertSpeedEngine {
 
     // 💰 EXPERT OPPORTUNITY CALCULATION (OPTIMIZED FOR SPEED)
     async fn calculate_fast_opportunity_from_account(
-        &self, 
-        pool_addr: &str, 
-        account: &solana_sdk::account::Account
+        &self,
+        pool_addr: &str,
+        account: &solana_sdk::account::Account,
     ) -> Result<Option<FastOpportunity>> {
-        
         // Quick data extraction (no complex parsing)
         let data = &account.data;
         if data.len() < 100 {
@@ -197,12 +213,8 @@ impl ExpertSpeedEngine {
         }
 
         // Extract key fields quickly (assuming standard layout)
-        let token_a_amount = u64::from_le_bytes(
-            data[64..72].try_into().unwrap_or([0; 8])
-        );
-        let token_b_amount = u64::from_le_bytes(
-            data[72..80].try_into().unwrap_or([0; 8])
-        );
+        let token_a_amount = u64::from_le_bytes(data[64..72].try_into().unwrap_or([0; 8]));
+        let token_b_amount = u64::from_le_bytes(data[72..80].try_into().unwrap_or([0; 8]));
 
         // Quick liquidity check
         if token_a_amount < 1_000_000_000 || token_b_amount < 1_000_000_000 {
@@ -211,9 +223,8 @@ impl ExpertSpeedEngine {
 
         // 🚀 EXPERT FAST CALCULATION
         let trade_size = 1_000_000_000u64; // 1 SOL
-        let expected_output = self.calculate_expert_output_fast(
-            trade_size, token_a_amount, token_b_amount
-        );
+        let expected_output =
+            self.calculate_expert_output_fast(trade_size, token_a_amount, token_b_amount);
 
         // Quick profit estimation
         let gross_profit = expected_output as i64 - trade_size as i64;
@@ -227,10 +238,10 @@ impl ExpertSpeedEngine {
                 trade_size,
                 expected_output,
                 net_profit,
-                confidence: 0.85, // High confidence for fast calc
+                confidence: 0.85,      // High confidence for fast calc
                 execution_priority: 1, // High priority
                 timestamp: Instant::now(),
-                
+
                 // 🚀 EXPERT FIELDS
                 expected_profit_sol: net_profit as f64 / 1e9,
                 execution_time_ms: 150, // Target 150ms
@@ -244,12 +255,17 @@ impl ExpertSpeedEngine {
     }
 
     // ⚡ EXPERT FAST AMM CALCULATION
-    fn calculate_expert_output_fast(&self, amount_in: u64, reserve_in: u64, reserve_out: u64) -> u64 {
+    fn calculate_expert_output_fast(
+        &self,
+        amount_in: u64,
+        reserve_in: u64,
+        reserve_out: u64,
+    ) -> u64 {
         // Constant product formula optimized for speed
         let amount_in_with_fee = amount_in * 997; // 0.3% fee
         let numerator = amount_in_with_fee * reserve_out;
         let denominator = (reserve_in * 1000) + amount_in_with_fee;
-        
+
         if denominator > 0 {
             numerator / denominator
         } else {
@@ -259,37 +275,46 @@ impl ExpertSpeedEngine {
 
     // 🚀 LIGHTNING EXECUTION
     pub async fn execute_opportunity_fast(
-        &self, 
+        &self,
         opportunity: &FastOpportunity,
-        wallet: &Keypair
+        wallet: &Keypair,
     ) -> Result<f64> {
         let execution_start = Instant::now();
 
-        tracing::info!("⚡ EXPERT EXECUTING: {} SOL trade on {}", 
-            opportunity.trade_size as f64 / 1e9, opportunity.pool_address);
+        tracing::info!(
+            "⚡ EXPERT EXECUTING: {} SOL trade on {}",
+            opportunity.trade_size as f64 / 1e9,
+            opportunity.pool_address
+        );
 
         // 1. Build transaction with maximum priority
         let transaction = self.build_fast_transaction(opportunity, wallet).await?;
 
         // 2. Execute with aggressive settings
-        let signature = self.fast_client.send_and_confirm_transaction_with_spinner_and_config(
-            &transaction,
-            CommitmentConfig::processed(), // Fastest confirmation
-            solana_client::rpc_config::RpcSendTransactionConfig {
-                skip_preflight: true, // Skip for speed
-                preflight_commitment: Some(CommitmentConfig::processed().commitment),
-                encoding: None,
-                max_retries: Some(EXPERT_MAX_RETRIES as usize),
-                min_context_slot: None,
-            },
-        )?;
+        let signature = self
+            .fast_client
+            .send_and_confirm_transaction_with_spinner_and_config(
+                &transaction,
+                CommitmentConfig::processed(), // Fastest confirmation
+                solana_client::rpc_config::RpcSendTransactionConfig {
+                    skip_preflight: true, // Skip for speed
+                    preflight_commitment: Some(CommitmentConfig::processed().commitment),
+                    encoding: None,
+                    max_retries: Some(EXPERT_MAX_RETRIES as usize),
+                    min_context_slot: None,
+                },
+            )?;
 
         let execution_time = execution_start.elapsed().as_millis();
-        tracing::info!("⚡ EXPERT EXECUTION COMPLETE: {} in {}ms", 
-            signature, execution_time);
+        tracing::info!(
+            "⚡ EXPERT EXECUTION COMPLETE: {} in {}ms",
+            signature,
+            execution_time
+        );
 
         // Update success metrics
-        self.update_execution_success_metrics(execution_time as u64).await;
+        self.update_execution_success_metrics(execution_time as u64)
+            .await;
 
         // Return profit in SOL (for now, simplified calculation)
         Ok(opportunity.expected_profit_sol)
@@ -299,7 +324,7 @@ impl ExpertSpeedEngine {
     async fn build_fast_transaction(
         &self,
         opportunity: &FastOpportunity,
-        wallet: &Keypair
+        wallet: &Keypair,
     ) -> Result<Transaction> {
         // Get recent blockhash with fast client
         let recent_blockhash = self.fast_client.get_latest_blockhash()?;
@@ -308,13 +333,14 @@ impl ExpertSpeedEngine {
         let swap_instruction = solana_sdk::instruction::Instruction {
             program_id: Pubkey::try_from("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")?,
             accounts: vec![], // TODO: Add proper accounts
-            data: vec![9], // Raydium swap instruction
+            data: vec![9],    // Raydium swap instruction
         };
 
         // Add priority fee for speed
-        let priority_fee_instruction = solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
-            EXPERT_PRIORITY_FEE
-        );
+        let priority_fee_instruction =
+            solana_sdk::compute_budget::ComputeBudgetInstruction::set_compute_unit_price(
+                EXPERT_PRIORITY_FEE,
+            );
 
         let mut transaction = Transaction::new_with_payer(
             &[priority_fee_instruction, swap_instruction],
@@ -329,10 +355,9 @@ impl ExpertSpeedEngine {
     async fn update_speed_metrics(&self, execution_time: u64) {
         let mut metrics = self.execution_metrics.write().await;
         metrics.successful_fast_executions += 1;
-        
+
         // Update rolling average
-        metrics.average_execution_time = 
-            (metrics.average_execution_time + execution_time) / 2;
+        metrics.average_execution_time = (metrics.average_execution_time + execution_time) / 2;
     }
 
     async fn update_timeout_metrics(&self) {
@@ -343,7 +368,7 @@ impl ExpertSpeedEngine {
     async fn update_execution_success_metrics(&self, execution_time: u64) {
         let mut metrics = self.execution_metrics.write().await;
         metrics.successful_fast_executions += 1;
-        
+
         // Update 95th percentile (simplified)
         if execution_time > metrics.speed_percentile_95 {
             metrics.speed_percentile_95 = execution_time;
@@ -358,14 +383,20 @@ impl ExpertSpeedEngine {
 
     async fn cache_pool_data(&self, pool_addr: &str, _account: &solana_sdk::account::Account) {
         let mut cache = self.price_cache.write().await;
-        cache.prices.insert(pool_addr.to_string(), CachedPrice {
-            price: 1.0, // Simplified for now
-            timestamp: Instant::now(),
-            confidence: 0.9,
-        });
+        cache.prices.insert(
+            pool_addr.to_string(),
+            CachedPrice {
+                price: 1.0, // Simplified for now
+                timestamp: Instant::now(),
+                confidence: 0.9,
+            },
+        );
     }
 
-    async fn calculate_fast_opportunity(&self, _cached_data: CachedPrice) -> Result<Option<FastOpportunity>> {
+    async fn calculate_fast_opportunity(
+        &self,
+        _cached_data: CachedPrice,
+    ) -> Result<Option<FastOpportunity>> {
         // TODO: Implement cached opportunity calculation
         Ok(None)
     }
@@ -380,7 +411,7 @@ pub struct FastOpportunity {
     pub confidence: f64,
     pub execution_priority: u8,
     pub timestamp: Instant,
-    
+
     // 🚀 EXPERT FIELDS FOR BETTER INTEGRATION
     pub expected_profit_sol: f64,
     pub execution_time_ms: u64,
@@ -396,7 +427,7 @@ impl FastOpportunity {
             profit_lamports: self.net_profit,
             profit_percentage: (self.net_profit as f64 / self.trade_size as f64) * 100.0,
             trade_amount: self.trade_size,
-            estimated_gas: 2_000_000, // 2M lamports
+            estimated_gas: 2_000_000,     // 2M lamports
             execution_time_estimate: 150, // 150ms
             confidence_score: self.confidence,
         }

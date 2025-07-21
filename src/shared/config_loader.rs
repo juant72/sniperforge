@@ -1,13 +1,13 @@
 // Configuración basada en archivos JSON
 // Sistema completamente paramétrico sin hardcoding
 
+use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use std::str::FromStr;
-use anyhow::{Result, anyhow};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkConfigFile {
@@ -139,29 +139,29 @@ impl NetworkConfigFile {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = fs::read_to_string(path.as_ref())
             .map_err(|e| anyhow!("Failed to read config file {:?}: {}", path.as_ref(), e))?;
-        
+
         let config: NetworkConfigFile = serde_json::from_str(&content)
             .map_err(|e| anyhow!("Failed to parse config JSON: {}", e))?;
-        
+
         Ok(config)
     }
-    
+
     /// Load DevNet configuration
     pub fn load_devnet() -> Result<Self> {
         Self::load_from_file("config/devnet.json")
     }
-    
+
     /// Load MainNet configuration
     pub fn load_mainnet() -> Result<Self> {
         Self::load_from_file("config/mainnet.json")
     }
-    
+
     /// Load configuration by network name
     pub fn load_by_network(network: &str) -> Result<Self> {
         let config_path = format!("config/{}.json", network.to_lowercase());
         Self::load_from_file(config_path)
     }
-    
+
     /// Parse string addresses to Pubkey types
     pub fn parse(&self) -> Result<ParsedNetworkConfig> {
         // Parse program IDs
@@ -170,20 +170,32 @@ impl NetworkConfigFile {
             token_program: Pubkey::from_str(&self.program_ids.token_program)?,
             associated_token_program: Pubkey::from_str(&self.program_ids.associated_token_program)?,
             compute_budget_program: Pubkey::from_str(&self.program_ids.compute_budget_program)?,
-            jupiter_program: self.program_ids.jupiter_program.as_ref()
+            jupiter_program: self
+                .program_ids
+                .jupiter_program
+                .as_ref()
                 .map(|s| Pubkey::from_str(s))
                 .transpose()?,
-            orca_whirlpool_program: self.program_ids.orca_whirlpool_program.as_ref()
+            orca_whirlpool_program: self
+                .program_ids
+                .orca_whirlpool_program
+                .as_ref()
                 .map(|s| Pubkey::from_str(s))
                 .transpose()?,
-            raydium_amm_program: self.program_ids.raydium_amm_program.as_ref()
+            raydium_amm_program: self
+                .program_ids
+                .raydium_amm_program
+                .as_ref()
                 .map(|s| Pubkey::from_str(s))
                 .transpose()?,
-            spl_token_swap_program: self.program_ids.spl_token_swap_program.as_ref()
+            spl_token_swap_program: self
+                .program_ids
+                .spl_token_swap_program
+                .as_ref()
                 .map(|s| Pubkey::from_str(s))
                 .transpose()?,
         };
-        
+
         // Parse token addresses
         let mut tokens = HashMap::new();
         for (key, token_config) in &self.token_addresses {
@@ -198,7 +210,7 @@ impl NetworkConfigFile {
             };
             tokens.insert(key.clone(), parsed_token);
         }
-        
+
         Ok(ParsedNetworkConfig {
             network: self.network.clone(),
             display_name: self.display_name.clone(),
@@ -213,36 +225,42 @@ impl NetworkConfigFile {
             feature_flags: self.feature_flags.clone(),
         })
     }
-    
+
     /// Get explorer URL for a transaction
     pub fn get_explorer_url(&self, tx_signature: &str) -> String {
-        format!("{}tx/{}?cluster={}", 
-                self.explorer_base_url, 
-                tx_signature, 
-                self.explorer_cluster_param)
+        format!(
+            "{}tx/{}?cluster={}",
+            self.explorer_base_url, tx_signature, self.explorer_cluster_param
+        )
     }
-    
+
     /// Validate configuration
     pub fn validate(&self) -> Result<()> {
         // Validate required tokens exist
         if !self.token_addresses.contains_key("sol") {
             return Err(anyhow!("SOL token configuration is required"));
         }
-        
+
         // Validate trading pairs reference existing tokens
         for pair in &self.trading_pairs {
             if !self.token_addresses.contains_key(&pair.base) {
-                return Err(anyhow!("Trading pair references unknown base token: {}", pair.base));
+                return Err(anyhow!(
+                    "Trading pair references unknown base token: {}",
+                    pair.base
+                ));
             }
             if !self.token_addresses.contains_key(&pair.quote) {
-                return Err(anyhow!("Trading pair references unknown quote token: {}", pair.quote));
+                return Err(anyhow!(
+                    "Trading pair references unknown quote token: {}",
+                    pair.quote
+                ));
             }
         }
-        
+
         // Validate program IDs format
         Pubkey::from_str(&self.program_ids.system_program)
             .map_err(|_| anyhow!("Invalid system program ID"))?;
-        
+
         Ok(())
     }
 }
@@ -252,35 +270,37 @@ impl ParsedNetworkConfig {
     pub fn get_token(&self, symbol: &str) -> Option<&ParsedTokenConfig> {
         self.tokens.get(symbol)
     }
-    
+
     /// Get enabled trading pairs
     pub fn get_enabled_trading_pairs(&self) -> Vec<&TradingPairConfig> {
-        self.trading_pairs.iter()
+        self.trading_pairs
+            .iter()
             .filter(|pair| pair.enabled)
             .collect()
     }
-    
+
     /// Get trading pair by symbols
     pub fn get_trading_pair(&self, base: &str, quote: &str) -> Option<&TradingPairConfig> {
-        self.trading_pairs.iter()
+        self.trading_pairs
+            .iter()
             .find(|pair| pair.base == base && pair.quote == quote)
     }
-    
+
     /// Check if real transactions are enabled
     pub fn transactions_enabled(&self) -> bool {
         self.feature_flags.enable_real_transactions
     }
-    
+
     /// Get maximum swap amount for safety
     pub fn max_swap_amount(&self) -> f64 {
         self.safety_limits.max_swap_amount_sol
     }
-    
+
     /// Get explorer URL for a transaction
     pub fn get_explorer_url(&self, tx_signature: &str) -> String {
-        format!("{}/tx/{}?cluster={}", 
-                self.explorer_base_url, 
-                tx_signature, 
-                self.explorer_cluster_param)
+        format!(
+            "{}/tx/{}?cluster={}",
+            self.explorer_base_url, tx_signature, self.explorer_cluster_param
+        )
     }
 }

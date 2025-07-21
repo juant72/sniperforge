@@ -36,7 +36,10 @@ async fn main() -> Result<()> {
     println!("   Success rate: {:.1}%", status.success_rate_percent);
     println!("   Total profit: ${:.2}", status.total_profit_usd);
     println!("   Daily profit: ${:.2}", status.daily_profit_usd);
-    println!("   Opportunities detected: {}", status.opportunities_detected);
+    println!(
+        "   Opportunities detected: {}",
+        status.opportunities_detected
+    );
     println!("   Average latency: {:.1}ms", status.average_latency_ms);
 
     println!("✅ ArbitrageBot data structures are working correctly!");

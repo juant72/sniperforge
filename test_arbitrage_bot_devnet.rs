@@ -1,9 +1,9 @@
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 /// Test the ArbitrageBot with real DevNet data
 #[tokio::main]
@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
         Ok(config) => {
             info!("✅ DevNet configuration loaded successfully");
             config
-        },
+        }
         Err(e) => {
             error!("❌ Failed to load DevNet config: {}", e);
             return Err(e);
@@ -33,7 +33,7 @@ async fn main() -> Result<()> {
         Ok(services) => {
             info!("✅ Shared services initialized successfully");
             Arc::new(services)
-        },
+        }
         Err(e) => {
             error!("❌ Failed to initialize shared services: {}", e);
             return Err(e);
@@ -41,11 +41,15 @@ async fn main() -> Result<()> {
     };
 
     // Get wallet address from wallet manager
-    let wallet_address = match shared_services.wallet_manager().get_wallet_address("devnet-trading").await {
+    let wallet_address = match shared_services
+        .wallet_manager()
+        .get_wallet_address("devnet-trading")
+        .await
+    {
         Ok(address) => {
             info!("✅ Wallet address retrieved: {}", address);
             address
-        },
+        }
         Err(e) => {
             error!("❌ Failed to get wallet address: {}", e);
             return Err(e);
@@ -59,11 +63,13 @@ async fn main() -> Result<()> {
         50.0, // $50 initial capital for DevNet testing (smaller amounts work better)
         &config.network,
         shared_services.clone(),
-    ).await {
+    )
+    .await
+    {
         Ok(bot) => {
             info!("✅ ArbitrageBot created successfully");
             bot
-        },
+        }
         Err(e) => {
             error!("❌ Failed to create ArbitrageBot: {}", e);
             return Err(e);
@@ -84,7 +90,7 @@ async fn main() -> Result<()> {
     match arbitrage_bot.get_jupiter_price("SOL", "USDC").await {
         Ok(price) => {
             info!("✅ Jupiter price retrieved successfully: ${:.6}", price);
-        },
+        }
         Err(e) => {
             warn!("⚠️ Jupiter price failed (expected in DevNet): {}", e);
             info!("💡 DevNet might not have all trading routes available");
@@ -101,7 +107,7 @@ async fn main() -> Result<()> {
             info!("  - Bid: ${:.6}", market_data.bid);
             info!("  - Ask: ${:.6}", market_data.ask);
             info!("  - Spread: ${:.6}", market_data.spread);
-        },
+        }
         Err(e) => {
             warn!("⚠️ Market data failed (expected in DevNet): {}", e);
             info!("💡 This is normal in DevNet due to limited liquidity");
@@ -118,12 +124,16 @@ async fn main() -> Result<()> {
             } else {
                 info!("✅ Detected {} arbitrage signals:", signals.len());
                 for (i, signal) in signals.iter().enumerate() {
-                    info!("  Signal {}: {} - Confidence: {:.1}%",
-                          i + 1, signal.strategy_name, signal.confidence * 100.0);
+                    info!(
+                        "  Signal {}: {} - Confidence: {:.1}%",
+                        i + 1,
+                        signal.strategy_name,
+                        signal.confidence * 100.0
+                    );
                 }
                 signals
             }
-        },
+        }
         Err(e) => {
             warn!("⚠️ Opportunity detection failed: {}", e);
             info!("💡 This could be due to API limitations in DevNet");
@@ -154,10 +164,13 @@ async fn main() -> Result<()> {
                     info!("  - Slippage: {:.2}%", trade_result.actual_slippage * 100.0);
                     info!("  - Total Fees: ${:.6}", trade_result.total_fees);
                 } else {
-                    warn!("⚠️ Trade execution failed: {:?}", trade_result.error_message);
+                    warn!(
+                        "⚠️ Trade execution failed: {:?}",
+                        trade_result.error_message
+                    );
                     info!("💡 This might be due to insufficient funds or DevNet limitations");
                 }
-            },
+            }
             Err(e) => {
                 warn!("⚠️ Trade execution error: {}", e);
                 info!("💡 This is expected in DevNet due to limited liquidity and no SOL balance");
@@ -173,11 +186,15 @@ async fn main() -> Result<()> {
 
     // Reset bot state for fresh test
     let mut fresh_bot = ArbitrageBot::new(
-        shared_services.wallet_manager().get_wallet_address("devnet-trading").await?,
+        shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?,
         50.0, // $50 for DevNet testing
         &config.network,
         shared_services.clone(),
-    ).await?;
+    )
+    .await?;
 
     // Run trading loop for 5 seconds as demo
     tokio::select! {
@@ -196,7 +213,10 @@ async fn main() -> Result<()> {
 
     let demo_status = fresh_bot.get_status();
     info!("📊 Trading Loop Demo Results:");
-    info!("  - Opportunities Detected: {}", demo_status.opportunities_detected);
+    info!(
+        "  - Opportunities Detected: {}",
+        demo_status.opportunities_detected
+    );
     info!("  - Trades Executed: {}", demo_status.total_trades);
     info!("  - Success Rate: {:.1}%", demo_status.success_rate_percent);
     info!("  - Emergency Stop: {}", demo_status.emergency_stop);
@@ -217,9 +237,15 @@ async fn main() -> Result<()> {
     info!("📊 Final Bot Status:");
     info!("  - Running: {}", final_status.is_running);
     info!("  - Emergency Stop: {}", final_status.emergency_stop);
-    info!("  - Opportunities Detected: {}", final_status.opportunities_detected);
+    info!(
+        "  - Opportunities Detected: {}",
+        final_status.opportunities_detected
+    );
     info!("  - Total Trades: {}", final_status.total_trades);
-    info!("  - Success Rate: {:.1}%", final_status.success_rate_percent);
+    info!(
+        "  - Success Rate: {:.1}%",
+        final_status.success_rate_percent
+    );
 
     info!("🎉 ArbitrageBot DevNet test completed!");
     info!("✅ Core functionality tested - ArbitrageBot is working correctly");

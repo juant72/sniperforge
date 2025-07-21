@@ -1,23 +1,23 @@
 //! WebSocket Manager for Low-Latency Solana Communication
-//! 
+//!
 //! This module provides:
 //! - Real-time account updates
 //! - Transaction confirmations
 //! - Pool state changes
 //! - Price feeds
-//! 
+//!
 //! Optimized for minimal latency in trading operations
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock, broadcast};
+use tokio::sync::{broadcast, mpsc, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use crate::config::Config;
@@ -71,7 +71,7 @@ pub struct WebSocketManager {
     command_sender: mpsc::UnboundedSender<WebSocketCommand>,
     is_connected: Arc<RwLock<bool>>,
     subscription_counter: Arc<RwLock<u64>>,
-    rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>,  // NEW: Optional RPC pool for premium WebSocket URLs
+    rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>, // NEW: Optional RPC pool for premium WebSocket URLs
 }
 
 /// Internal command for WebSocket operations
@@ -88,17 +88,20 @@ impl WebSocketManager {
     pub async fn new(config: &Config) -> Result<Self> {
         Self::new_with_rpc_pool(config, None).await
     }
-    
+
     /// Create new WebSocket manager with optional RPC pool for premium WebSocket URLs
     pub async fn new_with_rpc_pool(
-        config: &Config, 
-        rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>
+        config: &Config,
+        rpc_pool: Option<Arc<crate::shared::rpc_pool::RpcConnectionPool>>,
     ) -> Result<Self> {
         info!("🌐 Initializing WebSocket manager");
-        
-        info!("🔧 Loading config for network: {}", config.network.environment);
+
+        info!(
+            "🔧 Loading config for network: {}",
+            config.network.environment
+        );
         info!("🔧 Primary RPC: {}", config.network.primary_rpc());
-        
+
         // Try to get the best WebSocket URL (premium if available)
         let websocket_url = if let Some(ref pool) = rpc_pool {
             if let Some(premium_ws_url) = pool.get_best_websocket_url().await {
@@ -111,9 +114,9 @@ impl WebSocketManager {
         } else {
             config.network.websocket_url().to_string()
         };
-        
+
         info!("🔧 WebSocket URL: {}", websocket_url);
-        
+
         let ws_config = WebSocketConfig {
             rpc_ws_url: websocket_url,
             ..WebSocketConfig::default()
@@ -148,15 +151,19 @@ impl WebSocketManager {
         };
 
         let subscription_type = SubscriptionType::AccountUpdate(pubkey);
-        
+
         {
             let mut subscriptions = self.subscriptions.write().await;
             subscriptions.insert(subscription_id, subscription_type.clone());
         }
 
-        self.command_sender.send(WebSocketCommand::Subscribe(subscription_type))?;
-        
-        info!("📡 Subscribed to account updates: {} (ID: {})", pubkey, subscription_id);
+        self.command_sender
+            .send(WebSocketCommand::Subscribe(subscription_type))?;
+
+        info!(
+            "📡 Subscribed to account updates: {} (ID: {})",
+            pubkey, subscription_id
+        );
         Ok(subscription_id)
     }
 
@@ -169,15 +176,19 @@ impl WebSocketManager {
         };
 
         let subscription_type = SubscriptionType::ProgramUpdate(program_id);
-        
+
         {
             let mut subscriptions = self.subscriptions.write().await;
             subscriptions.insert(subscription_id, subscription_type.clone());
         }
 
-        self.command_sender.send(WebSocketCommand::Subscribe(subscription_type))?;
-        
-        info!("📡 Subscribed to program updates: {} (ID: {})", program_id, subscription_id);
+        self.command_sender
+            .send(WebSocketCommand::Subscribe(subscription_type))?;
+
+        info!(
+            "📡 Subscribed to program updates: {} (ID: {})",
+            program_id, subscription_id
+        );
         Ok(subscription_id)
     }
 
@@ -190,14 +201,15 @@ impl WebSocketManager {
         };
 
         let subscription_type = SubscriptionType::SlotUpdate;
-        
+
         {
             let mut subscriptions = self.subscriptions.write().await;
             subscriptions.insert(subscription_id, subscription_type.clone());
         }
 
-        self.command_sender.send(WebSocketCommand::Subscribe(subscription_type))?;
-        
+        self.command_sender
+            .send(WebSocketCommand::Subscribe(subscription_type))?;
+
         info!("📡 Subscribed to slot updates (ID: {})", subscription_id);
         Ok(subscription_id)
     }
@@ -211,15 +223,19 @@ impl WebSocketManager {
         };
 
         let subscription_type = SubscriptionType::LogsUpdate(program_filter.to_string());
-        
+
         {
             let mut subscriptions = self.subscriptions.write().await;
             subscriptions.insert(subscription_id, subscription_type.clone());
         }
 
-        self.command_sender.send(WebSocketCommand::Subscribe(subscription_type))?;
-        
-        info!("📡 Subscribed to logs: {} (ID: {})", program_filter, subscription_id);
+        self.command_sender
+            .send(WebSocketCommand::Subscribe(subscription_type))?;
+
+        info!(
+            "📡 Subscribed to logs: {} (ID: {})",
+            program_filter, subscription_id
+        );
         Ok(subscription_id)
     }
 
@@ -230,8 +246,9 @@ impl WebSocketManager {
             subscriptions.remove(&subscription_id);
         }
 
-        self.command_sender.send(WebSocketCommand::Unsubscribe(subscription_id))?;
-        
+        self.command_sender
+            .send(WebSocketCommand::Unsubscribe(subscription_id))?;
+
         info!("📴 Unsubscribed from updates (ID: {})", subscription_id);
         Ok(())
     }
@@ -257,18 +274,18 @@ impl WebSocketManager {
         if let Some(ref pool) = self.rpc_pool {
             if let Some(premium_ws_url) = pool.get_best_websocket_url().await {
                 info!("🚀 Upgrading to premium WebSocket: {}", premium_ws_url);
-                
+
                 // Update configuration
                 self.config.rpc_ws_url = premium_ws_url;
-                
+
                 // Force reconnection with new URL
                 self.command_sender.send(WebSocketCommand::Reconnect)?;
-                
+
                 info!("✅ WebSocket upgraded to premium endpoint");
                 return Ok(());
             }
         }
-        
+
         info!("💡 No premium WebSocket upgrade available");
         Ok(())
     }
@@ -285,7 +302,7 @@ impl WebSocketManager {
 
         tokio::spawn(async move {
             let mut reconnect_attempts = 0;
-            
+
             loop {
                 match Self::websocket_connection_loop(
                     &config,
@@ -293,14 +310,16 @@ impl WebSocketManager {
                     &subscriptions,
                     &event_sender,
                     &is_connected,
-                ).await {
+                )
+                .await
+                {
                     Ok(()) => {
                         info!("🔌 WebSocket connection closed gracefully");
                         break;
                     }
                     Err(e) => {
                         error!("❌ WebSocket connection error: {}", e);
-                        
+
                         {
                             let mut connected = is_connected.write().await;
                             *connected = false;
@@ -313,9 +332,11 @@ impl WebSocketManager {
                         }
 
                         let delay = std::cmp::min(1000 * reconnect_attempts as u64, 30000);
-                        warn!("🔄 Reconnecting in {}ms (attempt {}/{})", 
-                              delay, reconnect_attempts, config.max_reconnect_attempts);
-                        
+                        warn!(
+                            "🔄 Reconnecting in {}ms (attempt {}/{})",
+                            delay, reconnect_attempts, config.max_reconnect_attempts
+                        );
+
                         tokio::time::sleep(tokio::time::Duration::from_millis(delay)).await;
                     }
                 }
@@ -334,26 +355,32 @@ impl WebSocketManager {
         is_connected: &Arc<RwLock<bool>>,
     ) -> Result<()> {
         info!("🔗 Connecting to WebSocket: {}", config.rpc_ws_url);
-        
+
         let url = Url::parse(&config.rpc_ws_url)?;
-        
+
         // Add connection timeout to avoid hanging
         let connect_timeout = tokio::time::Duration::from_millis(config.connection_timeout_ms);
-        let connection_result = tokio::time::timeout(connect_timeout, connect_async(url.as_str())).await;
-        
+        let connection_result =
+            tokio::time::timeout(connect_timeout, connect_async(url.as_str())).await;
+
         let (ws_stream, _) = match connection_result {
             Ok(Ok(stream)) => stream,
             Ok(Err(e)) => return Err(anyhow!("WebSocket connection failed: {}", e)),
-            Err(_) => return Err(anyhow!("WebSocket connection timeout after {}ms", config.connection_timeout_ms)),
+            Err(_) => {
+                return Err(anyhow!(
+                    "WebSocket connection timeout after {}ms",
+                    config.connection_timeout_ms
+                ))
+            }
         };
-        
+
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
-        
+
         {
             let mut connected = is_connected.write().await;
             *connected = true;
         }
-        
+
         info!("✅ WebSocket connected successfully");
 
         // Main event loop
@@ -382,7 +409,7 @@ impl WebSocketManager {
                         _ => {} // Ignore other message types
                     }
                 }
-                
+
                 // Handle internal commands
                 cmd = command_receiver.recv() => {
                     match cmd {
@@ -428,14 +455,15 @@ impl WebSocketManager {
         event_sender: &broadcast::Sender<WebSocketEvent>,
     ) -> Result<()> {
         let json: Value = serde_json::from_str(text)?;
-        
+
         // Check if it's a notification (has "method" field)
         if let Some(method) = json.get("method").and_then(|m| m.as_str()) {
             let event = WebSocketEvent {
                 subscription_type: method.to_string(),
                 data: json.clone(),
                 timestamp: chrono::Utc::now().timestamp_millis() as u64,
-                slot: json.get("params")
+                slot: json
+                    .get("params")
                     .and_then(|p| p.get("result"))
                     .and_then(|r| r.get("context"))
                     .and_then(|c| c.get("slot"))
@@ -453,8 +481,10 @@ impl WebSocketManager {
     /// Send subscribe message
     async fn send_subscribe_message(
         ws_sender: &mut futures_util::stream::SplitSink<
-            tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-            Message
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            Message,
         >,
         subscription_type: &SubscriptionType,
     ) -> Result<()> {
@@ -495,18 +525,23 @@ impl WebSocketManager {
                     "id": 1,
                     "method": "logsSubscribe",
                     "params": [{"mentions": [filter]}, {"commitment": "confirmed"}]
-                })            }
+                })
+            }
         };
 
-        ws_sender.send(Message::Text(message.to_string().into())).await?;
+        ws_sender
+            .send(Message::Text(message.to_string().into()))
+            .await?;
         Ok(())
     }
 
     /// Send unsubscribe message
     async fn send_unsubscribe_message(
         ws_sender: &mut futures_util::stream::SplitSink<
-            tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-            Message
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            Message,
         >,
         subscription_id: u64,
     ) -> Result<()> {
@@ -515,7 +550,10 @@ impl WebSocketManager {
             "id": 1,
             "method": "accountUnsubscribe",
             "params": [subscription_id]
-        });        ws_sender.send(Message::Text(message.to_string().into())).await?;
+        });
+        ws_sender
+            .send(Message::Text(message.to_string().into()))
+            .await?;
         Ok(())
     }
 }
@@ -523,7 +561,10 @@ impl WebSocketManager {
 /// Utility functions for common WebSocket patterns
 impl WebSocketManager {
     /// Monitor a specific account for balance changes
-    pub async fn monitor_account_balance(&self, pubkey: Pubkey) -> Result<broadcast::Receiver<f64>> {
+    pub async fn monitor_account_balance(
+        &self,
+        pubkey: Pubkey,
+    ) -> Result<broadcast::Receiver<f64>> {
         let _subscription_id = self.subscribe_account(pubkey).await?;
         let mut event_receiver = self.get_event_receiver();
         let (balance_sender, balance_receiver) = broadcast::channel(100);
@@ -531,7 +572,8 @@ impl WebSocketManager {
         tokio::spawn(async move {
             while let Ok(event) = event_receiver.recv().await {
                 if event.subscription_type == "accountNotification" {
-                    if let Some(lamports) = event.data
+                    if let Some(lamports) = event
+                        .data
                         .get("params")
                         .and_then(|p| p.get("result"))
                         .and_then(|r| r.get("value"))

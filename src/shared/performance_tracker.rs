@@ -1,12 +1,12 @@
 //! Performance Tracking System for Automated Trading
-//! 
+//!
 //! Tracks trading performance metrics, generates reports, and provides analytics
 
-use anyhow::{Result, anyhow};
-use std::collections::VecDeque;
-use tracing::{info, debug};
-use serde::{Serialize, Deserialize};
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+use tracing::{debug, info};
 
 /// Individual trade metric
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,8 +55,10 @@ impl PerformanceTracker {
 
     /// Add a trade metric to tracking
     pub async fn add_trade_metric(&mut self, metric: TradeMetric) -> Result<()> {
-        debug!("📊 Recording trade metric: success={}, P&L=${:.2}", 
-               metric.success, metric.profit_loss);
+        debug!(
+            "📊 Recording trade metric: success={}, P&L=${:.2}",
+            metric.success, metric.profit_loss
+        );
 
         self.trade_history.push_back(metric);
 
@@ -90,7 +92,7 @@ impl PerformanceTracker {
         let total_trades = self.trade_history.len() as u32;
         let successful_trades = self.trade_history.iter().filter(|t| t.success).count() as u32;
         let failed_trades = total_trades - successful_trades;
-        
+
         let success_rate = if total_trades > 0 {
             (successful_trades as f64 / total_trades as f64) * 100.0
         } else {
@@ -99,14 +101,16 @@ impl PerformanceTracker {
 
         let total_profit_loss: f64 = self.trade_history.iter().map(|t| t.profit_loss).sum();
         let total_gas_fees: f64 = self.trade_history.iter().map(|t| t.gas_fee).sum();
-        
-        let profitable_trades: Vec<f64> = self.trade_history
+
+        let profitable_trades: Vec<f64> = self
+            .trade_history
             .iter()
             .filter(|t| t.success && t.profit_loss > 0.0)
             .map(|t| t.profit_loss)
             .collect();
-            
-        let losing_trades: Vec<f64> = self.trade_history
+
+        let losing_trades: Vec<f64> = self
+            .trade_history
             .iter()
             .filter(|t| !t.success || t.profit_loss < 0.0)
             .map(|t| t.profit_loss)
@@ -128,7 +132,11 @@ impl PerformanceTracker {
         let worst_trade = losing_trades.iter().cloned().fold(0.0, f64::min);
 
         let average_execution_time = if total_trades > 0 {
-            self.trade_history.iter().map(|t| t.execution_time_ms as f64).sum::<f64>() / total_trades as f64
+            self.trade_history
+                .iter()
+                .map(|t| t.execution_time_ms as f64)
+                .sum::<f64>()
+                / total_trades as f64
         } else {
             0.0
         };
@@ -159,7 +167,7 @@ impl PerformanceTracker {
     pub async fn generate_summary(&self) -> Result<String> {
         let stats = self.calculate_stats().await?;
         let session_duration = Utc::now().signed_duration_since(self.session_start);
-        
+
         let summary = format!(
             "📊 AUTOMATED TRADING PERFORMANCE SUMMARY\n\
              \n\
@@ -203,11 +211,15 @@ impl PerformanceTracker {
             stats.average_execution_time,
             stats.average_slippage * 100.0,
             stats.success_rate,
-            if stats.average_loss != 0.0 { stats.average_profit / stats.average_loss.abs() } else { 0.0 },
-            if session_duration.num_hours() > 0 { 
-                stats.total_trades as f64 / session_duration.num_hours() as f64 
-            } else { 
-                0.0 
+            if stats.average_loss != 0.0 {
+                stats.average_profit / stats.average_loss.abs()
+            } else {
+                0.0
+            },
+            if session_duration.num_hours() > 0 {
+                stats.total_trades as f64 / session_duration.num_hours() as f64
+            } else {
+                0.0
             },
             self.get_performance_status(&stats)
         );
@@ -233,7 +245,8 @@ impl PerformanceTracker {
     /// Get recent trade history (last N trades)
     pub async fn get_recent_trades(&self, count: usize) -> Result<Vec<TradeMetric>> {
         let recent_count = count.min(self.trade_history.len());
-        let recent_trades: Vec<TradeMetric> = self.trade_history
+        let recent_trades: Vec<TradeMetric> = self
+            .trade_history
             .iter()
             .rev()
             .take(recent_count)
@@ -245,7 +258,8 @@ impl PerformanceTracker {
 
     /// Get trades within time window
     pub async fn get_trades_since(&self, since: DateTime<Utc>) -> Result<Vec<TradeMetric>> {
-        let filtered_trades: Vec<TradeMetric> = self.trade_history
+        let filtered_trades: Vec<TradeMetric> = self
+            .trade_history
             .iter()
             .filter(|t| t.timestamp >= since)
             .cloned()
@@ -278,13 +292,10 @@ impl PerformanceTracker {
 
         let stats = self.calculate_stats().await?;
         let last_trade = self.trade_history.back().unwrap();
-        
+
         let metrics = format!(
             "📊 LIVE METRICS | Total: {} | Success: {:.0}% | P&L: ${:.2} | Last: ${:.2}",
-            stats.total_trades,
-            stats.success_rate,
-            stats.total_profit_loss,
-            last_trade.profit_loss
+            stats.total_trades, stats.success_rate, stats.total_profit_loss, last_trade.profit_loss
         );
 
         Ok(metrics)
@@ -301,7 +312,8 @@ impl PerformanceTracker {
     /// Get profitability trend (last N trades)
     pub async fn get_profitability_trend(&self, window_size: usize) -> Result<Vec<f64>> {
         let window_size = window_size.min(self.trade_history.len());
-        let trend: Vec<f64> = self.trade_history
+        let trend: Vec<f64> = self
+            .trade_history
             .iter()
             .rev()
             .take(window_size)
@@ -319,18 +331,21 @@ impl PerformanceTracker {
 
         let returns: Vec<f64> = self.trade_history.iter().map(|t| t.profit_loss).collect();
         let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
-        
-        let variance = returns.iter()
+
+        let variance = returns
+            .iter()
             .map(|r| (r - mean_return).powi(2))
-            .sum::<f64>() / (returns.len() - 1) as f64;
-        
+            .sum::<f64>()
+            / (returns.len() - 1) as f64;
+
         let std_dev = variance.sqrt();
-        
+
         let sharpe_ratio = if std_dev > 0.0 {
             mean_return / std_dev
         } else {
             0.0
-        };        Ok(sharpe_ratio)
+        };
+        Ok(sharpe_ratio)
     }
 }
 

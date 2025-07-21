@@ -1,9 +1,9 @@
 pub mod integration;
-pub mod unit;
-pub mod stress;
 pub mod performance;
+pub mod stress;
+pub mod unit;
 
-use tracing::{info, error};
+use tracing::{error, info};
 
 /// QA Test Result
 #[derive(Debug, Clone)]
@@ -44,9 +44,15 @@ impl QATestSuite {
             total_tests: total,
             passed_tests: passed,
             failed_tests: failed,
-            success_rate: if total > 0 { (passed as f64 / total as f64) * 100.0 } else { 0.0 },
+            success_rate: if total > 0 {
+                (passed as f64 / total as f64) * 100.0
+            } else {
+                0.0
+            },
             total_duration_ms: total_duration,
-            failed_test_names: self.results.iter()
+            failed_test_names: self
+                .results
+                .iter()
                 .filter(|r| !r.passed)
                 .map(|r| r.test_name.clone())
                 .collect(),
@@ -58,7 +64,10 @@ impl QATestSuite {
 
         info!("📋 QA Test Suite Report: {}", self.name);
         info!("{}", "=".repeat(50));
-        info!("✅ Passed: {}/{}", summary.passed_tests, summary.total_tests);
+        info!(
+            "✅ Passed: {}/{}",
+            summary.passed_tests, summary.total_tests
+        );
         info!("❌ Failed: {}", summary.failed_tests);
         info!("📊 Success Rate: {:.1}%", summary.success_rate);
         info!("⏱️ Total Duration: {}ms", summary.total_duration_ms);
@@ -146,12 +155,17 @@ macro_rules! qa_assert {
 macro_rules! qa_assert_eq {
     ($left:expr, $right:expr, $message:expr) => {
         if $left != $right {
-            return Err(anyhow::anyhow!("{}: expected {:?}, got {:?}", $message, $right, $left));
+            return Err(anyhow::anyhow!(
+                "{}: expected {:?}, got {:?}",
+                $message,
+                $right,
+                $left
+            ));
         }
     };
 }
 
 // Re-export macros for use in tests
-pub(crate) use qa_test;
 pub(crate) use qa_assert;
 pub(crate) use qa_assert_eq;
+pub(crate) use qa_test;

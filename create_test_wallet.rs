@@ -4,11 +4,11 @@ use solana_sdk::signature::{Keypair, Signer};
 fn main() {
     // Generate a new keypair
     let keypair = Keypair::new();
-    
+
     // Get the private key bytes and encode as base58
     let private_key_bytes = keypair.to_bytes();
     let private_key_base58 = bs58::encode(&private_key_bytes).into_string();
-    
+
     println!("✅ Generated DevNet test wallet:");
     println!("📍 Public key: {}", keypair.pubkey());
     println!("🔑 Private key (base58): {}", private_key_base58);

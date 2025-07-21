@@ -1,15 +1,15 @@
 //! Execution Optimizer
-//! 
+//!
 //! Advanced execution optimization with dynamic slippage adjustment,
 //! route optimization across multiple DEXs, and MEV protection.
 
 use anyhow::Result;
+use chrono::{DateTime, Duration, Timelike, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{info, warn, error, debug};
-use chrono::{DateTime, Utc, Duration, Timelike};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
+use std::collections::HashMap;
+use tracing::{debug, error, info, warn};
 
 use crate::shared::jupiter::JupiterClient;
 use crate::types::PlatformError;
@@ -35,40 +35,43 @@ impl ExecutionOptimizer {
 
     /// Dynamic slippage adjustment based on market conditions
     pub async fn optimize_slippage(&self, trade: &TradeParams) -> Result<f64> {
-        info!("Optimizing slippage for trade: {} {} -> {}", 
-            trade.amount, trade.input_token, trade.output_token);
+        info!(
+            "Optimizing slippage for trade: {} {} -> {}",
+            trade.amount, trade.input_token, trade.output_token
+        );
 
         // Analyze market depth
-        let market_depth = self.market_analyzer.analyze_market_depth(
-            &trade.input_token, 
-            &trade.output_token,
-            trade.amount
-        ).await?;
+        let market_depth = self
+            .market_analyzer
+            .analyze_market_depth(&trade.input_token, &trade.output_token, trade.amount)
+            .await?;
 
         // Calculate volatility-based adjustment
-        let volatility = self.market_analyzer.get_volatility(&trade.input_token).await?;
-        
+        let volatility = self
+            .market_analyzer
+            .get_volatility(&trade.input_token)
+            .await?;
+
         // Calculate liquidity-based adjustment
-        let liquidity_adjustment = self.slippage_calculator.calculate_liquidity_adjustment(
-            &market_depth
-        )?;
+        let liquidity_adjustment = self
+            .slippage_calculator
+            .calculate_liquidity_adjustment(&market_depth)?;
 
         // Calculate volume-based adjustment
-        let volume_adjustment = self.slippage_calculator.calculate_volume_adjustment(
-            trade.amount,
-            market_depth.daily_volume
-        )?;
+        let volume_adjustment = self
+            .slippage_calculator
+            .calculate_volume_adjustment(trade.amount, market_depth.daily_volume)?;
 
         // Calculate time-based adjustment (higher slippage during high volatility periods)
         let time_adjustment = self.slippage_calculator.calculate_time_adjustment().await?;
 
         // Combine all factors
         let base_slippage = trade.base_slippage.unwrap_or(0.005); // 0.5% default
-        let optimized_slippage = base_slippage * 
-            (1.0 + volatility * 0.1) *
-            (1.0 + liquidity_adjustment) *
-            (1.0 + volume_adjustment) *
-            (1.0 + time_adjustment);
+        let optimized_slippage = base_slippage
+            * (1.0 + volatility * 0.1)
+            * (1.0 + liquidity_adjustment)
+            * (1.0 + volume_adjustment)
+            * (1.0 + time_adjustment);
 
         // Cap slippage between reasonable bounds
         let final_slippage = optimized_slippage.max(0.001).min(0.05); // 0.1% to 5%
@@ -87,12 +90,17 @@ impl ExecutionOptimizer {
 
     /// Find optimal route across multiple DEXs
     pub async fn find_best_route(&self, trade: &TradeParams) -> Result<TradingRoute> {
-        info!("Finding best route for trade: {} {} -> {}", 
-            trade.amount, trade.input_token, trade.output_token);
+        info!(
+            "Finding best route for trade: {} {} -> {}",
+            trade.amount, trade.input_token, trade.output_token
+        );
 
         // Get quotes from multiple DEXs (pass jupiter_client as parameter)
-        let routes = self.route_optimizer.get_all_routes(trade, &self.jupiter_client).await?;
-        
+        let routes = self
+            .route_optimizer
+            .get_all_routes(trade, &self.jupiter_client)
+            .await?;
+
         // Analyze each route
         let mut route_analyses = Vec::new();
         for route in routes {
@@ -102,12 +110,16 @@ impl ExecutionOptimizer {
 
         // Sort by best execution value (considering output amount, fees, and impact)
         route_analyses.sort_by(|a, b| {
-            b.1.execution_score.partial_cmp(&a.1.execution_score).unwrap_or(std::cmp::Ordering::Equal)
+            b.1.execution_score
+                .partial_cmp(&a.1.execution_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         if let Some((best_route, analysis)) = route_analyses.first() {
-            info!("Best route selected: {} with score {:.4}", 
-                best_route.dex_name, analysis.execution_score);
+            info!(
+                "Best route selected: {} with score {:.4}",
+                best_route.dex_name, analysis.execution_score
+            );
             Ok(best_route.clone())
         } else {
             Err(PlatformError::Trading("No viable routes found".to_string()).into())
@@ -116,8 +128,10 @@ impl ExecutionOptimizer {
 
     /// MEV protection strategies
     pub async fn apply_mev_protection(&self, trade: &TradeParams) -> Result<ProtectedTrade> {
-        info!("Applying MEV protection for trade: {} {} -> {}", 
-            trade.amount, trade.input_token, trade.output_token);
+        info!(
+            "Applying MEV protection for trade: {} {} -> {}",
+            trade.amount, trade.input_token, trade.output_token
+        );
 
         let mut protected_trade = ProtectedTrade {
             original_trade: trade.clone(),
@@ -132,8 +146,13 @@ impl ExecutionOptimizer {
         let timing_delay_seconds = optimal_timing.delay_seconds;
         if timing_delay_seconds > 0 {
             protected_trade.timing_delay = Some(optimal_timing);
-            protected_trade.protection_strategies.push("timing_optimization".to_string());
-            info!("MEV protection: Added timing delay of {} seconds", timing_delay_seconds);
+            protected_trade
+                .protection_strategies
+                .push("timing_optimization".to_string());
+            info!(
+                "MEV protection: Added timing delay of {} seconds",
+                timing_delay_seconds
+            );
         }
 
         // Strategy 2: Order splitting for large trades
@@ -141,32 +160,51 @@ impl ExecutionOptimizer {
             let split_strategy = self.calculate_order_splitting(trade).await?;
             let num_splits = split_strategy.num_splits;
             protected_trade.split_orders = Some(split_strategy);
-            protected_trade.protection_strategies.push("order_splitting".to_string());
-            info!("MEV protection: Split large order into {} parts", num_splits);
+            protected_trade
+                .protection_strategies
+                .push("order_splitting".to_string());
+            info!(
+                "MEV protection: Split large order into {} parts",
+                num_splits
+            );
         }
 
         // Strategy 3: Private mempool usage for high-value trades
-        if trade.amount > self.get_private_mempool_threshold(&trade.input_token).await? {
+        if trade.amount
+            > self
+                .get_private_mempool_threshold(&trade.input_token)
+                .await?
+        {
             protected_trade.private_mempool = true;
-            protected_trade.protection_strategies.push("private_mempool".to_string());
+            protected_trade
+                .protection_strategies
+                .push("private_mempool".to_string());
             info!("MEV protection: Enabled private mempool routing");
         }
 
         // Strategy 4: Randomized slippage
         if trade.base_slippage.is_some() {
-            protected_trade.protection_strategies.push("randomized_slippage".to_string());
+            protected_trade
+                .protection_strategies
+                .push("randomized_slippage".to_string());
             info!("MEV protection: Applied randomized slippage");
         }
 
-        info!("MEV protection applied with {} strategies: {:?}", 
+        info!(
+            "MEV protection applied with {} strategies: {:?}",
             protected_trade.protection_strategies.len(),
-            protected_trade.protection_strategies);
+            protected_trade.protection_strategies
+        );
 
         Ok(protected_trade)
     }
 
     /// Calculate execution costs including all fees
-    pub async fn calculate_execution_costs(&self, trade: &TradeParams, route: &TradingRoute) -> Result<ExecutionCosts> {
+    pub async fn calculate_execution_costs(
+        &self,
+        trade: &TradeParams,
+        route: &TradingRoute,
+    ) -> Result<ExecutionCosts> {
         info!("Calculating execution costs for route: {}", route.dex_name);
 
         // Base DEX fees
@@ -204,12 +242,16 @@ impl ExecutionOptimizer {
     }
 
     /// Analyze a specific route
-    async fn analyze_route(&self, route: &TradingRoute, trade: &TradeParams) -> Result<RouteAnalysis> {
+    async fn analyze_route(
+        &self,
+        route: &TradingRoute,
+        trade: &TradeParams,
+    ) -> Result<RouteAnalysis> {
         let execution_costs = self.calculate_execution_costs(trade, route).await?;
-        
+
         // Calculate net output after all costs
         let net_output = route.expected_output - execution_costs.total_cost;
-        
+
         // Calculate execution score (higher is better)
         let execution_score = net_output / trade.amount;
 
@@ -248,11 +290,10 @@ impl ExecutionOptimizer {
 
     /// Calculate order splitting strategy
     async fn calculate_order_splitting(&self, trade: &TradeParams) -> Result<OrderSplitting> {
-        let market_depth = self.market_analyzer.analyze_market_depth(
-            &trade.input_token,
-            &trade.output_token,
-            trade.amount
-        ).await?;
+        let market_depth = self
+            .market_analyzer
+            .analyze_market_depth(&trade.input_token, &trade.output_token, trade.amount)
+            .await?;
 
         // Determine optimal number of splits based on market depth
         let num_splits = if trade.amount > market_depth.deep_liquidity_threshold {
@@ -278,7 +319,7 @@ impl ExecutionOptimizer {
     async fn get_large_trade_threshold(&self, token: &str) -> Result<f64> {
         // Define thresholds based on token and market conditions
         Ok(match token {
-            "SOL" => 1000.0,   // 1000 SOL
+            "SOL" => 1000.0,    // 1000 SOL
             "USDC" => 100000.0, // $100k USDC
             "BTC" => 1.0,       // 1 BTC
             "ETH" => 10.0,      // 10 ETH
@@ -302,28 +343,35 @@ impl ExecutionOptimizer {
     async fn estimate_gas_costs(&self, dex_name: &str) -> Result<f64> {
         // Simulate gas costs based on DEX complexity
         Ok(match dex_name {
-            "Jupiter" => 0.01,    // 0.01 SOL
-            "Raydium" => 0.005,   // 0.005 SOL
-            "Orca" => 0.003,      // 0.003 SOL
-            "Serum" => 0.008,     // 0.008 SOL
-            _ => 0.005,           // Default
+            "Jupiter" => 0.01,  // 0.01 SOL
+            "Raydium" => 0.005, // 0.005 SOL
+            "Orca" => 0.003,    // 0.003 SOL
+            "Serum" => 0.008,   // 0.008 SOL
+            _ => 0.005,         // Default
         })
     }
 
     /// Estimate slippage cost
-    async fn estimate_slippage_cost(&self, trade: &TradeParams, _route: &TradingRoute) -> Result<f64> {
+    async fn estimate_slippage_cost(
+        &self,
+        trade: &TradeParams,
+        _route: &TradingRoute,
+    ) -> Result<f64> {
         let estimated_slippage = self.optimize_slippage(trade).await?;
         Ok(trade.amount * estimated_slippage)
     }
 
     /// Estimate price impact
-    async fn estimate_price_impact(&self, trade: &TradeParams, _route: &TradingRoute) -> Result<f64> {
+    async fn estimate_price_impact(
+        &self,
+        trade: &TradeParams,
+        _route: &TradingRoute,
+    ) -> Result<f64> {
         // Price impact increases with trade size relative to liquidity
-        let market_depth = self.market_analyzer.analyze_market_depth(
-            &trade.input_token,
-            &trade.output_token,
-            trade.amount
-        ).await?;
+        let market_depth = self
+            .market_analyzer
+            .analyze_market_depth(&trade.input_token, &trade.output_token, trade.amount)
+            .await?;
 
         let impact_ratio = trade.amount / market_depth.available_liquidity;
         let price_impact = impact_ratio * impact_ratio * 0.01; // Quadratic impact
@@ -334,9 +382,12 @@ impl ExecutionOptimizer {
     /// Estimate MEV risk cost
     async fn estimate_mev_risk(&self, trade: &TradeParams) -> Result<f64> {
         // MEV risk increases with trade size and market volatility
-        let volatility = self.market_analyzer.get_volatility(&trade.input_token).await?;
+        let volatility = self
+            .market_analyzer
+            .get_volatility(&trade.input_token)
+            .await?;
         let mev_risk = (trade.amount / 100000.0) * volatility * 0.001; // Risk factor
-        
+
         Ok(mev_risk.min(trade.amount * 0.005)) // Cap at 0.5% of trade
     }
 }
@@ -355,9 +406,9 @@ pub struct TradeParams {
 /// Trade urgency level
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TradeUrgency {
-    Low,    // Can wait for optimal conditions
-    Medium, // Normal execution
-    High,   // Fast execution needed
+    Low,      // Can wait for optimal conditions
+    Medium,   // Normal execution
+    High,     // Fast execution needed
     Critical, // Immediate execution required
 }
 
@@ -369,7 +420,7 @@ pub struct TradingRoute {
     pub expected_output: f64,
     pub fee_percentage: f64,
     pub estimated_execution_time: u32, // seconds
-    pub confidence_score: f64, // 0.0 to 1.0
+    pub confidence_score: f64,         // 0.0 to 1.0
     pub supports_mev_protection: bool,
 }
 
@@ -432,7 +483,12 @@ impl MarketAnalyzer {
         Self {}
     }
 
-    pub async fn analyze_market_depth(&self, _input_token: &str, _output_token: &str, amount: f64) -> Result<MarketDepth> {
+    pub async fn analyze_market_depth(
+        &self,
+        _input_token: &str,
+        _output_token: &str,
+        amount: f64,
+    ) -> Result<MarketDepth> {
         // Simulate market depth analysis
         Ok(MarketDepth {
             available_liquidity: amount * 10.0, // 10x the trade amount available
@@ -456,30 +512,37 @@ impl MarketAnalyzer {
     /// Get real mempool congestion analysis
     pub async fn get_mempool_congestion(&self) -> Result<f64> {
         info!("🔍 Analyzing real mempool congestion...");
-        
+
         // Create RPC client to analyze real blockchain data
         let rpc_client = solana_client::rpc_client::RpcClient::new_with_commitment(
             "https://api.mainnet-beta.solana.com".to_string(),
             solana_sdk::commitment_config::CommitmentConfig::confirmed(),
         );
-        
+
         // Method 1: Analyze recent slot performance
         let recent_performance = match rpc_client.get_recent_performance_samples(Some(10)) {
             Ok(samples) => {
-                let avg_transactions = samples.iter()
+                let avg_transactions = samples
+                    .iter()
                     .map(|s| s.num_transactions as f64)
-                    .sum::<f64>() / samples.len() as f64;
-                
-                let avg_slot_time = samples.iter()
+                    .sum::<f64>()
+                    / samples.len() as f64;
+
+                let avg_slot_time = samples
+                    .iter()
                     .map(|s| s.sample_period_secs as f64)
-                    .sum::<f64>() / samples.len() as f64;
-                
+                    .sum::<f64>()
+                    / samples.len() as f64;
+
                 // Calculate congestion based on transactions per second
                 let tps = avg_transactions / avg_slot_time;
                 let base_tps = 2000.0; // Solana's theoretical max
                 let congestion_from_tps = (tps / base_tps).min(1.0);
-                
-                info!("📊 Recent performance: {:.1} TPS, {:.2}s slot time", tps, avg_slot_time);
+
+                info!(
+                    "📊 Recent performance: {:.1} TPS, {:.2}s slot time",
+                    tps, avg_slot_time
+                );
                 congestion_from_tps
             }
             Err(e) => {
@@ -487,12 +550,12 @@ impl MarketAnalyzer {
                 0.3 // Default moderate congestion
             }
         };
-        
+
         // Method 2: Analyze current epoch info
         let epoch_congestion = match rpc_client.get_epoch_info() {
             Ok(epoch_info) => {
                 let slot_progress = epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64;
-                
+
                 // Higher congestion towards end of epoch
                 let epoch_factor = if slot_progress > 0.9 {
                     0.2 // 20% higher congestion near epoch end
@@ -501,8 +564,12 @@ impl MarketAnalyzer {
                 } else {
                     0.0
                 };
-                
-                debug!("🕐 Epoch progress: {:.1}%, factor: {:.3}", slot_progress * 100.0, epoch_factor);
+
+                debug!(
+                    "🕐 Epoch progress: {:.1}%, factor: {:.3}",
+                    slot_progress * 100.0,
+                    epoch_factor
+                );
                 epoch_factor
             }
             Err(e) => {
@@ -510,27 +577,27 @@ impl MarketAnalyzer {
                 0.0
             }
         };
-        
+
         // Method 3: Analyze current time patterns (high congestion during trading hours)
         let time_factor = {
             let now = chrono::Utc::now();
             let hour = now.hour();
-            
+
             // Higher congestion during US/EU trading hours
             match hour {
                 13..=16 => 0.3,  // US market open (peak)
-                8..=12 => 0.2,   // EU market hours  
+                8..=12 => 0.2,   // EU market hours
                 17..=21 => 0.25, // US afternoon/close
                 _ => 0.1,        // Off-hours
             }
         };
-        
+
         // Combine all factors
         let total_congestion = (recent_performance + epoch_congestion + time_factor).min(1.0);
-        
+
         info!("🚦 Mempool congestion analysis: Performance={:.3}, Epoch={:.3}, Time={:.3}, Total={:.3}", 
               recent_performance, epoch_congestion, time_factor, total_congestion);
-        
+
         Ok(total_congestion)
     }
 
@@ -580,9 +647,9 @@ impl SlippageCalculator {
         // Time-based adjustment (higher during market open/close, lower during off-hours)
         let hour = chrono::Utc::now().hour();
         let adjustment = match hour {
-            9..=11 | 21..=23 => 0.02,  // Market open/close hours - higher volatility
-            12..=20 => 0.01,           // Normal trading hours
-            _ => 0.005,                // Off hours - lower volatility
+            9..=11 | 21..=23 => 0.02, // Market open/close hours - higher volatility
+            12..=20 => 0.01,          // Normal trading hours
+            _ => 0.005,               // Off hours - lower volatility
         };
         Ok(adjustment)
     }
@@ -596,7 +663,11 @@ impl RouteOptimizer {
         Self
     }
 
-    pub async fn get_all_routes(&self, trade: &TradeParams, jupiter_client: &JupiterClient) -> Result<Vec<TradingRoute>> {
+    pub async fn get_all_routes(
+        &self,
+        trade: &TradeParams,
+        jupiter_client: &JupiterClient,
+    ) -> Result<Vec<TradingRoute>> {
         // Obtener rutas reales de Jupiter
         let quote_request = crate::shared::jupiter::QuoteRequest {
             inputMint: trade.input_token.clone(),

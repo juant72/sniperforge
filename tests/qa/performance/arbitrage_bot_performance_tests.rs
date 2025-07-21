@@ -1,8 +1,8 @@
-use crate::qa::{QATestSuite, QATestResult, qa_test, qa_assert};
-use sniperforge::bots::arbitrage_bot::ArbitrageBot;
-use sniperforge::shared::SharedServices;
-use sniperforge::config::Config;
+use crate::qa::{qa_assert, qa_test, QATestResult, QATestSuite};
 use anyhow::Result;
+use sniperforge::bots::arbitrage_bot::ArbitrageBot;
+use sniperforge::config::Config;
+use sniperforge::shared::SharedServices;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -31,11 +31,17 @@ impl ArbitrageBotPerformanceTests {
         suite.add_result(result);
 
         // Test 2: Market Data Fetch Performance
-        let result = qa_test!("Market Data Fetch Performance", self.test_market_data_performance());
+        let result = qa_test!(
+            "Market Data Fetch Performance",
+            self.test_market_data_performance()
+        );
         suite.add_result(result);
 
         // Test 3: Opportunity Detection Speed
-        let result = qa_test!("Opportunity Detection Speed", self.test_opportunity_detection_speed());
+        let result = qa_test!(
+            "Opportunity Detection Speed",
+            self.test_opportunity_detection_speed()
+        );
         suite.add_result(result);
 
         // Test 4: Price Feed Latency
@@ -43,7 +49,10 @@ impl ArbitrageBotPerformanceTests {
         suite.add_result(result);
 
         // Test 5: Trading Loop Efficiency
-        let result = qa_test!("Trading Loop Efficiency", self.test_trading_loop_efficiency());
+        let result = qa_test!(
+            "Trading Loop Efficiency",
+            self.test_trading_loop_efficiency()
+        );
         suite.add_result(result);
 
         // Test 6: Memory Efficiency
@@ -61,15 +70,19 @@ impl ArbitrageBotPerformanceTests {
         for i in 0..iterations {
             let start = Instant::now();
 
-            let wallet_address = self.shared_services.wallet_manager()
-                .get_wallet_address("devnet-trading").await?;
+            let wallet_address = self
+                .shared_services
+                .wallet_manager()
+                .get_wallet_address("devnet-trading")
+                .await?;
 
             let _bot = ArbitrageBot::new(
                 wallet_address,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             let duration = start.elapsed().as_millis();
             total_time += duration;
@@ -81,7 +94,10 @@ impl ArbitrageBotPerformanceTests {
         details.push(format!("Average initialization time: {}ms", avg_time));
 
         // Performance requirement: initialization should be < 2 seconds
-        qa_assert!(avg_time < 2000, "Average initialization time should be < 2 seconds");
+        qa_assert!(
+            avg_time < 2000,
+            "Average initialization time should be < 2 seconds"
+        );
 
         Ok(details)
     }
@@ -89,15 +105,19 @@ impl ArbitrageBotPerformanceTests {
     async fn test_market_data_performance(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let iterations = 10;
         let mut successful_fetches = 0;
@@ -119,7 +139,7 @@ impl ArbitrageBotPerformanceTests {
                     if i % 3 == 0 {
                         details.push(format!("Fetch {}: {}ms", i + 1, duration));
                     }
-                },
+                }
                 Err(e) => {
                     details.push(format!("Fetch {} failed: {}", i + 1, e));
                 }
@@ -128,13 +148,19 @@ impl ArbitrageBotPerformanceTests {
 
         if successful_fetches > 0 {
             let avg_time = total_time / successful_fetches as u128;
-            details.push(format!("Successful fetches: {}/{}", successful_fetches, iterations));
+            details.push(format!(
+                "Successful fetches: {}/{}",
+                successful_fetches, iterations
+            ));
             details.push(format!("Average fetch time: {}ms", avg_time));
             details.push(format!("Min fetch time: {}ms", min_time));
             details.push(format!("Max fetch time: {}ms", max_time));
 
             // Performance requirement: average fetch time should be < 1 second
-            qa_assert!(avg_time < 1000, "Average market data fetch time should be < 1 second");
+            qa_assert!(
+                avg_time < 1000,
+                "Average market data fetch time should be < 1 second"
+            );
         } else {
             details.push("No successful market data fetches (DevNet limitation)".to_string());
         }
@@ -145,15 +171,19 @@ impl ArbitrageBotPerformanceTests {
     async fn test_opportunity_detection_speed(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let iterations = 8;
         let mut total_time = 0u128;
@@ -168,9 +198,13 @@ impl ArbitrageBotPerformanceTests {
                     total_time += duration;
                     total_opportunities += signals.len();
 
-                    details.push(format!("Detection {}: {}ms, {} opportunities",
-                                       i + 1, duration, signals.len()));
-                },
+                    details.push(format!(
+                        "Detection {}: {}ms, {} opportunities",
+                        i + 1,
+                        duration,
+                        signals.len()
+                    ));
+                }
                 Err(e) => {
                     details.push(format!("Detection {} failed: {}", i + 1, e));
                 }
@@ -181,10 +215,16 @@ impl ArbitrageBotPerformanceTests {
         let avg_opportunities = total_opportunities as f64 / iterations as f64;
 
         details.push(format!("Average detection time: {}ms", avg_time));
-        details.push(format!("Average opportunities found: {:.1}", avg_opportunities));
+        details.push(format!(
+            "Average opportunities found: {:.1}",
+            avg_opportunities
+        ));
 
         // Performance requirement: detection should be < 3 seconds
-        qa_assert!(avg_time < 3000, "Average opportunity detection time should be < 3 seconds");
+        qa_assert!(
+            avg_time < 3000,
+            "Average opportunity detection time should be < 3 seconds"
+        );
 
         Ok(details)
     }
@@ -192,15 +232,19 @@ impl ArbitrageBotPerformanceTests {
     async fn test_price_feed_latency(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let iterations = 5;
         let mut successful_requests = 0;
@@ -215,9 +259,13 @@ impl ArbitrageBotPerformanceTests {
                     successful_requests += 1;
                     total_latency += latency;
 
-                    details.push(format!("Price request {}: {}ms, price: ${:.6}",
-                                       i + 1, latency, price));
-                },
+                    details.push(format!(
+                        "Price request {}: {}ms, price: ${:.6}",
+                        i + 1,
+                        latency,
+                        price
+                    ));
+                }
                 Err(e) => {
                     // Expected in DevNet
                     details.push(format!("Price request {} failed (expected): {}", i + 1, e));
@@ -230,7 +278,10 @@ impl ArbitrageBotPerformanceTests {
             details.push(format!("Average price feed latency: {}ms", avg_latency));
 
             // Performance requirement: price feed latency should be < 500ms
-            qa_assert!(avg_latency < 500, "Average price feed latency should be < 500ms");
+            qa_assert!(
+                avg_latency < 500,
+                "Average price feed latency should be < 500ms"
+            );
         } else {
             details.push("No successful price requests (DevNet limitation)".to_string());
         }
@@ -241,34 +292,35 @@ impl ArbitrageBotPerformanceTests {
     async fn test_trading_loop_efficiency(&self) -> Result<Vec<String>> {
         let mut details = Vec::new();
 
-        let wallet_address = self.shared_services.wallet_manager()
-            .get_wallet_address("devnet-trading").await?;
+        let wallet_address = self
+            .shared_services
+            .wallet_manager()
+            .get_wallet_address("devnet-trading")
+            .await?;
 
         let mut bot = ArbitrageBot::new(
             wallet_address,
             50.0,
             &self.config.network,
             self.shared_services.clone(),
-        ).await?;
+        )
+        .await?;
 
         let start_time = Instant::now();
         let test_duration = Duration::from_secs(3); // Reduced to 3 seconds for testing
 
         // Use timeout instead of select to avoid borrowing issues
-        let result = tokio::time::timeout(
-            test_duration,
-            bot.start_trading()
-        ).await;
+        let result = tokio::time::timeout(test_duration, bot.start_trading()).await;
 
         let actual_duration = start_time.elapsed();
 
         match result {
             Ok(Ok(_)) => {
                 details.push("Trading loop completed normally".to_string());
-            },
+            }
             Ok(Err(e)) => {
                 details.push(format!("Trading loop failed: {}", e));
-            },
+            }
             Err(_) => {
                 // Timeout occurred - stop the bot
                 bot.emergency_stop();
@@ -278,7 +330,8 @@ impl ArbitrageBotPerformanceTests {
         let final_status = bot.get_status();
 
         // Calculate efficiency metrics
-        let opportunities_per_second = final_status.opportunities_detected as f64 / actual_duration.as_secs_f64();
+        let opportunities_per_second =
+            final_status.opportunities_detected as f64 / actual_duration.as_secs_f64();
         let cycles_per_second = if final_status.opportunities_detected > 0 {
             final_status.opportunities_detected as f64 / actual_duration.as_secs_f64()
         } else {
@@ -286,13 +339,28 @@ impl ArbitrageBotPerformanceTests {
             actual_duration.as_secs_f64() / 1.0 // Assume 1 second per cycle
         };
 
-        details.push(format!("Test duration: {:.1}s", actual_duration.as_secs_f64()));
-        details.push(format!("Opportunities detected: {}", final_status.opportunities_detected));
-        details.push(format!("Opportunities per second: {:.1}", opportunities_per_second));
-        details.push(format!("Estimated cycles per second: {:.1}", cycles_per_second));
+        details.push(format!(
+            "Test duration: {:.1}s",
+            actual_duration.as_secs_f64()
+        ));
+        details.push(format!(
+            "Opportunities detected: {}",
+            final_status.opportunities_detected
+        ));
+        details.push(format!(
+            "Opportunities per second: {:.1}",
+            opportunities_per_second
+        ));
+        details.push(format!(
+            "Estimated cycles per second: {:.1}",
+            cycles_per_second
+        ));
 
         // Performance requirement: should handle at least 0.5 cycles per second
-        qa_assert!(cycles_per_second >= 0.5, "Should handle at least 0.5 cycles per second");
+        qa_assert!(
+            cycles_per_second >= 0.5,
+            "Should handle at least 0.5 cycles per second"
+        );
 
         Ok(details)
     }
@@ -305,15 +373,19 @@ impl ArbitrageBotPerformanceTests {
         let mut bots = Vec::new();
 
         for i in 0..num_bots {
-            let wallet_address = self.shared_services.wallet_manager()
-                .get_wallet_address("devnet-trading").await?;
+            let wallet_address = self
+                .shared_services
+                .wallet_manager()
+                .get_wallet_address("devnet-trading")
+                .await?;
 
             let bot = ArbitrageBot::new(
                 wallet_address,
                 50.0,
                 &self.config.network,
                 self.shared_services.clone(),
-            ).await?;
+            )
+            .await?;
 
             bots.push(bot);
             details.push(format!("Created bot {} for memory test", i + 1));
@@ -326,9 +398,12 @@ impl ArbitrageBotPerformanceTests {
                 match bot.get_real_market_data().await {
                     Ok(_) => {
                         if i == 0 {
-                            details.push(format!("Bot {} memory test operation successful", bot_idx + 1));
+                            details.push(format!(
+                                "Bot {} memory test operation successful",
+                                bot_idx + 1
+                            ));
                         }
-                    },
+                    }
                     Err(_) => {
                         // Expected in DevNet
                     }
@@ -336,11 +411,17 @@ impl ArbitrageBotPerformanceTests {
             }
         }
 
-        details.push(format!("Completed {} operations on {} bots", operations, num_bots));
+        details.push(format!(
+            "Completed {} operations on {} bots",
+            operations, num_bots
+        ));
         details.push("Memory efficiency test completed (bots will be freed)".to_string());
 
         // All bots should be created and functional
-        qa_assert!(bots.len() == num_bots, "All bots should be created successfully");
+        qa_assert!(
+            bots.len() == num_bots,
+            "All bots should be created successfully"
+        );
 
         Ok(details)
     }

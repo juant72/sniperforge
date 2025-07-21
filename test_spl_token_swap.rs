@@ -1,20 +1,20 @@
 use anyhow::Result;
-use solana_sdk::signature::{Keypair, Signer};
+use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::instruction::Instruction;
-use solana_sdk::transaction::Transaction;
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::system_instruction;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
-use spl_token::instruction as token_instruction;
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::{Keypair, Signer};
+use solana_sdk::system_instruction;
+use solana_sdk::transaction::Transaction;
 use spl_associated_token_account::instruction as ata_instruction;
-use std::env;
-use std::str::FromStr;
-use tracing::{info, error, warn};
-use serde::{Deserialize, Serialize};
+use spl_token::instruction as token_instruction;
 use std::collections::HashMap;
+use std::env;
 use std::fs;
+use std::str::FromStr;
+use tracing::{error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ConfigFile {
@@ -59,20 +59,21 @@ async fn main() -> Result<()> {
     let config_path = "config/devnet-automated.json";
     let config_content = fs::read_to_string(config_path)?;
     let config: ConfigFile = serde_json::from_str(&config_content)?;
-    
+
     info!("📋 Configuración cargada: {}", config.network);
     info!("🔗 RPC: {}", config.cluster_url);
     info!("🪙 Tokens disponibles: {}", config.tokens.len());
 
     // Create RPC client
-    let rpc_client = RpcClient::new_with_commitment(config.cluster_url.clone(), CommitmentConfig::confirmed());
-    
+    let rpc_client =
+        RpcClient::new_with_commitment(config.cluster_url.clone(), CommitmentConfig::confirmed());
+
     // Check wallet balance
     info!("💰 Verificando balance del wallet...");
     let balance = rpc_client.get_balance(&wallet_pubkey)?;
     let balance_sol = balance as f64 / LAMPORTS_PER_SOL as f64;
     info!("   Balance: {:.9} SOL", balance_sol);
-    
+
     if balance_sol < 0.1 {
         error!("❌ Balance insuficiente. Necesitas al menos 0.1 SOL para crear pools");
         return Ok(());
@@ -85,17 +86,18 @@ async fn main() -> Result<()> {
     let usdt_token = config.tokens.get("TEST_USDT").unwrap();
 
     info!("\n🎯 === PASO 1: CREAR POOLS DE SWAP ===");
-    
+
     // Create SOL/USDC swap pool
     let sol_usdc_pool = create_spl_token_swap_pool(
         &rpc_client,
         &wallet_keypair,
         sol_token,
         usdc_token,
-        0.01,  // 0.01 SOL
-        15.0,  // 15 USDC
-    ).await?;
-    
+        0.01, // 0.01 SOL
+        15.0, // 15 USDC
+    )
+    .await?;
+
     info!("✅ Pool SOL/USDC creado: {}", sol_usdc_pool);
 
     // Create USDC/RAY swap pool
@@ -104,10 +106,11 @@ async fn main() -> Result<()> {
         &wallet_keypair,
         usdc_token,
         ray_token,
-        10.0,  // 10 USDC
-        20.0,  // 20 RAY
-    ).await?;
-    
+        10.0, // 10 USDC
+        20.0, // 20 RAY
+    )
+    .await?;
+
     info!("✅ Pool USDC/RAY creado: {}", usdc_ray_pool);
 
     // Create RAY/SOL swap pool for arbitrage
@@ -118,12 +121,13 @@ async fn main() -> Result<()> {
         sol_token,
         15.0,  // 15 RAY
         0.005, // 0.005 SOL
-    ).await?;
-    
+    )
+    .await?;
+
     info!("✅ Pool RAY/SOL creado: {}", ray_sol_pool);
 
     info!("\n🎯 === PASO 2: EJECUTAR ARBITRAJE TRIANGULAR ===");
-    
+
     // Execute triangular arbitrage: SOL -> USDC -> RAY -> SOL
     execute_triangular_arbitrage(
         &rpc_client,
@@ -135,16 +139,13 @@ async fn main() -> Result<()> {
         usdc_token,
         ray_token,
         0.001, // Start with 0.001 SOL
-    ).await?;
+    )
+    .await?;
 
     info!("\n🎯 === PASO 3: ANÁLISIS DE RENTABILIDAD ===");
-    
+
     // Analyze profitability
-    analyze_arbitrage_profitability(
-        &rpc_client,
-        &wallet_keypair,
-        &config,
-    ).await?;
+    analyze_arbitrage_profitability(&rpc_client, &wallet_keypair, &config).await?;
 
     info!("\n🎯 === CONCLUSIONES ===");
     info!("✅ Pools de swap creados exitosamente");
@@ -163,27 +164,30 @@ async fn create_spl_token_swap_pool(
     amount_a: f64,
     amount_b: f64,
 ) -> Result<Pubkey> {
-    info!("🏊 Creando pool SPL Token Swap: {} <-> {}", token_a.symbol, token_b.symbol);
-    
+    info!(
+        "🏊 Creando pool SPL Token Swap: {} <-> {}",
+        token_a.symbol, token_b.symbol
+    );
+
     // Parse mint addresses
     let mint_a = Pubkey::from_str(&token_a.mint)?;
     let mint_b = Pubkey::from_str(&token_b.mint)?;
-    
+
     // Create pool keypair
     let pool_keypair = Keypair::new();
     let pool_pubkey = pool_keypair.pubkey();
-    
+
     // Create token accounts for the pool
     let pool_token_a_keypair = Keypair::new();
     let pool_token_b_keypair = Keypair::new();
     let pool_mint_keypair = Keypair::new();
     let pool_fee_keypair = Keypair::new();
-    
+
     info!("   📦 Pool: {}", pool_pubkey);
     info!("   💰 Pool Token A: {}", pool_token_a_keypair.pubkey());
     info!("   💰 Pool Token B: {}", pool_token_b_keypair.pubkey());
     info!("   🪙 Pool Mint: {}", pool_mint_keypair.pubkey());
-    
+
     // Get user's token accounts
     let user_token_a = spl_associated_token_account::get_associated_token_address(
         &wallet_keypair.pubkey(),
@@ -193,21 +197,21 @@ async fn create_spl_token_swap_pool(
         &wallet_keypair.pubkey(),
         &mint_b,
     );
-    
+
     // Check balances
     let balance_a = get_token_balance(rpc_client, &user_token_a, token_a.decimals).await?;
     let balance_b = get_token_balance(rpc_client, &user_token_b, token_b.decimals).await?;
-    
+
     info!("   💳 Balance A: {} {}", balance_a, token_a.symbol);
     info!("   💳 Balance B: {} {}", balance_b, token_b.symbol);
-    
+
     if balance_a < amount_a || balance_b < amount_b {
         return Err(anyhow::anyhow!("Balances insuficientes para crear pool"));
     }
-    
+
     // Create instructions
     let mut instructions = Vec::new();
-    
+
     // Create pool token accounts
     instructions.push(system_instruction::create_account(
         &wallet_keypair.pubkey(),
@@ -216,7 +220,7 @@ async fn create_spl_token_swap_pool(
         spl_token::state::Account::LEN as u64,
         &spl_token::ID,
     ));
-    
+
     instructions.push(system_instruction::create_account(
         &wallet_keypair.pubkey(),
         &pool_token_b_keypair.pubkey(),
@@ -224,7 +228,7 @@ async fn create_spl_token_swap_pool(
         spl_token::state::Account::LEN as u64,
         &spl_token::ID,
     ));
-    
+
     // Create pool mint
     instructions.push(system_instruction::create_account(
         &wallet_keypair.pubkey(),
@@ -233,7 +237,7 @@ async fn create_spl_token_swap_pool(
         spl_token::state::Mint::LEN as u64,
         &spl_token::ID,
     ));
-    
+
     // Create pool fee account
     instructions.push(system_instruction::create_account(
         &wallet_keypair.pubkey(),
@@ -242,7 +246,7 @@ async fn create_spl_token_swap_pool(
         spl_token::state::Account::LEN as u64,
         &spl_token::ID,
     ));
-    
+
     // Initialize token accounts
     instructions.push(token_instruction::initialize_account(
         &spl_token::ID,
@@ -250,14 +254,14 @@ async fn create_spl_token_swap_pool(
         &mint_a,
         &pool_pubkey,
     )?);
-    
+
     instructions.push(token_instruction::initialize_account(
         &spl_token::ID,
         &pool_token_b_keypair.pubkey(),
         &mint_b,
         &pool_pubkey,
     )?);
-    
+
     // Initialize pool mint
     instructions.push(token_instruction::initialize_mint(
         &spl_token::ID,
@@ -266,7 +270,7 @@ async fn create_spl_token_swap_pool(
         None,
         6, // 6 decimals for pool tokens
     )?);
-    
+
     // Initialize fee account
     instructions.push(token_instruction::initialize_account(
         &spl_token::ID,
@@ -274,7 +278,7 @@ async fn create_spl_token_swap_pool(
         &pool_mint_keypair.pubkey(),
         &wallet_keypair.pubkey(),
     )?);
-    
+
     // Create pool account
     instructions.push(system_instruction::create_account(
         &wallet_keypair.pubkey(),
@@ -283,7 +287,7 @@ async fn create_spl_token_swap_pool(
         spl_token_swap::state::SwapV1::LEN as u64,
         &Pubkey::from_str(SPL_TOKEN_SWAP_PROGRAM_ID)?,
     ));
-    
+
     // Initialize swap pool
     instructions.push(swap_instruction::initialize(
         &Pubkey::from_str(SPL_TOKEN_SWAP_PROGRAM_ID)?,
@@ -310,11 +314,11 @@ async fn create_spl_token_swap_pool(
             calculator: Box::new(spl_token_swap::curve::constant_product::ConstantProductCurve {}),
         },
     )?);
-    
+
     // Transfer tokens to pool
     let raw_amount_a = (amount_a * 10_f64.powi(token_a.decimals as i32)) as u64;
     let raw_amount_b = (amount_b * 10_f64.powi(token_b.decimals as i32)) as u64;
-    
+
     instructions.push(token_instruction::transfer(
         &spl_token::ID,
         &user_token_a,
@@ -323,7 +327,7 @@ async fn create_spl_token_swap_pool(
         &[],
         raw_amount_a,
     )?);
-    
+
     instructions.push(token_instruction::transfer(
         &spl_token::ID,
         &user_token_b,
@@ -332,27 +336,31 @@ async fn create_spl_token_swap_pool(
         &[],
         raw_amount_b,
     )?);
-    
+
     // Send transaction
     let recent_blockhash = rpc_client.get_latest_blockhash()?;
-    let mut transaction = Transaction::new_with_payer(
-        &instructions,
-        Some(&wallet_keypair.pubkey()),
+    let mut transaction =
+        Transaction::new_with_payer(&instructions, Some(&wallet_keypair.pubkey()));
+
+    transaction.sign(
+        &[
+            wallet_keypair,
+            &pool_keypair,
+            &pool_token_a_keypair,
+            &pool_token_b_keypair,
+            &pool_mint_keypair,
+            &pool_fee_keypair,
+        ],
+        recent_blockhash,
     );
-    
-    transaction.sign(&[
-        wallet_keypair,
-        &pool_keypair,
-        &pool_token_a_keypair,
-        &pool_token_b_keypair,
-        &pool_mint_keypair,
-        &pool_fee_keypair,
-    ], recent_blockhash);
-    
+
     match rpc_client.send_and_confirm_transaction(&transaction) {
         Ok(signature) => {
             info!("   ✅ Pool creado: {}", signature);
-            info!("   🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            info!(
+                "   🔍 Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
             Ok(pool_pubkey)
         }
         Err(e) => {
@@ -375,7 +383,7 @@ async fn execute_triangular_arbitrage(
 ) -> Result<()> {
     info!("🔄 Ejecutando arbitraje triangular: SOL -> USDC -> RAY -> SOL");
     info!("   💰 Cantidad inicial: {} SOL", start_amount);
-    
+
     // Get initial balance
     let sol_ata = spl_associated_token_account::get_associated_token_address(
         &wallet_keypair.pubkey(),
@@ -383,7 +391,7 @@ async fn execute_triangular_arbitrage(
     );
     let initial_balance = get_token_balance(rpc_client, &sol_ata, sol_token.decimals).await?;
     info!("   💳 Balance inicial: {} SOL", initial_balance);
-    
+
     // Step 1: SOL -> USDC
     info!("   🔄 Paso 1: SOL -> USDC");
     let usdc_amount = perform_swap(
@@ -393,8 +401,9 @@ async fn execute_triangular_arbitrage(
         sol_token,
         usdc_token,
         start_amount,
-    ).await?;
-    
+    )
+    .await?;
+
     // Step 2: USDC -> RAY
     info!("   🔄 Paso 2: USDC -> RAY");
     let ray_amount = perform_swap(
@@ -404,8 +413,9 @@ async fn execute_triangular_arbitrage(
         usdc_token,
         ray_token,
         usdc_amount,
-    ).await?;
-    
+    )
+    .await?;
+
     // Step 3: RAY -> SOL
     info!("   🔄 Paso 3: RAY -> SOL");
     let final_sol_amount = perform_swap(
@@ -415,21 +425,22 @@ async fn execute_triangular_arbitrage(
         ray_token,
         sol_token,
         ray_amount,
-    ).await?;
-    
+    )
+    .await?;
+
     // Calculate profit
     let profit = final_sol_amount - start_amount;
     let profit_percentage = (profit / start_amount) * 100.0;
-    
+
     info!("   💰 Cantidad final: {} SOL", final_sol_amount);
     info!("   🎯 Ganancia: {} SOL ({:.2}%)", profit, profit_percentage);
-    
+
     if profit > 0.0 {
         info!("   ✅ ARBITRAJE EXITOSO!");
     } else {
         info!("   ❌ Pérdida en arbitraje");
     }
-    
+
     Ok(())
 }
 
@@ -441,26 +452,32 @@ async fn perform_swap(
     token_out: &TokenInfo,
     amount_in: f64,
 ) -> Result<f64> {
-    info!("     🔄 Swap: {} {} -> {}", amount_in, token_in.symbol, token_out.symbol);
-    
+    info!(
+        "     🔄 Swap: {} {} -> {}",
+        amount_in, token_in.symbol, token_out.symbol
+    );
+
     // For demonstration, we'll simulate the swap with a simple calculation
     // In a real implementation, you would use actual SPL Token Swap instructions
-    
+
     let simulated_rate = match (token_in.symbol.as_str(), token_out.symbol.as_str()) {
-        ("SOL", "USDC") => 150.0,  // 1 SOL = 150 USDC
-        ("USDC", "RAY") => 2.0,    // 1 USDC = 2 RAY
-        ("RAY", "SOL") => 0.0035,  // 1 RAY = 0.0035 SOL
+        ("SOL", "USDC") => 150.0, // 1 SOL = 150 USDC
+        ("USDC", "RAY") => 2.0,   // 1 USDC = 2 RAY
+        ("RAY", "SOL") => 0.0035, // 1 RAY = 0.0035 SOL
         _ => 1.0,
     };
-    
+
     let amount_out = amount_in * simulated_rate * 0.9975; // 0.25% fee
-    
-    info!("     💱 Rate: 1 {} = {} {}", token_in.symbol, simulated_rate, token_out.symbol);
+
+    info!(
+        "     💱 Rate: 1 {} = {} {}",
+        token_in.symbol, simulated_rate, token_out.symbol
+    );
     info!("     📊 Output: {} {}", amount_out, token_out.symbol);
-    
+
     // Simulate transaction
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    
+
     Ok(amount_out)
 }
 
@@ -470,61 +487,69 @@ async fn analyze_arbitrage_profitability(
     config: &ConfigFile,
 ) -> Result<()> {
     info!("📊 Analizando rentabilidad de arbitraje...");
-    
+
     // Analyze different arbitrage paths
     let paths = vec![
-        ("SOL -> USDC -> RAY -> SOL", vec!["SOL", "TEST_USDC", "TEST_RAY", "SOL"]),
-        ("SOL -> RAY -> USDC -> SOL", vec!["SOL", "TEST_RAY", "TEST_USDC", "SOL"]),
-        ("USDC -> RAY -> SOL -> USDC", vec!["TEST_USDC", "TEST_RAY", "SOL", "TEST_USDC"]),
+        (
+            "SOL -> USDC -> RAY -> SOL",
+            vec!["SOL", "TEST_USDC", "TEST_RAY", "SOL"],
+        ),
+        (
+            "SOL -> RAY -> USDC -> SOL",
+            vec!["SOL", "TEST_RAY", "TEST_USDC", "SOL"],
+        ),
+        (
+            "USDC -> RAY -> SOL -> USDC",
+            vec!["TEST_USDC", "TEST_RAY", "SOL", "TEST_USDC"],
+        ),
     ];
-    
+
     for (path_name, path_tokens) in paths {
         info!("   🔍 Path: {}", path_name);
-        
+
         // Calculate expected return for each path
         let expected_return = calculate_path_return(&path_tokens, 1.0);
         let profit_percentage = (expected_return - 1.0) * 100.0;
-        
-        info!("     📈 Expected return: {:.4} ({:.2}%)", expected_return, profit_percentage);
-        
+
+        info!(
+            "     📈 Expected return: {:.4} ({:.2}%)",
+            expected_return, profit_percentage
+        );
+
         if profit_percentage > 0.5 {
             info!("     ✅ Profitable path!");
         } else {
             info!("     ❌ Not profitable");
         }
     }
-    
+
     Ok(())
 }
 
 fn calculate_path_return(path: &[&str], start_amount: f64) -> f64 {
     let mut amount = start_amount;
-    
-    for i in 0..path.len()-1 {
+
+    for i in 0..path.len() - 1 {
         let token_in = path[i];
-        let token_out = path[i+1];
-        
+        let token_out = path[i + 1];
+
         let rate = match (token_in, token_out) {
             ("SOL", "TEST_USDC") => 150.0,
-            ("TEST_USDC", "SOL") => 1.0/150.0,
+            ("TEST_USDC", "SOL") => 1.0 / 150.0,
             ("SOL", "TEST_RAY") => 300.0,
-            ("TEST_RAY", "SOL") => 1.0/300.0,
+            ("TEST_RAY", "SOL") => 1.0 / 300.0,
             ("TEST_USDC", "TEST_RAY") => 2.0,
-            ("TEST_RAY", "TEST_USDC") => 1.0/2.0,
+            ("TEST_RAY", "TEST_USDC") => 1.0 / 2.0,
             _ => 1.0,
         };
-        
+
         amount = amount * rate * 0.9975; // 0.25% fee per swap
     }
-    
+
     amount
 }
 
-async fn get_token_balance(
-    rpc_client: &RpcClient,
-    ata: &Pubkey,
-    decimals: u8,
-) -> Result<f64> {
+async fn get_token_balance(rpc_client: &RpcClient, ata: &Pubkey, decimals: u8) -> Result<f64> {
     match rpc_client.get_token_account_balance(ata) {
         Ok(balance) => {
             let amount = balance.amount.parse::<u64>().unwrap_or(0);
@@ -543,11 +568,11 @@ fn load_wallet_from_env() -> Result<Keypair> {
                 .map(|s| s.trim().parse::<u8>())
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| anyhow::anyhow!("Invalid private key format: {}", e))?;
-            
+
             if bytes.len() != 64 {
                 return Err(anyhow::anyhow!("Private key must be 64 bytes long"));
             }
-            
+
             Ok(Keypair::from_bytes(&bytes)?)
         } else {
             let bytes = bs58::decode(private_key)
@@ -556,6 +581,8 @@ fn load_wallet_from_env() -> Result<Keypair> {
             Ok(Keypair::from_bytes(&bytes)?)
         }
     } else {
-        Err(anyhow::anyhow!("SOLANA_PRIVATE_KEY environment variable not found"))
+        Err(anyhow::anyhow!(
+            "SOLANA_PRIVATE_KEY environment variable not found"
+        ))
     }
 }

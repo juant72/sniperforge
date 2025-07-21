@@ -1,8 +1,8 @@
 // Configuración de Program IDs parametrizada por red
 // Evita hardcoding y permite swaps reales en diferentes redes
 
-use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
+use std::collections::HashMap;
 use std::str::FromStr;
 // use crate::arbitrage::types::ArbitrageSettings; // Comentado temporalmente
 
@@ -41,47 +41,70 @@ impl NetworkConfig {
     /// Get DevNet configuration
     pub fn devnet() -> Self {
         let mut token_addresses = HashMap::new();
-        token_addresses.insert("SOL".to_string(), TokenInfo {
-            address: "So11111111111111111111111111111111111111112".to_string(),
-            symbol: "SOL".to_string(),
-            name: "Wrapped SOL".to_string(),
-            decimals: 9,
-            verified: true,
-            tradeable: true,
-        });
-        token_addresses.insert("USDC".to_string(), TokenInfo {
-            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-            symbol: "USDC".to_string(),
-            name: "USD Coin".to_string(),
-            decimals: 6,
-            verified: true,
-            tradeable: true,
-        });
-        token_addresses.insert("RAY".to_string(), TokenInfo {
-            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-            symbol: "RAY".to_string(),
-            name: "Raydium".to_string(),
-            decimals: 6,
-            verified: true,
-            tradeable: true,
-        });
-        
+        token_addresses.insert(
+            "SOL".to_string(),
+            TokenInfo {
+                address: "So11111111111111111111111111111111111111112".to_string(),
+                symbol: "SOL".to_string(),
+                name: "Wrapped SOL".to_string(),
+                decimals: 9,
+                verified: true,
+                tradeable: true,
+            },
+        );
+        token_addresses.insert(
+            "USDC".to_string(),
+            TokenInfo {
+                address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                symbol: "USDC".to_string(),
+                name: "USD Coin".to_string(),
+                decimals: 6,
+                verified: true,
+                tradeable: true,
+            },
+        );
+        token_addresses.insert(
+            "RAY".to_string(),
+            TokenInfo {
+                address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                symbol: "RAY".to_string(),
+                name: "Raydium".to_string(),
+                decimals: 6,
+                verified: true,
+                tradeable: true,
+            },
+        );
+
         Self {
             network: "DevNet".to_string(),
             rpc_endpoint: "https://api.devnet.solana.com".to_string(),
             program_ids: ProgramIds {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
-                token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
-                associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-                compute_budget_program: Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
+                token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                    .unwrap(),
+                associated_token_program: Pubkey::from_str(
+                    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+                )
+                .unwrap(),
+                compute_budget_program: Pubkey::from_str(
+                    "ComputeBudget111111111111111111111111111111",
+                )
+                .unwrap(),
                 // Jupiter usa el mismo Program ID en DevNet y MainNet
-                jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").ok(),
+                jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4")
+                    .ok(),
                 // Orca Whirlpool en DevNet
-                orca_whirlpool_program: Pubkey::from_str("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc").ok(),
+                orca_whirlpool_program: Pubkey::from_str(
+                    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+                )
+                .ok(),
                 // Raydium en DevNet - puede no estar disponible
                 raydium_amm_program: None,
                 // SPL Token Swap básico
-                spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
+                spl_token_swap_program: Pubkey::from_str(
+                    "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8",
+                )
+                .ok(),
             },
             token_addresses,
             // arbitrage_settings: None, // Comentado temporalmente
@@ -91,55 +114,84 @@ impl NetworkConfig {
     /// Get MainNet configuration
     pub fn mainnet() -> Self {
         let mut token_addresses = HashMap::new();
-        token_addresses.insert("SOL".to_string(), TokenInfo {
-            address: "So11111111111111111111111111111111111111112".to_string(),
-            symbol: "SOL".to_string(),
-            name: "Wrapped SOL".to_string(),
-            decimals: 9,
-            verified: true,
-            tradeable: true,
-        });
-        token_addresses.insert("USDC".to_string(), TokenInfo {
-            address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
-            symbol: "USDC".to_string(),
-            name: "USD Coin".to_string(),
-            decimals: 6,
-            verified: true,
-            tradeable: true,
-        });
-        token_addresses.insert("RAY".to_string(), TokenInfo {
-            address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R".to_string(),
-            symbol: "RAY".to_string(),
-            name: "Raydium".to_string(),
-            decimals: 6,
-            verified: true,
-            tradeable: true,
-        });
-        token_addresses.insert("BONK".to_string(), TokenInfo {
-            address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string(),
-            symbol: "BONK".to_string(),
-            name: "Bonk".to_string(),
-            decimals: 5,
-            verified: true,
-            tradeable: true,
-        });
-        
+        token_addresses.insert(
+            "SOL".to_string(),
+            TokenInfo {
+                address: "So11111111111111111111111111111111111111112".to_string(),
+                symbol: "SOL".to_string(),
+                name: "Wrapped SOL".to_string(),
+                decimals: 9,
+                verified: true,
+                tradeable: true,
+            },
+        );
+        token_addresses.insert(
+            "USDC".to_string(),
+            TokenInfo {
+                address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(),
+                symbol: "USDC".to_string(),
+                name: "USD Coin".to_string(),
+                decimals: 6,
+                verified: true,
+                tradeable: true,
+            },
+        );
+        token_addresses.insert(
+            "RAY".to_string(),
+            TokenInfo {
+                address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R".to_string(),
+                symbol: "RAY".to_string(),
+                name: "Raydium".to_string(),
+                decimals: 6,
+                verified: true,
+                tradeable: true,
+            },
+        );
+        token_addresses.insert(
+            "BONK".to_string(),
+            TokenInfo {
+                address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string(),
+                symbol: "BONK".to_string(),
+                name: "Bonk".to_string(),
+                decimals: 5,
+                verified: true,
+                tradeable: true,
+            },
+        );
+
         Self {
             network: "MainNet".to_string(),
             rpc_endpoint: "https://api.mainnet-beta.solana.com".to_string(),
             program_ids: ProgramIds {
                 system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
-                token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
-                associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-                compute_budget_program: Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
+                token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                    .unwrap(),
+                associated_token_program: Pubkey::from_str(
+                    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+                )
+                .unwrap(),
+                compute_budget_program: Pubkey::from_str(
+                    "ComputeBudget111111111111111111111111111111",
+                )
+                .unwrap(),
                 // Jupiter V6 en MainNet
-                jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4").ok(),
+                jupiter_program: Pubkey::from_str("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4")
+                    .ok(),
                 // Orca Whirlpool en MainNet
-                orca_whirlpool_program: Pubkey::from_str("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc").ok(),
+                orca_whirlpool_program: Pubkey::from_str(
+                    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+                )
+                .ok(),
                 // Raydium AMM en MainNet
-                raydium_amm_program: Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").ok(),
+                raydium_amm_program: Pubkey::from_str(
+                    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+                )
+                .ok(),
                 // SPL Token Swap
-                spl_token_swap_program: Pubkey::from_str("SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8").ok(),
+                spl_token_swap_program: Pubkey::from_str(
+                    "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8",
+                )
+                .ok(),
             },
             token_addresses,
             // arbitrage_settings: None, // Comentado temporalmente
@@ -182,7 +234,7 @@ impl NetworkConfig {
     /// Get available DEXes for this network
     pub fn available_dexes(&self) -> Vec<String> {
         let mut dexes = vec!["Native".to_string()]; // System program siempre disponible
-        
+
         if self.has_jupiter() {
             dexes.push("Jupiter".to_string());
         }
@@ -195,20 +247,28 @@ impl NetworkConfig {
         if self.program_ids.spl_token_swap_program.is_some() {
             dexes.push("SPL-Swap".to_string());
         }
-        
+
         dexes
     }
 
     /// Get safe test token pair for this network
     pub fn get_test_token_pair(&self) -> (Pubkey, Option<Pubkey>) {
-        (self.token_addresses["SOL"].address.parse().unwrap(), self.token_addresses["USDC"].address.parse().ok())
+        (
+            self.token_addresses["SOL"].address.parse().unwrap(),
+            self.token_addresses["USDC"].address.parse().ok(),
+        )
     }
 
     /// Validate network configuration
     pub fn validate(&self) -> Result<(), String> {
         // Verificar que los programas básicos estén configurados
-        if self.program_ids.system_program.to_string() == "11111111111111111111111111111111" &&
-           self.program_ids.token_program.to_string().starts_with("Token") {
+        if self.program_ids.system_program.to_string() == "11111111111111111111111111111111"
+            && self
+                .program_ids
+                .token_program
+                .to_string()
+                .starts_with("Token")
+        {
             Ok(())
         } else {
             Err("Invalid basic program configuration".to_string())
@@ -230,9 +290,16 @@ impl NetworkConfigBuilder {
                 rpc_endpoint: rpc_endpoint.to_string(),
                 program_ids: ProgramIds {
                     system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
-                    token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
-                    associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-                    compute_budget_program: Pubkey::from_str("ComputeBudget11111111111111111111111111111111").unwrap(),
+                    token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                        .unwrap(),
+                    associated_token_program: Pubkey::from_str(
+                        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+                    )
+                    .unwrap(),
+                    compute_budget_program: Pubkey::from_str(
+                        "ComputeBudget11111111111111111111111111111111",
+                    )
+                    .unwrap(),
                     jupiter_program: None,
                     orca_whirlpool_program: None,
                     raydium_amm_program: None,
@@ -243,33 +310,37 @@ impl NetworkConfigBuilder {
             },
         }
     }
-    
+
     pub fn with_jupiter(mut self, program_id: &str) -> Result<Self, String> {
         self.config.program_ids.jupiter_program = Some(
-            Pubkey::from_str(program_id).map_err(|e| format!("Invalid Jupiter program ID: {}", e))?
+            Pubkey::from_str(program_id)
+                .map_err(|e| format!("Invalid Jupiter program ID: {}", e))?,
         );
         Ok(self)
     }
-    
+
     pub fn with_orca(mut self, program_id: &str) -> Result<Self, String> {
         self.config.program_ids.orca_whirlpool_program = Some(
-            Pubkey::from_str(program_id).map_err(|e| format!("Invalid Orca program ID: {}", e))?
+            Pubkey::from_str(program_id).map_err(|e| format!("Invalid Orca program ID: {}", e))?,
         );
         Ok(self)
     }
-    
+
     pub fn with_usdc(mut self, token_address: &str) -> Result<Self, String> {
-        self.config.token_addresses.insert("USDC".to_string(), TokenInfo {
-            address: token_address.to_string(),
-            symbol: "USDC".to_string(),
-            name: "USD Coin".to_string(),
-            decimals: 6,
-            verified: true,
-            tradeable: true,
-        });
+        self.config.token_addresses.insert(
+            "USDC".to_string(),
+            TokenInfo {
+                address: token_address.to_string(),
+                symbol: "USDC".to_string(),
+                name: "USD Coin".to_string(),
+                decimals: 6,
+                verified: true,
+                tradeable: true,
+            },
+        );
         Ok(self)
     }
-    
+
     pub fn build(self) -> NetworkConfig {
         self.config
     }
@@ -302,7 +373,7 @@ mod tests {
             .with_jupiter("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4")
             .unwrap()
             .build();
-        
+
         assert_eq!(config.network, "Custom");
         assert!(config.has_jupiter());
     }

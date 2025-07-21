@@ -2,15 +2,15 @@ use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
+    native_token::LAMPORTS_PER_SOL,
     pubkey::Pubkey,
     signature::{Keypair, Signature},
     signer::Signer,
     system_instruction,
     transaction::Transaction,
-    native_token::LAMPORTS_PER_SOL,
 };
 use std::str::FromStr;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 const SOL_MINT: &str = "So11111111111111111111111111111111111111112";
 
@@ -46,7 +46,10 @@ async fn main() -> Result<()> {
     info!("🔑 Wallet: {}", user_pubkey);
 
     let initial_wallet_balance = check_sol_balance(&client, &user_pubkey).await?;
-    info!("💰 Balance inicial de la serie: {} SOL", initial_wallet_balance);
+    info!(
+        "💰 Balance inicial de la serie: {} SOL",
+        initial_wallet_balance
+    );
 
     if initial_wallet_balance < 0.1 {
         error!("❌ Balance insuficiente para serie de pruebas (necesitamos 0.1+ SOL)");
@@ -63,19 +66,19 @@ async fn main() -> Result<()> {
 
     for (index, scenario) in test_scenarios.iter().enumerate() {
         let cycle_number = (index + 1) as u32;
-        
+
         info!("\n💫 === ARBITRAJE DE PRUEBA {} ===", cycle_number);
         info!("   📋 Escenario: {}", scenario.description);
         info!("   💰 Cantidad: {:.6} SOL", scenario.amount);
         info!("   ⏰ Timing: {}ms", scenario.timing_ms);
 
         let balance_before = check_sol_balance(&client, &user_pubkey).await?;
-        
+
         match execute_test_arbitrage(&client, &wallet, scenario).await {
             Ok(result) => {
                 let balance_after = check_sol_balance(&client, &user_pubkey).await?;
                 let actual_profit = balance_after - balance_before;
-                
+
                 let arbitrage_result = ArbitrageResult {
                     cycle_number,
                     initial_balance: balance_before,
@@ -85,7 +88,10 @@ async fn main() -> Result<()> {
                     wrap_signature: result.wrap_sig.clone(),
                     unwrap_signature: result.unwrap_sig.clone(),
                     success: actual_profit > 0.0,
-                    notes: format!("Escenario: {} | Timing: {}ms", scenario.description, scenario.timing_ms),
+                    notes: format!(
+                        "Escenario: {} | Timing: {}ms",
+                        scenario.description, scenario.timing_ms
+                    ),
                 };
 
                 display_arbitrage_result(&arbitrage_result);
@@ -99,7 +105,7 @@ async fn main() -> Result<()> {
             }
             Err(e) => {
                 error!("❌ Error en arbitraje {}: {}", cycle_number, e);
-                
+
                 let arbitrage_result = ArbitrageResult {
                     cycle_number,
                     initial_balance: balance_before,
@@ -111,7 +117,7 @@ async fn main() -> Result<()> {
                     success: false,
                     notes: format!("Error: {}", e),
                 };
-                
+
                 results.push(arbitrage_result);
             }
         }
@@ -179,18 +185,21 @@ async fn execute_test_arbitrage(
 ) -> Result<TestResult> {
     let user_pubkey = wallet.pubkey();
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    
+
     info!("   🔧 Configurando wrapped SOL account...");
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     let amount_lamports = (scenario.amount * LAMPORTS_PER_SOL as f64) as u64;
     let rent_exempt = client.get_minimum_balance_for_rent_exemption(165)?;
 
-    info!("   🔄 PASO 1: Wrap SOL ({}ms timing)...", scenario.timing_ms);
-    let wrap_sig = execute_optimized_wrap(client, wallet, &wsol_account, amount_lamports + rent_exempt).await?;
+    info!(
+        "   🔄 PASO 1: Wrap SOL ({}ms timing)...",
+        scenario.timing_ms
+    );
+    let wrap_sig =
+        execute_optimized_wrap(client, wallet, &wsol_account, amount_lamports + rent_exempt)
+            .await?;
     info!("     ✅ Wrap signature: {}", wrap_sig);
 
     info!("   ⏰ PASO 2: Timing optimization...");
@@ -215,7 +224,7 @@ fn display_arbitrage_result(result: &ArbitrageResult) {
     info!("   💰 Balance final: {:.9} SOL", result.final_balance);
     info!("   📈 Profit: {:.9} SOL", result.profit);
     info!("   📊 ROI: {:.4}%", result.roi_percent);
-    
+
     if result.success {
         info!("   ✅ EXITOSO: ¡Profit confirmado!");
         if let Some(wrap) = &result.wrap_signature {
@@ -227,7 +236,7 @@ fn display_arbitrage_result(result: &ArbitrageResult) {
     } else {
         warn!("   ❌ Sin profit o con pérdida");
     }
-    
+
     info!("   📝 Notas: {}", result.notes);
 }
 
@@ -240,12 +249,10 @@ async fn analyze_test_series(
     let successful_arbitrages = results.iter().filter(|r| r.success).count();
     let total_arbitrages = results.len();
     let success_rate = (successful_arbitrages as f64 / total_arbitrages as f64) * 100.0;
-    
-    let total_individual_profits: f64 = results.iter()
-        .filter(|r| r.success)
-        .map(|r| r.profit)
-        .sum();
-    
+
+    let total_individual_profits: f64 =
+        results.iter().filter(|r| r.success).map(|r| r.profit).sum();
+
     let average_profit = if successful_arbitrages > 0 {
         total_individual_profits / successful_arbitrages as f64
     } else {
@@ -257,15 +264,23 @@ async fn analyze_test_series(
     info!("   ✅ Arbitrajes exitosos: {}", successful_arbitrages);
     info!("   📈 Tasa de éxito: {:.1}%", success_rate);
     info!("   💰 Profit total de la serie: {:.9} SOL", total_profit);
-    info!("   📊 Profit promedio por arbitraje exitoso: {:.9} SOL", average_profit);
-    info!("   🎯 ROI total de la serie: {:.4}%", (total_profit / initial_total) * 100.0);
+    info!(
+        "   📊 Profit promedio por arbitraje exitoso: {:.9} SOL",
+        average_profit
+    );
+    info!(
+        "   🎯 ROI total de la serie: {:.4}%",
+        (total_profit / initial_total) * 100.0
+    );
 
     // Mostrar detalles de cada arbitraje
     info!("\n📋 === RESUMEN POR ARBITRAJE ===");
     for result in results {
         let status = if result.success { "✅" } else { "❌" };
-        info!("   {} Arbitraje {}: {:.9} SOL ({:.2}%)", 
-               status, result.cycle_number, result.profit, result.roi_percent);
+        info!(
+            "   {} Arbitraje {}: {:.9} SOL ({:.2}%)",
+            status, result.cycle_number, result.profit, result.roi_percent
+        );
     }
 
     // Recomendaciones basadas en resultados
@@ -283,9 +298,16 @@ async fn analyze_test_series(
     }
 
     // Identificar mejor escenario
-    if let Some(best_result) = results.iter().filter(|r| r.success).max_by(|a, b| a.profit.partial_cmp(&b.profit).unwrap()) {
+    if let Some(best_result) = results
+        .iter()
+        .filter(|r| r.success)
+        .max_by(|a, b| a.profit.partial_cmp(&b.profit).unwrap())
+    {
         info!("\n🏆 === MEJOR ARBITRAJE DE LA SERIE ===");
-        info!("   🥇 Arbitraje {}: {:.9} SOL profit", best_result.cycle_number, best_result.profit);
+        info!(
+            "   🥇 Arbitraje {}: {:.9} SOL profit",
+            best_result.cycle_number, best_result.profit
+        );
         info!("   🎯 {}", best_result.notes);
         info!("   💡 Usar estos parámetros como base para Fase 3");
     }
@@ -306,12 +328,13 @@ async fn execute_optimized_wrap(
 
     // Solo crear ATA si no existe
     if client.get_account(wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
@@ -362,7 +385,7 @@ async fn execute_optimized_unwrap(
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

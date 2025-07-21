@@ -1,13 +1,13 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{RwLock, mpsc};
-use anyhow::Result;
-use tracing::{info, warn, error, debug};
-use serde::{Serialize, Deserialize};
 use sysinfo::System;
+use tokio::sync::{mpsc, RwLock};
+use tracing::{debug, error, info, warn};
 
 use crate::config::Config;
-use crate::types::{PlatformError, HealthStatus};
+use crate::types::{HealthStatus, PlatformError};
 
 /// System metrics collected by the monitoring system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,12 +119,12 @@ pub struct MonitoringSystem {
 impl MonitoringSystem {
     pub fn new(config: &Config) -> Result<Self> {
         info!("📊 Initializing Monitoring System");
-        
+
         let mut system = System::new_all();
         system.refresh_all();
-        
+
         let (shutdown_tx, _) = mpsc::channel(1);
-        
+
         let monitoring = Self {
             config: config.clone(),
             system_info: Arc::new(RwLock::new(system)),
@@ -137,25 +137,26 @@ impl MonitoringSystem {
             metrics_buffer_size: 1000,
             shutdown_tx,
             is_running: Arc::new(RwLock::new(false)),
-        };        info!("✅ Monitoring System initialized");
+        };
+        info!("✅ Monitoring System initialized");
         Ok(monitoring)
     }
 
     /// Start the monitoring system
     pub async fn start(&self) -> Result<()> {
         info!("🚀 Starting Monitoring System");
-        
+
         *self.is_running.write().await = true;
-        
+
         // Start metrics collection
         self.start_metrics_collection().await;
-        
+
         // Start alert evaluation
         self.start_alert_evaluation().await;
-        
+
         // Start cleanup tasks
         self.start_cleanup_tasks().await;
-        
+
         info!("✅ Monitoring System started successfully");
         Ok(())
     }
@@ -163,12 +164,12 @@ impl MonitoringSystem {
     /// Stop the monitoring system
     pub async fn stop(&self) -> Result<()> {
         info!("🛑 Stopping Monitoring System");
-        
+
         *self.is_running.write().await = false;
-        
+
         // Send shutdown signal
         let _ = self.shutdown_tx.send(()).await;
-        
+
         Ok(())
     }
 
@@ -176,7 +177,7 @@ impl MonitoringSystem {
     pub async fn collect_system_metrics(&self) -> Result<SystemMetrics> {
         let mut system = self.system_info.write().await;
         system.refresh_all();
-        
+
         let metrics = SystemMetrics {
             cpu_usage_percent: system.global_cpu_usage() as f64,
             memory_usage_mb: (system.used_memory() / 1024 / 1024),
@@ -188,20 +189,22 @@ impl MonitoringSystem {
             uptime_seconds: System::uptime(),
             timestamp: chrono::Utc::now(),
         };
-          // Store in buffer
+        // Store in buffer
         {
             let mut system_metrics = self.system_metrics.write().await;
             system_metrics.push(metrics.clone());
-            
+
             // Keep buffer size limited
             if system_metrics.len() > self.metrics_buffer_size {
                 let drain_count = system_metrics.len() - self.metrics_buffer_size;
                 system_metrics.drain(0..drain_count);
             }
         }
-          debug!("📊 Collected system metrics: CPU {:.1}%, Memory {}MB", 
-               metrics.cpu_usage_percent, metrics.memory_usage_mb);
-        
+        debug!(
+            "📊 Collected system metrics: CPU {:.1}%, Memory {}MB",
+            metrics.cpu_usage_percent, metrics.memory_usage_mb
+        );
+
         Ok(metrics)
     }
 
@@ -209,16 +212,18 @@ impl MonitoringSystem {
     pub async fn record_app_metrics(&self, metrics: ApplicationMetrics) -> Result<()> {
         let mut app_metrics = self.app_metrics.write().await;
         app_metrics.push(metrics.clone());
-        
+
         // Keep buffer size limited
         if app_metrics.len() > self.metrics_buffer_size {
             let drain_count = app_metrics.len() - self.metrics_buffer_size;
             app_metrics.drain(0..drain_count);
         }
-        
-        debug!("📊 Recorded app metrics: {} bots, {:.1}ms latency", 
-               metrics.active_bots, metrics.average_latency_ms);
-        
+
+        debug!(
+            "📊 Recorded app metrics: {} bots, {:.1}ms latency",
+            metrics.active_bots, metrics.average_latency_ms
+        );
+
         Ok(())
     }
 
@@ -226,23 +231,26 @@ impl MonitoringSystem {
     pub async fn add_alert(&self, alert_config: AlertConfig) -> Result<()> {
         let mut alert_configs = self.alert_configs.write().await;
         alert_configs.insert(alert_config.name.clone(), alert_config.clone());
-        
-        info!("🚨 Added alert: {} ({:?} {} {})", 
-              alert_config.name, alert_config.metric_type, 
-              match alert_config.comparison {
-                  AlertComparison::GreaterThan => ">",
-                  AlertComparison::LessThan => "<",
-                  AlertComparison::Equal => "==",
-              },
-              alert_config.threshold);
-        
+
+        info!(
+            "🚨 Added alert: {} ({:?} {} {})",
+            alert_config.name,
+            alert_config.metric_type,
+            match alert_config.comparison {
+                AlertComparison::GreaterThan => ">",
+                AlertComparison::LessThan => "<",
+                AlertComparison::Equal => "==",
+            },
+            alert_config.threshold
+        );
+
         Ok(())
     }
 
     /// Remove alert configuration
     pub async fn remove_alert(&self, alert_name: &str) -> Result<()> {
         let mut alert_configs = self.alert_configs.write().await;
-        
+
         if alert_configs.remove(alert_name).is_some() {
             info!("🚨 Removed alert: {}", alert_name);
             Ok(())
@@ -254,7 +262,7 @@ impl MonitoringSystem {
     /// Acknowledge an alert
     pub async fn acknowledge_alert(&self, alert_id: uuid::Uuid) -> Result<()> {
         let mut active_alerts = self.active_alerts.write().await;
-        
+
         if let Some(alert) = active_alerts.get_mut(&alert_id) {
             alert.acknowledged = true;
             info!("✅ Alert acknowledged: {}", alert_id);
@@ -286,12 +294,8 @@ impl MonitoringSystem {
     pub async fn get_alert_history(&self, limit: Option<usize>) -> Vec<AlertEvent> {
         let alert_history = self.alert_history.read().await;
         let limit = limit.unwrap_or(100).min(alert_history.len());
-        
-        alert_history.iter()
-            .rev()
-            .take(limit)
-            .cloned()
-            .collect()
+
+        alert_history.iter().rev().take(limit).cloned().collect()
     }
 
     /// Get monitoring statistics
@@ -300,7 +304,7 @@ impl MonitoringSystem {
         let active_alerts = self.active_alerts.read().await;
         let system_metrics = self.system_metrics.read().await;
         let app_metrics = self.app_metrics.read().await;
-        
+
         MonitoringStats {
             alert_configs: alert_configs.len(),
             active_alerts: active_alerts.len(),
@@ -308,10 +312,11 @@ impl MonitoringSystem {
             app_metrics_collected: app_metrics.len(),
             is_running: *self.is_running.read().await,
         }
-    }    /// Health check
+    }
+    /// Health check
     pub async fn health_check(&self) -> Result<HealthStatus> {
         let is_running = *self.is_running.read().await;
-        
+
         if !is_running {
             return Ok(HealthStatus {
                 is_healthy: false,
@@ -323,7 +328,8 @@ impl MonitoringSystem {
         }
 
         let active_alerts = self.active_alerts.read().await;
-        let critical_alerts: Vec<_> = active_alerts.values()
+        let critical_alerts: Vec<_> = active_alerts
+            .values()
             .filter(|alert| alert.severity == AlertSeverity::Critical && !alert.acknowledged)
             .collect();
 
@@ -336,7 +342,8 @@ impl MonitoringSystem {
                 metrics: HashMap::new(),
             })
         } else {
-            let warning_alerts: Vec<_> = active_alerts.values()
+            let warning_alerts: Vec<_> = active_alerts
+                .values()
                 .filter(|alert| alert.severity == AlertSeverity::Warning && !alert.acknowledged)
                 .collect();
 
@@ -402,17 +409,17 @@ impl MonitoringSystem {
         let system_metrics = self.system_metrics.clone();
         let is_running = self.is_running.clone();
         let metrics_buffer_size = self.metrics_buffer_size;
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 // Collect system metrics
                 let mut system = monitoring_system.write().await;
                 system.refresh_all();
@@ -427,17 +434,17 @@ impl MonitoringSystem {
                     uptime_seconds: System::uptime(),
                     timestamp: chrono::Utc::now(),
                 };
-                
+
                 // Store metrics
                 {
                     let mut metrics_vec = system_metrics.write().await;
                     metrics_vec.push(metrics);
-                      if metrics_vec.len() > metrics_buffer_size {
+                    if metrics_vec.len() > metrics_buffer_size {
                         let drain_count = metrics_vec.len() - metrics_buffer_size;
                         metrics_vec.drain(0..drain_count);
                     }
                 }
-                
+
                 debug!("📊 Collected system metrics");
             }
         });
@@ -452,17 +459,17 @@ impl MonitoringSystem {
         let system_metrics = self.system_metrics.clone();
         let app_metrics = self.app_metrics.clone();
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 let configs = alert_configs.read().await;
                 let latest_system = {
                     let system_metrics_vec = system_metrics.read().await;
@@ -472,79 +479,88 @@ impl MonitoringSystem {
                     let app_metrics_vec = app_metrics.read().await;
                     app_metrics_vec.last().cloned()
                 };
-                
+
                 for alert_config in configs.values() {
                     if !alert_config.enabled {
                         continue;
                     }
-                    
+
                     // Check cooldown
                     let last_alert_times_guard = last_alert_times.read().await;
                     if let Some(last_time) = last_alert_times_guard.get(&alert_config.name) {
-                        let cooldown = chrono::Duration::minutes(alert_config.cooldown_minutes as i64);
+                        let cooldown =
+                            chrono::Duration::minutes(alert_config.cooldown_minutes as i64);
                         if chrono::Utc::now().signed_duration_since(*last_time) < cooldown {
                             continue;
                         }
                     }
                     drop(last_alert_times_guard);
-                    
+
                     // Evaluate alert condition
                     let current_value = match &alert_config.metric_type {
                         MetricType::CpuUsage => latest_system.as_ref().map(|m| m.cpu_usage_percent),
-                        MetricType::MemoryUsage => latest_system.as_ref().map(|m| {
-                            (m.memory_usage_mb as f64 / m.memory_total_mb as f64) * 100.0
-                        }),
+                        MetricType::MemoryUsage => latest_system
+                            .as_ref()
+                            .map(|m| (m.memory_usage_mb as f64 / m.memory_total_mb as f64) * 100.0),
                         MetricType::LatencyMs => latest_app.as_ref().map(|m| m.average_latency_ms),
                         _ => None,
                     };
-                    
+
                     if let Some(value) = current_value {
                         let triggered = match alert_config.comparison {
                             AlertComparison::GreaterThan => value > alert_config.threshold,
                             AlertComparison::LessThan => value < alert_config.threshold,
-                            AlertComparison::Equal => (value - alert_config.threshold).abs() < 0.001,
+                            AlertComparison::Equal => {
+                                (value - alert_config.threshold).abs() < 0.001
+                            }
                         };
-                        
+
                         if triggered {
                             // Create alert event
                             let alert_event = AlertEvent {
                                 id: uuid::Uuid::new_v4(),
                                 alert_config: alert_config.clone(),
                                 current_value: value,
-                                message: format!("Alert triggered: {} = {:.2}", alert_config.name, value),
+                                message: format!(
+                                    "Alert triggered: {} = {:.2}",
+                                    alert_config.name, value
+                                ),
                                 severity: alert_config.severity.clone(),
                                 timestamp: chrono::Utc::now(),
                                 acknowledged: false,
                             };
-                            
+
                             // Add to active alerts
                             {
                                 let mut active = active_alerts.write().await;
                                 active.insert(alert_event.id, alert_event.clone());
                             }
-                            
+
                             // Add to history
                             {
                                 let mut history = alert_history.write().await;
                                 history.push(alert_event.clone());
-                                
+
                                 // Keep history limited
                                 if history.len() > 10000 {
                                     history.drain(0..1000);
                                 }
                             }
-                            
+
                             // Update last alert time
                             {
                                 let mut last_times = last_alert_times.write().await;
                                 last_times.insert(alert_config.name.clone(), chrono::Utc::now());
                             }
-                            
-                            warn!("🚨 Alert triggered: {} ({})", alert_event.message, alert_event.severity);
+
+                            warn!(
+                                "🚨 Alert triggered: {} ({})",
+                                alert_event.message, alert_event.severity
+                            );
                         }
                     }
                 }
-                
+
                 debug!("🔍 Alert evaluation completed");
             }
         });
@@ -554,23 +570,23 @@ impl MonitoringSystem {
     async fn start_cleanup_tasks(&self) {
         let active_alerts = self.active_alerts.clone();
         let is_running = self.is_running.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(300)); // 5 minutes
-            
+
             loop {
                 interval.tick().await;
-                
+
                 if !*is_running.read().await {
                     break;
                 }
-                
+
                 // Clean up acknowledged alerts older than 1 hour
                 {
                     let mut active = active_alerts.write().await;
                     let now = chrono::Utc::now();
                     let cleanup_threshold = chrono::Duration::hours(1);
-                    
+
                     active.retain(|_, alert| {
                         if alert.acknowledged {
                             now.signed_duration_since(alert.timestamp) <= cleanup_threshold
@@ -579,7 +595,7 @@ impl MonitoringSystem {
                         }
                     });
                 }
-                
+
                 debug!("🧹 Alert cleanup completed");
             }
         });

@@ -1,18 +1,15 @@
 use anyhow::Result;
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    commitment_config::CommitmentConfig,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    native_token::LAMPORTS_PER_SOL,
-};
 use reqwest;
 use serde_json::Value;
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    commitment_config::CommitmentConfig, native_token::LAMPORTS_PER_SOL, pubkey::Pubkey,
+    signature::Keypair, signer::Signer,
+};
 use std::fs;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, error, warn};
+use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -28,9 +25,9 @@ async fn main() -> Result<()> {
 
     let rpc_url = "https://api.mainnet-beta.solana.com";
     let client = RpcClient::new_with_timeout_and_commitment(
-        rpc_url.to_string(), 
+        rpc_url.to_string(),
         Duration::from_secs(30),
-        CommitmentConfig::confirmed()
+        CommitmentConfig::confirmed(),
     );
 
     let wallet = load_mainnet_wallet().await?;
@@ -38,7 +35,10 @@ async fn main() -> Result<()> {
     info!("🔑 MainNet Wallet: {}", user_pubkey);
 
     let balance = check_sol_balance(&client, &user_pubkey).await?;
-    info!("💰 Current Balance: {:.9} SOL (SAFE - not touching)", balance);
+    info!(
+        "💰 Current Balance: {:.9} SOL (SAFE - not touching)",
+        balance
+    );
 
     info!("\n🧪 === SAFE OPPORTUNITY DETECTION TEST ===");
     info!("   📊 Testing Jupiter API responses");
@@ -47,12 +47,42 @@ async fn main() -> Result<()> {
 
     // Test different scenarios safely
     let test_scenarios = vec![
-        ("SOL/USDC", 0.005, "So11111111111111111111111111111111111111112", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-        ("SOL/RAY", 0.005, "So11111111111111111111111111111111111111112", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
-        ("SOL/BONK", 0.005, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-        ("SOL/BONK", 0.01, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-        ("SOL/BONK", 0.02, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-        ("SOL/BONK", 0.03, "So11111111111111111111111111111111111111112", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
+        (
+            "SOL/USDC",
+            0.005,
+            "So11111111111111111111111111111111111111112",
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        ),
+        (
+            "SOL/RAY",
+            0.005,
+            "So11111111111111111111111111111111111111112",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+        ),
+        (
+            "SOL/BONK",
+            0.005,
+            "So11111111111111111111111111111111111111112",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        ),
+        (
+            "SOL/BONK",
+            0.01,
+            "So11111111111111111111111111111111111111112",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        ),
+        (
+            "SOL/BONK",
+            0.02,
+            "So11111111111111111111111111111111111111112",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        ),
+        (
+            "SOL/BONK",
+            0.03,
+            "So11111111111111111111111111111111111111112",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+        ),
     ];
 
     let mut profitable_opportunities = Vec::new();
@@ -60,8 +90,11 @@ async fn main() -> Result<()> {
 
     for (pair_name, amount_sol, mint_a, mint_b) in test_scenarios {
         test_count += 1;
-        info!("\n🧪 Test {}: {} ({} SOL)", test_count, pair_name, amount_sol);
-        
+        info!(
+            "\n🧪 Test {}: {} ({} SOL)",
+            test_count, pair_name, amount_sol
+        );
+
         if amount_sol > balance - 0.01 {
             warn!("   ⚠️  Amount too large for current balance - SKIPPING");
             continue;
@@ -73,7 +106,7 @@ async fn main() -> Result<()> {
                 info!("   💰 Expected profit: {:.9} SOL", opportunity.profit);
                 info!("   📈 ROI: {:.4}%", opportunity.roi);
                 info!("   📊 Spread: {:.6}%", opportunity.spread);
-                
+
                 if opportunity.profit > 0.000015 {
                     info!("   🎯 PROFITABLE (> fees)!");
                     profitable_opportunities.push(opportunity);
@@ -95,7 +128,10 @@ async fn main() -> Result<()> {
 
     info!("\n📊 === SAFE TEST RESULTS ===");
     info!("   🧪 Total tests: {}", test_count);
-    info!("   ✅ Profitable opportunities: {}", profitable_opportunities.len());
+    info!(
+        "   ✅ Profitable opportunities: {}",
+        profitable_opportunities.len()
+    );
 
     if profitable_opportunities.is_empty() {
         warn!("❌ NO PROFITABLE OPPORTUNITIES DETECTED");
@@ -104,7 +140,7 @@ async fn main() -> Result<()> {
         warn!("   📈 Consider testing during high volatility periods");
     } else {
         info!("🎯 === PROFITABLE OPPORTUNITIES DETECTED ===");
-        
+
         for (i, opp) in profitable_opportunities.iter().enumerate() {
             info!("   {}. {} ({} SOL)", i + 1, opp.pair, opp.amount);
             info!("      💰 Profit: {:.9} SOL", opp.profit);
@@ -113,7 +149,8 @@ async fn main() -> Result<()> {
         }
 
         // Find best opportunity
-        let best = profitable_opportunities.iter()
+        let best = profitable_opportunities
+            .iter()
             .max_by(|a, b| a.profit.partial_cmp(&b.profit).unwrap())
             .unwrap();
 
@@ -134,7 +171,10 @@ async fn main() -> Result<()> {
         if best.profit > 0.000050 {
             info!("\n🎯 === EXECUTION READINESS ===");
             info!("   ✅ High confidence opportunity detected");
-            info!("   ✅ Profit margin: {:.1}x fees (very safe)", best.profit / 0.000015);
+            info!(
+                "   ✅ Profit margin: {:.1}x fees (very safe)",
+                best.profit / 0.000015
+            );
             info!("   ⚠️  Ready for execution when you decide");
             info!("   💡 Recommendation: Monitor for similar opportunities");
         } else {
@@ -164,37 +204,49 @@ struct SafeOpportunity {
 }
 
 async fn test_arbitrage_opportunity_safe(
-    mint_a: &str, 
-    mint_b: &str, 
+    mint_a: &str,
+    mint_b: &str,
     amount_sol: f64,
-    pair_name: &str
+    pair_name: &str,
 ) -> Result<Option<SafeOpportunity>> {
     let amount_lamports = (amount_sol * LAMPORTS_PER_SOL as f64) as u64;
-    
-    info!("   🔍 Step 1: {} → intermediate token", pair_name.split('/').next().unwrap());
+
+    info!(
+        "   🔍 Step 1: {} → intermediate token",
+        pair_name.split('/').next().unwrap()
+    );
     let route_1 = get_jupiter_quote_safe(mint_a, mint_b, amount_lamports).await?;
-    
+
     if let Some(route_1_data) = route_1 {
-        let intermediate_amount: u64 = route_1_data["outAmount"].as_str()
-            .unwrap_or("0").parse().unwrap_or(0);
-        
+        let intermediate_amount: u64 = route_1_data["outAmount"]
+            .as_str()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+
         if intermediate_amount == 0 {
             return Ok(None);
         }
-        
+
         sleep(Duration::from_millis(300)).await;
-        
-        info!("   🔍 Step 2: intermediate token → {}", pair_name.split('/').next().unwrap());
+
+        info!(
+            "   🔍 Step 2: intermediate token → {}",
+            pair_name.split('/').next().unwrap()
+        );
         let route_2 = get_jupiter_quote_safe(mint_b, mint_a, intermediate_amount).await?;
-        
+
         if let Some(route_2_data) = route_2 {
-            let final_amount: u64 = route_2_data["outAmount"].as_str()
-                .unwrap_or("0").parse().unwrap_or(0);
+            let final_amount: u64 = route_2_data["outAmount"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(0);
             let final_sol = final_amount as f64 / LAMPORTS_PER_SOL as f64;
-            
+
             let profit = final_sol - amount_sol;
             let roi = (profit / amount_sol) * 100.0;
-            
+
             return Ok(Some(SafeOpportunity {
                 pair: pair_name.to_string(),
                 amount: amount_sol,
@@ -204,18 +256,22 @@ async fn test_arbitrage_opportunity_safe(
             }));
         }
     }
-    
+
     Ok(None)
 }
 
-async fn get_jupiter_quote_safe(input_mint: &str, output_mint: &str, amount: u64) -> Result<Option<Value>> {
+async fn get_jupiter_quote_safe(
+    input_mint: &str,
+    output_mint: &str,
+    amount: u64,
+) -> Result<Option<Value>> {
     let client = reqwest::Client::new();
-    
+
     let url = format!(
         "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
         input_mint, output_mint, amount
     );
-    
+
     match client.get(&url).send().await {
         Ok(response) => {
             if response.status().is_success() {
@@ -227,13 +283,13 @@ async fn get_jupiter_quote_safe(input_mint: &str, output_mint: &str, amount: u64
                             Ok(Some(data))
                         }
                     }
-                    Err(_) => Ok(None)
+                    Err(_) => Ok(None),
                 }
             } else {
                 Ok(None)
             }
         }
-        Err(_) => Ok(None)
+        Err(_) => Ok(None),
     }
 }
 
@@ -244,7 +300,7 @@ async fn check_sol_balance(client: &RpcClient, pubkey: &Pubkey) -> Result<f64> {
 
 async fn load_mainnet_wallet() -> Result<Keypair> {
     let wallet_path = "mainnet-arbitrage-wallet.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;

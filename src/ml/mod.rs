@@ -1,37 +1,37 @@
 //! Machine Learning Module for SniperForge
-//! 
+//!
 //! This module provides advanced AI/ML capabilities including:
 //! - Pattern recognition for market prediction
 //! - Strategy optimization using genetic algorithms
 //! - Risk assessment using ML models
 //! - Predictive timing for optimal trade execution
-//! 
+//!
 //! Phase 6B: Expected 20-30% improvement in risk-adjusted returns
 
-pub mod pattern_recognition;
-pub mod strategy_optimizer;
-pub mod risk_assessment;
-pub mod timing_predictor;
+pub mod advanced_analytics;
 pub mod data_preprocessor;
 pub mod model_manager;
-pub mod advanced_analytics;
+pub mod pattern_recognition;
+pub mod risk_assessment;
+pub mod strategy_optimizer;
+pub mod timing_predictor;
 
-pub use pattern_recognition::PatternRecognizer;
-pub use strategy_optimizer::StrategyOptimizer;
-pub use risk_assessment::RiskAssessor;
-pub use timing_predictor::{TimingPredictor, TimingPrediction, ExecutionStrategy, TradeDirection};
-pub use data_preprocessor::{DataPreprocessor, ProcessedFeatures, RawMarketData, DataQuality};
-pub use model_manager::{ModelManager, ModelMetadata, ModelType, PerformanceMetrics};
 pub use advanced_analytics::{
-    AdvancedAnalyticsEngine, AdvancedPrediction, MarketRegime, TradingAction,
-    OptimizationStrategy, RiskAssessment, EnsemblePrediction
+    AdvancedAnalyticsEngine, AdvancedPrediction, EnsemblePrediction, MarketRegime,
+    OptimizationStrategy, RiskAssessment, TradingAction,
 };
+pub use data_preprocessor::{DataPreprocessor, DataQuality, ProcessedFeatures, RawMarketData};
+pub use model_manager::{ModelManager, ModelMetadata, ModelType, PerformanceMetrics};
+pub use pattern_recognition::PatternRecognizer;
+pub use risk_assessment::RiskAssessor;
+pub use strategy_optimizer::StrategyOptimizer;
+pub use timing_predictor::{ExecutionStrategy, TimingPrediction, TimingPredictor, TradeDirection};
 
-use anyhow::Result;
 use crate::strategies::MarketData;
+use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 /// ML Configuration for the entire system
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,8 +70,6 @@ pub struct RiskAssessmentConfig {
     pub market_regimes: Vec<String>,
     pub risk_metrics: Vec<String>,
 }
-
-
 
 impl Default for MLConfig {
     fn default() -> Self {
@@ -112,7 +110,8 @@ impl Default for MLConfig {
                     "expected_shortfall".to_string(),
                     "volatility".to_string(),
                 ],
-            },            timing_predictor: timing_predictor::TimingPredictorConfig::default(),
+            },
+            timing_predictor: timing_predictor::TimingPredictorConfig::default(),
             data_retention_days: 90,
             model_update_interval_hours: 24,
             confidence_threshold: 0.75,
@@ -267,10 +266,13 @@ pub struct MLEngine {
 }
 
 impl MLEngine {
-    pub async fn new(config: MLConfig) -> Result<Self> {        let pattern_recognizer = PatternRecognizer::new(config.pattern_recognition.clone()).await?;
+    pub async fn new(config: MLConfig) -> Result<Self> {
+        let pattern_recognizer = PatternRecognizer::new(config.pattern_recognition.clone()).await?;
         let strategy_optimizer = StrategyOptimizer::new(config.strategy_optimizer.clone()).await?;
         let risk_assessor = RiskAssessor::new(config.risk_assessment.clone()).await?;
-        let timing_predictor = TimingPredictor::new(config.timing_predictor.clone());        let data_preprocessor = DataPreprocessor::new(data_preprocessor::DataPreprocessorConfig::default());
+        let timing_predictor = TimingPredictor::new(config.timing_predictor.clone());
+        let data_preprocessor =
+            DataPreprocessor::new(data_preprocessor::DataPreprocessorConfig::default());
         let model_manager = ModelManager::new(model_manager::ModelManagerConfig::default()).await?;
 
         Ok(Self {
@@ -282,28 +284,29 @@ impl MLEngine {
             data_preprocessor,
             model_manager,
             metrics: MLMetrics::new(),
-        })    }
+        })
+    }
 
     /// Generate comprehensive ML prediction for a trading opportunity
     pub async fn predict_trading_opportunity(
         &mut self,
         symbol: &str,
         market_data: &MarketData,
-    ) -> Result<MLPrediction> {        // Convert MarketData to RawMarketData format
+    ) -> Result<MLPrediction> {
+        // Convert MarketData to RawMarketData format
         let raw_data = vec![data_preprocessor::RawMarketData {
             timestamp: Utc::now(),
             symbol: symbol.to_string(),
             price: Some(market_data.current_price),
             volume: Some(market_data.volume_24h),
-            bid: None, // Not available in MarketData
-            ask: None, // Not available in MarketData
-            trades: None, // Not available in MarketData
+            bid: None,        // Not available in MarketData
+            ask: None,        // Not available in MarketData
+            trades: None,     // Not available in MarketData
             market_cap: None, // Not available in MarketData
         }];
-          // Preprocess data
-        let feature_vectors = self.data_preprocessor
-            .extract_features(&raw_data)?;
-            
+        // Preprocess data
+        let feature_vectors = self.data_preprocessor.extract_features(&raw_data)?;
+
         // Use the first feature vector (or combine them if multiple)
         let features = if let Some(first_features) = feature_vectors.first() {
             first_features
@@ -312,20 +315,21 @@ impl MLEngine {
         };
 
         // Get pattern recognition prediction
-        let pattern_prediction = self.pattern_recognizer
-            .predict_price_movement(features).await?;
+        let pattern_prediction = self
+            .pattern_recognizer
+            .predict_price_movement(features)
+            .await?;
 
         // Get risk assessment
-        let risk_score = self.risk_assessor
-            .assess_trade_risk(features).await?;// Get timing recommendation
-        let timing_score = self.timing_predictor
-            .predict_optimal_timing("SOL/USDC", 100.0, TradeDirection::Buy)?;// Combine predictions with weighted average
-        let combined_confidence = 
-            pattern_prediction.confidence * 0.4 +
-            risk_score.confidence * 0.3 +
-            timing_score.confidence * 0.3;        let combined_value = 
-            (pattern_prediction.value * 0.5 +
-            timing_score.confidence * 0.5) * (1.0 - risk_score.value); // Risk adjustment
+        let risk_score = self.risk_assessor.assess_trade_risk(features).await?; // Get timing recommendation
+        let timing_score =
+            self.timing_predictor
+                .predict_optimal_timing("SOL/USDC", 100.0, TradeDirection::Buy)?; // Combine predictions with weighted average
+        let combined_confidence = pattern_prediction.confidence * 0.4
+            + risk_score.confidence * 0.3
+            + timing_score.confidence * 0.3;
+        let combined_value = (pattern_prediction.value * 0.5 + timing_score.confidence * 0.5)
+            * (1.0 - risk_score.value); // Risk adjustment
 
         let mut prediction = MLPrediction::new(
             "combined_trading_opportunity".to_string(),
@@ -335,12 +339,15 @@ impl MLEngine {
             "v1.0".to_string(),
         );
 
-        prediction.add_metadata("pattern_prediction".to_string(), 
-            serde_json::to_value(&pattern_prediction)?);
-        prediction.add_metadata("risk_score".to_string(), 
-            serde_json::to_value(&risk_score)?);
-        prediction.add_metadata("timing_score".to_string(), 
-            serde_json::to_value(&timing_score)?);
+        prediction.add_metadata(
+            "pattern_prediction".to_string(),
+            serde_json::to_value(&pattern_prediction)?,
+        );
+        prediction.add_metadata("risk_score".to_string(), serde_json::to_value(&risk_score)?);
+        prediction.add_metadata(
+            "timing_score".to_string(),
+            serde_json::to_value(&timing_score)?,
+        );
 
         // Update metrics
         self.metrics.predictions_made += 1;
@@ -358,16 +365,22 @@ impl MLEngine {
         strategy_params: &HashMap<String, f64>,
     ) -> Result<HashMap<String, f64>> {
         self.strategy_optimizer
-            .optimize_parameters(historical_data, strategy_params).await
+            .optimize_parameters(historical_data, strategy_params)
+            .await
     }
 
     /// Update ML models with new market data
     pub async fn update_models(&mut self, training_data: &[FeatureVector]) -> Result<()> {
         self.pattern_recognizer.retrain(training_data).await?;
         self.risk_assessor.update_risk_models(training_data).await?;
-        self.timing_predictor.update_timing_models(training_data).await?;
-        
-        tracing::info!("ML models updated with {} training samples", training_data.len());
+        self.timing_predictor
+            .update_timing_models(training_data)
+            .await?;
+
+        tracing::info!(
+            "ML models updated with {} training samples",
+            training_data.len()
+        );
         Ok(())
     }
 
@@ -378,8 +391,7 @@ impl MLEngine {
 
     /// Check if ML system is ready for production use
     pub fn is_ready(&self) -> bool {
-        self.metrics.confidence_rate() >= 0.6 && 
-        self.metrics.predictions_made >= 100
+        self.metrics.confidence_rate() >= 0.6 && self.metrics.predictions_made >= 100
     }
 }
 
@@ -399,7 +411,7 @@ mod tests {
         let mut features = FeatureVector::new("SOL/USDC".to_string());
         features.add_feature("price".to_string(), 100.0);
         features.add_feature("volume".to_string(), 1000.0);
-        
+
         let vector = features.get_feature_vector();
         assert_eq!(vector.len(), 2);
     }
@@ -413,7 +425,7 @@ mod tests {
             vec!["rsi".to_string(), "volume".to_string()],
             "v1.0".to_string(),
         );
-        
+
         assert!(prediction.is_confident(0.8));
         assert!(!prediction.is_confident(0.95));
     }

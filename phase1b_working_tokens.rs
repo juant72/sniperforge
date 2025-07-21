@@ -9,7 +9,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::str::FromStr;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 use sniperforge::shared::orca_client::{OrcaClient, OrcaQuoteRequest};
 
@@ -53,7 +53,10 @@ async fn main() -> Result<()> {
     match create_usdc_devnet_account(&client, &wallet).await {
         Ok(signature) => {
             info!("✅ Cuenta USDC DevNet creada: {}", signature);
-            info!("   Explorer: https://explorer.solana.com/tx/{}?cluster=devnet", signature);
+            info!(
+                "   Explorer: https://explorer.solana.com/tx/{}?cluster=devnet",
+                signature
+            );
         }
         Err(e) => {
             warn!("⚠️ Error creando cuenta USDC DevNet: {}", e);
@@ -93,7 +96,7 @@ async fn main() -> Result<()> {
 
     // Verificar cambios finales
     info!("\n📊 === VERIFICANDO RESULTADOS FINALES ===");
-    
+
     let final_sol_balance = check_sol_balance(&client, &user_pubkey).await?;
     let usdc_balance = check_token_balance(&client, &user_pubkey, USDC_DEVNET).await;
 
@@ -109,7 +112,10 @@ async fn main() -> Result<()> {
         info!("   ✅ SOL gastado en fees: {:.6} SOL", -sol_change);
         info!("   ✅ Transacciones reales ejecutadas");
         if usdc_balance > 0.0 {
-            info!("   ✅ Cuenta USDC creada con balance: {} tokens", usdc_balance);
+            info!(
+                "   ✅ Cuenta USDC creada con balance: {} tokens",
+                usdc_balance
+            );
         }
     } else {
         warn!("⚠️ No se detectaron cambios (sin actividad)");
@@ -117,7 +123,14 @@ async fn main() -> Result<()> {
 
     info!("\n🎯 === RESUMEN FASE 1B ===");
     info!("   Objetivo: Actividad real en DevNet con tokens funcionales");
-    info!("   Estado: {}", if sol_change < 0.0 { "✅ EXITOSO" } else { "❌ REQUIERE REVISIÓN" });
+    info!(
+        "   Estado: {}",
+        if sol_change < 0.0 {
+            "✅ EXITOSO"
+        } else {
+            "❌ REQUIERE REVISIÓN"
+        }
+    );
     info!("   Próximo paso: Fase 2 - Arbitraje con tokens que funcionan");
 
     Ok(())
@@ -125,15 +138,13 @@ async fn main() -> Result<()> {
 
 async fn create_usdc_devnet_account(client: &RpcClient, wallet: &Keypair) -> Result<Signature> {
     info!("🏗️ Creando cuenta USDC DevNet oficial...");
-    
+
     let usdc_mint = Pubkey::from_str(USDC_DEVNET)?;
     let user_pubkey = wallet.pubkey();
 
     // Verificar si la cuenta ya existe
-    let associated_token_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &usdc_mint,
-    );
+    let associated_token_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &usdc_mint);
 
     if client.get_account(&associated_token_account).is_ok() {
         info!("ℹ️ Cuenta USDC ya existe: {}", associated_token_account);
@@ -161,9 +172,12 @@ async fn create_usdc_devnet_account(client: &RpcClient, wallet: &Keypair) -> Res
     Ok(signature)
 }
 
-async fn execute_multiple_transfers(client: &RpcClient, wallet: &Keypair) -> Result<Vec<Signature>> {
+async fn execute_multiple_transfers(
+    client: &RpcClient,
+    wallet: &Keypair,
+) -> Result<Vec<Signature>> {
     info!("🔄 Ejecutando transfers múltiples para generar actividad...");
-    
+
     let user_pubkey = wallet.pubkey();
     let mut signatures = Vec::new();
 
@@ -172,13 +186,14 @@ async fn execute_multiple_transfers(client: &RpcClient, wallet: &Keypair) -> Res
         let temp_account = Keypair::new();
         let transfer_amount = 1_000_000u64; // 0.001 SOL
 
-        info!("   Transfer {}: {} SOL a cuenta temporal", i, transfer_amount as f64 / 1_000_000_000.0);
-
-        let transfer_ix = system_instruction::transfer(
-            &user_pubkey,
-            &temp_account.pubkey(),
-            transfer_amount,
+        info!(
+            "   Transfer {}: {} SOL a cuenta temporal",
+            i,
+            transfer_amount as f64 / 1_000_000_000.0
         );
+
+        let transfer_ix =
+            system_instruction::transfer(&user_pubkey, &temp_account.pubkey(), transfer_amount);
 
         let recent_blockhash = client.get_latest_blockhash()?;
         let transaction = Transaction::new_signed_with_payer(
@@ -205,38 +220,36 @@ async fn execute_multiple_transfers(client: &RpcClient, wallet: &Keypair) -> Res
     Ok(signatures)
 }
 
-async fn wrap_unwrap_sol_cycle(client: &RpcClient, wallet: &Keypair) -> Result<(Signature, Signature)> {
+async fn wrap_unwrap_sol_cycle(
+    client: &RpcClient,
+    wallet: &Keypair,
+) -> Result<(Signature, Signature)> {
     info!("🔄 Ejecutando ciclo wrap/unwrap SOL...");
-    
+
     let user_pubkey = wallet.pubkey();
     let wrap_amount = 5_000_000u64; // 0.005 SOL
 
     // Crear cuenta de token para wrapped SOL
     let wsol_mint = Pubkey::from_str(SOL_MINT)?;
-    let wsol_account = spl_associated_token_account::get_associated_token_address(
-        &user_pubkey,
-        &wsol_mint,
-    );
+    let wsol_account =
+        spl_associated_token_account::get_associated_token_address(&user_pubkey, &wsol_mint);
 
     // PASO 1: Crear cuenta de wrapped SOL si no existe
     let mut instructions = Vec::new();
-    
+
     if client.get_account(&wsol_account).is_err() {
-        let create_ata_ix = spl_associated_token_account::instruction::create_associated_token_account(
-            &user_pubkey,
-            &user_pubkey,
-            &wsol_mint,
-            &spl_token::id(),
-        );
+        let create_ata_ix =
+            spl_associated_token_account::instruction::create_associated_token_account(
+                &user_pubkey,
+                &user_pubkey,
+                &wsol_mint,
+                &spl_token::id(),
+            );
         instructions.push(create_ata_ix);
     }
 
     // PASO 2: Transfer SOL a la cuenta de wrapped SOL
-    let transfer_ix = system_instruction::transfer(
-        &user_pubkey,
-        &wsol_account,
-        wrap_amount,
-    );
+    let transfer_ix = system_instruction::transfer(&user_pubkey, &wsol_account, wrap_amount);
     instructions.push(transfer_ix);
 
     // PASO 3: Sincronizar (wrap) el SOL
@@ -283,7 +296,7 @@ async fn wrap_unwrap_sol_cycle(client: &RpcClient, wallet: &Keypair) -> Result<(
 
 async fn load_wallet() -> Result<Keypair> {
     let wallet_path = "test-cli-arbitrage.json";
-    
+
     if std::path::Path::new(wallet_path).exists() {
         let wallet_data = std::fs::read_to_string(wallet_path)?;
         let secret_key: Vec<u8> = serde_json::from_str(&wallet_data)?;
@@ -306,10 +319,8 @@ async fn check_token_balance(client: &RpcClient, owner: &Pubkey, mint: &str) -> 
         Err(_) => return 0.0,
     };
 
-    let associated_token_account = spl_associated_token_account::get_associated_token_address(
-        owner,
-        &mint_pubkey,
-    );
+    let associated_token_account =
+        spl_associated_token_account::get_associated_token_address(owner, &mint_pubkey);
 
     match client.get_token_account_balance(&associated_token_account) {
         Ok(balance) => balance.ui_amount.unwrap_or(0.0),

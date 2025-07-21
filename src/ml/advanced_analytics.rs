@@ -1,16 +1,16 @@
 //! Advanced Analytics Module for Phase 6B
-//! 
+//!
 //! This module provides sophisticated ML-powered analytics including:
 //! - Multi-timeframe ensemble predictions
 //! - Real-time market regime detection
 //! - Advanced pattern recognition with neural networks
 //! - Portfolio optimization with ML insights
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use chrono::{DateTime, Duration, Utc};
+use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc, Duration};
-use ndarray::{Array1, Array2};
 
 use crate::shared::jupiter::JupiterClient;
 
@@ -61,7 +61,7 @@ pub struct MarketRegimeDetector {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum MarketRegime {
     Bull,           // Strong uptrend
-    Bear,           // Strong downtrend  
+    Bear,           // Strong downtrend
     Sideways,       // Range-bound
     HighVolatility, // Choppy/volatile
     LowVolatility,  // Stable/quiet
@@ -122,16 +122,16 @@ pub struct AdvancedPrediction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnsemblePrediction {
-    pub direction: f64,      // -1.0 to 1.0
-    pub magnitude: f64,      // Expected price change %
-    pub probability: f64,    // 0.0 to 1.0
-    pub time_horizon: u64,   // minutes
+    pub direction: f64,    // -1.0 to 1.0
+    pub magnitude: f64,    // Expected price change %
+    pub probability: f64,  // 0.0 to 1.0
+    pub time_horizon: u64, // minutes
     pub model_votes: HashMap<String, f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RiskAssessment {
-    pub overall_risk: f64,   // 0.0 to 1.0
+    pub overall_risk: f64, // 0.0 to 1.0
     pub volatility_risk: f64,
     pub liquidity_risk: f64,
     pub correlation_risk: f64,
@@ -161,7 +161,10 @@ impl AdvancedAnalyticsEngine {
     }
 
     /// Initialize with real market data connection
-    pub async fn initialize_with_market_data(&mut self, jupiter_client: JupiterClient) -> Result<()> {
+    pub async fn initialize_with_market_data(
+        &mut self,
+        jupiter_client: JupiterClient,
+    ) -> Result<()> {
         self.jupiter_client = Some(jupiter_client);
         self.calibrate_models().await?;
         Ok(())
@@ -174,23 +177,26 @@ impl AdvancedAnalyticsEngine {
         timeframe: &str,
         confidence_threshold: f64,
     ) -> Result<AdvancedPrediction> {
-        println!("🔮 Generating ensemble prediction for {} ({})", symbol, timeframe);
+        println!(
+            "🔮 Generating ensemble prediction for {} ({})",
+            symbol, timeframe
+        );
 
         // Get real market data if available
         let market_data = self.fetch_market_data(symbol).await?;
-        
+
         // Generate ensemble prediction
         let ensemble_prediction = self.model_ensemble.predict(&market_data)?;
-        
+
         // Detect current market regime
         let market_regime = self.market_regime_detector.detect_regime(&market_data)?;
-        
+
         // Assess risk
         let risk_assessment = self.assess_comprehensive_risk(&market_data).await?;
-        
+
         // Calculate model agreement
         let model_agreement = self.calculate_model_agreement(&ensemble_prediction);
-        
+
         // Determine recommended action
         let recommended_action = self.determine_trading_action(
             &ensemble_prediction,
@@ -217,19 +223,21 @@ impl AdvancedAnalyticsEngine {
         current_portfolio: &HashMap<String, f64>,
         optimization_strategy: OptimizationStrategy,
     ) -> Result<HashMap<String, f64>> {
-        println!("🎯 Optimizing portfolio using {} strategy", 
-                 match optimization_strategy {
-                     OptimizationStrategy::MaxSharpe => "Maximum Sharpe Ratio",
-                     OptimizationStrategy::MinVolatility => "Minimum Volatility",
-                     OptimizationStrategy::MLPredicted => "ML-Predicted Returns",
-                     _ => "Advanced Strategy",
-                 });
+        println!(
+            "🎯 Optimizing portfolio using {} strategy",
+            match optimization_strategy {
+                OptimizationStrategy::MaxSharpe => "Maximum Sharpe Ratio",
+                OptimizationStrategy::MinVolatility => "Minimum Volatility",
+                OptimizationStrategy::MLPredicted => "ML-Predicted Returns",
+                _ => "Advanced Strategy",
+            }
+        );
 
         self.portfolio_optimizer.optimization_strategy = optimization_strategy;
-        
+
         // Analyze current portfolio
         let risk_metrics = self.calculate_portfolio_risk(current_portfolio).await?;
-        
+
         // Generate predictions for all assets
         let mut asset_predictions = HashMap::new();
         for asset in current_portfolio.keys() {
@@ -252,13 +260,15 @@ impl AdvancedAnalyticsEngine {
     /// Calibrate all models with latest market data
     async fn calibrate_models(&mut self) -> Result<()> {
         println!("🔧 Calibrating ML models with latest market data...");
-        
+
         // This would involve retraining models with recent data
         // For Phase 6B demo, we'll simulate this process
-        
+
         self.model_ensemble.update_model_weights().await?;
-        self.market_regime_detector.update_regime_detection().await?;
-        
+        self.market_regime_detector
+            .update_regime_detection()
+            .await?;
+
         println!("✅ Model calibration complete");
         Ok(())
     }
@@ -268,14 +278,16 @@ impl AdvancedAnalyticsEngine {
         if let Some(ref client) = self.jupiter_client {
             // Fetch real data from Jupiter
             let sol_mint = "So11111111111111111111111111111111111111112";
-            let current_price = client.get_price(sol_mint).await?
+            let current_price = client
+                .get_price(sol_mint)
+                .await?
                 .ok_or_else(|| anyhow!("No price data available"))?;
-            
+
             Ok(MarketData {
                 symbol: symbol.to_string(),
                 current_price,
                 volume_24h: 50_000_000.0, // Would fetch real volume
-                price_change_24h: 0.025,   // Would calculate real change
+                price_change_24h: 0.025,  // Would calculate real change
                 timestamp: Utc::now(),
             })
         } else {
@@ -297,9 +309,9 @@ impl AdvancedAnalyticsEngine {
         let liquidity_risk = self.calculate_liquidity_risk(market_data)?;
         let correlation_risk = self.calculate_correlation_risk(market_data)?;
         let tail_risk = self.calculate_tail_risk(market_data)?;
-        
+
         let overall_risk = (volatility_risk + liquidity_risk + correlation_risk + tail_risk) / 4.0;
-        
+
         // Determine recommended position size based on risk
         let recommended_position_size = self.calculate_optimal_position_size(overall_risk)?;
 
@@ -319,12 +331,10 @@ impl AdvancedAnalyticsEngine {
         if votes.is_empty() {
             return 0.5;
         }
-        
+
         let mean = votes.iter().sum::<f64>() / votes.len() as f64;
-        let variance = votes.iter()
-            .map(|x| (x - mean).powi(2))
-            .sum::<f64>() / votes.len() as f64;
-        
+        let variance = votes.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / votes.len() as f64;
+
         // Lower variance = higher agreement
         1.0 - (variance / 0.25).min(1.0)
     }
@@ -336,7 +346,7 @@ impl AdvancedAnalyticsEngine {
         confidence_threshold: f64,
     ) -> Result<TradingAction> {
         let confidence = prediction.probability;
-        
+
         if confidence < confidence_threshold {
             return Ok(TradingAction::Wait {
                 until_condition: format!("Confidence above {:.1}%", confidence_threshold * 100.0),
@@ -344,7 +354,7 @@ impl AdvancedAnalyticsEngine {
         }
 
         let adjusted_size = risk.recommended_position_size;
-        
+
         match prediction.direction {
             d if d > 0.3 && confidence > 0.8 => Ok(TradingAction::StrongBuy {
                 confidence,
@@ -393,7 +403,10 @@ impl AdvancedAnalyticsEngine {
         Ok(risk_adjusted_size.max(0.05)) // Minimum 5% position
     }
 
-    async fn calculate_portfolio_risk(&self, _portfolio: &HashMap<String, f64>) -> Result<RiskMetrics> {
+    async fn calculate_portfolio_risk(
+        &self,
+        _portfolio: &HashMap<String, f64>,
+    ) -> Result<RiskMetrics> {
         // Simplified risk metrics calculation
         Ok(RiskMetrics {
             sharpe_ratio: 1.2,
@@ -480,13 +493,13 @@ impl ModelEnsemble {
         for (i, model) in self.models.iter().enumerate() {
             self.weights[i] = model.accuracy;
         }
-        
+
         // Normalize weights
         let total_weight: f64 = self.weights.iter().sum();
         for weight in &mut self.weights {
             *weight /= total_weight;
         }
-        
+
         Ok(())
     }
 
@@ -496,12 +509,12 @@ impl ModelEnsemble {
         model_votes.insert("LSTM".to_string(), 0.65);
         model_votes.insert("RandomForest".to_string(), 0.58);
         model_votes.insert("NeuralNetwork".to_string(), 0.72);
-        
+
         let direction = model_votes.values().sum::<f64>() / model_votes.len() as f64;
-        
+
         Ok(EnsemblePrediction {
             direction: direction - 0.5, // Convert to -0.5 to 0.5 range
-            magnitude: 0.025, // 2.5% expected move
+            magnitude: 0.025,           // 2.5% expected move
             probability: direction,
             time_horizon: 60, // 1 hour
             model_votes,
@@ -535,7 +548,7 @@ impl PortfolioOptimizer {
         _risk_metrics: &RiskMetrics,
     ) -> Result<HashMap<String, f64>> {
         let mut optimized = current_portfolio.clone();
-        
+
         // Simple optimization: increase allocation to assets with positive predictions
         for (asset, allocation) in optimized.iter_mut() {
             if let Some(prediction) = predictions.get(asset) {
@@ -546,13 +559,13 @@ impl PortfolioOptimizer {
                 }
             }
         }
-        
+
         // Normalize allocations to sum to 1.0
         let total: f64 = optimized.values().sum();
         for allocation in optimized.values_mut() {
             *allocation /= total;
         }
-        
+
         Ok(optimized)
     }
 }

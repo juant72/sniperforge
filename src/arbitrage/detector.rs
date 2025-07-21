@@ -1,12 +1,12 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, debug, error};
+use tracing::{debug, error, info};
 
-use crate::shared::network_config::NetworkConfig;
+use crate::arbitrage::types::{ArbitrageOpportunity, ArbitrageSettings};
 use crate::shared::jupiter_api::Jupiter;
 use crate::shared::jupiter_config::JupiterConfig;
-use crate::arbitrage::types::{ArbitrageOpportunity, ArbitrageSettings};
+use crate::shared::network_config::NetworkConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArbitrageDetectorConfig {
@@ -21,7 +21,7 @@ impl Default for ArbitrageDetectorConfig {
     fn default() -> Self {
         Self {
             min_profit_threshold: 0.005, // 0.5%
-            max_slippage: 0.01, // 1%
+            max_slippage: 0.01,          // 1%
             detection_interval_ms: 1000,
             execution_timeout_ms: 30000,
             enabled: true,
@@ -37,8 +37,11 @@ pub struct ArbitrageDetector {
 
 impl ArbitrageDetector {
     pub async fn new(config: NetworkConfig) -> Result<Self> {
-        debug!("Initializing ArbitrageDetector with config: {}", config.network);
-        
+        debug!(
+            "Initializing ArbitrageDetector with config: {}",
+            config.network
+        );
+
         // Temporalmente usar configuración por defecto
         let detector_config = ArbitrageDetectorConfig {
             min_profit_threshold: 5.0,
@@ -47,7 +50,7 @@ impl ArbitrageDetector {
             execution_timeout_ms: 30000,
             enabled: true,
         };
-        
+
         /*
         let detector_config = config.arbitrage_settings
             .as_ref()
@@ -91,20 +94,29 @@ impl ArbitrageDetector {
             return Ok(vec![]);
         }
 
-        debug!("Detecting arbitrage opportunities for {} -> {} (amount: {})", 
-               from_token, to_token, amount);
+        debug!(
+            "Detecting arbitrage opportunities for {} -> {} (amount: {})",
+            from_token, to_token, amount
+        );
 
         let mut opportunities = Vec::new();
 
         // Get Jupiter quote
-        match self.jupiter.get_quote(from_token, to_token, amount, 100).await {
+        match self
+            .jupiter
+            .get_quote(from_token, to_token, amount, 100)
+            .await
+        {
             Ok(jupiter_quote) => {
-                debug!("Jupiter quote received: {:.6} tokens out", jupiter_quote.out_amount());
-                
-                // For now, simulate other DEX prices (in a real implementation, 
+                debug!(
+                    "Jupiter quote received: {:.6} tokens out",
+                    jupiter_quote.out_amount()
+                );
+
+                // For now, simulate other DEX prices (in a real implementation,
                 // you'd query actual DEX APIs like Orca, Raydium, etc.)
                 let jupiter_price = jupiter_quote.out_amount() / amount;
-                
+
                 // Simulate price variations to detect arbitrage opportunities
                 let price_variations = vec![
                     ("Jupiter", jupiter_price),
@@ -117,10 +129,10 @@ impl ArbitrageDetector {
                     for (j, (sell_dex, sell_price)) in price_variations.iter().enumerate() {
                         if i != j && sell_price > buy_price {
                             let profit_percentage = (sell_price - buy_price) / buy_price;
-                            
+
                             if profit_percentage >= self.detector_config.min_profit_threshold {
                                 let profit_amount = amount * profit_percentage;
-                                
+
                                 let opportunity = ArbitrageOpportunity {
                                     buy_dex: buy_dex.to_string(),
                                     sell_dex: sell_dex.to_string(),
@@ -148,12 +160,21 @@ impl ArbitrageDetector {
         }
 
         // Sort opportunities by profit percentage (highest first)
-        opportunities.sort_by(|a, b| b.profit_percentage.partial_cmp(&a.profit_percentage).unwrap());
+        opportunities.sort_by(|a, b| {
+            b.profit_percentage
+                .partial_cmp(&a.profit_percentage)
+                .unwrap()
+        });
 
         info!("Found {} arbitrage opportunities", opportunities.len());
         for (i, opp) in opportunities.iter().enumerate() {
-            debug!("Opportunity {}: {} -> {} (profit: {:.2}%)", 
-                   i + 1, opp.buy_dex, opp.sell_dex, opp.profit_percentage * 100.0);
+            debug!(
+                "Opportunity {}: {} -> {} (profit: {:.2}%)",
+                i + 1,
+                opp.buy_dex,
+                opp.sell_dex,
+                opp.profit_percentage * 100.0
+            );
         }
 
         Ok(opportunities)
@@ -181,7 +202,7 @@ impl ArbitrageDetector {
         // - Check token balances
         // - Verify DEX liquidity
         // - Validate price feeds are recent
-        
+
         Ok(true)
     }
 }

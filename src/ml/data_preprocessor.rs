@@ -1,10 +1,10 @@
 //! Data Preprocessor Module
-//! 
+//!
 //! Handles data cleaning, feature engineering, and preparation for ML models.
 //! Ensures high-quality input data for pattern recognition and optimization.
 
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc, Datelike, Timelike};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use tracing::{debug, info, warn};
@@ -23,7 +23,7 @@ pub struct DataPreprocessorConfig {
 impl Default for DataPreprocessorConfig {
     fn default() -> Self {
         Self {
-            max_missing_ratio: 0.1, // Max 10% missing data
+            max_missing_ratio: 0.1,     // Max 10% missing data
             outlier_std_threshold: 3.0, // 3 standard deviations
             smoothing_window: 5,
             feature_lag_periods: vec![1, 3, 5, 10, 20],
@@ -138,7 +138,7 @@ impl DataPreprocessor {
     /// Create a new data preprocessor
     pub fn new(config: DataPreprocessorConfig) -> Self {
         info!("Initializing Data Preprocessor with config: {:?}", config);
-        
+
         Self {
             config,
             price_history: VecDeque::with_capacity(1000),
@@ -161,13 +161,13 @@ impl DataPreprocessor {
 
         // Step 1: Clean and validate data
         let cleaned_data = self.clean_data(raw_data)?;
-        
+
         // Step 2: Calculate technical indicators
         let indicators = self.calculate_technical_indicators(&cleaned_data)?;
-        
+
         // Step 3: Engineer features
         let mut processed_features = Vec::new();
-        
+
         for (data, indicator) in cleaned_data.iter().zip(indicators.iter()) {
             if let Some(features) = self.engineer_features(data, indicator)? {
                 processed_features.push(features);
@@ -176,28 +176,34 @@ impl DataPreprocessor {
 
         // Step 4: Normalize features
         self.normalize_features(&mut processed_features)?;
-        
+
         // Step 5: Update quality tracking
         self.update_quality_tracking(&processed_features);
 
-        info!("Successfully processed {} feature vectors", processed_features.len());
+        info!(
+            "Successfully processed {} feature vectors",
+            processed_features.len()
+        );
         Ok(processed_features)
     }
 
     /// Extract features from cleaned market data
-    pub fn extract_features(&self, market_data: &[RawMarketData]) -> Result<Vec<super::FeatureVector>> {
+    pub fn extract_features(
+        &self,
+        market_data: &[RawMarketData],
+    ) -> Result<Vec<super::FeatureVector>> {
         let mut feature_vectors = Vec::new();
-        
+
         for data in market_data {
             if let Some(price) = data.price {
                 let mut features = super::FeatureVector::new(data.symbol.clone());
-                
+
                 // Basic price features
                 features.add_feature("price".to_string(), price);
-                  if let Some(volume) = data.volume {
+                if let Some(volume) = data.volume {
                     features.add_feature("volume".to_string(), volume);
                 }
-                
+
                 // Calculate bid-ask spread if both bid and ask are available
                 if let (Some(bid), Some(ask)) = (data.bid, data.ask) {
                     let bid_ask_spread = ask - bid;
@@ -205,15 +211,18 @@ impl DataPreprocessor {
                     features.add_feature("bid".to_string(), bid);
                     features.add_feature("ask".to_string(), ask);
                 }
-                
+
                 // Time-based features
                 features.add_feature("hour".to_string(), data.timestamp.hour() as f64);
-                features.add_feature("weekday".to_string(), data.timestamp.weekday().num_days_from_monday() as f64);
-                
+                features.add_feature(
+                    "weekday".to_string(),
+                    data.timestamp.weekday().num_days_from_monday() as f64,
+                );
+
                 feature_vectors.push(features);
             }
         }
-        
+
         Ok(feature_vectors)
     }
 
@@ -223,7 +232,7 @@ impl DataPreprocessor {
 
         for data in raw_data {
             let mut clean_data = data.clone();
-            
+
             // Handle missing prices
             if clean_data.price.is_none() {
                 match self.config.handle_missing {
@@ -244,11 +253,12 @@ impl DataPreprocessor {
             if let Some(price) = clean_data.price {
                 if self.is_outlier("price", price) {
                     warn!("Outlier detected in price: {} at {}", price, data.timestamp);
-                    self.quality_tracker.outlier_counts
+                    self.quality_tracker
+                        .outlier_counts
                         .entry("price".to_string())
                         .and_modify(|e| *e += 1)
                         .or_insert(1);
-                    
+
                     // Replace outlier with interpolated value
                     clean_data.price = self.interpolate_price(&data.timestamp);
                 }
@@ -304,20 +314,14 @@ impl DataPreprocessor {
 
             // Calculate SMAs
             if i >= 4 {
-                let prices: Vec<f64> = data[(i-4)..=i]
-                    .iter()
-                    .filter_map(|d| d.price)
-                    .collect();
+                let prices: Vec<f64> = data[(i - 4)..=i].iter().filter_map(|d| d.price).collect();
                 if prices.len() == 5 {
                     indicator.sma_5 = Some(prices.iter().sum::<f64>() / 5.0);
                 }
             }
 
             if i >= 19 {
-                let prices: Vec<f64> = data[(i-19)..=i]
-                    .iter()
-                    .filter_map(|d| d.price)
-                    .collect();
+                let prices: Vec<f64> = data[(i - 19)..=i].iter().filter_map(|d| d.price).collect();
                 if prices.len() == 20 {
                     indicator.sma_20 = Some(prices.iter().sum::<f64>() / 20.0);
                 }
@@ -325,28 +329,25 @@ impl DataPreprocessor {
 
             // Calculate price changes
             if i >= 1 {
-                if let Some(prev_price) = data[i-1].price {
+                if let Some(prev_price) = data[i - 1].price {
                     indicator.price_change_1 = Some((price - prev_price) / prev_price);
                 }
             }
 
             if i >= 5 {
-                if let Some(prev_price) = data[i-5].price {
+                if let Some(prev_price) = data[i - 5].price {
                     indicator.price_change_5 = Some((price - prev_price) / prev_price);
                 }
             }
 
             // Calculate RSI (simplified version)
             if i >= 13 {
-                indicator.rsi_14 = self.calculate_rsi(&data[(i-13)..=i]);
+                indicator.rsi_14 = self.calculate_rsi(&data[(i - 13)..=i]);
             }
 
             // Calculate volume ratio
             if i >= 4 {
-                let volumes: Vec<f64> = data[(i-4)..=i]
-                    .iter()
-                    .filter_map(|d| d.volume)
-                    .collect();
+                let volumes: Vec<f64> = data[(i - 4)..=i].iter().filter_map(|d| d.volume).collect();
                 if volumes.len() == 5 {
                     let avg_volume = volumes.iter().sum::<f64>() / 5.0;
                     if avg_volume > 0.0 {
@@ -477,21 +478,17 @@ impl DataPreprocessor {
         }
 
         let num_features = features[0].features.len();
-        
+
         for feature_idx in 0..num_features {
-            let values: Vec<f64> = features
-                .iter()
-                .map(|f| f.features[feature_idx])
-                .collect();
+            let values: Vec<f64> = features.iter().map(|f| f.features[feature_idx]).collect();
 
             if values.is_empty() {
                 continue;
             }
 
             let mean = values.iter().sum::<f64>() / values.len() as f64;
-            let variance = values.iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f64>() / values.len() as f64;
+            let variance =
+                values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / values.len() as f64;
             let std = variance.sqrt();
 
             // Update statistics
@@ -513,9 +510,10 @@ impl DataPreprocessor {
             }
 
             // Apply normalization
-            if std > 1e-10 { // Avoid division by zero
+            if std > 1e-10 {
+                // Avoid division by zero
                 for feature_set in features.iter_mut() {
-                    feature_set.features[feature_idx] = 
+                    feature_set.features[feature_idx] =
                         (feature_set.features[feature_idx] - mean) / std;
                 }
             }
@@ -531,12 +529,9 @@ impl DataPreprocessor {
         }
 
         let num_features = features[0].features.len();
-        
+
         for feature_idx in 0..num_features {
-            let values: Vec<f64> = features
-                .iter()
-                .map(|f| f.features[feature_idx])
-                .collect();
+            let values: Vec<f64> = features.iter().map(|f| f.features[feature_idx]).collect();
 
             if values.is_empty() {
                 continue;
@@ -546,9 +541,10 @@ impl DataPreprocessor {
             let max_val = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
             let range = max_val - min_val;
 
-            if range > 1e-10 { // Avoid division by zero
+            if range > 1e-10 {
+                // Avoid division by zero
                 for feature_set in features.iter_mut() {
-                    feature_set.features[feature_idx] = 
+                    feature_set.features[feature_idx] =
                         (feature_set.features[feature_idx] - min_val) / range;
                 }
             }
@@ -564,12 +560,9 @@ impl DataPreprocessor {
         }
 
         let num_features = features[0].features.len();
-        
+
         for feature_idx in 0..num_features {
-            let values: Vec<f64> = features
-                .iter()
-                .map(|f| f.features[feature_idx])
-                .collect();
+            let values: Vec<f64> = features.iter().map(|f| f.features[feature_idx]).collect();
 
             if values.is_empty() {
                 continue;
@@ -580,9 +573,10 @@ impl DataPreprocessor {
             let q75 = self.calculate_percentile(&values, 0.75);
             let iqr = q75 - q25;
 
-            if iqr > 1e-10 { // Avoid division by zero
+            if iqr > 1e-10 {
+                // Avoid division by zero
                 for feature_set in features.iter_mut() {
-                    feature_set.features[feature_idx] = 
+                    feature_set.features[feature_idx] =
                         (feature_set.features[feature_idx] - median) / iqr;
                 }
             }
@@ -601,7 +595,7 @@ impl DataPreprocessor {
         let mut losses = Vec::new();
 
         for i in 1..data.len() {
-            if let (Some(current), Some(previous)) = (data[i].price, data[i-1].price) {
+            if let (Some(current), Some(previous)) = (data[i].price, data[i - 1].price) {
                 let change = current - previous;
                 if change > 0.0 {
                     gains.push(change);
@@ -675,16 +669,14 @@ impl DataPreprocessor {
 
     /// Calculate feature quality score
     fn calculate_feature_quality(&self, features: &[f64]) -> f64 {
-        let completeness = features.iter()
-            .filter(|f| f.is_finite())
-            .count() as f64 / features.len() as f64;
-        
+        let completeness =
+            features.iter().filter(|f| f.is_finite()).count() as f64 / features.len() as f64;
+
         let consistency = if features.len() > 1 {
             let mean = features.iter().sum::<f64>() / features.len() as f64;
-            let variance = features.iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f64>() / features.len() as f64;
-            
+            let variance =
+                features.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / features.len() as f64;
+
             // Lower variance indicates more consistency
             (1.0 / (1.0 + variance)).clamp(0.0, 1.0)
         } else {
@@ -698,7 +690,7 @@ impl DataPreprocessor {
     fn calculate_median(&self, values: &[f64]) -> f64 {
         let mut sorted = values.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let len = sorted.len();
         if len % 2 == 0 {
             (sorted[len / 2 - 1] + sorted[len / 2]) / 2.0
@@ -711,7 +703,7 @@ impl DataPreprocessor {
     fn calculate_percentile(&self, values: &[f64], percentile: f64) -> f64 {
         let mut sorted = values.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let index = (percentile * (sorted.len() - 1) as f64).round() as usize;
         sorted[index.min(sorted.len() - 1)]
     }
@@ -719,33 +711,34 @@ impl DataPreprocessor {
     /// Update quality tracking
     fn update_quality_tracking(&mut self, features: &[ProcessedFeatures]) {
         for feature_set in features {
-            self.quality_tracker.recent_quality_scores
+            self.quality_tracker
+                .recent_quality_scores
                 .push_back(feature_set.quality_score);
-            
+
             if self.quality_tracker.recent_quality_scores.len() > 100 {
                 self.quality_tracker.recent_quality_scores.pop_front();
             }
         }
-        
+
         self.quality_tracker.total_samples += features.len();
     }
 
     /// Get current data quality metrics
     pub fn get_data_quality(&self) -> DataQuality {
         let completeness = if self.quality_tracker.total_samples > 0 {
-            self.quality_tracker.recent_quality_scores
+            self.quality_tracker
+                .recent_quality_scores
                 .iter()
-                .sum::<f64>() / self.quality_tracker.recent_quality_scores.len() as f64
+                .sum::<f64>()
+                / self.quality_tracker.recent_quality_scores.len() as f64
         } else {
             0.0
         };
 
         let consistency = 0.85; // Placeholder - would calculate from actual consistency metrics
-        
+
         let outlier_ratio = if self.quality_tracker.total_samples > 0 {
-            let total_outliers: usize = self.quality_tracker.outlier_counts
-                .values()
-                .sum();
+            let total_outliers: usize = self.quality_tracker.outlier_counts.values().sum();
             total_outliers as f64 / self.quality_tracker.total_samples as f64
         } else {
             0.0
@@ -782,7 +775,7 @@ mod tests {
     fn test_data_preprocessor_creation() {
         let config = DataPreprocessorConfig::default();
         let preprocessor = DataPreprocessor::new(config);
-        
+
         assert_eq!(preprocessor.price_history.len(), 0);
         assert_eq!(preprocessor.feature_stats.len(), 0);
     }
@@ -791,20 +784,18 @@ mod tests {
     fn test_process_market_data() {
         let config = DataPreprocessorConfig::default();
         let mut preprocessor = DataPreprocessor::new(config);
-        
-        let raw_data = vec![
-            RawMarketData {
-                timestamp: Utc::now(),
-                symbol: "SOL/USDC".to_string(),
-                price: Some(100.0),
-                volume: Some(1000.0),
-                bid: Some(99.5),
-                ask: Some(100.5),
-                trades: Some(50),
-                market_cap: Some(1_000_000.0),
-            },
-        ];
-        
+
+        let raw_data = vec![RawMarketData {
+            timestamp: Utc::now(),
+            symbol: "SOL/USDC".to_string(),
+            price: Some(100.0),
+            volume: Some(1000.0),
+            bid: Some(99.5),
+            ask: Some(100.5),
+            trades: Some(50),
+            market_cap: Some(1_000_000.0),
+        }];
+
         let result = preprocessor.process_market_data(&raw_data).unwrap();
         assert!(!result.is_empty());
         assert!(!result[0].features.is_empty());
@@ -814,7 +805,7 @@ mod tests {
     fn test_feature_engineering() {
         let config = DataPreprocessorConfig::default();
         let preprocessor = DataPreprocessor::new(config);
-        
+
         let data = RawMarketData {
             timestamp: Utc::now(),
             symbol: "SOL/USDC".to_string(),
@@ -841,10 +832,10 @@ mod tests {
             price_change_5: Some(0.05),
             volume_ratio: Some(1.2),
         };
-        
+
         let result = preprocessor.engineer_features(&data, &indicators).unwrap();
         assert!(result.is_some());
-        
+
         let features = result.unwrap();
         assert!(!features.features.is_empty());
         assert_eq!(features.features.len(), features.feature_names.len());

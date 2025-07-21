@@ -1,19 +1,19 @@
 //! Helius WebSocket Client para Pool Detection en Tiempo Real
-//! 
+//!
 //! Cliente especializado para detectar transacciones de creación de pools
 //! usando Helius WebSocket API y filtros de program subscriptions
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
+use base64;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{mpsc, RwLock};
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tracing::{info, warn, debug, error};
-use base64;
+use tracing::{debug, error, info, warn};
 // REMOVED: use rand; - no more random data generation
 
 /// Helius WebSocket configuration
@@ -30,7 +30,7 @@ impl Default for HeliusConfig {
     fn default() -> Self {
         let api_key = std::env::var("HELIUS_API_KEY")
             .unwrap_or_else(|_| "062bf3dd-23d4-4ffd-99fd-6e397ee59d6c".to_string());
-            
+
         Self {
             api_key: api_key.clone(),
             mainnet_endpoint: std::env::var("HELIUS_MAINNET_WS")
@@ -48,7 +48,7 @@ impl HeliusConfig {
     pub fn mainnet() -> Self {
         Self::default()
     }
-    
+
     /// Create devnet configuration  
     pub fn devnet() -> Self {
         Self::default()
@@ -83,7 +83,7 @@ impl HeliusWebSocketClient {
     pub async fn new(config: HeliusConfig) -> Result<Self> {
         info!("🚀 Initializing Helius Pool Detection WebSocket Client");
         info!("   Mainnet endpoint: {}", config.mainnet_endpoint);
-        
+
         Ok(Self {
             config,
             pool_receiver: None,
@@ -91,7 +91,7 @@ impl HeliusWebSocketClient {
             last_ping: Arc::new(RwLock::new(Instant::now())),
         })
     }
-    
+
     /// Start monitoring pool creation transactions
     pub async fn start_pool_monitoring(&mut self, network: &str) -> Result<()> {
         let endpoint = match network {
@@ -99,26 +99,28 @@ impl HeliusWebSocketClient {
             "devnet" => &self.config.devnet_endpoint,
             _ => return Err(anyhow!("Invalid network: {}", network)),
         };
-        
+
         info!("📡 Connecting to Helius {} for pool detection...", network);
-        
+
         let (tx, rx) = mpsc::unbounded_channel();
         self.pool_receiver = Some(rx);
-          let endpoint = endpoint.to_string();
+        let endpoint = endpoint.to_string();
         let config = self.config.clone();
         let is_connected = self.is_connected.clone();
         let last_ping = self.last_ping.clone();
-        
+
         // Spawn background task for WebSocket connection
         tokio::spawn(async move {
-            if let Err(e) = Self::websocket_task(&endpoint, tx, is_connected, last_ping, config).await {
+            if let Err(e) =
+                Self::websocket_task(&endpoint, tx, is_connected, last_ping, config).await
+            {
                 error!("❌ Helius WebSocket task failed: {}", e);
             }
         });
-        
+
         // Wait for connection
         tokio::time::sleep(Duration::from_millis(1000)).await;
-        
+
         if *self.is_connected.read().await {
             info!("✅ Helius pool monitoring started successfully");
             Ok(())
@@ -126,7 +128,7 @@ impl HeliusWebSocketClient {
             Err(anyhow!("Failed to establish Helius WebSocket connection"))
         }
     }
-    
+
     /// Background WebSocket task
     async fn websocket_task(
         endpoint: &str,
@@ -135,31 +137,33 @@ impl HeliusWebSocketClient {
         last_ping: Arc<RwLock<Instant>>,
         config: HeliusConfig,
     ) -> Result<()> {
-        
         for attempt in 1..=config.reconnect_attempts {
-            match Self::connect_and_monitor(
-                endpoint, 
-                &pool_sender, 
-                &is_connected, 
-                &last_ping
-            ).await {
+            match Self::connect_and_monitor(endpoint, &pool_sender, &is_connected, &last_ping).await
+            {
                 Ok(_) => {
                     info!("✅ Helius WebSocket connection established");
                     break;
                 }
                 Err(e) => {
-                    warn!("⚠️ Helius connection attempt {}/{} failed: {}", attempt, config.reconnect_attempts, e);
+                    warn!(
+                        "⚠️ Helius connection attempt {}/{} failed: {}",
+                        attempt, config.reconnect_attempts, e
+                    );
                     if attempt == config.reconnect_attempts {
-                        return Err(anyhow!("Failed to connect after {} attempts", config.reconnect_attempts));
+                        return Err(anyhow!(
+                            "Failed to connect after {} attempts",
+                            config.reconnect_attempts
+                        ));
                     }
-                    tokio::time::sleep(Duration::from_secs(2_u64.pow(attempt - 1))).await; // Exponential backoff
+                    tokio::time::sleep(Duration::from_secs(2_u64.pow(attempt - 1))).await;
+                    // Exponential backoff
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Connect and monitor pool creation transactions
     async fn connect_and_monitor(
         endpoint: &str,
@@ -167,28 +171,27 @@ impl HeliusWebSocketClient {
         is_connected: &Arc<RwLock<bool>>,
         last_ping: &Arc<RwLock<Instant>>,
     ) -> Result<()> {
-        
         let (ws_stream, _) = connect_async(endpoint).await?;
         let (mut write, mut read) = ws_stream.split();
-        
+
         *is_connected.write().await = true;
         *last_ping.write().await = Instant::now();
-        
+
         // Subscribe to relevant programs for pool creation
         let subscriptions = vec![
             // Raydium AMM program
             Self::create_program_subscription("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"),
-            // Orca Whirlpool program  
+            // Orca Whirlpool program
             Self::create_program_subscription("whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"),
             // Serum DEX program
             Self::create_program_subscription("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"),
-        ];        // Send all subscriptions
+        ]; // Send all subscriptions
         for subscription in subscriptions {
             let msg = Message::Text(subscription.into());
             write.send(msg).await?;
             info!("📡 Sent program subscription to Helius");
         }
-        
+
         // Main message processing loop
         while let Some(msg) = read.next().await {
             match msg {
@@ -213,11 +216,11 @@ impl HeliusWebSocketClient {
                 _ => {}
             }
         }
-        
+
         *is_connected.write().await = false;
         Ok(())
     }
-    
+
     /// Create program subscription for pool detection
     fn create_program_subscription(program_id: &str) -> String {
         serde_json::json!({
@@ -236,56 +239,67 @@ impl HeliusWebSocketClient {
                     "commitment": "confirmed"
                 }
             ]
-        }).to_string()
+        })
+        .to_string()
     }
-      /// Process WebSocket message and detect pool creations
+    /// Process WebSocket message and detect pool creations
     async fn process_message(
-        message: &str, 
-        pool_sender: &mpsc::UnboundedSender<HeliusPoolCreation>
+        message: &str,
+        pool_sender: &mpsc::UnboundedSender<HeliusPoolCreation>,
     ) -> Result<()> {
         let parsed: Value = serde_json::from_str(message)?;
-        
+
         // Check if this is a program notification
         if let Some(method) = parsed.get("method").and_then(|m| m.as_str()) {
             if method == "programNotification" {
                 if let Some(params) = parsed.get("params") {
                     if let Some(result) = params.get("result") {
                         // Try to detect pool creation from different DEXs
-                        if let Some(pool_creation) = Self::detect_raydium_pool_creation(result).await? {
-                            debug!("🚀 Detected Raydium pool creation: {}", pool_creation.pool_address);
+                        if let Some(pool_creation) =
+                            Self::detect_raydium_pool_creation(result).await?
+                        {
+                            debug!(
+                                "🚀 Detected Raydium pool creation: {}",
+                                pool_creation.pool_address
+                            );
                             let _ = pool_sender.send(pool_creation);
-                        } else if let Some(pool_creation) = Self::detect_orca_pool_creation(result).await? {
-                            debug!("🚀 Detected Orca pool creation: {}", pool_creation.pool_address);
+                        } else if let Some(pool_creation) =
+                            Self::detect_orca_pool_creation(result).await?
+                        {
+                            debug!(
+                                "🚀 Detected Orca pool creation: {}",
+                                pool_creation.pool_address
+                            );
                             let _ = pool_sender.send(pool_creation);
                         }
                     }
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Detect Raydium pool creation from program notification
     async fn detect_raydium_pool_creation(result: &Value) -> Result<Option<HeliusPoolCreation>> {
         // Check if this is a Raydium program notification
         let context = result.get("context").and_then(|c| c.get("slot"));
         let account_info = result.get("value");
-        
+
         if let (Some(slot), Some(account)) = (context, account_info) {
             let slot_num = slot.as_u64().unwrap_or(0);
-            
+
             // Check if this is account creation/initialization
             if let Some(data) = account.get("data").and_then(|d| d.as_array()) {
                 if data.len() >= 2 {
                     let data_str = data[0].as_str().unwrap_or("");
                     let encoding = data[1].as_str().unwrap_or("");
-                    
+
                     if encoding == "base64" && Self::is_raydium_pool_init(data_str) {
                         // Extract pool information from Raydium account data
                         let pool_address = Self::generate_pool_address(); // In real implementation, extract from context
                         let (token_a, token_b) = Self::extract_raydium_tokens(data_str)?;
-                        
+
                         return Ok(Some(HeliusPoolCreation {
                             pool_address,
                             token_a_mint: token_a,
@@ -295,34 +309,34 @@ impl HeliusWebSocketClient {
                             block_time: SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs(),
                             dex: "Raydium".to_string(),
                             creator: "unknown".to_string(), // Would extract from transaction
-                            initial_liquidity: None, // Would calculate from token amounts
+                            initial_liquidity: None,        // Would calculate from token amounts
                         }));
                     }
                 }
             }
         }
-        
+
         Ok(None)
     }
-    
+
     /// Detect Orca pool creation from program notification  
     async fn detect_orca_pool_creation(result: &Value) -> Result<Option<HeliusPoolCreation>> {
         // Similar logic for Orca pools
         let context = result.get("context").and_then(|c| c.get("slot"));
         let account_info = result.get("value");
-        
+
         if let (Some(slot), Some(account)) = (context, account_info) {
             let slot_num = slot.as_u64().unwrap_or(0);
-            
+
             if let Some(data) = account.get("data").and_then(|d| d.as_array()) {
                 if data.len() >= 2 {
                     let data_str = data[0].as_str().unwrap_or("");
                     let encoding = data[1].as_str().unwrap_or("");
-                    
+
                     if encoding == "base64" && Self::is_orca_pool_init(data_str) {
                         let pool_address = Self::generate_pool_address();
                         let (token_a, token_b) = Self::extract_orca_tokens(data_str)?;
-                        
+
                         return Ok(Some(HeliusPoolCreation {
                             pool_address,
                             token_a_mint: token_a,
@@ -338,9 +352,9 @@ impl HeliusWebSocketClient {
                 }
             }
         }
-          Ok(None)
+        Ok(None)
     }
-    
+
     /// Check if account data represents Raydium pool initialization
     fn is_raydium_pool_init(data: &str) -> bool {
         // Raydium pool accounts have specific patterns
@@ -348,7 +362,9 @@ impl HeliusWebSocketClient {
         data.len() > 500 && {
             // Look for Raydium-specific discriminators or patterns
             use base64::Engine;
-            let decoded = base64::engine::general_purpose::STANDARD.decode(data).unwrap_or_default();
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(data)
+                .unwrap_or_default();
             decoded.len() > 100 && 
             // Check for specific byte patterns that indicate Raydium pool structure
             decoded.get(0..8).is_some_and(|prefix| {
@@ -364,41 +380,51 @@ impl HeliusWebSocketClient {
         // Orca (Whirlpool) pools have different patterns
         data.len() > 300 && {
             use base64::Engine;
-            let decoded = base64::engine::general_purpose::STANDARD.decode(data).unwrap_or_default();
+            let decoded = base64::engine::general_purpose::STANDARD
+                .decode(data)
+                .unwrap_or_default();
             decoded.len() > 100 &&
             // Check for Orca/Whirlpool-specific patterns
             decoded.get(0..8).is_some_and(|prefix| {
                 prefix[0] == 0x02 || // Whirlpool discriminator
                 prefix[0] == 0x03    // Whirlpool position
-            })        }
+            })
+        }
     }
-    
+
     /// Extract token mints from Raydium pool data
     fn extract_raydium_tokens(data: &str) -> Result<(String, String)> {
         use base64::Engine;
         let decoded = base64::engine::general_purpose::STANDARD.decode(data)?;
-        
+
         if decoded.len() >= 128 {
             // Raydium pool structure typically has token mints at specific offsets
             // These offsets are based on the Raydium program's account layout
             let token_a_start = 32; // Typical offset for token A mint
             let token_b_start = 64; // Typical offset for token B mint
-            
+
             if decoded.len() >= token_b_start + 32 {
                 let token_a_bytes = &decoded[token_a_start..token_a_start + 32];
                 let token_b_bytes = &decoded[token_b_start..token_b_start + 32];
-                
+
                 let token_a = bs58::encode(token_a_bytes).into_string();
                 let token_b = bs58::encode(token_b_bytes).into_string();
-                
+
                 return Ok((token_a, token_b));
             }
         }
-        
+
         // Fallback to placeholder values for now
         Ok((
             "So11111111111111111111111111111111111111112".to_string(), // SOL
-            format!("UNKNOWN_TOKEN_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
+            format!(
+                "UNKNOWN_TOKEN_{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    % 100000
+            ),
         ))
     }
 
@@ -406,37 +432,51 @@ impl HeliusWebSocketClient {
     fn extract_orca_tokens(data: &str) -> Result<(String, String)> {
         use base64::Engine;
         let decoded = base64::engine::general_purpose::STANDARD.decode(data)?;
-        
+
         if decoded.len() >= 96 {
             // Orca/Whirlpool structure has different layout
             let token_a_start = 16; // Different offset for Orca
             let token_b_start = 48;
-            
+
             if decoded.len() >= token_b_start + 32 {
                 let token_a_bytes = &decoded[token_a_start..token_a_start + 32];
                 let token_b_bytes = &decoded[token_b_start..token_b_start + 32];
-                
+
                 let token_a = bs58::encode(token_a_bytes).into_string();
                 let token_b = bs58::encode(token_b_bytes).into_string();
-                
+
                 return Ok((token_a, token_b));
             }
         }
-        
+
         // Fallback
         Ok((
             "So11111111111111111111111111111111111111112".to_string(),
-            format!("UNKNOWN_ORCA_TOKEN_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
+            format!(
+                "UNKNOWN_ORCA_TOKEN_{}",
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    % 100000
+            ),
         ))
     }
-    
+
     /// REMOVED: Pool address generation disabled - extract from real account data
     fn generate_pool_address() -> String {
         error!("🚫 FAKE POOL ADDRESS GENERATION DISABLED - Use real account data");
         // Return timestamp-based placeholder until real implementation
-        format!("PLACEHOLDER_POOL_{}", SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() % 100000)
+        format!(
+            "PLACEHOLDER_POOL_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                % 100000
+        )
     }
-    
+
     /// Receive next pool creation notification
     pub async fn receive_pool_creation(&mut self) -> Option<HeliusPoolCreation> {
         if let Some(receiver) = &mut self.pool_receiver {
@@ -445,12 +485,12 @@ impl HeliusWebSocketClient {
             None
         }
     }
-    
+
     /// Check if connected
     pub async fn is_connected(&self) -> bool {
         *self.is_connected.read().await
     }
-    
+
     /// Get connection stats
     pub async fn get_stats(&self) -> HeliusStats {
         HeliusStats {
@@ -473,26 +513,26 @@ pub struct HeliusStats {
 pub async fn test_helius_pool_detection() -> Result<()> {
     println!("🔍 HELIUS POOL DETECTION TEST");
     println!("=============================");
-    
+
     let config = HeliusConfig::mainnet();
     let mut client = HeliusWebSocketClient::new(config).await?;
-    
+
     // Start monitoring
     client.start_pool_monitoring("mainnet").await?;
-    
+
     println!("📡 Listening for real-time pool creation...");
     println!("   Press Ctrl+C to stop");
-    
+
     // Listen for 30 seconds
     let start_time = Instant::now();
     let mut pools_detected = 0;
-    
+
     while start_time.elapsed() < Duration::from_secs(30) {
         tokio::select! {
             pool_creation = client.receive_pool_creation() => {
                 if let Some(pool) = pool_creation {
                     pools_detected += 1;
-                    println!("🆕 POOL #{}: {} on {} ({})", 
+                    println!("🆕 POOL #{}: {} on {} ({})",
                              pools_detected,
                              pool.pool_address,
                              pool.dex,
@@ -504,12 +544,15 @@ pub async fn test_helius_pool_detection() -> Result<()> {
             }
         }
     }
-    
+
     let stats = client.get_stats().await;
     println!("\n📊 HELIUS TEST RESULTS:");
     println!("   Connected: {}", stats.is_connected);
     println!("   Pools detected: {}", pools_detected);
-    println!("   Last ping: {:.1}s ago", stats.last_ping_ago.as_secs_f64());
-    
+    println!(
+        "   Last ping: {:.1}s ago",
+        stats.last_ping_ago.as_secs_f64()
+    );
+
     Ok(())
 }
