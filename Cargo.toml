@@ -540,6 +540,9 @@ solana-transaction-status = { version = "=2.2.1", default-features = false, feat
 spl-token = { version = "=6.0.0", default-features = false }
 spl-associated-token-account = { version = "=4.0.0", default-features = false }
 
+# Random number generation for dynamic data
+rand = { version = "0.8", default-features = false, features = ["std", "std_rng"] }
+
 # Serde for serialization - minimal pero funcional
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
@@ -575,9 +578,6 @@ rustls = { version = "0.23", features = ["ring"] }
 # OpenSSL precompilado - descomenta para usar binarios precompilados
 openssl = { version = "0.10", features = ["vendored"] }
 openssl-sys = { version = "0.9", features = ["vendored"] }
-
-# Random number generation
-rand = "0.8"
 
 # Additional dependencies for trading engine
 async-trait = "0.1"
