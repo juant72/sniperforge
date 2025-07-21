@@ -47,7 +47,7 @@ use expert_price_feeds::{ExpertPriceFeedManager, RealTimePrice};
 
 // 🎯 STRATEGIC PARAMETERS (OPTIMIZED FOR REAL MARKET CONDITIONS)
 const MILITARY_LATENCY_TARGET: u64 = 200; // < 200ms end-to-end (ENHANCED)
-const MILITARY_MIN_PROFIT_BPS: u64 = 3; // ≥ 0.03% real profit (ULTRA AGGRESSIVE)
+const MILITARY_MIN_PROFIT_BPS: u64 = 50; // ≥ 0.50% real profit (REALISTIC as per roadmap)
 const MILITARY_MAX_SLIPPAGE_BPS: u64 = 50; // Max 0.5% slippage
 const MILITARY_PRICE_WATCH_INTERVAL: u64 = 500; // 500ms price monitoring (ULTRA FAST)
 const MILITARY_RETRY_ATTEMPTS: u8 = 3; // Reduced retry logic to avoid rate limits
@@ -77,7 +77,7 @@ const METEORA_POOL_SIZE: usize = 1200;
 const EXPERT_RAYDIUM_FEE_BPS: u16 = 25; // 0.25% fee - REAL Raydium fee
 const EXPERT_ORCA_FEE_BPS: u16 = 30; // 0.30% fee - REAL Orca fee
 const EXPERT_WHIRLPOOL_FEE_BPS: u16 = 5; // 0.05% fee - REAL Whirlpool concentrated liquidity
-const EXPERT_MINIMUM_TRADE_SIZE: u64 = 1_000_000_000; // 1 SOL minimum - Profitable threshold
+const EXPERT_MINIMUM_TRADE_SIZE: u64 = 1_000_000_000; // 1 SOL minimum - UPGRADED from 0.1 SOL
 const EXPERT_MINIMUM_PROFIT_BPS: u64 = 50; // 0.50% minimum profit after ALL costs
 const EXPERT_SOLANA_TRANSACTION_COST: u64 = 1_010_000; // 1.01 SOL total tx costs (realistic)
 
