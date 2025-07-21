@@ -39,12 +39,14 @@ mod price_feeds;
 mod pool_validator;
 mod jupiter_api;
 mod calculations;
+mod risk_manager;
 
 use types::*;
 use price_feeds::ProfessionalPriceFeeds;
 use pool_validator::PoolValidator;
 use jupiter_api::JupiterAPI;
 use calculations::*;
+use risk_manager::EnterpriseRiskManager;
 
 // ===== REAL EXECUTION MODULE (Internal) =====
 mod real_execution {
@@ -106,15 +108,7 @@ mod real_execution {
         
         /// PRE-EXECUTION VALIDATION
         fn validate_execution(opportunity: &DirectOpportunity) -> Result<()> {
-            let profit_sol = opportunity.profit_lamports as f64 / 1e9;
-            
-            if profit_sol < MAINNET_MIN_PROFIT_SOL {
-                return Err(anyhow!("Profit below mainnet threshold: {:.6} SOL < {:.6} SOL", 
-                                  profit_sol, MAINNET_MIN_PROFIT_SOL));
-            }
-            
-            info!("✅ Pre-execution validation passed");
-            Ok(())
+            EnterpriseRiskManager::validate_execution(opportunity, MAINNET_MIN_PROFIT_SOL)
         }
         
         /// EXECUTE JUPITER SWAP ON MAINNET
@@ -466,7 +460,7 @@ impl ProfessionalArbitrageEngine {
         
         // PHASE 1: ENTERPRISE PRE-FLIGHT SECURITY CHECKS
         info!("🛡️  PHASE 1: ENTERPRISE RISK ASSESSMENT PROTOCOL");
-        self.execute_institutional_risk_checks()?;
+        EnterpriseRiskManager::execute_institutional_risk_checks(&self.risk_metrics, &self.emergency_stop)?;
         
         // PHASE 2: MILITARY-GRADE MARKET INTELLIGENCE GATHERING
         info!("🧠 PHASE 2: MILITARY INTELLIGENCE GATHERING");
@@ -493,7 +487,7 @@ impl ProfessionalArbitrageEngine {
         
         // PHASE 5: INSTITUTIONAL RISK FILTERING
         info!("🛡️  PHASE 5: INSTITUTIONAL RISK MANAGEMENT PROTOCOLS");
-        let cleared_opportunities = self.apply_enterprise_risk_filters(opportunities)?;
+        let cleared_opportunities = EnterpriseRiskManager::apply_enterprise_risk_filters(opportunities, &self.adaptive_config)?;
         
         if cleared_opportunities.is_empty() {
             warn!("⚠️  INSTITUTIONAL ALERT: All opportunities filtered by enterprise risk management");
@@ -504,21 +498,21 @@ impl ProfessionalArbitrageEngine {
         
         // PHASE 6: MILITARY EXECUTION SEQUENCE
         info!("⚡ PHASE 6: MILITARY EXECUTION PROTOCOL INITIATED");
-        let optimal_target = self.select_enterprise_optimal_opportunity(cleared_opportunities)?;
+        let optimal_target = EnterpriseRiskManager::select_enterprise_optimal_opportunity(cleared_opportunities, &self.market_metrics, &self.adaptive_config)?;
         self.display_enterprise_opportunity_briefing(&optimal_target);
         
         match self.execute_military_precision_arbitrage(&optimal_target).await {
             Ok(signature) => {
                 self.successful_trades.fetch_add(1, Ordering::Relaxed);
                 self.total_profit_lamports.fetch_add(optimal_target.profit_lamports as u64, Ordering::Relaxed);
-                self.update_institutional_performance_metrics(&optimal_target, true);
+                EnterpriseRiskManager::update_institutional_performance_metrics(&mut self.performance_metrics, &mut self.risk_metrics, &optimal_target, true);
                 info!("✅ ENTERPRISE EXECUTION: MISSION ACCOMPLISHED - {}", signature);
                 info!("🎖️  MILITARY SUCCESS: Institutional profit secured");
             }
             Err(e) => {
                 error!("❌ ENTERPRISE EXECUTION FAILURE: {}", e);
                 error!("🚨 MILITARY ALERT: Mission unsuccessful - institutional protocols engaged");
-                self.update_institutional_performance_metrics(&optimal_target, false);
+                EnterpriseRiskManager::update_institutional_performance_metrics(&mut self.performance_metrics, &mut self.risk_metrics, &optimal_target, false);
                 self.risk_events.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -536,24 +530,6 @@ impl ProfessionalArbitrageEngine {
     }
     
     // ===== ENTERPRISE SUPPORT METHODS =====
-    
-    fn execute_institutional_risk_checks(&self) -> Result<()> {
-        info!("🛡️  EXECUTING INSTITUTIONAL RISK PROTOCOLS");
-        
-        if self.risk_metrics.current_exposure_usd > self.risk_metrics.max_exposure_usd {
-            error!("🚨 INSTITUTIONAL ALERT: Risk exposure exceeds enterprise limits");
-            return Err(anyhow!("ENTERPRISE RISK LIMIT EXCEEDED - Mission aborted"));
-        }
-        
-        if self.risk_metrics.daily_pnl < -1000.0 {
-            error!("🚨 MILITARY ALERT: Daily loss threshold breached");
-            self.emergency_stop.store(true, Ordering::Relaxed);
-            return Err(anyhow!("ENTERPRISE EMERGENCY STOP - Daily loss limit reached"));
-        }
-        
-        info!("✅ INSTITUTIONAL RISK ASSESSMENT: All parameters within enterprise limits");
-        Ok(())
-    }
     
     async fn update_institutional_market_metrics(&mut self) -> Result<()> {
         info!("📊 UPDATING INSTITUTIONAL MARKET INTELLIGENCE");
@@ -719,76 +695,14 @@ impl ProfessionalArbitrageEngine {
         
         // Military-grade opportunity ranking
         opportunities.sort_by(|a, b| {
-            let score_a = self.calculate_enterprise_opportunity_score(a);
-            let score_b = self.calculate_enterprise_opportunity_score(b);
+            let score_a = EnterpriseRiskManager::calculate_enterprise_opportunity_score(a, &self.market_metrics, &self.adaptive_config);
+            let score_b = EnterpriseRiskManager::calculate_enterprise_opportunity_score(b, &self.market_metrics, &self.adaptive_config);
             score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
         });
         
         info!("🎯 ENTERPRISE ANALYSIS COMPLETE: {} institutional opportunities identified", opportunities.len());
         info!("✅ MILITARY STATUS: Opportunities ranked by enterprise criteria");
         Ok(opportunities)
-    }
-    
-    fn calculate_enterprise_opportunity_score(&self, opportunity: &DirectOpportunity) -> f64 {
-        let base_profit = opportunity.profit_lamports as f64 / 1e9;
-        let volatility_factor = 1.0 / (1.0 + self.market_metrics.volatility_index);
-        let institutional_score = base_profit * volatility_factor * self.adaptive_config.risk_multiplier;
-        
-        // Enterprise bonus factors
-        let enterprise_multiplier = if institutional_score > 0.01 { 1.2 } else { 1.0 }; // Bonus for high profit
-        
-        institutional_score * enterprise_multiplier
-    }
-    
-    fn apply_enterprise_risk_filters(&self, opportunities: Vec<DirectOpportunity>) -> Result<Vec<DirectOpportunity>> {
-        let original_count = opportunities.len();
-        info!("🛡️  APPLYING ENTERPRISE RISK MANAGEMENT FILTERS");
-        
-        let filtered: Vec<_> = opportunities.into_iter()
-            .filter(|opp| {
-                let trade_size_sol = opp.amount_in as f64 / 1e9;
-                
-                // Institutional size requirements
-                if trade_size_sol < MILITARY_MIN_TRADE_SOL || trade_size_sol > INSTITUTIONAL_MAX_TRADE_SOL {
-                    debug!("❌ Trade size outside institutional parameters: {:.3} SOL", trade_size_sol);
-                    return false;
-                }
-                
-                // Military-grade profit threshold with volatility adjustment
-                let adjusted_threshold = self.adaptive_config.min_profit_threshold as f64 * 
-                                       self.adaptive_config.volatility_adjustment;
-                let profit_bps = (opp.profit_lamports * 10_000) / opp.amount_in as i64;
-                
-                if (profit_bps as f64) < adjusted_threshold {
-                    debug!("❌ Profit below enterprise threshold: {:.2}% < {:.2}%", 
-                           profit_bps as f64 / 100.0, adjusted_threshold / 100.0);
-                    return false;
-                }
-                
-                info!("✅ Opportunity passed enterprise filters: {:.2}% profit, {:.3} SOL", 
-                      profit_bps as f64 / 100.0, trade_size_sol);
-                true
-            })
-            .collect();
-        
-        info!("🛡️  ENTERPRISE RISK FILTER RESULTS: {}/{} opportunities cleared", filtered.len(), original_count);
-        info!("🎖️  MILITARY STATUS: {} opportunities meet institutional standards", filtered.len());
-        Ok(filtered)
-    }
-    
-    fn select_enterprise_optimal_opportunity(&self, opportunities: Vec<DirectOpportunity>) -> Result<DirectOpportunity> {
-        info!("🎯 SELECTING OPTIMAL ENTERPRISE TARGET");
-        
-        let optimal = opportunities.into_iter()
-            .max_by(|a, b| {
-                let score_a = self.calculate_enterprise_opportunity_score(a);
-                let score_b = self.calculate_enterprise_opportunity_score(b);
-                score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
-            })
-            .ok_or_else(|| anyhow!("ENTERPRISE ERROR: No optimal opportunity identified"))?;
-        
-        info!("✅ ENTERPRISE TARGET SELECTED: Optimal opportunity identified");
-        Ok(optimal)
     }
     
     fn display_enterprise_opportunity_briefing(&self, opportunity: &DirectOpportunity) {
@@ -824,14 +738,9 @@ impl ProfessionalArbitrageEngine {
         let current_balance = self.get_wallet_balance().await?;
         let required_balance = opportunity.amount_in as f64 / 1e9;
         
-        if current_balance < required_balance {
-            error!("🚨 ENTERPRISE ALERT: Insufficient institutional capital");
-            return Err(anyhow!("INSTITUTIONAL CAPITAL SHORTAGE: {:.3} SOL required, {:.3} SOL available", 
-                required_balance, current_balance));
-        }
+        EnterpriseRiskManager::check_balance_sufficiency(current_balance, required_balance)?;
         
         let profit = opportunity.profit_lamports as f64 / 1e9;
-        info!("✅ ENTERPRISE VALIDATION: Transaction cleared by institutional protocols");
         info!("💎 PROJECTED INSTITUTIONAL PROFIT: {:.6} SOL", profit);
         
         // EXECUTION ROUTING: Simulation vs Real Trading
@@ -1005,28 +914,6 @@ impl ProfessionalArbitrageEngine {
             self.total_profit_lamports.load(Ordering::Relaxed) as f64 / 1e9,
             self.operational_pools.len()
         )
-    }
-    
-    fn update_institutional_performance_metrics(&mut self, opportunity: &DirectOpportunity, success: bool) {
-        info!("📊 UPDATING INSTITUTIONAL PERFORMANCE METRICS");
-        
-        if success {
-            self.performance_metrics.successful_trades += 1;
-            self.performance_metrics.total_profit_usd += (opportunity.profit_lamports as f64 / 1e9) * 200.0;
-            info!("✅ ENTERPRISE SUCCESS: Trade profit logged - {:.6} SOL", 
-                  opportunity.profit_lamports as f64 / 1e9);
-        } else {
-            warn!("⚠️  INSTITUTIONAL ALERT: Trade unsuccessful - adjusting risk metrics");
-        }
-        
-        self.performance_metrics.total_trades += 1;
-        
-        if self.performance_metrics.total_trades > 0 {
-            self.risk_metrics.success_rate = self.performance_metrics.successful_trades as f64 / self.performance_metrics.total_trades as f64;
-            info!("📈 ENTERPRISE SUCCESS RATE: {:.2}%", self.risk_metrics.success_rate * 100.0);
-        }
-        
-        info!("🎖️  MILITARY METRICS: Performance data updated with institutional standards");
     }
 }
 
