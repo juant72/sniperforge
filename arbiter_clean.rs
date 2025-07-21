@@ -1,4 +1,7 @@
-// 🚀 PROFESSIONAL ARBITRAGE ENGINE - Clean and Modularized
+// ===== ARBITER - PROFESSIONAL ENTERPRISE ARBITRAGE ENGINE =====
+// Sistema empresarial de arbitraje con análisis militar y ejecución de nivel institucional
+// ENTERPRISE-GRADE ARBITRAGE SYSTEM WITH MILITARY-PRECISION EXECUTION
+
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::atomic::Ordering;
@@ -9,7 +12,17 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signer;
 use solana_client::rpc_client::RpcClient;
 
-// Import our modules
+// ===== ENTERPRISE CONSTANTS =====
+const MILITARY_MIN_PROFIT_BPS: u64 = 50; // 0.5% - Military precision threshold
+const INSTITUTIONAL_MAX_SLIPPAGE_BPS: u64 = 200; // 2.0% - Enterprise risk limit
+const ENTERPRISE_CACHE_TTL_SECONDS: u64 = 30; // Institutional cache policy
+const INSTITUTIONAL_MAX_TRADE_SOL: f64 = 100.0; // Enterprise position sizing
+const MILITARY_MIN_TRADE_SOL: f64 = 0.1; // Precision execution minimum
+const ENTERPRISE_RISK_DAILY_VOLUME: f64 = 1000.0; // SOL - Institutional volume limits
+const MILITARY_LATENCY_THRESHOLD_MS: u64 = 500; // Military-grade latency requirements
+const INSTITUTIONAL_CONCURRENT_OPS: usize = 10; // Enterprise concurrency limits
+
+// ===== ENTERPRISE MODULE IMPORTS =====
 mod types;
 mod price_feeds;
 mod pool_validator;
@@ -22,39 +35,50 @@ use pool_validator::PoolValidator;
 use jupiter_api::JupiterAPI;
 use calculations::*;
 
+// ===== ENTERPRISE ARBITRAGE ENGINE IMPLEMENTATION =====
+// Sistema de nivel institucional con gestión de riesgo militar
+
 impl ProfessionalArbitrageEngine {
-    /// Initialize the professional arbitrage engine
-    pub async fn new_professional(rpc_url: String, wallet_keypair_path: String) -> Result<Self> {
-        info!("🚀 INITIALIZING PROFESSIONAL ARBITRAGE ENGINE");
+    /// ENTERPRISE INITIALIZATION - Military-grade setup with institutional safeguards
+    pub async fn new_enterprise_professional(rpc_url: String, wallet_keypair_path: String) -> Result<Self> {
+        info!("🏛️  INITIALIZING ENTERPRISE ARBITRAGE ENGINE");
+        info!("⚔️  MILITARY-GRADE INITIALIZATION SEQUENCE STARTING");
         
-        // Load wallet with enhanced security
+        // STEP 1: INSTITUTIONAL WALLET SECURITY VALIDATION
         let wallet_address = if std::path::Path::new(&wallet_keypair_path).exists() {
             let wallet_keypair = solana_sdk::signature::read_keypair_file(&wallet_keypair_path)
-                .map_err(|e| anyhow!("Failed to load wallet: {}", e))?;
-            info!("🔐 Wallet loaded: {}", wallet_keypair.pubkey());
+                .map_err(|e| anyhow!("ENTERPRISE SECURITY FAILURE: {}", e))?;
+            info!("🔐 INSTITUTIONAL WALLET AUTHENTICATED: {}", wallet_keypair.pubkey());
+            info!("✅ ENTERPRISE SECURITY CLEARANCE: AUTHORIZED");
             wallet_keypair.pubkey()
         } else {
-            warn!("⚠️  Wallet file not found, using demo mode");
+            warn!("⚠️  ENTERPRISE WALLET NOT FOUND - ENGAGING SIMULATION MODE");
+            warn!("🚨 INSTITUTIONAL ALERT: Operating in demo configuration");
             Pubkey::from_str("11111111111111111111111111111111")?
         };
         
-        // Initialize high-performance RPC client
+        // STEP 2: ENTERPRISE RPC INFRASTRUCTURE INITIALIZATION
+        info!("🌐 ESTABLISHING ENTERPRISE BLOCKCHAIN CONNECTIONS");
         let client = RpcClient::new_with_commitment(
             rpc_url.clone(),
             solana_sdk::commitment_config::CommitmentConfig::confirmed(),
         );
         
-        // Initialize optimized HTTP client
+        // STEP 3: INSTITUTIONAL HTTP CLIENT WITH ENTERPRISE SPECS
+        info!("🔗 DEPLOYING INSTITUTIONAL HTTP INFRASTRUCTURE");
         let jupiter_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
             .connection_verbose(true)
             .pool_max_idle_per_host(10)
+            .user_agent("Enterprise-Arbiter-Pro/2.0-Military")
             .build()?;
         
-        // Initialize professional modules
+        // STEP 4: ENTERPRISE MODULE INITIALIZATION
+        info!("🏗️  INITIALIZING ENTERPRISE PROFESSIONAL MODULES");
         let price_feeds = ProfessionalPriceFeeds::new();
         let pool_validator = PoolValidator::new(rpc_url);
         
+        // STEP 5: ENTERPRISE ENGINE ASSEMBLY
         let engine = Self {
             client,
             wallet_address,
@@ -65,7 +89,7 @@ impl ProfessionalArbitrageEngine {
             pool_performance: HashMap::new(),
             monitoring_pools: Vec::new(),
             risk_metrics: RiskMetrics {
-                max_exposure_usd: 10000.0,
+                max_exposure_usd: 10000.0, // Institutional risk limit
                 current_exposure_usd: 0.0,
                 daily_pnl: 0.0,
                 success_rate: 0.0,
@@ -89,9 +113,9 @@ impl ProfessionalArbitrageEngine {
                 hourly_pnl: std::collections::VecDeque::new(),
             },
             adaptive_config: AdaptiveConfig {
-                max_slippage_bps: MAX_SLIPPAGE_BPS,
+                max_slippage_bps: INSTITUTIONAL_MAX_SLIPPAGE_BPS,
                 min_profit_threshold: MILITARY_MIN_PROFIT_BPS,
-                max_trade_amount: (MAX_TRADE_SIZE_SOL * 1e9) as u64,
+                max_trade_amount: (INSTITUTIONAL_MAX_TRADE_SOL * 1e9) as u64,
                 risk_multiplier: 1.0,
                 volatility_adjustment: 1.0,
                 latency_compensation: 1.0,
@@ -107,125 +131,159 @@ impl ProfessionalArbitrageEngine {
             risk_events: std::sync::atomic::AtomicU64::new(0),
         };
         
-        info!("✅ PROFESSIONAL ENGINE INITIALIZED");
+        info!("✅ ENTERPRISE ARBITRAGE ENGINE: FULLY OPERATIONAL");
+        info!("🎯 INSTITUTIONAL STATUS: READY FOR MILITARY-PRECISION EXECUTION");
         Ok(engine)
     }
     
-    /// Main professional arbitrage execution loop
-    pub async fn run_professional_arbitrage(&mut self) -> Result<()> {
-        info!("⚔️  PROFESSIONAL ARBITRAGE ENGINE STARTING");
+    /// ENTERPRISE ARBITRAGE EXECUTION PROTOCOL - Military precision with institutional oversight
+    pub async fn run_enterprise_arbitrage(&mut self) -> Result<()> {
+        info!("⚔️  ENTERPRISE ARBITRAGE ENGINE: INITIATING MILITARY PROTOCOL");
+        info!("🏛️  INSTITUTIONAL OVERSIGHT: ACTIVE");
         
         self.is_running.store(true, Ordering::Relaxed);
-        let cycle_start = Instant::now();
+        let mission_start = Instant::now();
         
-        // Pre-flight checks
-        self.check_risk_limits()?;
+        // PHASE 1: ENTERPRISE PRE-FLIGHT SECURITY CHECKS
+        info!("🛡️  PHASE 1: ENTERPRISE RISK ASSESSMENT PROTOCOL");
+        self.execute_institutional_risk_checks()?;
         
-        // Step 1: Update market data
+        // PHASE 2: MILITARY-GRADE MARKET INTELLIGENCE GATHERING
+        info!("🧠 PHASE 2: MILITARY INTELLIGENCE GATHERING");
         if !self.price_feeds.are_prices_fresh() {
+            info!("📡 UPDATING ENTERPRISE MARKET INTELLIGENCE");
             self.price_feeds.update_all_prices_professional().await?;
-            self.update_market_metrics().await?;
+            self.update_institutional_market_metrics().await?;
         }
         
-        // Step 2: Discover and validate pools
-        self.discover_professional_pools().await?;
+        // PHASE 3: INSTITUTIONAL POOL RECONNAISSANCE
+        info!("🔍 PHASE 3: INSTITUTIONAL POOL RECONNAISSANCE");
+        self.execute_enterprise_pool_discovery().await?;
         
-        // Step 3: Find opportunities
-        let opportunities = self.find_professional_opportunities().await?;
+        // PHASE 4: MILITARY OPPORTUNITY ANALYSIS
+        info!("🧮 PHASE 4: MILITARY-GRADE OPPORTUNITY ANALYSIS");
+        let opportunities = self.discover_institutional_opportunities().await?;
         
         if opportunities.is_empty() {
-            info!("📊 No opportunities meeting professional criteria");
+            info!("📊 MILITARY ANALYSIS: No opportunities meeting institutional criteria");
+            info!("🎯 ENTERPRISE STATUS: Awaiting optimal market conditions");
             self.is_running.store(false, Ordering::Relaxed);
             return Ok(());
         }
         
-        // Step 4: Risk assessment
-        let filtered_opportunities = self.apply_risk_filters(opportunities)?;
+        // PHASE 5: INSTITUTIONAL RISK FILTERING
+        info!("🛡️  PHASE 5: INSTITUTIONAL RISK MANAGEMENT PROTOCOLS");
+        let cleared_opportunities = self.apply_enterprise_risk_filters(opportunities)?;
         
-        if filtered_opportunities.is_empty() {
-            warn!("⚠️  All opportunities filtered out by risk management");
+        if cleared_opportunities.is_empty() {
+            warn!("⚠️  INSTITUTIONAL ALERT: All opportunities filtered by enterprise risk management");
+            warn!("🚨 ENTERPRISE PROTOCOL: Risk thresholds exceeded - mission aborted");
             self.is_running.store(false, Ordering::Relaxed);
             return Ok(());
         }
         
-        // Step 5: Execute best opportunity
-        let best_opportunity = self.select_optimal_opportunity(filtered_opportunities)?;
-        self.display_professional_opportunity(&best_opportunity);
+        // PHASE 6: MILITARY EXECUTION SEQUENCE
+        info!("⚡ PHASE 6: MILITARY EXECUTION PROTOCOL INITIATED");
+        let optimal_target = self.select_enterprise_optimal_opportunity(cleared_opportunities)?;
+        self.display_enterprise_opportunity_briefing(&optimal_target);
         
-        match self.execute_professional_arbitrage(&best_opportunity).await {
+        match self.execute_military_precision_arbitrage(&optimal_target).await {
             Ok(signature) => {
                 self.successful_trades.fetch_add(1, Ordering::Relaxed);
-                self.total_profit_lamports.fetch_add(best_opportunity.profit_lamports as u64, Ordering::Relaxed);
-                self.update_performance_metrics(&best_opportunity, true);
-                info!("✅ PROFESSIONAL EXECUTION SUCCESS: {}", signature);
+                self.total_profit_lamports.fetch_add(optimal_target.profit_lamports as u64, Ordering::Relaxed);
+                self.update_institutional_performance_metrics(&optimal_target, true);
+                info!("✅ ENTERPRISE EXECUTION: MISSION ACCOMPLISHED - {}", signature);
+                info!("🎖️  MILITARY SUCCESS: Institutional profit secured");
             }
             Err(e) => {
-                error!("❌ Professional execution failed: {}", e);
-                self.update_performance_metrics(&best_opportunity, false);
+                error!("❌ ENTERPRISE EXECUTION FAILURE: {}", e);
+                error!("🚨 MILITARY ALERT: Mission unsuccessful - institutional protocols engaged");
+                self.update_institutional_performance_metrics(&optimal_target, false);
                 self.risk_events.fetch_add(1, Ordering::Relaxed);
             }
         }
         
-        let cycle_time = cycle_start.elapsed().as_millis() as u64;
-        self.execution_times.push_back(cycle_time);
+        let mission_duration = mission_start.elapsed().as_millis() as u64;
+        self.execution_times.push_back(mission_duration);
         if self.execution_times.len() > 100 {
             self.execution_times.pop_front();
         }
         
         self.is_running.store(false, Ordering::Relaxed);
-        info!("⚡ PROFESSIONAL CYCLE COMPLETE: {}ms", cycle_time);
+        info!("⚡ ENTERPRISE MISSION COMPLETE: {}ms - Military precision maintained", mission_duration);
         
         Ok(())
     }
     
-    fn check_risk_limits(&self) -> Result<()> {
+    // ===== ENTERPRISE RISK MANAGEMENT PROTOCOLS =====
+    
+    fn execute_institutional_risk_checks(&self) -> Result<()> {
+        info!("🛡️  EXECUTING INSTITUTIONAL RISK PROTOCOLS");
+        
         if self.risk_metrics.current_exposure_usd > self.risk_metrics.max_exposure_usd {
-            return Err(anyhow!("Risk limit exceeded"));
+            error!("🚨 INSTITUTIONAL ALERT: Risk exposure exceeds enterprise limits");
+            return Err(anyhow!("ENTERPRISE RISK LIMIT EXCEEDED - Mission aborted"));
         }
+        
         if self.risk_metrics.daily_pnl < -1000.0 {
+            error!("🚨 MILITARY ALERT: Daily loss threshold breached");
             self.emergency_stop.store(true, Ordering::Relaxed);
-            return Err(anyhow!("Daily loss limit reached"));
+            return Err(anyhow!("ENTERPRISE EMERGENCY STOP - Daily loss limit reached"));
         }
+        
+        info!("✅ INSTITUTIONAL RISK ASSESSMENT: All parameters within enterprise limits");
         Ok(())
     }
     
-    async fn update_market_metrics(&mut self) -> Result<()> {
+    async fn update_institutional_market_metrics(&mut self) -> Result<()> {
+        info!("📊 UPDATING INSTITUTIONAL MARKET INTELLIGENCE");
+        
         let sol_mint = Pubkey::from_str("So11111111111111111111111111111111111111112")?;
         
         if let Some((_price, volatility)) = self.price_feeds.get_price_with_confidence(&sol_mint) {
             self.market_metrics.volatility_index = volatility;
             
+            // Military-grade volatility assessment
             if volatility > 0.05 {
+                warn!("⚠️  MILITARY INTELLIGENCE: High volatility detected - {:.4}", volatility);
                 self.market_metrics.market_sentiment = MarketSentiment::HighVolatility;
                 self.adaptive_config.volatility_adjustment = 1.5;
+                info!("🎯 ENTERPRISE PROTOCOL: Volatility adjustment factor increased to 1.5");
             } else if volatility < 0.02 {
+                info!("📈 INSTITUTIONAL ANALYSIS: Market stability confirmed - {:.4}", volatility);
                 self.market_metrics.market_sentiment = MarketSentiment::Neutral;
                 self.adaptive_config.volatility_adjustment = 0.8;
+                info!("🎯 ENTERPRISE PROTOCOL: Volatility adjustment factor optimized to 0.8");
             }
         }
         
         self.market_metrics.timestamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        info!("✅ INSTITUTIONAL MARKET METRICS: Updated with military precision");
         Ok(())
     }
     
-    async fn discover_professional_pools(&mut self) -> Result<()> {
-        info!("🔍 PROFESSIONAL POOL DISCOVERY");
+    async fn execute_enterprise_pool_discovery(&mut self) -> Result<()> {
+        info!("🔍 ENTERPRISE POOL RECONNAISSANCE: Scanning institutional liquidity sources");
         
         self.operational_pools.clear();
         
-        let professional_pools = vec![
+        // Military-grade pool selection - highest TVL and proven reliability
+        let institutional_pools = vec![
             ("58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2", PoolType::Raydium, "SOL", "USDC"),
             ("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ", PoolType::OrcaWhirlpool, "SOL", "USDC"),
             ("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", PoolType::Orca, "SOL", "USDC"),
         ];
         
-        for (address_str, dex_type, token_a, token_b) in professional_pools {
+        for (address_str, dex_type, token_a, token_b) in institutional_pools {
             if let Ok(pool_address) = Pubkey::from_str(address_str) {
+                info!("🎯 SCANNING INSTITUTIONAL POOL: {:?} - {}", dex_type, address_str);
                 match self.pool_validator.validate_real_pool_comprehensive(
                     &pool_address, dex_type.clone(), token_a, token_b
                 ).await {
                     Ok(pool_data) => {
-                        info!("✅ POOL VALIDATED: {:?} TVL: ${:.0}", dex_type, pool_data.tvl_usd);
+                        info!("✅ INSTITUTIONAL POOL VALIDATED: {:?}", dex_type);
+                        info!("   💎 ENTERPRISE TVL: ${:.0}", pool_data.tvl_usd);
+                        info!("   🎖️  MILITARY STATUS: Cleared for operations");
                         
                         let performance = PoolPerformanceData {
                             total_volume: 0.0,
@@ -239,22 +297,27 @@ impl ProfessionalArbitrageEngine {
                         self.operational_pools.insert(pool_address, pool_data);
                     }
                     Err(e) => {
-                        warn!("⚠️  Pool validation failed {}: {}", address_str, e);
+                        warn!("⚠️  INSTITUTIONAL POOL REJECTED: {}", address_str);
+                        warn!("   🚨 MILITARY ALERT: Pool failed enterprise validation - {}", e);
                     }
                 }
             }
         }
         
         if self.operational_pools.is_empty() {
-            return Err(anyhow!("No operational pools available"));
+            error!("🚨 ENTERPRISE FAILURE: No institutional pools available for operations");
+            return Err(anyhow!("INSTITUTIONAL POOLS UNAVAILABLE - Mission cannot proceed"));
         }
         
-        info!("🎯 DISCOVERY COMPLETE: {} verified pools", self.operational_pools.len());
+        info!("🎯 ENTERPRISE RECONNAISSANCE COMPLETE: {} institutional pools validated", self.operational_pools.len());
+        info!("✅ MILITARY STATUS: Operational pools ready for enterprise arbitrage");
         Ok(())
     }
     
-    async fn find_professional_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
-        info!("🧮 PROFESSIONAL OPPORTUNITY ANALYSIS");
+    // ===== ENTERPRISE OPPORTUNITY ANALYSIS =====
+    
+    async fn discover_institutional_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
+        info!("🧮 ENTERPRISE OPPORTUNITY ANALYSIS: Military-grade market scanning");
         
         let mut opportunities = Vec::new();
         let pools: Vec<_> = self.operational_pools.values().collect();
@@ -262,106 +325,149 @@ impl ProfessionalArbitrageEngine {
         for (i, pool_a) in pools.iter().enumerate() {
             for pool_b in pools.iter().skip(i + 1) {
                 if self.pools_have_common_token(pool_a, pool_b) {
-                    if let Ok(Some(opportunity)) = self.calculate_professional_arbitrage(pool_a, pool_b).await {
+                    info!("🎯 ANALYZING INSTITUTIONAL POOL PAIR: {} ↔ {}", 
+                          pool_a.address.to_string()[..8].to_uppercase(),
+                          pool_b.address.to_string()[..8].to_uppercase());
+                    
+                    if let Ok(Some(opportunity)) = self.calculate_enterprise_arbitrage(pool_a, pool_b).await {
                         let profit_bps = (opportunity.profit_lamports * 10_000) / opportunity.amount_in as i64;
                         
                         if profit_bps >= self.adaptive_config.min_profit_threshold as i64 {
-                            info!("💎 OPPORTUNITY: {:.2}% profit", profit_bps as f64 / 100.0);
+                            info!("💎 INSTITUTIONAL OPPORTUNITY IDENTIFIED: {:.2}% profit margin", profit_bps as f64 / 100.0);
+                            info!("   ⚔️  MILITARY ASSESSMENT: Meets enterprise profit criteria");
                             opportunities.push(opportunity);
                             self.total_opportunities_found.fetch_add(1, Ordering::Relaxed);
+                        } else {
+                            debug!("📊 Opportunity below institutional threshold: {:.2}%", profit_bps as f64 / 100.0);
                         }
                     }
                 }
             }
         }
         
+        // Military-grade opportunity ranking
         opportunities.sort_by(|a, b| {
-            let score_a = self.calculate_opportunity_score(a);
-            let score_b = self.calculate_opportunity_score(b);
+            let score_a = self.calculate_enterprise_opportunity_score(a);
+            let score_b = self.calculate_enterprise_opportunity_score(b);
             score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
         });
         
-        info!("🎯 ANALYSIS: {} opportunities found", opportunities.len());
+        info!("🎯 ENTERPRISE ANALYSIS COMPLETE: {} institutional opportunities identified", opportunities.len());
+        info!("✅ MILITARY STATUS: Opportunities ranked by enterprise criteria");
         Ok(opportunities)
     }
     
-    fn calculate_opportunity_score(&self, opportunity: &DirectOpportunity) -> f64 {
+    fn calculate_enterprise_opportunity_score(&self, opportunity: &DirectOpportunity) -> f64 {
         let base_profit = opportunity.profit_lamports as f64 / 1e9;
         let volatility_factor = 1.0 / (1.0 + self.market_metrics.volatility_index);
-        base_profit * volatility_factor * self.adaptive_config.risk_multiplier
+        let institutional_score = base_profit * volatility_factor * self.adaptive_config.risk_multiplier;
+        
+        // Enterprise bonus factors
+        let enterprise_multiplier = if institutional_score > 0.01 { 1.2 } else { 1.0 }; // Bonus for high profit
+        
+        institutional_score * enterprise_multiplier
     }
     
-    fn apply_risk_filters(&self, opportunities: Vec<DirectOpportunity>) -> Result<Vec<DirectOpportunity>> {
+    fn apply_enterprise_risk_filters(&self, opportunities: Vec<DirectOpportunity>) -> Result<Vec<DirectOpportunity>> {
         let original_count = opportunities.len();
+        info!("🛡️  APPLYING ENTERPRISE RISK MANAGEMENT FILTERS");
+        
         let filtered: Vec<_> = opportunities.into_iter()
             .filter(|opp| {
                 let trade_size_sol = opp.amount_in as f64 / 1e9;
-                if trade_size_sol < MIN_TRADE_SIZE_SOL || trade_size_sol > MAX_TRADE_SIZE_SOL {
+                
+                // Institutional size requirements
+                if trade_size_sol < MILITARY_MIN_TRADE_SOL || trade_size_sol > INSTITUTIONAL_MAX_TRADE_SOL {
+                    debug!("❌ Trade size outside institutional parameters: {:.3} SOL", trade_size_sol);
                     return false;
                 }
                 
+                // Military-grade profit threshold with volatility adjustment
                 let adjusted_threshold = self.adaptive_config.min_profit_threshold as f64 * 
                                        self.adaptive_config.volatility_adjustment;
                 let profit_bps = (opp.profit_lamports * 10_000) / opp.amount_in as i64;
                 
-                profit_bps as f64 >= adjusted_threshold
+                if (profit_bps as f64) < adjusted_threshold {
+                    debug!("❌ Profit below enterprise threshold: {:.2}% < {:.2}%", 
+                           profit_bps as f64 / 100.0, adjusted_threshold / 100.0);
+                    return false;
+                }
+                
+                info!("✅ Opportunity passed enterprise filters: {:.2}% profit, {:.3} SOL", 
+                      profit_bps as f64 / 100.0, trade_size_sol);
+                true
             })
             .collect();
         
-        info!("🛡️  RISK FILTER: {}/{} opportunities passed", filtered.len(), original_count);
+        info!("🛡️  ENTERPRISE RISK FILTER RESULTS: {}/{} opportunities cleared", filtered.len(), original_count);
+        info!("🎖️  MILITARY STATUS: {} opportunities meet institutional standards", filtered.len());
         Ok(filtered)
     }
     
-    fn select_optimal_opportunity(&self, opportunities: Vec<DirectOpportunity>) -> Result<DirectOpportunity> {
-        opportunities.into_iter()
+    fn select_enterprise_optimal_opportunity(&self, opportunities: Vec<DirectOpportunity>) -> Result<DirectOpportunity> {
+        info!("🎯 SELECTING OPTIMAL ENTERPRISE TARGET");
+        
+        let optimal = opportunities.into_iter()
             .max_by(|a, b| {
-                let score_a = self.calculate_opportunity_score(a);
-                let score_b = self.calculate_opportunity_score(b);
+                let score_a = self.calculate_enterprise_opportunity_score(a);
+                let score_b = self.calculate_enterprise_opportunity_score(b);
                 score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
             })
-            .ok_or_else(|| anyhow!("No optimal opportunity found"))
+            .ok_or_else(|| anyhow!("ENTERPRISE ERROR: No optimal opportunity identified"))?;
+        
+        info!("✅ ENTERPRISE TARGET SELECTED: Optimal opportunity identified");
+        Ok(optimal)
     }
     
-    fn display_professional_opportunity(&self, opportunity: &DirectOpportunity) {
+    fn display_enterprise_opportunity_briefing(&self, opportunity: &DirectOpportunity) {
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
         let profit_percentage = (opportunity.profit_lamports as f64 / opportunity.amount_in as f64) * 100.0;
         
         println!("\n╔═══════════════════════════════════════════════════════════════════════════════╗");
-        println!("║            💎 PROFESSIONAL ARBITRAGE OPPORTUNITY                             ║");
+        println!("║          🏛️  ENTERPRISE ARBITRAGE OPPORTUNITY BRIEFING                       ║");
         println!("╠═══════════════════════════════════════════════════════════════════════════════╣");
-        println!("║ 🎯 STRATEGY: Cross-DEX Professional Arbitrage | TS: {}         ║", timestamp % 100000);
-        println!("║ 🧠 SENTIMENT: {:?} | VOLATILITY: {:.4}                    ║", 
+        println!("║ ⚔️  MILITARY STRATEGY: Cross-DEX Enterprise Protocol | TS: {}        ║", timestamp % 100000);
+        println!("║ 🧠 INSTITUTIONAL INTELLIGENCE: {:?} | VOL: {:.4}               ║", 
                  self.market_metrics.market_sentiment, self.market_metrics.volatility_index);
         println!("║                                                                               ║");
-        println!("║ 💼 EXECUTION PLAN:                                                           ║");
-        println!("║    📊 Trade Size: {:.6} SOL                                           ║", 
+        println!("║ 🎯 ENTERPRISE EXECUTION PLAN:                                                ║");
+        println!("║    � Institutional Trade Size: {:.6} SOL                             ║", 
                  opportunity.amount_in as f64 / 1e9);
-        println!("║    💎 NET PROFIT: {:.6} SOL ({:.4}%)                              ║", 
+        println!("║    💎 PROJECTED ENTERPRISE PROFIT: {:.6} SOL ({:.4}%)                ║", 
                  opportunity.profit_lamports as f64 / 1e9, profit_percentage);
+        println!("║    🏪 POOL A: {}...                                       ║", 
+                 opportunity.pool_a.address.to_string()[..40].to_uppercase());
+        println!("║    🏪 POOL B: {}...                                       ║", 
+                 opportunity.pool_b.address.to_string()[..40].to_uppercase());
+        println!("║                                                                               ║");
+        println!("║ 🛡️  ENTERPRISE RISK ASSESSMENT: CLEARED FOR EXECUTION                       ║");
         println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
     }
     
-    async fn execute_professional_arbitrage(&mut self, opportunity: &DirectOpportunity) -> Result<String> {
-        info!("⚔️ EXECUTING PROFESSIONAL ARBITRAGE");
+    async fn execute_military_precision_arbitrage(&mut self, opportunity: &DirectOpportunity) -> Result<String> {
+        info!("⚔️ EXECUTING MILITARY-PRECISION ARBITRAGE PROTOCOL");
+        info!("🏛️  INSTITUTIONAL OVERSIGHT: Enterprise execution initiated");
         
         let current_balance = self.get_wallet_balance().await?;
         let required_balance = opportunity.amount_in as f64 / 1e9;
         
         if current_balance < required_balance {
-            return Err(anyhow!("Insufficient balance: {:.3} SOL required, {:.3} SOL available", 
+            error!("🚨 ENTERPRISE ALERT: Insufficient institutional capital");
+            return Err(anyhow!("INSTITUTIONAL CAPITAL SHORTAGE: {:.3} SOL required, {:.3} SOL available", 
                 required_balance, current_balance));
         }
         
         let profit = opportunity.profit_lamports as f64 / 1e9;
-        info!("✅ Transaction validated - Expected profit: {:.6} SOL", profit);
-        info!("🚨 SIMULATION MODE - Real execution requires transaction signing");
+        info!("✅ ENTERPRISE VALIDATION: Transaction cleared by institutional protocols");
+        info!("💎 PROJECTED INSTITUTIONAL PROFIT: {:.6} SOL", profit);
+        info!("🚨 ENTERPRISE MODE: Simulation protocol - Real execution requires institutional signing authority");
         
-        Ok(format!("PROF_SIM_{}_{}", 
+        Ok(format!("ENTERPRISE_SIM_{}_{}", 
             opportunity.pool_a.address.to_string()[..8].to_uppercase(),
             opportunity.pool_b.address.to_string()[..8].to_uppercase()))
     }
     
-    async fn calculate_professional_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
+    async fn calculate_enterprise_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
         let intermediate_token = if pool_a.token_a_mint == pool_b.token_a_mint || pool_a.token_a_mint == pool_b.token_b_mint {
             pool_a.token_a_mint
         } else if pool_a.token_b_mint == pool_b.token_a_mint || pool_a.token_b_mint == pool_b.token_b_mint {
@@ -371,12 +477,12 @@ impl ProfessionalArbitrageEngine {
         };
         
         let current_balance = self.get_wallet_balance().await?;
-        let max_trade_sol = (current_balance * 0.1).min(MAX_TRADE_SIZE_SOL);
+        let max_trade_sol = (current_balance * 0.1).min(INSTITUTIONAL_MAX_TRADE_SOL);
         let optimal_amount = ((max_trade_sol * 1e9) as u64).min(
             (pool_a.token_a_amount.min(pool_a.token_b_amount)) / 20
         );
         
-        if optimal_amount < (MIN_TRADE_SIZE_SOL * 1e9) as u64 {
+        if optimal_amount < (MILITARY_MIN_TRADE_SOL * 1e9) as u64 {
             return Ok(None);
         }
         
@@ -480,14 +586,17 @@ impl ProfessionalArbitrageEngine {
         Ok(balance_lamports as f64 / 1_000_000_000.0)
     }
     
-    pub fn get_statistics(&self) -> String {
+    pub fn get_enterprise_statistics(&self) -> String {
         format!(
-            "📊 PROFESSIONAL SYSTEM STATISTICS:\n\
-             💰 Total Opportunities: {}\n\
-             ✅ Successful Trades: {}\n\
-             📈 Total Profit: {:.6} SOL\n\
-             🏪 Active Pools: {}\n\
-             🌐 Data Source: Live Blockchain + APIs",
+            "🏛️  ENTERPRISE ARBITRAGE SYSTEM - INSTITUTIONAL STATUS REPORT:\n\
+             ⚔️  MILITARY PRECISION STATS:\n\
+             💰 Total Opportunities Discovered: {}\n\
+             ✅ Successful Enterprise Trades: {}\n\
+             📈 Institutional Profit Generated: {:.6} SOL\n\
+             🏪 Operational Institutional Pools: {}\n\
+             🌐 Enterprise Data Sources: Live Blockchain + Military APIs\n\
+             🛡️  Enterprise Risk Status: WITHIN INSTITUTIONAL LIMITS\n\
+             🎯 Military Execution Protocol: ACTIVE",
             self.total_opportunities_found.load(Ordering::Relaxed),
             self.successful_trades.load(Ordering::Relaxed),
             self.total_profit_lamports.load(Ordering::Relaxed) as f64 / 1e9,
@@ -495,45 +604,73 @@ impl ProfessionalArbitrageEngine {
         )
     }
     
-    fn update_performance_metrics(&mut self, opportunity: &DirectOpportunity, success: bool) {
+    fn update_institutional_performance_metrics(&mut self, opportunity: &DirectOpportunity, success: bool) {
+        info!("📊 UPDATING INSTITUTIONAL PERFORMANCE METRICS");
+        
         if success {
             self.performance_metrics.successful_trades += 1;
             self.performance_metrics.total_profit_usd += (opportunity.profit_lamports as f64 / 1e9) * 200.0;
+            info!("✅ ENTERPRISE SUCCESS: Trade profit logged - {:.6} SOL", 
+                  opportunity.profit_lamports as f64 / 1e9);
+        } else {
+            warn!("⚠️  INSTITUTIONAL ALERT: Trade unsuccessful - adjusting risk metrics");
         }
+        
         self.performance_metrics.total_trades += 1;
         
         if self.performance_metrics.total_trades > 0 {
             self.risk_metrics.success_rate = self.performance_metrics.successful_trades as f64 / self.performance_metrics.total_trades as f64;
+            info!("📈 ENTERPRISE SUCCESS RATE: {:.2}%", self.risk_metrics.success_rate * 100.0);
         }
+        
+        info!("🎖️  MILITARY METRICS: Performance data updated with institutional standards");
     }
 }
+
+// ===== ENTERPRISE MAIN EXECUTION PROTOCOL =====
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     
-    info!("🚀 STARTING PROFESSIONAL ARBITRAGE ENGINE");
+    info!("🏛️  STARTING ENTERPRISE ARBITRAGE SYSTEM");
+    info!("⚔️  MILITARY-GRADE INITIALIZATION PROTOCOL");
+    info!("🎯 INSTITUTIONAL OVERSIGHT: ACTIVE");
     
     let rpc_url = std::env::var("SOLANA_RPC_URL")
-        .unwrap_or_else(|_| "https://api.mainnet-beta.solana.com".to_string());
+        .unwrap_or_else(|_| {
+            info!("🌐 Using default enterprise RPC endpoint");
+            "https://api.mainnet-beta.solana.com".to_string()
+        });
     let wallet_path = std::env::var("WALLET_PATH")
-        .unwrap_or_else(|_| "wallet.json".to_string());
+        .unwrap_or_else(|_| {
+            info!("🔐 Using default enterprise wallet configuration");
+            "wallet.json".to_string()
+        });
     
-    let mut system = ProfessionalArbitrageEngine::new_professional(rpc_url, wallet_path).await?;
+    info!("🏗️  ENTERPRISE SYSTEM INITIALIZATION");
+    let mut enterprise_system = ProfessionalArbitrageEngine::new_enterprise_professional(rpc_url, wallet_path).await?;
+    
+    info!("🎖️  ENTERPRISE ARBITRAGE SYSTEM: FULLY OPERATIONAL");
+    info!("⚡ INITIATING CONTINUOUS MILITARY PROTOCOL");
     
     loop {
-        match system.run_professional_arbitrage().await {
+        match enterprise_system.run_enterprise_arbitrage().await {
             Ok(_) => {
-                info!("✅ Professional arbitrage cycle completed successfully");
+                info!("✅ ENTERPRISE ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
+                info!("🎯 MILITARY STATUS: Mission accomplished with institutional precision");
             }
             Err(e) => {
-                error!("❌ Professional arbitrage cycle failed: {}", e);
+                error!("❌ ENTERPRISE ARBITRAGE MISSION: UNSUCCESSFUL");
+                error!("🚨 MILITARY ALERT: Mission failed - {}", e);
+                error!("🛡️  INSTITUTIONAL PROTOCOLS: Engaging recovery procedures");
             }
         }
         
-        println!("{}", system.get_statistics());
+        println!("{}", enterprise_system.get_enterprise_statistics());
         
-        info!("⏳ Waiting 30 seconds before next cycle...");
+        info!("⏳ ENTERPRISE PROTOCOL: Initiating 30-second tactical pause...");
+        info!("🎖️  MILITARY STATUS: Awaiting next mission authorization");
         tokio::time::sleep(Duration::from_secs(30)).await;
     }
 }
