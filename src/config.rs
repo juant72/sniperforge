@@ -303,7 +303,7 @@ pub struct TradingSessionConfig {
 impl Config {
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content)?;
+        let config: Config = serde_json::from_str(&content)?;
         Ok(config)
     }
 
