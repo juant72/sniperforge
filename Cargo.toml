@@ -33,6 +33,10 @@ name = "arbiter_professional"
 path = "arbiter_professional.rs"
 
 [[bin]]
+name = "arbiter_clean"
+path = "arbiter_clean.rs"
+
+[[bin]]
 name = "arbiter_dynamic"
 path = "arbiter_dynamic.rs"
 
