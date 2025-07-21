@@ -1256,6 +1256,7 @@ impl ProfessionalArbitrageEngine {
     }
     
     fn apply_risk_filters(&self, opportunities: Vec<DirectOpportunity>) -> Result<Vec<DirectOpportunity>> {
+        let original_count = opportunities.len();
         let filtered: Vec<_> = opportunities.into_iter()
             .filter(|opp| {
                 // Size limits
@@ -1273,7 +1274,7 @@ impl ProfessionalArbitrageEngine {
             })
             .collect();
         
-        info!("🛡️  RISK FILTER: {}/{} opportunities passed", filtered.len(), opportunities.len());
+        info!("🛡️  RISK FILTER: {}/{} opportunities passed", filtered.len(), original_count);
         Ok(filtered)
     }
     
@@ -1338,26 +1339,107 @@ impl ProfessionalArbitrageEngine {
                  });
         println!("╚═══════════════════════════════════════════════════════════════════════════════╝");
     }
+    
+    /// Execute professional arbitrage
+    async fn execute_professional_arbitrage(&mut self, opportunity: &DirectOpportunity) -> Result<String> {
+        info!("⚔️ EXECUTING PROFESSIONAL ARBITRAGE");
         
-        // Execute with expert validation
-        match self.execute_expert_arbitrage(&best_opportunity).await {
-            Ok(signature) => {
-                self.successful_trades += 1;
-                self.total_profit_lamports += best_opportunity.profit_lamports;
-                info!("✅ EXPERT ARBITRAGE EXECUTED: {}", signature);
-            }
-            Err(e) => {
-                error!("❌ Expert arbitrage failed: {}", e);
-            }
+        // Validate balance
+        let current_balance = self.get_wallet_balance().await?;
+        let required_balance = opportunity.amount_in as f64 / 1e9;
+        
+        if current_balance < required_balance {
+            return Err(anyhow!("Insufficient balance: {:.3} SOL required, {:.3} SOL available", 
+                required_balance, current_balance));
         }
         
-        let execution_time = start_time.elapsed();
-        info!("⚡ EXPERT EXECUTION COMPLETE: {:.2}ms", execution_time.as_millis());
+        // In production, this would execute the actual transaction
+        let profit = opportunity.profit_lamports as f64 / 1e9;
+        info!("✅ Transaction validated - Expected profit: {:.6} SOL", profit);
+        info!("🚨 SIMULATION MODE - Real execution requires transaction signing");
         
-        Ok(())
+        Ok(format!("PROF_SIM_{}_{}", 
+            opportunity.pool_a.address.to_string()[..8].to_uppercase(),
+            opportunity.pool_b.address.to_string()[..8].to_uppercase()))
     }
-    
-    /// Discover pools using expert validation
+
+    /// Calculate professional arbitrage opportunity
+    async fn calculate_professional_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
+        // Find common token for arbitrage
+        let intermediate_token = if pool_a.token_a_mint == pool_b.token_a_mint || pool_a.token_a_mint == pool_b.token_b_mint {
+            pool_a.token_a_mint
+        } else if pool_a.token_b_mint == pool_b.token_a_mint || pool_a.token_b_mint == pool_b.token_b_mint {
+            pool_a.token_b_mint
+        } else {
+            return Ok(None); // No common token
+        };
+        
+        // Calculate optimal trade size based on real constraints
+        let current_balance = self.get_wallet_balance().await?;
+        let max_trade_sol = (current_balance * 0.1).min(MAX_TRADE_SIZE_SOL);
+        let optimal_amount = ((max_trade_sol * 1e9) as u64).min(
+            (pool_a.token_a_amount.min(pool_a.token_b_amount)) / 20
+        );
+        
+        if optimal_amount < (MIN_TRADE_SIZE_SOL * 1e9) as u64 {
+            return Ok(None); // Trade too small
+        }
+        
+        // Step 1: Calculate output from pool A
+        let (pool_a_in, pool_a_out) = if pool_a.token_a_mint == intermediate_token {
+            (pool_a.token_b_amount, pool_a.token_a_amount)
+        } else {
+            (pool_a.token_a_amount, pool_a.token_b_amount)
+        };
+        
+        let intermediate_amount = calculate_amm_output_exact(
+            pool_a_in, pool_a_out, optimal_amount, pool_a.fee_rate
+        )?;
+        
+        // Step 2: Calculate output from pool B
+        let (pool_b_in, pool_b_out) = if pool_b.token_a_mint == intermediate_token {
+            (pool_b.token_a_amount, pool_b.token_b_amount)
+        } else {
+            (pool_b.token_b_amount, pool_b.token_a_amount)
+        };
+        
+        let final_amount = calculate_amm_output_exact(
+            pool_b_in, pool_b_out, intermediate_amount, pool_b.fee_rate
+        )?;
+        
+        // Calculate costs and profitability
+        let transaction_costs = 15_000; // 0.000015 SOL
+        
+        if final_amount <= optimal_amount {
+            return Ok(None); // No gross profit
+        }
+        
+        let gross_profit = final_amount - optimal_amount;
+        let net_profit = gross_profit.saturating_sub(transaction_costs);
+        
+        if net_profit == 0 {
+            return Ok(None); // No net profit
+        }
+        
+        let profit_bps = (net_profit * 10_000) / optimal_amount;
+        if profit_bps < MILITARY_MIN_PROFIT_BPS {
+            return Ok(None); // Below minimum threshold
+        }
+        
+        info!("💎 PROFITABLE OPPORTUNITY: {:.4}% profit", profit_bps as f64 / 100.0);
+        
+        Ok(Some(DirectOpportunity {
+            pool_a: pool_a.clone(),
+            pool_b: pool_b.clone(),
+            intermediate_token,
+            amount_in: optimal_amount,
+            expected_amount_out: final_amount,
+            profit_lamports: net_profit as i64,
+            fees_lamports: transaction_costs,
+            route_type: "Professional".to_string(),
+        }))
+    }
+
     async fn discover_expert_pools(&mut self) -> Result<()> {
         info!("🔍 EXPERT POOL DISCOVERY with on-chain validation");
         
@@ -1447,7 +1529,7 @@ impl ProfessionalArbitrageEngine {
                 
                 // Calculate opportunity using expert mathematics
                 if let Ok(Some(opportunity)) = self.calculate_expert_arbitrage(pool_a, pool_b).await {
-                    self.total_opportunities_found += 1;
+                    self.total_opportunities_found.fetch_add(1, Ordering::Relaxed);
                     
                     // DETAILED OPPORTUNITY DISPLAY WITH DYNAMIC DATA
                     let execution_timestamp = std::time::SystemTime::now()
@@ -1471,7 +1553,7 @@ impl ProfessionalArbitrageEngine {
                     
                     println!("\n╔═══════════════════════════════════════════════════════════════════════════════╗");
                     println!("║           💎 OPORTUNIDAD #{:<3} | {} | TS: {:<10} ║", 
-                             self.total_opportunities_found, market_conditions, execution_timestamp % 100000);
+                             self.total_opportunities_found.load(Ordering::Relaxed), market_conditions, execution_timestamp % 100000);
                     println!("╠═══════════════════════════════════════════════════════════════════════════════╣");
                     
                     // Pool A Details
@@ -1740,18 +1822,32 @@ impl ProfessionalArbitrageEngine {
     /// Get system statistics
     pub fn get_statistics(&self) -> String {
         format!(
-            "📊 EXPERT SYSTEM STATISTICS:\n\
+            "📊 PROFESSIONAL SYSTEM STATISTICS:\n\
              💰 Total Opportunities: {}\n\
              ✅ Successful Trades: {}\n\
              📈 Total Profit: {:.6} SOL\n\
              🏪 Active Pools: {}\n\
-             📊 Price Cache: {} tokens",
-            self.total_opportunities_found,
-            self.successful_trades,
-            self.total_profit_lamports as f64 / 1e9,
-            self.operational_pools.len(),
-            self.price_feeds.get_cached_price_count()
+             🌐 Data Source: Live Blockchain + APIs",
+            self.total_opportunities_found.load(Ordering::Relaxed),
+            self.successful_trades.load(Ordering::Relaxed),
+            self.total_profit_lamports.load(Ordering::Relaxed) as f64 / 1e9,
+            self.operational_pools.len()
         )
+    }
+    
+    /// Update performance metrics
+    fn update_performance_metrics(&mut self, opportunity: &DirectOpportunity, success: bool) {
+        if success {
+            self.performance_metrics.successful_trades += 1;
+            self.performance_metrics.total_profit_usd += (opportunity.profit_lamports as f64 / 1e9) * 200.0;
+        }
+        self.performance_metrics.total_trades += 1;
+        
+        // Update success rate
+        self.performance_metrics.successful_trades = self.performance_metrics.successful_trades.min(self.performance_metrics.total_trades);
+        if self.performance_metrics.total_trades > 0 {
+            self.risk_metrics.success_rate = self.performance_metrics.successful_trades as f64 / self.performance_metrics.total_trades as f64;
+        }
     }
 }
 
