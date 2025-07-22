@@ -288,7 +288,7 @@ impl MeteoraIntegration {
 
 #[async_trait::async_trait]
 impl DexIntegration for MeteoraIntegration {
-    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error>> {
+    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/pair/all", self.api_base);
         
         match self.client.get(&url).send().await {
@@ -333,14 +333,14 @@ impl DexIntegration for MeteoraIntegration {
         }
     }
     
-    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/pools/{}", self.api_base, address);
         let response = self.client.get(&url).send().await?;
         let pool_data: serde_json::Value = response.json().await?;
         self.parse_meteora_pool(&pool_data)
     }
     
-    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error>> {
+    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         // Validate Meteora pool characteristics
         Ok(pool.tvl_usd > 100_000.0 && 
            pool.volume_24h_usd > 10_000.0 &&
@@ -353,7 +353,7 @@ impl DexIntegration for MeteoraIntegration {
 }
 
 impl MeteoraIntegration {
-    fn parse_meteora_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    fn parse_meteora_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         let name = pool_data["name"].as_str().unwrap_or("");
         let address = pool_data["address"].as_str().unwrap_or(pool_data["pubkey"].as_str().unwrap_or(""));
         
@@ -404,7 +404,7 @@ impl LifinityIntegration {
 
 #[async_trait::async_trait]
 impl DexIntegration for LifinityIntegration {
-    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error>> {
+    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error + Send + Sync>> {
         // Lifinity might not have a public API, so we'll simulate or use a fallback
         println!("📊 [LIFINITY] Using hardcoded pool data (API not publicly available)");
         
@@ -428,14 +428,14 @@ impl DexIntegration for LifinityIntegration {
         Ok(simulated_pools)
     }
     
-    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/pools/{}", self.api_base, address);
         let response = self.client.get(&url).send().await?;
         let pool_data: serde_json::Value = response.json().await?;
         self.parse_lifinity_pool(&pool_data)
     }
     
-    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error>> {
+    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         Ok(pool.tvl_usd > 150_000.0 && pool.volume_24h_usd > 20_000.0)
     }
     
@@ -445,7 +445,7 @@ impl DexIntegration for LifinityIntegration {
 }
 
 impl LifinityIntegration {
-    fn parse_lifinity_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    fn parse_lifinity_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         Ok(DiscoveredPool {
             address: pool_data["address"].as_str().unwrap_or("").to_string(),
             dex_type: DexType::Lifinity,
@@ -709,7 +709,7 @@ impl SaberIntegration {
 
 #[async_trait::async_trait]
 impl DexIntegration for SaberIntegration {
-    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error>> {
+    async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/pools-info.mainnet.json", self.api_base);
         
         match self.client.get(&url).send().await {
@@ -759,14 +759,14 @@ impl DexIntegration for SaberIntegration {
         }
     }
     
-    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    async fn get_pool_info(&self, address: &str) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("{}/pools/{}", self.api_base, address);
         let response = self.client.get(&url).send().await?;
         let pool_data: serde_json::Value = response.json().await?;
         self.parse_saber_pool(&pool_data)
     }
     
-    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error>> {
+    async fn validate_pool(&self, pool: &DiscoveredPool) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         Ok(pool.tvl_usd > 200_000.0 && 
            pool.volume_24h_usd > 30_000.0 &&
            self.is_stablecoin_pair(pool))
@@ -778,7 +778,7 @@ impl DexIntegration for SaberIntegration {
 }
 
 impl SaberIntegration {
-    fn parse_saber_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error>> {
+    fn parse_saber_pool(&self, pool_data: &serde_json::Value) -> Result<DiscoveredPool, Box<dyn std::error::Error + Send + Sync>> {
         // Handle different possible field names in Saber API response
         let address = pool_data["address"].as_str()
             .or_else(|| pool_data["pubkey"].as_str())
