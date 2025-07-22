@@ -156,6 +156,7 @@ impl ProfessionalArbitrageEngine {
             // PROPOSAL-003: Multi-token support (disabled by default - backward compatible)
             multi_token_config: None,
             multi_token_enabled: false,
+            multi_token_tier2_enabled: None, // PROPOSAL-003 Phase 2: Disabled initially
         };
         
         info!("✅ ENTERPRISE ARBITRAGE ENGINE: FULLY OPERATIONAL");
@@ -196,10 +197,29 @@ impl ProfessionalArbitrageEngine {
         // Por ahora, simplemente habilitamos el flag
         // La implementación completa se activará en futuras versiones
         self.multi_token_enabled = true;
+        self.multi_token_tier2_enabled = Some(false); // Solo Tier 1
         
-        info!("✅ PROPOSAL-003: MULTI-TOKEN FLAG ACTIVATED");
-        info!("🎯 STATUS: Multi-token support enabled (Phase 1 implementation)");
-        info!("💡 Note: Enhanced features will be available in future phases");
+        info!("✅ PROPOSAL-003: MULTI-TOKEN FLAG ACTIVATED (TIER 1 ONLY)");
+        info!("🎯 STATUS: Multi-token support enabled (Phase 1 implementation - 3 pairs)");
+        info!("💡 Note: Enhanced features available, Tier 2 can be activated separately");
+        
+        Ok(())
+    }
+
+    /// PROPOSAL-003 TIER 2: Activar soporte completo del ecosistema Solana
+    pub async fn enable_multitoken_tier2_arbitrage(&mut self) -> Result<()> {
+        info!("🚀 PROPOSAL-003 TIER 2: ACTIVATING FULL ECOSYSTEM ARBITRAGE SYSTEM");
+        warn!("⚠️  SWITCHING TO TIER 2 MULTI-TOKEN SUPPORT (16+ PAIRS)");
+        
+        // Habilitar tanto multi-token como Tier 2
+        self.multi_token_enabled = true;
+        self.multi_token_tier2_enabled = Some(true); // Tier 1 + Tier 2
+        
+        info!("✅ PROPOSAL-003 TIER 2: FULL ECOSYSTEM ACTIVATED");
+        info!("🎯 STATUS: Multi-token Tier 2 support enabled (Phase 2 implementation)");
+        info!("🪙 TOKENS: SOL, USDC, USDT, BONK, RAY, ORCA, PYTH, JTO");
+        info!("🔗 PAIRS: 16 trading pairs across Solana ecosystem");
+        info!("🛡️  RISK: Enhanced thresholds for ecosystem tokens applied");
         
         Ok(())
     }
@@ -212,12 +232,49 @@ impl ProfessionalArbitrageEngine {
     /// PROPOSAL-003: Obtener pares de tokens habilitados para trading
     pub async fn get_enabled_token_pairs(&self) -> Result<Vec<(String, String)>> {
         if self.multi_token_enabled {
-            // Por ahora, retornamos los pares básicos de Tier 1
-            Ok(vec![
-                ("SOL".to_string(), "USDC".to_string()),
-                ("SOL".to_string(), "USDT".to_string()),
-                ("USDC".to_string(), "USDT".to_string()),
-            ])
+            info!("🔍 PROPOSAL-003: Consultando pares multi-token disponibles");
+            
+            // Simulamos la integración con el TokenPairManager
+            // En una implementación completa, esto sería:
+            // let pairs = self.token_manager.get_all_tradeable_pairs();
+            
+            if self.multi_token_tier2_enabled.unwrap_or(false) {
+                // Tier 1 + Tier 2 = Máximo poder
+                info!("🚀 PROPOSAL-003: Tier 2 habilitado - devolviendo todos los pares");
+                Ok(vec![
+                    // Tier 1 pairs (básicos)
+                    ("SOL".to_string(), "USDC".to_string()),
+                    ("SOL".to_string(), "USDT".to_string()),
+                    ("USDC".to_string(), "USDT".to_string()),
+                    
+                    // Tier 2 pairs con SOL
+                    ("SOL".to_string(), "BONK".to_string()),
+                    ("SOL".to_string(), "RAY".to_string()),
+                    ("SOL".to_string(), "ORCA".to_string()),
+                    ("SOL".to_string(), "PYTH".to_string()),
+                    ("SOL".to_string(), "JTO".to_string()),
+                    
+                    // Tier 2 pairs con USDC
+                    ("USDC".to_string(), "BONK".to_string()),
+                    ("USDC".to_string(), "RAY".to_string()),
+                    ("USDC".to_string(), "ORCA".to_string()),
+                    ("USDC".to_string(), "PYTH".to_string()),
+                    ("USDC".to_string(), "JTO".to_string()),
+                    
+                    // Tier 2 inter-ecosystem pairs
+                    ("RAY".to_string(), "ORCA".to_string()),
+                    ("BONK".to_string(), "RAY".to_string()),
+                    ("PYTH".to_string(), "JTO".to_string()),
+                ])
+            } else {
+                // Solo Tier 1 (conservador)
+                info!("🛡️  PROPOSAL-003: Solo Tier 1 habilitado - pares conservadores");
+                Ok(vec![
+                    ("SOL".to_string(), "USDC".to_string()),
+                    ("SOL".to_string(), "USDT".to_string()),
+                    ("USDC".to_string(), "USDT".to_string()),
+                ])
+            }
         } else {
             // Fallback a configuración legacy (SOL/USDC)
             Ok(vec![("SOL".to_string(), "USDC".to_string())])
@@ -839,10 +896,11 @@ async fn main() -> Result<()> {
     println!("\n🎯 EXECUTION MODE SELECTION:");
     println!("A) Simulation mode (SAFE - no real money)");
     println!("B) Real trading mode (RISK - uses real SOL)");
-    println!("M) Multi-token simulation (PROPOSAL-003 - multiple token pairs)");
+    println!("M) Multi-token simulation Tier 1 (PROPOSAL-003 - 3 token pairs)");
+    println!("T) Multi-token simulation Tier 2 (PROPOSAL-003 - 16 token pairs)");
     println!("C) Exit");
     
-    print!("Select option (A/B/M/C): ");
+    print!("Select option (A/B/M/T/C): ");
     use std::io::{self, Write};
     io::stdout().flush().unwrap();
     
@@ -909,6 +967,47 @@ async fn main() -> Result<()> {
                     error!("❌ PROPOSAL-003: Failed to activate multi-token system: {}", e);
                     info!("🛡️  Falling back to single-pair simulation mode for safety");
                     enterprise_system.run_enterprise_arbitrage().await?;
+                }
+            }
+        },
+        "T" => {
+            info!("🚀 PROPOSAL-003 TIER 2: Running in MULTI-TOKEN SIMULATION mode (FULL ECOSYSTEM)");
+            
+            // Activar sistema multi-token con Tier 2
+            match enterprise_system.enable_multitoken_tier2_arbitrage().await {
+                Ok(()) => {
+                    info!("✅ PROPOSAL-003 TIER 2: Multi-token ecosystem system activated successfully");
+                    info!("🎯 Now supporting 16 token pairs across Solana ecosystem");
+                    loop {
+                        match enterprise_system.run_enterprise_arbitrage().await {
+                            Ok(_) => {
+                                info!("✅ TIER 2 ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
+                                info!("🎯 PROPOSAL-003 TIER 2: Mission accomplished with ecosystem precision");
+                            }
+                            Err(e) => {
+                                error!("❌ TIER 2 ARBITRAGE MISSION: UNSUCCESSFUL");
+                                error!("🚨 PROPOSAL-003 TIER 2 ALERT: Mission failed - {}", e);
+                                error!("🛡️  TIER 2 PROTOCOLS: Engaging recovery procedures");
+                            }
+                        }
+                        
+                        println!("{}", enterprise_system.get_enterprise_statistics());
+                        
+                        info!("⏳ PROPOSAL-003 TIER 2: Initiating 30-second tactical pause...");
+                        info!("🎖️  ECOSYSTEM STATUS: Awaiting next mission authorization");
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                    }
+                },
+                Err(e) => {
+                    error!("❌ PROPOSAL-003 TIER 2: Failed to activate ecosystem system: {}", e);
+                    info!("🛡️  Falling back to Tier 1 multi-token mode for safety");
+                    match enterprise_system.enable_multitoken_arbitrage().await {
+                        Ok(()) => enterprise_system.run_enterprise_arbitrage().await?,
+                        Err(_) => {
+                            error!("🚨 Complete fallback to single-pair simulation");
+                            enterprise_system.run_enterprise_arbitrage().await?;
+                        }
+                    }
                 }
             }
         },

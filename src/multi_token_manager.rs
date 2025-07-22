@@ -181,6 +181,177 @@ impl TokenPairManager {
         Ok(())
     }
 
+    /// FASE 2: Inicializar tokens Tier 2 (ecosistema Solana)
+    pub async fn initialize_tier2_tokens(&mut self) -> Result<()> {
+        info!("🚀 PROPOSAL-003 FASE 2: Inicializando tokens Tier 2 (Ecosistema)");
+        
+        // BONK - Popular meme token con buena liquidez
+        self.add_token("BONK", MultiTokenInfo {
+            symbol: "BONK".to_string(),
+            mint_address: Pubkey::from_str("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263")?,
+            decimals: 5,
+            tier: TokenTier::Tier2Ecosystem,
+            risk_level: TokenRiskLevel::Medium,
+            average_daily_volume: 5_000_000.0,
+            volatility_index: 0.08, // 8% volatility más alta
+            correlation_coefficients: HashMap::new(),
+            verified: true,
+            tradeable: true,
+            last_updated: Utc::now(),
+        })?;
+
+        // RAY - Raydium DEX token
+        self.add_token("RAY", MultiTokenInfo {
+            symbol: "RAY".to_string(),
+            mint_address: Pubkey::from_str("4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R")?,
+            decimals: 6,
+            tier: TokenTier::Tier2Ecosystem,
+            risk_level: TokenRiskLevel::Medium,
+            average_daily_volume: 8_000_000.0,
+            volatility_index: 0.06, // 6% volatility
+            correlation_coefficients: HashMap::new(),
+            verified: true,
+            tradeable: true,
+            last_updated: Utc::now(),
+        })?;
+
+        // ORCA - Orca DEX token
+        self.add_token("ORCA", MultiTokenInfo {
+            symbol: "ORCA".to_string(),
+            mint_address: Pubkey::from_str("orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE")?,
+            decimals: 6,
+            tier: TokenTier::Tier2Ecosystem,
+            risk_level: TokenRiskLevel::Medium,
+            average_daily_volume: 3_000_000.0,
+            volatility_index: 0.07, // 7% volatility
+            correlation_coefficients: HashMap::new(),
+            verified: true,
+            tradeable: true,
+            last_updated: Utc::now(),
+        })?;
+
+        // PYTH - Pyth Network oracle token
+        self.add_token("PYTH", MultiTokenInfo {
+            symbol: "PYTH".to_string(),
+            mint_address: Pubkey::from_str("HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3")?,
+            decimals: 6,
+            tier: TokenTier::Tier2Ecosystem,
+            risk_level: TokenRiskLevel::Medium,
+            average_daily_volume: 4_000_000.0,
+            volatility_index: 0.05, // 5% volatility
+            correlation_coefficients: HashMap::new(),
+            verified: true,
+            tradeable: true,
+            last_updated: Utc::now(),
+        })?;
+
+        // JTO - Jito governance token
+        self.add_token("JTO", MultiTokenInfo {
+            symbol: "JTO".to_string(),
+            mint_address: Pubkey::from_str("jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL")?,
+            decimals: 9,
+            tier: TokenTier::Tier2Ecosystem,
+            risk_level: TokenRiskLevel::Medium,
+            average_daily_volume: 6_000_000.0,
+            volatility_index: 0.06, // 6% volatility
+            correlation_coefficients: HashMap::new(),
+            verified: true,
+            tradeable: true,
+            last_updated: Utc::now(),
+        })?;
+
+        // Habilitar Tier 2 en la configuración
+        if !self.enabled_tiers.contains(&TokenTier::Tier2Ecosystem) {
+            self.enabled_tiers.push(TokenTier::Tier2Ecosystem);
+        }
+
+        info!("✅ PROPOSAL-003 FASE 2: {} tokens Tier 2 agregados", 5);
+        info!("🎯 Total tokens disponibles: {}", self.supported_tokens.len());
+        Ok(())
+    }
+
+    /// FASE 2: Crear configuraciones de pares Tier 2 con tokens existentes
+    pub async fn initialize_tier2_pairs(&mut self) -> Result<()> {
+        info!("🔧 PROPOSAL-003 FASE 2: Configurando pares Tier 2");
+
+        // Pares con SOL (alto volumen, buena liquidez)
+        let sol_pairs = vec![
+            ("SOL", "BONK", 75),  // 0.75% threshold
+            ("SOL", "RAY", 60),   // 0.60% threshold  
+            ("SOL", "ORCA", 80),  // 0.80% threshold
+            ("SOL", "PYTH", 70),  // 0.70% threshold
+            ("SOL", "JTO", 65),   // 0.65% threshold
+        ];
+
+        for (token_a, token_b, min_profit_bps) in sol_pairs {
+            self.add_pair_config(token_a, token_b, PairConfig {
+                token_a: token_a.to_string(),
+                token_b: token_b.to_string(),
+                enabled: true,
+                priority: 2,
+                max_position_size_usd: 5000.0, // Tamaño más conservador para Tier 2
+                min_profit_threshold_bps: min_profit_bps,
+                max_slippage_bps: 300, // Mayor slippage permitido
+                volatility_multiplier: 1.2, // Ajuste por volatilidad
+                created_at: Utc::now(),
+                last_modified: Utc::now(),
+            })?;
+        }
+
+        // Pares con USDC (buena liquidez, menor volatilidad)
+        let usdc_pairs = vec![
+            ("USDC", "BONK", 85),  // 0.85% threshold
+            ("USDC", "RAY", 70),   // 0.70% threshold
+            ("USDC", "ORCA", 90),  // 0.90% threshold
+            ("USDC", "PYTH", 80),  // 0.80% threshold
+            ("USDC", "JTO", 75),   // 0.75% threshold
+        ];
+
+        for (token_a, token_b, min_profit_bps) in usdc_pairs {
+            self.add_pair_config(token_a, token_b, PairConfig {
+                token_a: token_a.to_string(),
+                token_b: token_b.to_string(),
+                enabled: true,
+                priority: 3,
+                max_position_size_usd: 7500.0,
+                min_profit_threshold_bps: min_profit_bps,
+                max_slippage_bps: 250,
+                volatility_multiplier: 1.1,
+                created_at: Utc::now(),
+                last_modified: Utc::now(),
+            })?;
+        }
+
+        // Inter-ecosystem pairs (más especulativos, thresholds más altos)
+        let ecosystem_pairs = vec![
+            ("RAY", "ORCA", 120),   // 1.20% DEX tokens
+            ("BONK", "RAY", 150),   // 1.50% meme vs utility
+            ("PYTH", "JTO", 100),   // 1.00% oracle vs governance
+        ];
+
+        for (token_a, token_b, min_profit_bps) in ecosystem_pairs {
+            self.add_pair_config(token_a, token_b, PairConfig {
+                token_a: token_a.to_string(),
+                token_b: token_b.to_string(),
+                enabled: true,
+                priority: 4,
+                max_position_size_usd: 2500.0, // Más conservador
+                min_profit_threshold_bps: min_profit_bps,
+                max_slippage_bps: 400, // Mayor tolerancia al slippage
+                volatility_multiplier: 1.5,
+                created_at: Utc::now(),
+                last_modified: Utc::now(),
+            })?;
+        }
+
+        // Incrementar límite de pares activos
+        self.max_pairs_active = 20; // Expandir para acomodar más pares
+
+        info!("✅ PROPOSAL-003 FASE 2: {} pares Tier 2 configurados", 13);
+        info!("🎯 Total configuraciones de pares: {}", self.pair_configurations.len());
+        Ok(())
+    }
+
     /// Agregar token al manager
     pub fn add_token(&mut self, symbol: &str, token_info: MultiTokenInfo) -> Result<()> {
         if self.supported_tokens.contains_key(symbol) {
@@ -277,6 +448,60 @@ impl TokenPairManager {
             active_pairs,
             tier_distribution,
         }
+    }
+
+    /// PROPOSAL-003 FASE 2: Inicialización completa del sistema multi-token
+    pub async fn initialize_full_system(&mut self) -> Result<()> {
+        info!("🚀 PROPOSAL-003: Inicializando sistema completo multi-token");
+        
+        // Fase 1: Tokens y pares Tier 1
+        self.initialize_tier1_tokens().await?;
+        self.initialize_tier1_pairs().await?;
+        
+        // Fase 2: Tokens y pares Tier 2  
+        self.initialize_tier2_tokens().await?;
+        self.initialize_tier2_pairs().await?;
+        
+        let stats = self.get_statistics();
+        info!("✅ PROPOSAL-003: Sistema completo inicializado:");
+        info!("   📊 Total Tokens: {}", stats.total_tokens);
+        info!("   🔗 Total Pares: {}", stats.total_pairs);
+        info!("   ✅ Pares Activos: {}", stats.active_pairs);
+        
+        for (tier, count) in &stats.tier_distribution {
+            info!("   🏷️  {:?}: {} tokens", tier, count);
+        }
+        
+        Ok(())
+    }
+
+    /// Activar solo Phase 1 (conservador - solo Tier 1)
+    pub async fn initialize_conservative_system(&mut self) -> Result<()> {
+        info!("🛡️  PROPOSAL-003: Inicializando sistema conservador (solo Tier 1)");
+        
+        self.initialize_tier1_tokens().await?;
+        self.initialize_tier1_pairs().await?;
+        
+        let stats = self.get_statistics();
+        info!("✅ PROPOSAL-003: Sistema conservador inicializado - {} tokens, {} pares", 
+              stats.total_tokens, stats.active_pairs);
+        Ok(())
+    }
+
+    /// Verificar si Tier 2 está habilitado
+    pub fn is_tier2_enabled(&self) -> bool {
+        self.enabled_tiers.contains(&TokenTier::Tier2Ecosystem)
+    }
+
+    /// Obtener lista de todos los pares disponibles
+    pub fn get_all_tradeable_pairs(&self) -> Vec<(String, String)> {
+        self.pair_configurations.iter()
+            .filter(|(_, config)| config.enabled)
+            .map(|(key, _)| {
+                // key es de tipo &(String, String), así que simplemente lo clonamos
+                (key.0.clone(), key.1.clone())
+            })
+            .collect()
     }
 }
 
