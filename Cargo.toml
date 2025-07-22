@@ -33,8 +33,8 @@ name = "arbiter_professional"
 path = "arbiter_professional.rs"
 
 [[bin]]
-name = "arbiter_clean"
-path = "arbiter_clean.rs"
+name = "arbitrage_bot"
+path = "arbitrage_bot.rs"
 
 [[bin]]
 name = "arbitrage_mainnet_real"

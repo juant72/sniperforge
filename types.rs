@@ -222,4 +222,7 @@ pub struct ProfessionalArbitrageEngine {
     pub multi_token_config: Option<Box<dyn std::any::Any + Send + Sync>>, // Type-erased para evitar imports circulares
     pub multi_token_enabled: bool,
     pub multi_token_tier2_enabled: Option<bool>, // PROPOSAL-003 Phase 2: Tier 2 ecosystem support
+    
+    // Saber integration for real pool data
+    pub saber_integration: Option<Box<dyn std::any::Any + Send + Sync>>, // SaberIntegration type-erased
 }
