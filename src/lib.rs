@@ -6,9 +6,13 @@ pub mod arbitrage;
 pub mod bots;
 pub mod config;
 pub mod dexscreener_testing; // DexScreener API testing
+pub mod enhanced_pool_discovery; // PROPOSAL-002: Multi-DEX pool discovery
 pub mod expert; // EXPERT SYSTEM MODULES
 pub mod jupiter_speed_test;
 pub mod ml; // Phase 6B ML module
+pub mod multi_dex_scanner; // PROPOSAL-002: Multi-DEX scanner system
+pub mod multi_token_manager; // PROPOSAL-003: Multi-token management system
+pub mod multi_token_config; // PROPOSAL-003: Multi-token configuration system
 pub mod platform;
 pub mod portfolio; // Phase 6C Portfolio Management
 pub mod shared;

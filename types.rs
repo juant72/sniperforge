@@ -21,6 +21,15 @@ pub enum PoolType {
     OrcaWhirlpool,
     Meteora,
     Jupiter,
+    Lifinity,
+    Phoenix,
+    Saber,
+    Cropper,
+    Aldrin,
+    Step,
+    Marinade,
+    Mercurial,
+    Quarry,
     Unknown,
 }
 
@@ -208,4 +217,8 @@ pub struct ProfessionalArbitrageEngine {
     pub execution_mode: ExecutionMode,
     pub wallet_keypair: Option<solana_sdk::signature::Keypair>,
     pub real_executor: Option<()>, // Placeholder - functionality is in internal modules
+    
+    // PROPOSAL-003: Multi-token arbitrage support (optional - backward compatible)
+    pub multi_token_config: Option<Box<dyn std::any::Any + Send + Sync>>, // Type-erased para evitar imports circulares
+    pub multi_token_enabled: bool,
 }

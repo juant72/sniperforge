@@ -295,9 +295,19 @@ pub struct PoolInfo {
 pub enum DexType {
     Raydium,
     Orca,
+    OrcaWhirlpool,
     Jupiter,
     Serum,
     Meteora,
+    Lifinity,
+    Phoenix,
+    Saber,
+    Cropper,
+    Aldrin,
+    Step,
+    Marinade,
+    Mercurial,
+    Quarry,
     Other(String),
 }
 
@@ -306,9 +316,19 @@ impl std::fmt::Display for DexType {
         match self {
             DexType::Raydium => write!(f, "Raydium"),
             DexType::Orca => write!(f, "Orca"),
+            DexType::OrcaWhirlpool => write!(f, "Orca Whirlpool"),
             DexType::Jupiter => write!(f, "Jupiter"),
             DexType::Serum => write!(f, "Serum"),
             DexType::Meteora => write!(f, "Meteora"),
+            DexType::Lifinity => write!(f, "Lifinity"),
+            DexType::Phoenix => write!(f, "Phoenix"),
+            DexType::Saber => write!(f, "Saber"),
+            DexType::Cropper => write!(f, "Cropper"),
+            DexType::Aldrin => write!(f, "Aldrin"),
+            DexType::Step => write!(f, "Step"),
+            DexType::Marinade => write!(f, "Marinade"),
+            DexType::Mercurial => write!(f, "Mercurial"),
+            DexType::Quarry => write!(f, "Quarry"),
             DexType::Other(name) => write!(f, "{}", name),
         }
     }
@@ -601,4 +621,82 @@ pub struct TransactionDetails {
     pub slot: u64,
     pub block_time: Option<i64>,
     pub meta: Option<solana_transaction_status::UiTransactionStatusMeta>,
+}
+
+// ============================================================================
+// PROPOSAL-003: Multi-Token Arbitrage Support - Extended Types
+// ============================================================================
+
+/// PROPOSAL-003: Opportunity multi-token que extiende el sistema existente
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MultiTokenOpportunity {
+    pub id: Uuid,
+    pub opportunity_type: MultiTokenOpportunityType,
+    pub token_path: Vec<String>, // ["SOL", "USDC"] or ["USDC", "SOL", "BONK", "USDC"]
+    pub pools_involved: Vec<PoolInfo>,
+    pub estimated_profit_usd: f64,
+    pub estimated_profit_percentage: f64,
+    pub risk_score: f64,
+    pub confidence_score: f64,
+    pub execution_complexity: OpportunityComplexity,
+    pub expires_at: DateTime<Utc>,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MultiTokenOpportunityType {
+    DirectPair,      // Simple A->B arbitrage
+    TriangularArb,   // A->B->C->A arbitrage
+    MultiHop,        // Complex multi-step arbitrage
+    CrossDex,        // Same pair across different DEXs
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum OpportunityComplexity {
+    Simple,    // 1-2 swaps
+    Medium,    // 3-4 swaps
+    Complex,   // 5+ swaps
+}
+
+/// PROPOSAL-003: Configuración específica por par de tokens
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenPairSettings {
+    pub base_token: String,
+    pub quote_token: String,
+    pub min_profit_threshold_bps: u64,
+    pub max_position_size_usd: f64,
+    pub max_slippage_bps: u64,
+    pub priority_weight: f64,
+    pub enabled: bool,
+    pub risk_multiplier: f64,
+}
+
+/// PROPOSAL-003: Análisis de riesgo específico por tokens
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenPairRiskAssessment {
+    pub token_a: String,
+    pub token_b: String,
+    pub overall_risk: f64,
+    pub volatility_component: f64,
+    pub correlation_component: f64,
+    pub liquidity_component: f64,
+    pub recommendation: RiskLevel,
+    pub computed_at: DateTime<Utc>,
+}
+
+/// PROPOSAL-003: Performance tracking por par de tokens
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenPairMetrics {
+    pub token_a: String,
+    pub token_b: String,
+    pub total_opportunities: u64,
+    pub successful_trades: u64,
+    pub total_profit_usd: f64,
+    pub success_rate: f64,
+    pub average_execution_time_ms: f64,
+    pub average_slippage: f64,
+    pub best_profit_usd: f64,
+    pub worst_loss_usd: f64,
+    pub last_profitable_trade: Option<DateTime<Utc>>,
+    pub tracking_period_start: DateTime<Utc>,
 }

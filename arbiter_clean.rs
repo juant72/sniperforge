@@ -41,12 +41,19 @@ mod jupiter_integration;
 mod transaction_executor;
 
 use types::*;
+use sniperforge::types::DexType;
+use sniperforge::multi_dex_scanner::*;
+use sniperforge::enhanced_pool_discovery::*;
+// PROPOSAL-003: Multi-token system imports
+use sniperforge::multi_token_manager::TokenPairManager;
+use sniperforge::multi_token_config::{MultiTokenConfigManager, MultiTokenStats};
 use price_feeds::ProfessionalPriceFeeds;
 use pool_validator::PoolValidator;
 use jupiter_api::JupiterAPI;
 use calculations::*;
 use risk_manager::EnterpriseRiskManager;
 use real_execution::RealExecutionEngine;
+use sniperforge::enhanced_pool_discovery::{EnhancedPoolDiscovery, execute_enhanced_pool_discovery, discover_enhanced_opportunities};
 
 // ===== ENTERPRISE ARBITRAGE ENGINE IMPLEMENTATION =====
 impl ProfessionalArbitrageEngine {
@@ -145,10 +152,15 @@ impl ProfessionalArbitrageEngine {
             execution_mode: ExecutionMode::Simulation,
             wallet_keypair: None,
             real_executor: None,
+            
+            // PROPOSAL-003: Multi-token support (disabled by default - backward compatible)
+            multi_token_config: None,
+            multi_token_enabled: false,
         };
         
         info!("✅ ENTERPRISE ARBITRAGE ENGINE: FULLY OPERATIONAL");
         info!("🎯 INSTITUTIONAL STATUS: READY FOR MILITARY-PRECISION EXECUTION");
+        info!("🚀 PROPOSAL-003: Multi-token support ready for activation");
         Ok(engine)
     }
     
@@ -174,6 +186,42 @@ impl ProfessionalArbitrageEngine {
         info!("💡 Note: All safety validations and monitoring systems active");
         
         Ok(())
+    }
+    
+    /// PROPOSAL-003: Activar sistema multi-token de manera segura
+    pub async fn enable_multitoken_arbitrage(&mut self) -> Result<()> {
+        info!("🚀 PROPOSAL-003: ACTIVATING MULTI-TOKEN ARBITRAGE SYSTEM");
+        warn!("⚠️  SWITCHING FROM SINGLE-PAIR TO MULTI-TOKEN SUPPORT");
+        
+        // Por ahora, simplemente habilitamos el flag
+        // La implementación completa se activará en futuras versiones
+        self.multi_token_enabled = true;
+        
+        info!("✅ PROPOSAL-003: MULTI-TOKEN FLAG ACTIVATED");
+        info!("🎯 STATUS: Multi-token support enabled (Phase 1 implementation)");
+        info!("💡 Note: Enhanced features will be available in future phases");
+        
+        Ok(())
+    }
+    
+    /// PROPOSAL-003: Verificar si multi-token está habilitado y listo
+    pub fn is_multitoken_enabled(&self) -> bool {
+        self.multi_token_enabled
+    }
+    
+    /// PROPOSAL-003: Obtener pares de tokens habilitados para trading
+    pub async fn get_enabled_token_pairs(&self) -> Result<Vec<(String, String)>> {
+        if self.multi_token_enabled {
+            // Por ahora, retornamos los pares básicos de Tier 1
+            Ok(vec![
+                ("SOL".to_string(), "USDC".to_string()),
+                ("SOL".to_string(), "USDT".to_string()),
+                ("USDC".to_string(), "USDT".to_string()),
+            ])
+        } else {
+            // Fallback a configuración legacy (SOL/USDC)
+            Ok(vec![("SOL".to_string(), "USDC".to_string())])
+        }
     }
     
     /// ENTERPRISE ARBITRAGE EXECUTION PROTOCOL - Military precision with institutional oversight
@@ -285,62 +333,72 @@ impl ProfessionalArbitrageEngine {
     }
     
     async fn execute_enterprise_pool_discovery(&mut self) -> Result<()> {
-        info!("🔍 ENTERPRISE POOL RECONNAISSANCE: Dynamic institutional liquidity discovery");
+        info!("� ENHANCED ENTERPRISE POOL RECONNAISSANCE: Multi-DEX institutional liquidity discovery");
         
         self.operational_pools.clear();
         
-        // DYNAMIC POOL DISCOVERY: Query Jupiter API for real active pools
-        info!("📡 QUERYING JUPITER API FOR LIVE POOL DATA");
-        let jupiter_api = JupiterAPI::new();
+        // ✅ PROPOSAL-002 IMPLEMENTATION: Multi-DEX Pool Discovery
+        info!("📡 EXECUTING COMPREHENSIVE MULTI-DEX POOL DISCOVERY");
         
-        // Get SOL/USDC pools from Jupiter's active routing
-        let sol_mint = "So11111111111111111111111111111111111111112";
-        let usdc_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-        
-        // Test amount for pool discovery (1 SOL)
-        let test_amount = 1_000_000_000u64;
-        
-        let discovered_pools = match jupiter_api.get_real_quote(sol_mint, usdc_mint, test_amount).await {
-            Ok(quote) => {
-                info!("✅ JUPITER API RESPONSIVE: Discovered {} route segments", quote.route_plan.len());
-                // Use Jupiter's routing to identify active pools dynamically
-                self.extract_pools_from_jupiter_route(&quote.route_plan).await?
-            },
-            Err(e) => {
-                warn!("⚠️  JUPITER API UNAVAILABLE: Falling back to pool validator discovery - {}", e);
-                // Fallback: Use pool validator to scan known high-TVL pool types
-                self.discover_pools_via_validator().await?
+        // Execute enhanced pool discovery across multiple DEXs
+        match execute_enhanced_pool_discovery().await {
+            Ok(discovered_pools) => {
+                info!("✅ MULTI-DEX DISCOVERY SUCCESS: Found {} pools across multiple DEXs", discovered_pools.len());
+                
+                // Process discovered pools
+                for (address_str, dex_type, token_a, token_b) in discovered_pools {
+                    info!("🎯 VALIDATING MULTI-DEX POOL: {} on {}", address_str, dex_type);
+                    
+                    // Convert to legacy format and validate
+                    if let Ok(pool_address) = Pubkey::from_str(&address_str) {
+                        let pool_type = match dex_type {
+                            DexType::Raydium => PoolType::Raydium,
+                            DexType::Orca => PoolType::Orca,
+                            DexType::OrcaWhirlpool => PoolType::OrcaWhirlpool,
+                            DexType::Meteora => PoolType::Meteora,
+                            DexType::Lifinity => PoolType::Lifinity,
+                            DexType::Phoenix => PoolType::Phoenix,
+                            DexType::Saber => PoolType::Saber,
+                            _ => continue, // Skip unsupported DEX types
+                        };
+                        
+                        match self.pool_validator.validate_real_pool_comprehensive(
+                            &pool_address, 
+                            pool_type.clone(), 
+                            &token_a, 
+                            &token_b
+                        ).await {
+                            Ok(pool_data) => {
+                                info!("✅ MULTI-DEX POOL VALIDATED: {} on {}", address_str, dex_type);
+                                info!("   💎 ENTERPRISE TVL: ${:.0}", pool_data.tvl_usd);
+                                info!("   🎖️  DEX TYPE: {:?}", dex_type);
+                                info!("   🚀 PROPOSAL-002: Enhanced pool discovery operational");
+                                
+                                let performance = PoolPerformanceData {
+                                    total_volume: 0.0,
+                                    average_spread: (pool_data.fee_rate as f64 / 100.0),
+                                    success_rate: 1.0,
+                                    last_profitable_trade: None,
+                                    volatility_score: 0.0,
+                                };
+                                
+                                self.pool_performance.insert(pool_address, performance);
+                                self.operational_pools.insert(pool_address, pool_data);
+                            }
+                            Err(e) => {
+                                warn!("⚠️  MULTI-DEX POOL REJECTED: {}", address_str);
+                                warn!("   🚨 VALIDATION FAILED: Pool failed enterprise validation - {}", e);
+                            }
+                        }
+                    }
+                }
             }
-        };
-        
-        for discovered_pool in discovered_pools {
-            info!("🎯 VALIDATING DISCOVERED POOL: {:?}", discovered_pool.pool_type);
-            match self.pool_validator.validate_real_pool_comprehensive(
-                &discovered_pool.address, 
-                discovered_pool.pool_type.clone(), 
-                &discovered_pool.token_a_symbol, 
-                &discovered_pool.token_b_symbol
-            ).await {
-                Ok(pool_data) => {
-                    info!("✅ INSTITUTIONAL POOL VALIDATED: {:?}", discovered_pool.pool_type);
-                    info!("   💎 ENTERPRISE TVL: ${:.0}", pool_data.tvl_usd);
-                    info!("   🎖️  MILITARY STATUS: Cleared for operations");
-                    
-                    let performance = PoolPerformanceData {
-                        total_volume: 0.0,
-                        average_spread: (pool_data.fee_rate as f64 / 100.0),
-                        success_rate: 1.0,
-                        last_profitable_trade: None,
-                        volatility_score: 0.0,
-                    };
-                    
-                    self.pool_performance.insert(discovered_pool.address, performance);
-                    self.operational_pools.insert(discovered_pool.address, pool_data);
-                }
-                Err(e) => {
-                    warn!("⚠️  INSTITUTIONAL POOL REJECTED: {}", discovered_pool.address);
-                    warn!("   🚨 MILITARY ALERT: Pool failed enterprise validation - {}", e);
-                }
+            Err(e) => {
+                error!("❌ MULTI-DEX DISCOVERY FAILED: Falling back to legacy pools - {}", e);
+                info!("🔄 FALLBACK: Using verified legacy pools");
+                
+                // Fallback to legacy pools if multi-DEX discovery fails
+                self.load_legacy_pools().await?;
             }
         }
         
@@ -349,50 +407,65 @@ impl ProfessionalArbitrageEngine {
             return Err(anyhow!("INSTITUTIONAL POOLS UNAVAILABLE - Mission cannot proceed"));
         }
         
-        info!("🎯 ENTERPRISE RECONNAISSANCE COMPLETE: {} institutional pools validated", self.operational_pools.len());
-        info!("✅ MILITARY STATUS: Operational pools ready for enterprise arbitrage");
+        info!("🎯 ENHANCED ENTERPRISE RECONNAISSANCE COMPLETE: {} institutional pools validated", self.operational_pools.len());
+        info!("✅ PROPOSAL-002 STATUS: Multi-DEX discovery operational");
+        info!("🎖️  MILITARY STATUS: Enhanced operational pools ready for enterprise arbitrage");
         Ok(())
     }
     
-    /// EXTRACT POOLS FROM JUPITER ROUTING DATA
-    async fn extract_pools_from_jupiter_route(&self, route_plan: &[String]) -> Result<Vec<DiscoveredPool>> {
-        info!("🔍 EXTRACTING POOL DATA FROM JUPITER ROUTING");
+    /// FALLBACK: Load legacy pools if multi-DEX discovery fails
+    async fn load_legacy_pools(&mut self) -> Result<()> {
+        info!("� LOADING LEGACY INSTITUTIONAL POOLS");
         
-        // For now, return empty vec - Jupiter API routing doesn't expose pool addresses directly
-        // This would require additional Jupiter route parsing logic
-        warn!("⚠️  JUPITER ROUTE EXTRACTION NOT IMPLEMENTED - Using validator fallback");
-        self.discover_pools_via_validator().await
-    }
-    
-    /// DISCOVER POOLS VIA VALIDATOR SCANNING
-    async fn discover_pools_via_validator(&self) -> Result<Vec<DiscoveredPool>> {
-        info!("🔍 SCANNING FOR HIGH-TVL POOLS VIA VALIDATOR");
+        let legacy_pools = vec![
+            ("58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2", PoolType::Raydium, "SOL", "USDC"),
+            ("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ", PoolType::OrcaWhirlpool, "SOL", "USDC"),
+            ("9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP", PoolType::Orca, "SOL", "USDC"),
+        ];
         
-        // This would scan popular program IDs for pools
-        // For now, return empty to trigger error handling
-        warn!("⚠️  DYNAMIC POOL DISCOVERY NOT FULLY IMPLEMENTED");
-        warn!("🔧 SYSTEM WILL USE FALLBACK TO KNOWN STABLE POOLS");
+        for (address_str, pool_type, token_a, token_b) in legacy_pools {
+            if let Ok(pool_address) = Pubkey::from_str(address_str) {
+                match self.pool_validator.validate_real_pool_comprehensive(
+                    &pool_address, 
+                    pool_type.clone(), 
+                    token_a, 
+                    token_b
+                ).await {
+                    Ok(pool_data) => {
+                        info!("✅ LEGACY POOL VALIDATED: {}", address_str);
+                        
+                        let performance = PoolPerformanceData {
+                            total_volume: 0.0,
+                            average_spread: (pool_data.fee_rate as f64 / 100.0),
+                            success_rate: 1.0,
+                            last_profitable_trade: None,
+                            volatility_score: 0.0,
+                        };
+                        
+                        self.pool_performance.insert(pool_address, performance);
+                        self.operational_pools.insert(pool_address, pool_data);
+                    }
+                    Err(e) => {
+                        warn!("⚠️  LEGACY POOL FAILED: {} - {}", address_str, e);
+                    }
+                }
+            }
+        }
         
-        // Temporary fallback with verified mainnet pools (these are real, active pools)
-        Ok(vec![
-            DiscoveredPool {
-                address: Pubkey::from_str("58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2")?,
-                pool_type: PoolType::Raydium,
-                token_a_symbol: "SOL".to_string(),
-                token_b_symbol: "USDC".to_string(),
-            },
-            DiscoveredPool {
-                address: Pubkey::from_str("HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ")?,
-                pool_type: PoolType::OrcaWhirlpool,
-                token_a_symbol: "SOL".to_string(),
-                token_b_symbol: "USDC".to_string(),
-            },
-        ])
+        Ok(())
     }
     
     async fn discover_institutional_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
         info!("🧮 ENTERPRISE OPPORTUNITY ANALYSIS: Military-grade market scanning");
         
+        // PROPOSAL-003: Enhanced opportunity discovery con multi-token support
+        if self.is_multitoken_enabled() {
+            info!("🚀 PROPOSAL-003: Using enhanced multi-token opportunity discovery");
+            return self.discover_multitoken_opportunities().await;
+        }
+        
+        // Legacy single-pair discovery (mantiene compatibilidad)
+        info!("📊 Using legacy single-pair opportunity discovery");
         let mut opportunities = Vec::new();
         let pools: Vec<_> = self.operational_pools.values().collect();
         
@@ -429,6 +502,97 @@ impl ProfessionalArbitrageEngine {
         info!("🎯 ENTERPRISE ANALYSIS COMPLETE: {} institutional opportunities identified", opportunities.len());
         info!("✅ MILITARY STATUS: Opportunities ranked by enterprise criteria");
         Ok(opportunities)
+    }
+    
+    /// PROPOSAL-003: Enhanced multi-token opportunity discovery
+    async fn discover_multitoken_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
+        info!("🚀 PROPOSAL-003: MULTI-TOKEN OPPORTUNITY DISCOVERY");
+        
+        let mut opportunities = Vec::new();
+        
+        // Obtener pares de tokens habilitados
+        let enabled_pairs = self.get_enabled_token_pairs().await?;
+        info!("📊 PROPOSAL-003: Analyzing {} enabled token pairs", enabled_pairs.len());
+        
+        // Filtrar pools por pares habilitados
+        let pools: Vec<_> = self.operational_pools.values().collect();
+        
+        for (token_a_symbol, token_b_symbol) in enabled_pairs {
+            info!("🔍 PROPOSAL-003: Analyzing pair {}/{}", token_a_symbol, token_b_symbol);
+            
+            // Buscar pools que coincidan con este par de tokens
+            let matching_pools: Vec<_> = pools.iter()
+                .filter(|pool| self.pool_matches_token_pair(pool, &token_a_symbol, &token_b_symbol))
+                .collect();
+            
+            if matching_pools.len() >= 2 {
+                info!("🎯 PROPOSAL-003: Found {} pools for pair {}/{}", 
+                      matching_pools.len(), token_a_symbol, token_b_symbol);
+                
+                // Analizar oportunidades entre pools del mismo par de tokens
+                for (i, pool_a) in matching_pools.iter().enumerate() {
+                    for pool_b in matching_pools.iter().skip(i + 1) {
+                        if let Ok(Some(opportunity)) = self.calculate_enterprise_arbitrage(pool_a, pool_b).await {
+                            // Aplicar configuración específica del par simplificada (Phase 1)
+                            let meets_criteria = if self.multi_token_enabled {
+                                // Criterios más estrictos para multi-token en Phase 1
+                                let profit_bps = (opportunity.profit_lamports * 10_000) / opportunity.amount_in as i64;
+                                profit_bps >= (self.adaptive_config.min_profit_threshold + 25) as i64 // +25 bps más estricto
+                            } else {
+                                let profit_bps = (opportunity.profit_lamports * 10_000) / opportunity.amount_in as i64;
+                                profit_bps >= self.adaptive_config.min_profit_threshold as i64
+                            };
+                            
+                            if meets_criteria {
+                                info!("💎 PROPOSAL-003: Multi-token opportunity found for {}/{}", 
+                                      token_a_symbol, token_b_symbol);
+                                opportunities.push(opportunity);
+                                self.total_opportunities_found.fetch_add(1, Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+            } else {
+                debug!("📊 PROPOSAL-003: Insufficient pools for pair {}/{} (found {})", 
+                       token_a_symbol, token_b_symbol, matching_pools.len());
+            }
+        }
+        
+        // Ranking with multi-token considerations
+        opportunities.sort_by(|a, b| {
+            let score_a = EnterpriseRiskManager::calculate_enterprise_opportunity_score(a, &self.market_metrics, &self.adaptive_config);
+            let score_b = EnterpriseRiskManager::calculate_enterprise_opportunity_score(b, &self.market_metrics, &self.adaptive_config);
+            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        
+        info!("✅ PROPOSAL-003: Multi-token analysis complete - {} opportunities identified", opportunities.len());
+        Ok(opportunities)
+    }
+    
+    /// PROPOSAL-003: Verificar si un pool coincide con un par de tokens específico
+    fn pool_matches_token_pair(&self, pool: &PoolData, token_a_symbol: &str, token_b_symbol: &str) -> bool {
+        // Esta es una implementación simplificada
+        // En una versión completa, se verificaría contra las direcciones de mint reales
+        
+        // Por ahora, verificamos los símbolos más comunes
+        let pool_tokens = vec![
+            self.get_token_symbol_from_mint(&pool.token_a_mint),
+            self.get_token_symbol_from_mint(&pool.token_b_mint),
+        ];
+        
+        (pool_tokens.contains(&token_a_symbol.to_string()) && pool_tokens.contains(&token_b_symbol.to_string())) ||
+        (pool_tokens.contains(&token_b_symbol.to_string()) && pool_tokens.contains(&token_a_symbol.to_string()))
+    }
+    
+    /// PROPOSAL-003: Helper para obtener símbolo de token desde mint address
+    fn get_token_symbol_from_mint(&self, mint: &Pubkey) -> String {
+        // Mapeo simplificado de direcciones conocidas
+        match mint.to_string().as_str() {
+            "So11111111111111111111111111111111111111112" => "SOL".to_string(),
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "USDC".to_string(),
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "USDT".to_string(),
+            _ => "UNKNOWN".to_string(),
+        }
     }
     
     fn display_enterprise_opportunity_briefing(&self, opportunity: &DirectOpportunity) {
@@ -625,7 +789,7 @@ impl ProfessionalArbitrageEngine {
     }
     
     pub fn get_enterprise_statistics(&self) -> String {
-        format!(
+        let mut stats = format!(
             "🏛️  ENTERPRISE ARBITRAGE SYSTEM - INSTITUTIONAL STATUS REPORT:\n\
              ⚔️  MILITARY PRECISION STATS:\n\
              💰 Total Opportunities Discovered: {}\n\
@@ -639,7 +803,22 @@ impl ProfessionalArbitrageEngine {
             self.successful_trades.load(Ordering::Relaxed),
             self.total_profit_lamports.load(Ordering::Relaxed) as f64 / 1e9,
             self.operational_pools.len()
-        )
+        );
+        
+        // PROPOSAL-003: Agregar estadísticas multi-token si está habilitado
+        if self.is_multitoken_enabled() {
+            stats.push_str(&format!(
+                "\n\n🚀 PROPOSAL-003 MULTI-TOKEN STATUS:\n\
+                 🪙 Enhanced Token Support: ENABLED\n\
+                 🔗 Supported Pairs: SOL/USDC, SOL/USDT, USDC/USDT\n\
+                 ✅ Tier 1 Tokens: OPERATIONAL\n\
+                 🎯 Multi-Token Mode: PHASE 1 ACTIVE"
+            ));
+        } else {
+            stats.push_str("\n\n🚀 PROPOSAL-003 MULTI-TOKEN STATUS: DISABLED (Single-pair mode)");
+        }
+        
+        stats
     }
 }
 
@@ -660,9 +839,10 @@ async fn main() -> Result<()> {
     println!("\n🎯 EXECUTION MODE SELECTION:");
     println!("A) Simulation mode (SAFE - no real money)");
     println!("B) Real trading mode (RISK - uses real SOL)");
+    println!("M) Multi-token simulation (PROPOSAL-003 - multiple token pairs)");
     println!("C) Exit");
     
-    print!("Select option (A/B/C): ");
+    print!("Select option (A/B/M/C): ");
     use std::io::{self, Write};
     io::stdout().flush().unwrap();
     
@@ -696,6 +876,40 @@ async fn main() -> Result<()> {
                 info!("⏳ ENTERPRISE PROTOCOL: Initiating 30-second tactical pause...");
                 info!("🎖️  MILITARY STATUS: Awaiting next mission authorization");
                 tokio::time::sleep(Duration::from_secs(30)).await;
+            }
+        },
+        "M" => {
+            info!("🚀 PROPOSAL-003: Running in MULTI-TOKEN SIMULATION mode");
+            
+            // Activar sistema multi-token
+            match enterprise_system.enable_multitoken_arbitrage().await {
+                Ok(()) => {
+                    info!("✅ PROPOSAL-003: Multi-token system activated successfully");
+                    loop {
+                        match enterprise_system.run_enterprise_arbitrage().await {
+                            Ok(_) => {
+                                info!("✅ MULTI-TOKEN ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
+                                info!("🎯 PROPOSAL-003: Mission accomplished with multi-token precision");
+                            }
+                            Err(e) => {
+                                error!("❌ MULTI-TOKEN ARBITRAGE MISSION: UNSUCCESSFUL");
+                                error!("🚨 PROPOSAL-003 ALERT: Mission failed - {}", e);
+                                error!("🛡️  MULTI-TOKEN PROTOCOLS: Engaging recovery procedures");
+                            }
+                        }
+                        
+                        println!("{}", enterprise_system.get_enterprise_statistics());
+                        
+                        info!("⏳ PROPOSAL-003: Initiating 30-second tactical pause...");
+                        info!("🎖️  MULTI-TOKEN STATUS: Awaiting next mission authorization");
+                        tokio::time::sleep(Duration::from_secs(30)).await;
+                    }
+                },
+                Err(e) => {
+                    error!("❌ PROPOSAL-003: Failed to activate multi-token system: {}", e);
+                    info!("🛡️  Falling back to single-pair simulation mode for safety");
+                    enterprise_system.run_enterprise_arbitrage().await?;
+                }
             }
         },
         "B" => {
