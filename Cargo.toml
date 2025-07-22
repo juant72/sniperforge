@@ -585,6 +585,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Orca Whirlpool SDK
 orca_whirlpools = { version = "3.1.0", default-features = false }
 
+# Phoenix DEX - Use RPC calls instead of SDK for compatibility
+# phoenix-sdk = { git = "https://github.com/Ellipsis-Labs/phoenix-sdk", branch = "master", features = ["rust"] }
+# ellipsis-client = { git = "https://github.com/Ellipsis-Labs/phoenix-sdk", branch = "master" }
+
 # HTTP client for Jupiter API calls and base64 encoding for mainnet
 reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }
 base64 = { version = "0.22", default-features = false, features = ["std"] }
