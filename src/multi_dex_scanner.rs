@@ -512,7 +512,7 @@ impl SaberIntegration {
     pub fn new() -> Self {
         Self {
             client: Client::new(),
-            api_base: "https://api.saber.so".to_string(),
+            api_base: "https://registry.saber.so/data".to_string(),
         }
     }
 }
@@ -520,7 +520,7 @@ impl SaberIntegration {
 #[async_trait::async_trait]
 impl DexIntegration for SaberIntegration {
     async fn get_pools(&self) -> Result<Vec<DiscoveredPool>, Box<dyn std::error::Error>> {
-        let url = format!("{}/pools", self.api_base);
+        let url = format!("{}/pools-info.mainnet.json", self.api_base);
         
         match self.client.get(&url).send().await {
             Ok(response) => {

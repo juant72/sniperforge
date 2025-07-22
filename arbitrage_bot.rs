@@ -46,6 +46,7 @@ use types::*;
 use sniperforge::types::DexType;
 // PROPOSAL-003: Multi-token system imports
 use saber_integration::SaberIntegration;
+use sniperforge::enhanced_pool_discovery::execute_enhanced_pool_discovery;
 use price_feeds::ProfessionalPriceFeeds;
 use pool_validator::PoolValidator;
 use jupiter_api::JupiterAPI;
@@ -480,8 +481,9 @@ impl ProfessionalArbitrageEngine {
                 info!("✅ MULTI-DEX DISCOVERY SUCCESS: Found {} pools across multiple DEXs", discovered_pools.len());
                 
                 // Process discovered pools
-                for (address_str, dex_type, token_a, token_b) in discovered_pools {
-                    info!("🎯 VALIDATING MULTI-DEX POOL: {} on {}", address_str, dex_type);
+                for pool_data in discovered_pools {
+                    let (address_str, dex_type, token_a, token_b) = pool_data;
+                    info!("🎯 VALIDATING MULTI-DEX POOL: {} on {:?}", address_str, dex_type);
                     
                     // Convert to legacy format and validate
                     if let Ok(pool_address) = Pubkey::from_str(&address_str) {

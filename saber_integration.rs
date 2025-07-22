@@ -240,7 +240,7 @@ impl SaberIntegration {
         let mut token_distribution = HashMap::new();
         for token in &target_tokens {
             let count = relevant_pools.iter()
-                .filter(|p| self.pool_contains_token_static(p, token))
+                .filter(|p| Self::pool_contains_token_static(p, token))
                 .count();
             token_distribution.insert(token.clone(), count);
         }
