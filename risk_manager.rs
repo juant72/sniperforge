@@ -4,7 +4,6 @@
 use anyhow::{Result, anyhow};
 use tracing::{info, warn, error, debug};
 use std::sync::atomic::Ordering;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::types::*;
 

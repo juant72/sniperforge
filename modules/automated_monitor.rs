@@ -2,9 +2,9 @@
 // Sistema de monitoreo automático - Opción C implementada modularmente
 // Combina safe testing + jupiter scanner + alertas + ejecución automática
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tracing::{info, warn, error, debug};
-use tokio::time::{Duration, sleep, interval, Instant};
+use tokio::time::{Duration, interval, Instant};
 use chrono::{Utc, DateTime};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -38,7 +38,7 @@ impl Default for MonitorConfig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct MonitorAlert {
     pub timestamp: DateTime<Utc>,
     pub alert_type: AlertType,
@@ -47,7 +47,7 @@ pub struct MonitorAlert {
     pub action_required: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum AlertType {
     HighPriorityOpportunity,
     SafeExecutionReady,
@@ -345,7 +345,8 @@ impl AutomatedMonitor {
             
             // Keep only last 100 alerts
             if history.len() > 100 {
-                history.drain(0..history.len() - 100);
+                let excess = history.len() - 100;
+                history.drain(0..excess);
             }
         }
 

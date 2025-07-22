@@ -3,16 +3,14 @@
 // Implementa detección de oportunidades reales documentadas
 
 use anyhow::{Result, anyhow};
-use tracing::{info, warn, error, debug};
+use tracing::{info, debug};
 use std::collections::HashMap;
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
 use reqwest;
 use serde_json::Value;
 use tokio::time::{Duration, sleep};
 use chrono::{Utc, DateTime};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct OpportunityResult {
     pub timestamp: DateTime<Utc>,
     pub token_pair: String,
@@ -25,7 +23,7 @@ pub struct OpportunityResult {
     pub execution_priority: Priority,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum Priority {
     High,    // >5x fees, immediate execution
     Medium,  // >3x fees, good execution
@@ -179,7 +177,7 @@ impl JupiterScanner {
 
     /// Calculate confidence score based on historical success patterns
     fn calculate_confidence_score(&self, fee_multiplier: f64, token_a: &str, token_b: &str) -> f64 {
-        let mut base_score = (fee_multiplier * 20.0).min(100.0); // Base score from profit ratio
+        let base_score = (fee_multiplier * 20.0).min(100.0); // Base score from profit ratio
         
         // Adjust based on historical success patterns from documentation
         let pair_bonus = match (token_a, token_b) {

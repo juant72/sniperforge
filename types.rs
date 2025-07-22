@@ -2,10 +2,9 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::AtomicBool;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Instant, SystemTime};
 use solana_sdk::pubkey::Pubkey;
 use solana_client::rpc_client::RpcClient;
-use serde::{Deserialize, Serialize};
 
 // ===== CORE CONSTANTS =====
 pub const MIN_TRADE_SIZE_SOL: f64 = 0.1;

@@ -257,10 +257,6 @@ name = "test_enhanced_arbitrage_monitor"
 path = "test_enhanced_arbitrage_monitor.rs"
 
 [[bin]]
-name = "qa_runner"
-path = "tests/qa_runner.rs"
-
-[[bin]]
 name = "test_sol_wrap_unwrap"
 path = "test_sol_wrap_unwrap.rs"
 

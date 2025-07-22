@@ -1,7 +1,7 @@
 // ===== REAL EXECUTION MODULE =====
 // Sistema de ejecución real en mainnet con protocolo empresarial
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tracing::{info, warn};
 use solana_sdk::signature::{Keypair, Signature};
 use solana_sdk::pubkey::Pubkey;

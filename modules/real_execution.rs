@@ -3,27 +3,22 @@
 // Implementa ejecución segura con validaciones y controles de riesgo
 
 use anyhow::{Result, anyhow};
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    instruction::Instruction,
-    system_instruction,
 };
 use solana_client::rpc_client::RpcClient;
-use spl_token::{
-    instruction as token_instruction,
-    state::Account as TokenAccount,
-};
 use spl_associated_token_account::{
-    instruction as ata_instruction,
     get_associated_token_address,
 };
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use reqwest;
+use base64::{Engine as _, engine::general_purpose};
 use serde_json::Value;
+use base64;
 
 #[derive(Debug, Clone)]
 pub struct ExecutionResult {
@@ -247,7 +242,7 @@ impl RealExecutor {
             .as_str()
             .ok_or_else(|| anyhow!("Missing swapTransaction in response"))?;
         
-        let tx_data = base64::decode(tx_bytes)
+        let tx_data = general_purpose::STANDARD.decode(tx_bytes)
             .map_err(|_| anyhow!("Invalid transaction base64"))?;
         
         let mut transaction: Transaction = bincode::deserialize(&tx_data)

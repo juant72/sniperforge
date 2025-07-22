@@ -4,7 +4,7 @@ use std::time::{Duration, Instant, SystemTime};
 use solana_sdk::pubkey::Pubkey;
 use reqwest::Client;
 use serde_json::Value;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tracing::{info, warn, debug};
 use crate::types::PriceData;
 

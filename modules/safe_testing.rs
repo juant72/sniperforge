@@ -3,10 +3,7 @@
 // Implementa la técnica documentada: validación previa antes de ejecución real
 
 use anyhow::{Result, anyhow};
-use tracing::{info, warn, error, debug};
-use std::collections::HashMap;
-use solana_sdk::pubkey::Pubkey;
-use std::str::FromStr;
+use tracing::{info, warn};
 use reqwest;
 use serde_json::Value;
 

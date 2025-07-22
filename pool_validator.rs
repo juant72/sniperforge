@@ -2,7 +2,7 @@
 use std::str::FromStr;
 use solana_sdk::pubkey::Pubkey;
 use solana_client::rpc_client::RpcClient;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use tracing::{info, warn};
 use crate::types::{PoolData, RealPoolData, PoolType};
 use std::time::SystemTime;

@@ -46,10 +46,10 @@ mod saber_integration;
 mod modules;
 
 use modules::{
-    SafeTester, execute_safe_arbitrage_test,
-    JupiterScanner, execute_comprehensive_scan, execute_quick_scan,
-    AutomatedMonitor, MonitorConfig, start_automated_monitoring_with_config,
-    RealExecutor, create_mainnet_executor, execute_safe_arbitrage, simulate_arbitrage_execution
+    execute_safe_arbitrage_test,
+    execute_comprehensive_scan, execute_quick_scan,
+    MonitorConfig, start_automated_monitoring_with_config,
+    simulate_arbitrage_execution
 };
 
 use types::*;
@@ -998,8 +998,8 @@ async fn main() -> Result<()> {
     println!("6) Monitor Status & Alerts");
     println!("");
     println!("⚡ REAL EXECUTION:");
-    println!("7) Execute Validated Opportunity (DevNet)");
-    println!("8) Execute Validated Opportunity (MainNet)");
+    println!("7) Execute Safe Simulation (No Risk)");
+    println!("8) Execute Validated Opportunity (MainNet - REAL MONEY)");
     println!("");
     println!("🔧 LEGACY MODES:");
     println!("A) Simulation mode (Legacy)");
@@ -1173,8 +1173,8 @@ async fn main() -> Result<()> {
         
         // ===== REAL EXECUTION =====
         "7" => {
-            info!("⚡ Execute Validated Opportunity - DevNet");
-            warn!("🧪 DEVNET MODE: Safe testing with simulation");
+            info!("⚡ Execute Safe Simulation");
+            warn!("🧪 SIMULATION MODE: Safe validation without real money");
             
             // First run safe test to find opportunities
             match execute_safe_arbitrage_test().await {
@@ -1184,47 +1184,43 @@ async fn main() -> Result<()> {
                         .collect();
                     
                     if safe_opportunities.is_empty() {
-                        warn!("⚠️ No hay oportunidades seguras para ejecutar");
+                        warn!("⚠️ No hay oportunidades seguras para simular");
                         warn!("🔍 Ejecuta Safe Test (opción 1) para verificar condiciones");
                     } else {
                         info!("✅ Encontradas {} oportunidades seguras", safe_opportunities.len());
-                        info!("🎯 Ejecutando simulación segura...");
                         
-                        // Get tokens from best opportunity 
+                        // Simulate execution with best opportunity
                         let best = &safe_opportunities[0];
+                        info!("🎬 SIMULANDO EJECUCIÓN:");
+                        info!("   Par: {}", best.token_pair);
+                        info!("   Amount: {:.6} tokens", best.input_amount);
+                        info!("   Expected profit: {:.9} SOL", best.estimated_profit);
+                        info!("   Fee ratio: {:.1}x", best.fee_ratio);
+                        info!("   Risk level: {:?}", best.risk_level);
+                        
+                        // Get tokens for simulation
                         let tokens: Vec<&str> = best.token_pair.split('/').collect();
                         
                         if tokens.len() == 2 {
-                            // Map symbols to mints
-                            let token_a_mint = match tokens[0] {
-                                "SOL" => "So11111111111111111111111111111111111111112",
-                                "USDC" => "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                                "RAY" => "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
-                                "BONK" => "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-                                _ => "So11111111111111111111111111111111111111112",
-                            };
-                            
-                            let token_b_mint = match tokens[1] {
-                                "SOL" => "So11111111111111111111111111111111111111112",
-                                "USDC" => "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                                "RAY" => "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
-                                "BONK" => "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
-                                _ => "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                            };
-                            
-                            // Execute simulation
-                            match simulate_arbitrage_execution(token_a_mint, token_b_mint, best.input_amount).await {
-                                Ok(result) => {
+                            // Simulate the execution steps
+                            match simulate_arbitrage_execution(
+                                tokens[0],
+                                tokens[1],
+                                best.input_amount
+                            ).await {
+                                Ok(sim_result) => {
                                     info!("✅ SIMULACIÓN COMPLETADA EXITOSAMENTE");
-                                    info!("   Par simulado: {}", best.token_pair);
-                                    info!("   Profit simulado: {:.9} SOL", result.actual_profit);
-                                    info!("   Tiempo: {}ms", result.execution_time_ms);
-                                    info!("💡 Para ejecución real use MainNet (opción 8) con wallet configurado");
+                                    info!("   Execution time: {}ms", sim_result.execution_time_ms);
+                                    info!("   Simulated profit: {:.9} SOL", sim_result.actual_profit);
+                                    info!("   Success rate: {}%", if sim_result.success { 100 } else { 0 });
+                                    info!("🎯 SIMULATION STATUS: Ready for real execution if needed");
                                 }
-                                Err(e) => error!("❌ Error en simulación: {}", e)
+                                Err(e) => {
+                                    error!("❌ Simulation failed: {}", e);
+                                }
                             }
                         } else {
-                            error!("❌ Error parsing token pair: {}", best.token_pair);
+                            error!("❌ Invalid token pair format: {}", best.token_pair);
                         }
                     }
                 }
@@ -1256,7 +1252,7 @@ async fn main() -> Result<()> {
                         } else {
                             warn!("🎯 Oportunidad validada para MainNet");
                             warn!("💡 Implementación real requiere wallet keypair configurado");
-                            error!("🚧 FUNCIÓN EN DESARROLLO - Usar DevNet para testing");
+                            error!("🚧 FUNCIÓN EN DESARROLLO - Usar simulación para testing");
                         }
                     }
                     Err(e) => error!("❌ Failed to validate for MainNet: {}", e)
@@ -1408,81 +1404,6 @@ async fn main() -> Result<()> {
                 info!("🔒 Real trading cancelled for safety");
                 info!("🎭 Running in simulation mode instead");
                 enterprise_system.run_enterprise_arbitrage().await?;
-            }
-        },
-        "M" => {
-            info!("🚀 PROPOSAL-003: Running in MULTI-TOKEN SIMULATION mode (Legacy)");
-            
-            // Activar sistema multi-token
-            match enterprise_system.enable_multitoken_arbitrage().await {
-                Ok(()) => {
-                    info!("✅ PROPOSAL-003: Multi-token system activated successfully");
-                    loop {
-                        match enterprise_system.run_enterprise_arbitrage().await {
-                            Ok(_) => {
-                                info!("✅ MULTI-TOKEN ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
-                                info!("🎯 PROPOSAL-003: Mission accomplished with multi-token precision");
-                            }
-                            Err(e) => {
-                                error!("❌ MULTI-TOKEN ARBITRAGE MISSION: UNSUCCESSFUL");
-                                error!("🚨 PROPOSAL-003 ALERT: Mission failed - {}", e);
-                                error!("🛡️  MULTI-TOKEN PROTOCOLS: Engaging recovery procedures");
-                            }
-                        }
-                        
-                        println!("{}", enterprise_system.get_enterprise_statistics());
-                        
-                        info!("⏳ PROPOSAL-003: Initiating 30-second tactical pause...");
-                        info!("🎖️  MULTI-TOKEN STATUS: Awaiting next mission authorization");
-                        tokio::time::sleep(Duration::from_secs(30)).await;
-                    }
-                },
-                Err(e) => {
-                    error!("❌ PROPOSAL-003: Failed to activate multi-token system: {}", e);
-                    info!("🛡️  Falling back to single-pair simulation mode for safety");
-                    enterprise_system.run_enterprise_arbitrage().await?;
-                }
-            }
-        },
-        "T" => {
-            info!("🚀 PROPOSAL-003 TIER 2: Running in MULTI-TOKEN SIMULATION mode (FULL ECOSYSTEM) (Legacy)");
-            
-            // Activar sistema multi-token con Tier 2
-            match enterprise_system.enable_multitoken_tier2_arbitrage().await {
-                Ok(()) => {
-                    info!("✅ PROPOSAL-003 TIER 2: Multi-token ecosystem system activated successfully");
-                    info!("🎯 Now supporting 16 token pairs across Solana ecosystem");
-                    loop {
-                        match enterprise_system.run_enterprise_arbitrage().await {
-                            Ok(_) => {
-                                info!("✅ TIER 2 ARBITRAGE MISSION: SUCCESSFULLY COMPLETED");
-                                info!("🎯 PROPOSAL-003 TIER 2: Mission accomplished with ecosystem precision");
-                            }
-                            Err(e) => {
-                                error!("❌ TIER 2 ARBITRAGE MISSION: UNSUCCESSFUL");
-                                error!("🚨 PROPOSAL-003 TIER 2 ALERT: Mission failed - {}", e);
-                                error!("🛡️  TIER 2 PROTOCOLS: Engaging recovery procedures");
-                            }
-                        }
-                        
-                        println!("{}", enterprise_system.get_enterprise_statistics());
-                        
-                        info!("⏳ PROPOSAL-003 TIER 2: Initiating 30-second tactical pause...");
-                        info!("🎖️  ECOSYSTEM STATUS: Awaiting next mission authorization");
-                        tokio::time::sleep(Duration::from_secs(30)).await;
-                    }
-                },
-                Err(e) => {
-                    error!("❌ PROPOSAL-003 TIER 2: Failed to activate ecosystem system: {}", e);
-                    info!("🛡️  Falling back to Tier 1 multi-token mode for safety");
-                    match enterprise_system.enable_multitoken_arbitrage().await {
-                        Ok(()) => enterprise_system.run_enterprise_arbitrage().await?,
-                        Err(_) => {
-                            error!("🚨 Complete fallback to single-pair simulation");
-                            enterprise_system.run_enterprise_arbitrage().await?;
-                        }
-                    }
-                }
             }
         },
         "0" | _ => {
