@@ -223,4 +223,3 @@ pub struct ProfessionalArbitrageEngine {
     pub multi_token_enabled: bool,
     pub multi_token_tier2_enabled: Option<bool>, // PROPOSAL-003 Phase 2: Tier 2 ecosystem support
 }
-}
