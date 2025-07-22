@@ -21,6 +21,10 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
+name = "test_optimizations"
+path = "src/test_optimizations.rs"
+
+[[bin]]
 name = "arbiter"
 path = "arbiter.rs"
 

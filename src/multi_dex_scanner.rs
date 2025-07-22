@@ -118,14 +118,23 @@ impl MultiDexPoolScanner {
         }
         
         // 2. Filter by liquidity and volume thresholds
+        let total_pools_count = all_pools.len();
         let qualified_pools: Vec<DiscoveredPool> = all_pools.into_iter()
             .filter(|pool| {
-                pool.tvl_usd > self.health_monitor.min_tvl_usd &&
-                pool.volume_24h_usd > self.health_monitor.min_volume_24h_usd
+                let passes_filter = pool.tvl_usd > self.health_monitor.min_tvl_usd &&
+                    pool.volume_24h_usd > self.health_monitor.min_volume_24h_usd;
+                
+                if !passes_filter {
+                    println!("🔍 [FILTER] Pool {} (TVL: ${:.0}, Vol: ${:.0}) - excluded (min TVL: ${:.0}, min Vol: ${:.0})", 
+                        pool.address, pool.tvl_usd, pool.volume_24h_usd, 
+                        self.health_monitor.min_tvl_usd, self.health_monitor.min_volume_24h_usd);
+                }
+                
+                passes_filter
             })
             .collect();
         
-        println!("🏆 [MULTI-DEX] Qualified pools after filtering: {}", qualified_pools.len());
+        println!("🏆 [MULTI-DEX] Qualified pools after filtering: {} (from {} total)", qualified_pools.len(), total_pools_count);
         
         // 3. Calculate health scores
         let scored_pools = self.calculate_health_scores(qualified_pools).await?;
@@ -251,8 +260,8 @@ impl PoolCache {
 impl PoolHealthMonitor {
     pub fn new() -> Self {
         Self {
-            min_tvl_usd: 200_000.0,        // Minimum $200k TVL
-            min_volume_24h_usd: 50_000.0,  // Minimum $50k daily volume
+            min_tvl_usd: 50_000.0,        // Reduced from $200k to $50k TVL
+            min_volume_24h_usd: 10_000.0,  // Reduced from $50k to $10k daily volume
             max_age_hours: 24,             // Max 24 hours old data
             health_check_interval: Duration::from_secs(30 * 60),
         }
@@ -526,7 +535,7 @@ impl PhoenixIntegration {
         // Phoenix Program ID: PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY
         let phoenix_program_id = "PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY";
         
-        // RPC call to get all program accounts (simplified version)
+        // Simplified RPC call - remove complex filters that may be causing issues
         let rpc_request = serde_json::json!({
             "jsonrpc": "2.0",
             "id": 1,
@@ -535,41 +544,66 @@ impl PhoenixIntegration {
                 phoenix_program_id,
                 {
                     "encoding": "base64",
-                    "commitment": "confirmed",
-                    "filters": [
-                        {
-                            "memcmp": {
-                                "offset": 0,
-                                "bytes": "Market"  // Simplified filter for market accounts
-                            }
-                        }
-                    ]
+                    "commitment": "confirmed"
                 }
             ]
         });
         
-        let response = self.client
-            .post(&self.rpc_url)
-            .json(&rpc_request)
-            .send()
-            .await?;
-            
-        let rpc_response: serde_json::Value = response.json().await?;
+        // Add timeout to prevent long hangs
+        let response = tokio::time::timeout(
+            Duration::from_secs(10), // 10 second timeout
+            self.client
+                .post(&self.rpc_url)
+                .json(&rpc_request)
+                .send()
+        ).await;
         
-        if let Some(result) = rpc_response["result"].as_array() {
-            let mut discovered_pools = Vec::new();
-            
-            for account in result.iter().take(10) { // Limit to first 10 markets
-                if let Some(pubkey) = account["pubkey"].as_str() {
-                    if let Ok(pool) = self.parse_phoenix_account_data(pubkey, &account["account"]).await {
-                        discovered_pools.push(pool);
+        match response {
+            Ok(Ok(resp)) => {
+                match resp.json::<serde_json::Value>().await {
+                    Ok(rpc_response) => {
+                        if let Some(error) = rpc_response.get("error") {
+                            println!("⚠️  [PHOENIX] RPC returned error: {}", error);
+                            return Err("RPC error response".into());
+                        }
+                        
+                        if let Some(result) = rpc_response["result"].as_array() {
+                            let mut discovered_pools = Vec::new();
+                            
+                            for account in result.iter().take(5) { // Limit to first 5 markets for speed
+                                if let Some(pubkey) = account["pubkey"].as_str() {
+                                    if let Ok(pool) = self.parse_phoenix_account_data(pubkey, &account["account"]).await {
+                                        discovered_pools.push(pool);
+                                    }
+                                }
+                            }
+                            
+                            if discovered_pools.is_empty() {
+                                println!("⚠️  [PHOENIX] No valid markets found in RPC response");
+                                return Err("No valid markets found".into());
+                            }
+                            
+                            println!("📊 [PHOENIX] Successfully parsed {} markets from RPC", discovered_pools.len());
+                            Ok(discovered_pools)
+                        } else {
+                            println!("⚠️  [PHOENIX] Invalid RPC response structure");
+                            Err("Invalid RPC response".into())
+                        }
+                    }
+                    Err(e) => {
+                        println!("⚠️  [PHOENIX] Failed to parse RPC JSON: {}", e);
+                        Err(format!("JSON parse error: {}", e).into())
                     }
                 }
             }
-            
-            Ok(discovered_pools)
-        } else {
-            Err("Failed to parse RPC response".into())
+            Ok(Err(e)) => {
+                println!("⚠️  [PHOENIX] HTTP request failed: {}", e);
+                Err(format!("HTTP error: {}", e).into())
+            }
+            Err(_) => {
+                println!("⚠️  [PHOENIX] RPC request timed out after 10 seconds");
+                Err("Request timeout".into())
+            }
         }
     }
     
