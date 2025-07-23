@@ -401,6 +401,7 @@ impl AutomatedMonitor {
                     Priority::Medium => "🟡", 
                     Priority::Low => "🟢",
                     Priority::Monitor => "👁️",
+                    Priority::MicroOp => "🔵",
                 };
                 
                 println!("   {}{}. {} ({:.3} SOL): +{:.9} SOL ({:.3}%, conf: {:.1}%)",

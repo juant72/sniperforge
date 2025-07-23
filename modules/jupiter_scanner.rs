@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use reqwest;
 use serde_json::Value;
 use tokio::time::{Duration, sleep};
-use chrono::{Utc, DateTime};
+use chrono::{Utc, DateTime, Timelike};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct OpportunityResult {
@@ -25,10 +25,11 @@ pub struct OpportunityResult {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum Priority {
-    High,    // >5x fees, immediate execution
-    Medium,  // >3x fees, good execution
-    Low,     // >1.5x fees, cautious execution
-    Monitor, // >fees but < 1.5x, monitor only
+    High,      // >3x fees, immediate execution ✅ Enhanced
+    Medium,    // >2x fees, good execution ✅ Enhanced  
+    Low,       // >1x fees, cautious execution ✅ Enhanced
+    Monitor,   // >0.5x fees, monitor only ✅ Enhanced
+    MicroOp,   // >0.1x fees, micro opportunities ✅ NEW
 }
 
 pub struct JupiterScanner {
@@ -42,8 +43,8 @@ impl JupiterScanner {
     pub fn new() -> Self {
         Self {
             jupiter_url: "https://quote-api.jup.ag/v6".to_string(),
-            fee_threshold_lamports: 15_000, // Will be updated with real fees
-            scan_amounts: vec![0.005, 0.01, 0.03, 0.05],
+            fee_threshold_lamports: 5_000, // More sensitive - reduced from 15k
+            scan_amounts: vec![0.001, 0.005, 0.01, 0.02, 0.05, 0.1], // More granular amounts
             supported_tokens: HashMap::new(), // Will be loaded from Jupiter registry
         }
     }
@@ -180,7 +181,7 @@ impl JupiterScanner {
         Ok(opportunities)
     }
 
-    /// Analyze specific arbitrage pair - implementación real
+    /// Analyze specific arbitrage pair with enhanced sensitivity
     async fn analyze_arbitrage_pair(&self, token_a: &str, token_b: &str, amount: f64) -> Result<OpportunityResult> {
         let mint_a = self.supported_tokens.get(token_a)
             .ok_or_else(|| anyhow!("Unsupported token: {}", token_a))?;
@@ -198,10 +199,28 @@ impl JupiterScanner {
         let profit_percentage = (profit / amount) * 100.0;
         let profit_lamports = (profit * 1_000_000_000.0) as i64;
 
-        // Calculate confidence and priority based on documented thresholds
+        // Enhanced analysis with ultra-sensitive thresholds + market factors
         let fee_multiplier = profit_lamports as f64 / self.fee_threshold_lamports as f64;
         let confidence_score = self.calculate_confidence_score(fee_multiplier, token_a, token_b);
         let priority = self.determine_priority(fee_multiplier);
+
+        // Market condition analysis
+        let spread_analysis = if profit_percentage < -0.1 {
+            "HIGH_SPREAD" // Market makers taking large spreads
+        } else if profit_percentage < 0.05 {
+            "EFFICIENT_PRICING" // Very efficient market
+        } else {
+            "OPPORTUNITY"
+        };
+
+        // Log ultra-detailed analysis for maximum insight
+        debug!("ULTRA-ANALYSIS {}/{}: profit={:.9} SOL ({:.4}%), fee_mult={:.2}x, priority={:?}, market={}", 
+               token_a, token_b, profit, profit_percentage, fee_multiplier, priority, spread_analysis);
+        
+        // Log market insights for negative profits
+        if profit <= 0.0 {
+            debug!("   📊 Market insight: {} spread={:.4}%, efficiency=HIGH", spread_analysis, profit_percentage.abs());
+        }
 
         Ok(OpportunityResult {
             timestamp: Utc::now(),
@@ -332,16 +351,20 @@ impl JupiterScanner {
         (base_score + pair_bonus).min(100.0)
     }
 
-    /// Determine execution priority based on documented thresholds
+    /// Determine execution priority based on ultra-sensitive thresholds
     fn determine_priority(&self, fee_multiplier: f64) -> Priority {
-        if fee_multiplier >= 5.0 {
+        if fee_multiplier >= 3.0 {      // >3x fees = High priority ✅
             Priority::High
-        } else if fee_multiplier >= 3.0 {
+        } else if fee_multiplier >= 2.0 { // >2x fees = Medium priority ✅
             Priority::Medium
-        } else if fee_multiplier >= 1.5 {
+        } else if fee_multiplier >= 1.0 { // >1x fees = Low priority ✅
             Priority::Low
-        } else {
+        } else if fee_multiplier >= 0.5 { // >0.5x fees = Monitor ✅
             Priority::Monitor
+        } else if fee_multiplier >= 0.1 { // >0.1x fees = Micro opportunities ✅ NEW
+            Priority::MicroOp
+        } else {
+            Priority::MicroOp // Even smaller opportunities for analysis
         }
     }
 
@@ -378,6 +401,7 @@ impl JupiterScanner {
                 Priority::Medium => "🟡",
                 Priority::Low => "🟢",
                 Priority::Monitor => "⚪",
+                Priority::MicroOp => "🔵",
             };
 
             info!("   {}#{} {} ({:.3} SOL): +{:.9} SOL ({:.2}%, conf: {:.1}%)",
@@ -417,33 +441,91 @@ impl JupiterScanner {
         Ok(opportunities)
     }
 
-    /// Quick scan for immediate opportunities with real validation
+    /// Quick scan for immediate opportunities with detailed analysis
     pub async fn scan_quick_opportunities(&self) -> Result<Vec<OpportunityResult>> {
-        info!("⚡ Quick scan for immediate opportunities - real data only");
+        info!("⚡ Quick scan for immediate opportunities - enhanced detection");
         
         let mut immediate_opportunities = Vec::new();
+        let mut scan_details = Vec::new();
         
-        // Only scan most liquid pairs with small amounts for speed
+        // Scan more pairs with varying amounts for better detection
         let quick_pairs = vec![
-            ("SOL", "USDC", 0.001), // Very small amount for speed
+            ("SOL", "USDC", 0.001), // Very small amount
+            ("SOL", "USDC", 0.01),  // Medium amount
             ("SOL", "USDT", 0.001),
+            ("SOL", "USDT", 0.01),
             ("USDC", "USDT", 0.001),
+            ("SOL", "BONK", 0.001),
+            ("SOL", "RAY", 0.001),
         ];
+        
+        let total_pairs = quick_pairs.len(); // Store count before moving
         
         for (token_a, token_b, amount) in quick_pairs {
             match self.analyze_arbitrage_pair(token_a, token_b, amount).await {
                 Ok(opportunity) => {
+                    scan_details.push(format!("{}/{} ({:.3} SOL): {:.9} SOL profit ({:.3}%)", 
+                                            token_a, token_b, amount,
+                                            opportunity.estimated_profit, 
+                                            opportunity.profit_percentage));
+                    
                     if opportunity.estimated_profit > 0.0 {
                         immediate_opportunities.push(opportunity);
                     }
                 }
                 Err(e) => {
+                    scan_details.push(format!("{}/{} ({:.3} SOL): FAILED - {}", 
+                                            token_a, token_b, amount, e));
                     debug!("Quick scan pair {}/{} failed: {}", token_a, token_b, e);
                 }
             }
             
             // Minimal delay for API rate limiting
-            tokio::time::sleep(Duration::from_millis(100)).await;
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
+        
+        // Enhanced detailed scan results with market analysis
+        info!("📊 ULTRA-SENSITIVE SCAN RESULTS:");
+        for detail in &scan_details {
+            info!("   {}", detail);
+        }
+
+        // Enhanced market timing analysis
+        let current_hour = chrono::Utc::now().hour();
+        let is_high_volatility_time = matches!(current_hour, 8..=10 | 13..=15 | 0..=2); // NY Open, EU Close, Asia Open
+        
+        if immediate_opportunities.is_empty() {
+            info!("� MARKET ANALYSIS:");
+            info!("   ⏰ Current UTC Hour: {} ({})", current_hour, 
+                  if is_high_volatility_time { "HIGH ACTIVITY PERIOD" } else { "LOW ACTIVITY PERIOD" });
+            info!("   📈 Market Efficiency: Very High (no micro-arbitrage detected)");
+            info!("   🎯 Scanned {} pairs with ultra-sensitive thresholds", total_pairs);
+            info!("   💡 Next high-activity periods:");
+            info!("      • 08:30-10:30 UTC (NY Market Open)");
+            info!("      • 13:30-15:30 UTC (EU Market Close)"); 
+            info!("      • 00:00-02:00 UTC (Asia Wake Up)");
+            info!("   � Try again during news events or high volatility");
+        } else {
+            info!("🎯 OPPORTUNITIES DETECTED: {} micro-arbitrage possibilities", immediate_opportunities.len());
+            for opp in &immediate_opportunities {
+                let priority_icon = match opp.execution_priority {
+                    Priority::High => "🔴",
+                    Priority::Medium => "🟡", 
+                    Priority::Low => "🟢",
+                    Priority::Monitor => "👁️",
+                    Priority::MicroOp => "🔬",
+                };
+                info!("   {}{} {}: +{:.9} SOL ({:.3}%, conf: {:.1}%)", 
+                      priority_icon, 
+                      match opp.execution_priority {
+                          Priority::High => "HIGH",
+                          Priority::Medium => "MED",
+                          Priority::Low => "LOW", 
+                          Priority::Monitor => "MON",
+                          Priority::MicroOp => "MICRO",
+                      },
+                      opp.token_pair, opp.estimated_profit, opp.profit_percentage, opp.confidence_score);
+            }
         }
         
         // Sort by profit potential
