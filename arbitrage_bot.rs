@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Result, anyhow};
+use crate::modules::real_execution::simulate_arbitrage_execution_advanced;
 use tracing::{info, warn, error, debug};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Signer, read_keypair_file};
@@ -48,8 +49,7 @@ mod modules;
 use modules::{
     execute_safe_arbitrage_test,
     execute_comprehensive_scan, execute_quick_scan,
-    MonitorConfig, start_automated_monitoring_with_config,
-    simulate_arbitrage_execution_advanced
+    MonitorConfig, start_automated_monitoring_with_config
 };
 
 use types::*;

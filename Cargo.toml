@@ -25,7 +25,17 @@ panic = "abort"
 name = "arbitrage_bot"
 path = "arbitrage_bot.rs"
 
-# 📋 BINARIOS ESENCIALES ACTIVOS
+# 🧪 SCRIPT DE PRUEBA DEL SISTEMA CORREGIDO
+[[bin]]
+name = "test_system"
+path = "test_system.rs"
+
+# � PRUEBA ESPECÍFICA OPCIONES 4-8 
+[[bin]]
+name = "test_options_4_8"
+path = "test_options_4_8.rs"
+
+# �📋 BINARIOS ESENCIALES ACTIVOS
 [[bin]]
 name = "safe_arbitrage_test"
 path = "safe_arbitrage_test.rs"
