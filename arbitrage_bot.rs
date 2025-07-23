@@ -993,6 +993,7 @@ async fn main() -> Result<()> {
     println!("3) Quick Scan (Verificación rápida)");
     println!("");
     println!("🏛️  ENTERPRISE MULTI-SOURCE SYSTEM:");
+    println!("A) AUTO-SCANNER ENTERPRISE (1-3s scanning ALL DEXs) 🚀");
     println!("E) Enterprise Multi-Source Scan (PROFESSIONAL)");
     println!("D) Direct DEX Access (No Aggregators)");
     println!("C) CEX-DEX Arbitrage Analysis");
@@ -1007,14 +1008,13 @@ async fn main() -> Result<()> {
     println!("8) Execute Validated Opportunity (MainNet - REAL MONEY)");
     println!("");
     println!("🔧 LEGACY MODES:");
-    println!("A) Simulation mode (Legacy)");
-    println!("B) Real trading mode (Legacy)");
+    println!("B) Simulation mode (Legacy)");
     println!("M) Multi-token Tier 1 (Legacy)");
     println!("T) Multi-token Tier 2 (Legacy)");
     println!("");
     println!("0) Exit");
     
-    print!("Select option (1-8, E/D/C, A/B/M/T, 0): ");
+    print!("Select option (1-8, A/E/D/C, B/M/T, 0): ");
     use std::io::{self, Write};
     io::stdout().flush().unwrap();
     
@@ -1268,6 +1268,31 @@ async fn main() -> Result<()> {
             }
         },
         
+        // ===== ENTERPRISE AUTO-SCANNER (HIGH-FREQUENCY) =====
+        "A" => {
+            info!("🚀 ENTERPRISE AUTO-SCANNER: Starting high-frequency system");
+            warn!("⚡ HIGH-FREQUENCY MODE: Scanning ALL Solana DEXs every 1-3 seconds");
+            info!("📡 DEX Coverage: 10+ major DEXs (Jupiter, Raydium, Orca, Meteora, Phoenix, etc.)");
+            info!("🎯 Detection Speed: Real-time opportunity alerts");
+            info!("⚠️ WARNING: This is a continuous monitoring system - use Ctrl+C to stop");
+            
+            println!("\n🚀 STARTING ENTERPRISE AUTO-SCANNER...");
+            println!("📊 System will scan ALL major Solana DEXs continuously");
+            println!("⚡ Opportunities will be detected and reported in real-time");
+            println!("🔄 Press Ctrl+C to stop the scanner");
+            println!("════════════════════════════════════════════════════════");
+            
+            match modules::start_enterprise_auto_scanner().await {
+                Ok(_) => {
+                    info!("✅ Enterprise Auto-Scanner completed successfully");
+                }
+                Err(e) => {
+                    error!("❌ Enterprise Auto-Scanner failed: {}", e);
+                    warn!("💡 Try checking network connectivity and API availability");
+                }
+            }
+        },
+        
         // ===== ENTERPRISE MULTI-SOURCE SYSTEM =====
         "E" => {
             info!("🏛️ ENTERPRISE MULTI-SOURCE SCAN");
@@ -1345,20 +1370,66 @@ async fn main() -> Result<()> {
             info!("💰 CEX-DEX ARBITRAGE ANALYSIS");
             warn!("🏛️ ENTERPRISE: Centralized vs Decentralized exchange arbitrage");
             
-            println!("🔍 CEX-DEX ARBITRAGE OPPORTUNITIES:");
-            println!("   💱 Binance SOL vs Raydium SOL");
-            println!("   💱 Coinbase USDC vs Orca USDC");
-            println!("   💱 OKX prices vs Meteora prices");
-            println!("   💱 Bybit rates vs Saber rates");
-            println!("");
-            println!("📊 Advantages:");
-            println!("   ✅ Larger spreads (0.5-2% typical)");
-            println!("   ✅ Less competition (harder execution)");
-            println!("   ✅ Higher profit potential");
-            println!("   ⚠️ Requires CEX accounts + withdrawal management");
-            
-            info!("💡 Implementation note: CEX integration ready for development");
-            info!("🎯 This captures institutional-level arbitrage opportunities");
+            match modules::execute_cex_dex_analysis().await {
+                Ok(opportunities) => {
+                    info!("✅ CEX-DEX analysis completado exitosamente");
+                    info!("� Oportunidades CEX-DEX encontradas: {}", opportunities.len());
+                    
+                    if opportunities.is_empty() {
+                        warn!("⚠️ NO CEX-DEX OPPORTUNITIES DETECTED");
+                        info!("💡 CEX-DEX Arbitrage Status:");
+                        info!("   🏦 CEX prices collected from major exchanges");
+                        info!("   � DEX prices collected from Solana ecosystem");
+                        info!("   � Cross-market analysis: Complete");
+                        info!("   🎯 Current market: High efficiency (low spreads)");
+                        info!("   ⏰ Try during high volatility periods");
+                    } else {
+                        info!("🏆 CEX-DEX OPPORTUNITIES AVAILABLE:");
+                        
+                        // Show detailed CEX-DEX results
+                        for (i, opp) in opportunities.iter().take(10).enumerate() {
+                            let direction_desc = match opp.arbitrage_direction {
+                                modules::ArbitrageDirection::BuyCexSellDex => "Buy CEX → Sell DEX",
+                                modules::ArbitrageDirection::BuyDexSellCex => "Buy DEX → Sell CEX",
+                            };
+                            
+                            let complexity_icon = match opp.execution_complexity {
+                                modules::ExecutionComplexity::Simple => "🟢",
+                                modules::ExecutionComplexity::Medium => "🟡", 
+                                modules::ExecutionComplexity::Complex => "🔴",
+                            };
+                            
+                            println!("   {}#{} {} {} vs {} ({:.2}% spread, ${:.0}/1k profit)",
+                                complexity_icon,
+                                i + 1,
+                                opp.token_symbol,
+                                opp.cex_name,
+                                opp.dex_name,
+                                opp.spread_percentage,
+                                opp.estimated_profit_1k
+                            );
+                            println!("        Strategy: {} (confidence: {:.1}%)",
+                                direction_desc,
+                                opp.confidence_score
+                            );
+                        }
+                        
+                        info!("🎯 Professional CEX-DEX opportunities detected!");
+                        info!("💡 Execution requirements:");
+                        info!("   🏦 Active accounts on both CEX and DEX");
+                        info!("   💰 Capital allocation on both platforms");
+                        info!("   ⚡ Fast execution capability");
+                        info!("   📊 Monitor withdrawal limits and fees");
+                    }
+                }
+                Err(e) => {
+                    error!("❌ CEX-DEX analysis failed: {}", e);
+                    warn!("💡 Troubleshooting tips:");
+                    warn!("   📡 Check internet connection");
+                    warn!("   🔄 Some APIs may be rate limited");
+                    warn!("   🏦 CEX APIs may require authentication for full access");
+                }
+            }
         },
         
         // ===== LEGACY MODES =====

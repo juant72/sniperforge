@@ -2,12 +2,11 @@
 // Professional-grade arbitrage system with multiple data sources
 // No dependencies on single aggregators - TRUE ENTERPRISE APPROACH
 
-use anyhow::{Result, anyhow};
-use tracing::{info, warn, error, debug};
+use anyhow::Result;
+use tracing::{info, warn, debug};
 use std::collections::HashMap;
 use reqwest::Client;
-use serde_json::Value;
-use tokio::time::{Duration, sleep};
+use tokio::time::Duration;
 use chrono::{Utc, DateTime, Timelike};
 
 #[derive(Debug, Clone, serde::Serialize)]
