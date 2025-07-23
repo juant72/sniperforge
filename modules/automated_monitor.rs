@@ -98,7 +98,7 @@ impl AutomatedMonitor {
     }
 
     /// Start automated monitoring system (FIXED: Non-blocking with user control)
-    pub async fn start_monitoring(&self) -> Result<()> {
+    pub async fn start_monitoring(self: Arc<Self>) -> Result<()> {
         info!("🤖 Iniciando Sistema de Monitoreo Automático");
         info!("📊 Configuración:");
         info!("   Scan completo: cada {} minutos", self.config.scan_interval_minutes);
@@ -116,11 +116,34 @@ impl AutomatedMonitor {
         self.reset_daily_counter().await;
 
         // Start monitoring loops in background
-        let full_scan_handle = tokio::spawn(self.start_full_scan_loop_with_control());
-        let quick_scan_handle = tokio::spawn(self.start_quick_scan_loop_with_control());
-        let health_monitor_handle = tokio::spawn(self.start_health_monitor_with_control());
+        let full_scan_handle = {
+            let monitor = Arc::clone(&self);
+            tokio::spawn(async move {
+                monitor.start_full_scan_loop_with_control().await
+            })
+        };
+        
+        let quick_scan_handle = {
+            let monitor = Arc::clone(&self);
+            tokio::spawn(async move {
+                monitor.start_quick_scan_loop_with_control().await
+            })
+        };
+        
+        let health_monitor_handle = {
+            let monitor = Arc::clone(&self);
+            tokio::spawn(async move {
+                monitor.start_health_monitor_with_control().await
+            })
+        };
 
         // Interactive control loop
+        info!("🤖 Monitor iniciado. Comandos disponibles:");
+        info!("   q = quit/salir");
+        info!("   s = status/estado");
+        info!("   Enter = scan inmediato");
+        println!();
+        
         loop {
             use std::io::{self, Write};
             print!("Monitor> ");
@@ -132,29 +155,43 @@ impl AutomatedMonitor {
             
             match command.as_str() {
                 "q" | "quit" | "exit" => {
-                    info!("🛑 Deteniendo monitoreo automático...");
+                    println!("🛑 Deteniendo monitoreo automático...");
                     // Cancel all background tasks
                     full_scan_handle.abort();
                     quick_scan_handle.abort();
                     health_monitor_handle.abort();
-                    info!("✅ Monitoreo detenido exitosamente");
+                    println!("✅ Monitoreo detenido exitosamente");
                     break;
                 },
                 "s" | "status" => {
                     self.show_monitoring_status().await;
                 },
                 "" => {
-                    info!("🔍 Ejecutando scan inmediato...");
+                    println!("🔍 Ejecutando scan inmediato...");
                     match self.execute_quick_monitoring_cycle().await {
-                        Ok(_) => info!("✅ Scan inmediato completado"),
-                        Err(e) => error!("❌ Scan inmediato falló: {}", e),
+                        Ok(_) => println!("✅ Scan inmediato completado"),
+                        Err(e) => eprintln!("❌ Scan inmediato falló: {}", e),
                     }
+                    println!();
+                },
+                "h" | "help" | "?" => {
+                    println!();
+                    println!("💡 Comandos disponibles:");
+                    println!("   q = quit/salir");
+                    println!("   s = status/estado");
+                    println!("   h = help/ayuda");
+                    println!("   Enter = scan inmediato");
+                    println!();
                 },
                 _ => {
-                    info!("💡 Comandos disponibles:");
-                    info!("   q = quit/salir");
-                    info!("   s = status");
-                    info!("   Enter = scan inmediato");
+                    println!();
+                    println!("❓ Comando desconocido: '{}'", command);
+                    println!("💡 Comandos disponibles:");
+                    println!("   q = quit/salir");
+                    println!("   s = status/estado");
+                    println!("   h = help/ayuda");
+                    println!("   Enter = scan inmediato");
+                    println!();
                 }
             }
         }
@@ -451,33 +488,37 @@ impl AutomatedMonitor {
 
     /// Show current monitoring status
     async fn show_monitoring_status(&self) {
-        info!("📊 MONITORING STATUS REPORT");
-        info!("═══════════════════════════════════════");
+        println!();
+        println!("📊 MONITORING STATUS REPORT");
+        println!("═══════════════════════════════════════");
         
         // Configuration status
-        info!("🤖 Configuración actual:");
-        info!("   Scan completo: cada {} minutos", self.config.scan_interval_minutes);
-        info!("   Quick scan: cada {} minutos", self.config.quick_scan_interval_minutes);
-        info!("   Auto-ejecución: {}", if self.config.auto_execute_enabled { "HABILITADA" } else { "MANUAL" });
-        info!("   Min profit: {:.9} SOL", self.config.min_profit_threshold);
-        info!("   Límite diario: {} ejecuciones", self.config.max_daily_executions);
+        println!("🤖 Configuración actual:");
+        println!("   Scan completo: cada {} minutos", self.config.scan_interval_minutes);
+        println!("   Quick scan: cada {} minutos", self.config.quick_scan_interval_minutes);
+        println!("   Auto-ejecución: {}", if self.config.auto_execute_enabled { "HABILITADA" } else { "MANUAL" });
+        println!("   Min profit: {:.9} SOL", self.config.min_profit_threshold);
+        println!("   Límite diario: {} ejecuciones", self.config.max_daily_executions);
         
-        // Daily execution counter
-        let current_count = self.daily_execution_count.load(std::sync::atomic::Ordering::Relaxed);
-        info!("📈 Estadísticas hoy:");
-        info!("   Ejecuciones realizadas: {}/{}", current_count, self.config.max_daily_executions);
+        // Daily execution counter (FIXED: usar execution_count en lugar de daily_execution_count)
+        let current_count = {
+            let count = self.execution_count.lock().await;
+            *count
+        };
+        println!("📈 Estadísticas hoy:");
+        println!("   Ejecuciones realizadas: {}/{}", current_count, self.config.max_daily_executions);
         
         // Last scan results
         {
             let last_results = self.last_scan_results.lock().await;
             if last_results.is_empty() {
-                info!("🔍 Último scan: Sin oportunidades detectadas");
+                println!("🔍 Último scan: Sin oportunidades detectadas");
             } else {
-                info!("🔍 Último scan: {} oportunidades encontradas", last_results.len());
+                println!("🔍 Último scan: {} oportunidades encontradas", last_results.len());
                 
                 // Show top 3 opportunities
                 for (i, opportunity) in last_results.iter().take(3).enumerate() {
-                    info!("   {}. {} ({:.3} SOL) -> +{:.9} SOL ({:.2}%)",
+                    println!("   {}. {} ({:.3} SOL) -> +{:.9} SOL ({:.2}%)",
                         i + 1,
                         opportunity.token_pair,
                         opportunity.input_amount,
@@ -488,23 +529,28 @@ impl AutomatedMonitor {
             }
         }
         
-        // Recent alerts
+        // Recent alerts (FIXED: usar alert_history en lugar de recent_alerts)
         {
-            let recent_alerts = self.recent_alerts.lock().await;
-            info!("🚨 Alertas recientes ({}):", recent_alerts.len());
-            for alert in recent_alerts.iter().rev().take(3) {
-                let icon = match alert.alert_type {
-                    AlertType::HighPriorityOpportunity => "🔴",
-                    AlertType::SafeExecutionReady => "✅",
-                    AlertType::MarketConditionsChanged => "📊",
-                    AlertType::SystemError => "❌",
-                    AlertType::DailyLimitReached => "⏰",
-                };
-                info!("   {} {} - {}", icon, alert.timestamp.format("%H:%M:%S"), alert.message);
+            let alert_history = self.alert_history.lock().await;
+            println!("🚨 Alertas recientes ({}):", alert_history.len());
+            if alert_history.is_empty() {
+                println!("   (Sin alertas)");
+            } else {
+                for alert in alert_history.iter().rev().take(3) {
+                    let icon = match alert.alert_type {
+                        AlertType::HighPriorityOpportunity => "🔴",
+                        AlertType::SafeExecutionReady => "✅",
+                        AlertType::MarketConditionsChanged => "📊",
+                        AlertType::SystemError => "❌",
+                        AlertType::DailyLimitReached => "⏰",
+                    };
+                    println!("   {} {} - {}", icon, alert.timestamp.format("%H:%M:%S"), alert.message);
+                }
             }
         }
         
-        info!("═══════════════════════════════════════");
+        println!("═══════════════════════════════════════");
+        println!();
     }
 
     /// Send monitoring alert
@@ -623,7 +669,10 @@ pub struct MonitoringStatus {
 pub async fn start_automated_monitoring() -> Result<()> {
     let config = MonitorConfig::default();
     let monitor = AutomatedMonitor::new(config);
-    monitor.start_monitoring().await
+    
+    // Start monitoring loop with Arc wrapper
+    let monitor_arc = Arc::new(monitor);
+    monitor_arc.start_monitoring().await
 }
 
 /// Public function to start monitoring with custom config
@@ -639,6 +688,7 @@ pub async fn start_automated_monitoring_with_config(config: MonitorConfig) -> Re
     // Initialize monitor with real validation
     let monitor = AutomatedMonitor::new_with_real_validation(config).await?;
     
-    // Start monitoring loop
-    monitor.start_monitoring().await
+    // Start monitoring loop with Arc wrapper
+    let monitor_arc = Arc::new(monitor);
+    monitor_arc.start_monitoring().await
 }
