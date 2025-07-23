@@ -97,7 +97,7 @@ impl AutomatedMonitor {
         })
     }
 
-    /// Start automated monitoring system
+    /// Start automated monitoring system (FIXED: Non-blocking with user control)
     pub async fn start_monitoring(&self) -> Result<()> {
         info!("🤖 Iniciando Sistema de Monitoreo Automático");
         info!("📊 Configuración:");
@@ -106,17 +106,58 @@ impl AutomatedMonitor {
         info!("   Auto-ejecución: {}", if self.config.auto_execute_enabled { "HABILITADA" } else { "MANUAL" });
         info!("   Threshold profit: {:.9} SOL", self.config.min_profit_threshold);
         info!("   Límite diario: {} ejecuciones", self.config.max_daily_executions);
+        info!("");
+        info!("🎯 CONTROL INTERACTIVO:");
+        info!("   Press 'q' + Enter to quit monitoring");
+        info!("   Press 's' + Enter to show status");
+        info!("   Press Enter to force immediate scan");
 
         // Reset daily counter
         self.reset_daily_counter().await;
 
-        // Start monitoring loops
-        let full_scan_handle = self.start_full_scan_loop();
-        let quick_scan_handle = self.start_quick_scan_loop();
-        let health_monitor_handle = self.start_health_monitor();
+        // Start monitoring loops in background
+        let full_scan_handle = tokio::spawn(self.start_full_scan_loop_with_control());
+        let quick_scan_handle = tokio::spawn(self.start_quick_scan_loop_with_control());
+        let health_monitor_handle = tokio::spawn(self.start_health_monitor_with_control());
 
-        // Wait for all monitoring tasks
-        tokio::try_join!(full_scan_handle, quick_scan_handle, health_monitor_handle)?;
+        // Interactive control loop
+        loop {
+            use std::io::{self, Write};
+            print!("Monitor> ");
+            io::stdout().flush().unwrap();
+            
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
+            let command = input.trim().to_lowercase();
+            
+            match command.as_str() {
+                "q" | "quit" | "exit" => {
+                    info!("🛑 Deteniendo monitoreo automático...");
+                    // Cancel all background tasks
+                    full_scan_handle.abort();
+                    quick_scan_handle.abort();
+                    health_monitor_handle.abort();
+                    info!("✅ Monitoreo detenido exitosamente");
+                    break;
+                },
+                "s" | "status" => {
+                    self.show_monitoring_status().await;
+                },
+                "" => {
+                    info!("🔍 Ejecutando scan inmediato...");
+                    match self.execute_quick_monitoring_cycle().await {
+                        Ok(_) => info!("✅ Scan inmediato completado"),
+                        Err(e) => error!("❌ Scan inmediato falló: {}", e),
+                    }
+                },
+                _ => {
+                    info!("💡 Comandos disponibles:");
+                    info!("   q = quit/salir");
+                    info!("   s = status");
+                    info!("   Enter = scan inmediato");
+                }
+            }
+        }
 
         Ok(())
     }
@@ -139,6 +180,33 @@ impl AutomatedMonitor {
         }
     }
 
+    /// Full comprehensive scan loop with control (for background execution)
+    async fn start_full_scan_loop_with_control(&self) -> Result<()> {
+        let mut interval = interval(Duration::from_secs(self.config.scan_interval_minutes * 60));
+        let mut scan_count = 0;
+        
+        loop {
+            interval.tick().await;
+            scan_count += 1;
+            
+            info!("🔍 Iniciando scan completo #{}", scan_count);
+            match self.execute_full_monitoring_cycle().await {
+                Ok(_) => {
+                    info!("✅ Scan completo #{} finalizado exitosamente", scan_count);
+                },
+                Err(e) => {
+                    error!("❌ Scan completo #{} falló: {}", scan_count, e);
+                    self.send_alert(AlertType::SystemError, 
+                                  format!("Full scan #{} failed: {}", scan_count, e), None, false).await;
+                }
+            }
+            
+            // Show next scan time
+            let next_scan_mins = self.config.scan_interval_minutes;
+            info!("⏰ Próximo scan completo en {} minutos", next_scan_mins);
+        }
+    }
+
     /// Quick scan loop for immediate opportunities
     async fn start_quick_scan_loop(&self) -> Result<()> {
         let mut interval = interval(Duration::from_secs(self.config.quick_scan_interval_minutes * 60));
@@ -155,12 +223,47 @@ impl AutomatedMonitor {
         }
     }
 
+    /// Quick scan loop with control (for background execution)
+    async fn start_quick_scan_loop_with_control(&self) -> Result<()> {
+        let mut interval = interval(Duration::from_secs(self.config.quick_scan_interval_minutes * 60));
+        let mut quick_scan_count = 0;
+        
+        loop {
+            interval.tick().await;
+            quick_scan_count += 1;
+            
+            info!("⚡ Quick scan #{}", quick_scan_count);
+            match self.execute_quick_monitoring_cycle().await {
+                Ok(_) => {
+                    debug!("✅ Quick scan #{} completado", quick_scan_count);
+                },
+                Err(e) => {
+                    warn!("⚠️ Quick scan #{} falló: {}", quick_scan_count, e);
+                }
+            }
+        }
+    }
+
     /// System health monitor
     async fn start_health_monitor(&self) -> Result<()> {
         let mut interval = interval(Duration::from_secs(300)); // Every 5 minutes
         
         loop {
             interval.tick().await;
+            self.check_system_health().await;
+        }
+    }
+
+    /// System health monitor with control (for background execution)
+    async fn start_health_monitor_with_control(&self) -> Result<()> {
+        let mut interval = interval(Duration::from_secs(300)); // Every 5 minutes
+        let mut health_check_count = 0;
+        
+        loop {
+            interval.tick().await;
+            health_check_count += 1;
+            
+            debug!("🏥 Health check #{}", health_check_count);
             self.check_system_health().await;
         }
     }
@@ -344,6 +447,64 @@ impl AutomatedMonitor {
                       Some(opportunity.clone()), false).await;
 
         Ok(())
+    }
+
+    /// Show current monitoring status
+    async fn show_monitoring_status(&self) {
+        info!("📊 MONITORING STATUS REPORT");
+        info!("═══════════════════════════════════════");
+        
+        // Configuration status
+        info!("🤖 Configuración actual:");
+        info!("   Scan completo: cada {} minutos", self.config.scan_interval_minutes);
+        info!("   Quick scan: cada {} minutos", self.config.quick_scan_interval_minutes);
+        info!("   Auto-ejecución: {}", if self.config.auto_execute_enabled { "HABILITADA" } else { "MANUAL" });
+        info!("   Min profit: {:.9} SOL", self.config.min_profit_threshold);
+        info!("   Límite diario: {} ejecuciones", self.config.max_daily_executions);
+        
+        // Daily execution counter
+        let current_count = self.daily_execution_count.load(std::sync::atomic::Ordering::Relaxed);
+        info!("📈 Estadísticas hoy:");
+        info!("   Ejecuciones realizadas: {}/{}", current_count, self.config.max_daily_executions);
+        
+        // Last scan results
+        {
+            let last_results = self.last_scan_results.lock().await;
+            if last_results.is_empty() {
+                info!("🔍 Último scan: Sin oportunidades detectadas");
+            } else {
+                info!("🔍 Último scan: {} oportunidades encontradas", last_results.len());
+                
+                // Show top 3 opportunities
+                for (i, opportunity) in last_results.iter().take(3).enumerate() {
+                    info!("   {}. {} ({:.3} SOL) -> +{:.9} SOL ({:.2}%)",
+                        i + 1,
+                        opportunity.token_pair,
+                        opportunity.input_amount,
+                        opportunity.estimated_profit,
+                        opportunity.estimated_profit / opportunity.input_amount * 100.0
+                    );
+                }
+            }
+        }
+        
+        // Recent alerts
+        {
+            let recent_alerts = self.recent_alerts.lock().await;
+            info!("🚨 Alertas recientes ({}):", recent_alerts.len());
+            for alert in recent_alerts.iter().rev().take(3) {
+                let icon = match alert.alert_type {
+                    AlertType::HighPriorityOpportunity => "🔴",
+                    AlertType::SafeExecutionReady => "✅",
+                    AlertType::MarketConditionsChanged => "📊",
+                    AlertType::SystemError => "❌",
+                    AlertType::DailyLimitReached => "⏰",
+                };
+                info!("   {} {} - {}", icon, alert.timestamp.format("%H:%M:%S"), alert.message);
+            }
+        }
+        
+        info!("═══════════════════════════════════════");
     }
 
     /// Send monitoring alert
