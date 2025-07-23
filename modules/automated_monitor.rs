@@ -167,12 +167,15 @@ impl AutomatedMonitor {
                     self.show_monitoring_status().await;
                 },
                 "" => {
-                    println!("🔍 Ejecutando scan inmediato...");
                     match self.execute_quick_monitoring_cycle().await {
-                        Ok(_) => println!("✅ Scan inmediato completado"),
-                        Err(e) => eprintln!("❌ Scan inmediato falló: {}", e),
+                        Ok(_) => { /* Success message is handled inside the function */ },
+                        Err(e) => {
+                            println!("❌ SCAN INMEDIATO FALLÓ:");
+                            eprintln!("   Error: {}", e);
+                            println!("💡 Tip: Verificar conexión a internet y APIs");
+                            println!();
+                        },
                     }
-                    println!();
                 },
                 "h" | "help" | "?" => {
                     println!();
@@ -341,30 +344,119 @@ impl AutomatedMonitor {
 
     /// Execute quick monitoring cycle (fast check)
     async fn execute_quick_monitoring_cycle(&self) -> Result<()> {
-        debug!("⚡ Quick scan - verificación rápida");
-
+        println!("⚡ SCAN INMEDIATO - Verificación rápida de oportunidades");
+        println!("═══════════════════════════════════════════════════════");
+        
         // Quick scan most promising opportunities
-        let opportunities = self.jupiter_scanner.quick_scan().await?;
+        println!("🔍 Ejecutando quick scan con Jupiter...");
+        let opportunities = match self.jupiter_scanner.quick_scan().await {
+            Ok(opps) => {
+                println!("✅ Jupiter scan completado: {} oportunidades encontradas", opps.len());
+                opps
+            },
+            Err(e) => {
+                println!("❌ Jupiter scan falló: {}", e);
+                return Err(e);
+            }
+        };
 
-        // Check for immediate high-priority opportunities
-        for opportunity in &opportunities {
-            if matches!(opportunity.execution_priority, Priority::High) &&
-               opportunity.confidence_score >= self.config.min_confidence_score {
-                
-                // Validate with safe test before alert
-                let is_safe = self.validate_opportunity_safety(opportunity).await?;
-                
-                if is_safe {
-                    self.send_alert(
-                        AlertType::HighPriorityOpportunity,
-                        format!("OPORTUNIDAD INMEDIATA: {} - Profit: {:.9} SOL", 
-                               opportunity.token_pair, opportunity.estimated_profit),
-                        Some(opportunity.clone()),
-                        true
-                    ).await;
-                }
+        // Store results for status display
+        {
+            let mut last_results = self.last_scan_results.lock().await;
+            last_results.clear();
+            
+            // Convert opportunities to OpportunityResult format for display
+            for opportunity in &opportunities {
+                last_results.push(OpportunityResult {
+                    timestamp: chrono::Utc::now(),
+                    token_pair: opportunity.token_pair.clone(),
+                    input_mint: "SOL".to_string(), // Simplified for now
+                    output_mint: "USDC".to_string(), // Simplified for now
+                    input_amount: opportunity.input_amount,
+                    estimated_profit: opportunity.estimated_profit,
+                    profit_percentage: (opportunity.estimated_profit / opportunity.input_amount) * 100.0,
+                    confidence_score: opportunity.confidence_score,
+                    execution_priority: if opportunity.confidence_score >= 80.0 {
+                        Priority::High
+                    } else if opportunity.confidence_score >= 60.0 {
+                        Priority::Medium
+                    } else {
+                        Priority::Low
+                    },
+                });
             }
         }
+
+        if opportunities.is_empty() {
+            println!("📊 Resultado: No hay oportunidades inmediatas disponibles");
+            println!("💡 Nota: El mercado puede estar en condiciones normales");
+        } else {
+            println!("📊 RESULTADOS DEL SCAN INMEDIATO:");
+            
+            // Show all opportunities found
+            for (i, opportunity) in opportunities.iter().enumerate() {
+                let profit_pct = (opportunity.estimated_profit / opportunity.input_amount) * 100.0;
+                let status_icon = match opportunity.execution_priority {
+                    Priority::High => "🔴",
+                    Priority::Medium => "🟡", 
+                    Priority::Low => "🟢",
+                    Priority::Monitor => "👁️",
+                };
+                
+                println!("   {}{}. {} ({:.3} SOL): +{:.9} SOL ({:.3}%, conf: {:.1}%)",
+                    status_icon,
+                    i + 1,
+                    opportunity.token_pair,
+                    opportunity.input_amount,
+                    opportunity.estimated_profit,
+                    profit_pct,
+                    opportunity.confidence_score
+                );
+            }
+            
+            // Check for immediate high-priority opportunities
+            let high_priority_count = opportunities.iter()
+                .filter(|o| matches!(o.execution_priority, Priority::High) && 
+                           o.confidence_score >= self.config.min_confidence_score)
+                .count();
+                
+            if high_priority_count > 0 {
+                println!();
+                println!("🚨 OPORTUNIDADES DE ALTA PRIORIDAD DETECTADAS: {}", high_priority_count);
+                
+                for opportunity in &opportunities {
+                    if matches!(opportunity.execution_priority, Priority::High) &&
+                       opportunity.confidence_score >= self.config.min_confidence_score {
+                        
+                        println!("🔴 INMEDIATA: {} - Profit: {:.9} SOL (conf: {:.1}%)", 
+                               opportunity.token_pair, opportunity.estimated_profit, opportunity.confidence_score);
+                        
+                        // Validate with safe test before alert
+                        let is_safe = self.validate_opportunity_safety(opportunity).await?;
+                        
+                        if is_safe {
+                            self.send_alert(
+                                AlertType::HighPriorityOpportunity,
+                                format!("OPORTUNIDAD INMEDIATA: {} - Profit: {:.9} SOL", 
+                                       opportunity.token_pair, opportunity.estimated_profit),
+                                Some(opportunity.clone()),
+                                true
+                            ).await;
+                            println!("   ✅ Oportunidad validada y alerta enviada");
+                        } else {
+                            println!("   ⚠️ Oportunidad no pasó validación de seguridad");
+                        }
+                    }
+                }
+            } else {
+                println!();
+                println!("📊 No hay oportunidades de alta prioridad en este momento");
+                println!("💡 Tip: Las oportunidades de prioridad media/baja siguen siendo monitoreadas");
+            }
+        }
+        
+        println!("═══════════════════════════════════════════════════════");
+        println!();
 
         Ok(())
     }
