@@ -77,6 +77,26 @@ impl AutomatedMonitor {
         }
     }
 
+    /// Create new monitor with real data validation
+    pub async fn new_with_real_validation(config: MonitorConfig) -> Result<Self> {
+        info!("🔧 Inicializando componentes con validación real...");
+        
+        // Initialize components with real data validation
+        let safe_tester = SafeTester::new_with_real_validation().await?;
+        let jupiter_scanner = JupiterScanner::new_with_real_validation().await?;
+        
+        info!("✅ Componentes inicializados exitosamente");
+        
+        Ok(Self {
+            config,
+            safe_tester,
+            jupiter_scanner,
+            execution_count: Arc::new(Mutex::new(0)),
+            last_scan_results: Arc::new(Mutex::new(Vec::new())),
+            alert_history: Arc::new(Mutex::new(Vec::new())),
+        })
+    }
+
     /// Start automated monitoring system
     pub async fn start_monitoring(&self) -> Result<()> {
         info!("🤖 Iniciando Sistema de Monitoreo Automático");
@@ -447,6 +467,17 @@ pub async fn start_automated_monitoring() -> Result<()> {
 
 /// Public function to start monitoring with custom config
 pub async fn start_automated_monitoring_with_config(config: MonitorConfig) -> Result<()> {
-    let monitor = AutomatedMonitor::new(config);
+    info!("🤖 INICIANDO AUTOMATED MONITORING - CONFIGURACIÓN PERSONALIZADA");
+    info!("📊 Configuración aplicada:");
+    info!("   Scan interval: {} minutos", config.scan_interval_minutes);
+    info!("   Quick scan: {} minutos", config.quick_scan_interval_minutes);
+    info!("   Auto-execute: {}", if config.auto_execute_enabled { "SÍ" } else { "NO" });
+    info!("   Min profit: {:.9} SOL", config.min_profit_threshold);
+    info!("   Daily limit: {} ejecuciones", config.max_daily_executions);
+    
+    // Initialize monitor with real validation
+    let monitor = AutomatedMonitor::new_with_real_validation(config).await?;
+    
+    // Start monitoring loop
     monitor.start_monitoring().await
 }

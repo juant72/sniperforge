@@ -49,7 +49,7 @@ use modules::{
     execute_safe_arbitrage_test,
     execute_comprehensive_scan, execute_quick_scan,
     MonitorConfig, start_automated_monitoring_with_config,
-    simulate_arbitrage_execution
+    simulate_arbitrage_execution_advanced
 };
 
 use types::*;
@@ -1203,7 +1203,7 @@ async fn main() -> Result<()> {
                         
                         if tokens.len() == 2 {
                             // Simulate the execution steps
-                            match simulate_arbitrage_execution(
+                            match simulate_arbitrage_execution_advanced(
                                 tokens[0],
                                 tokens[1],
                                 best.input_amount

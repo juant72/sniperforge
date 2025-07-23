@@ -504,8 +504,8 @@ pub async fn execute_safe_arbitrage(wallet_keypair: &Keypair,
     executor.execute_arbitrage(wallet_keypair, token_a_mint, token_b_mint, amount).await
 }
 
-/// Simulate arbitrage execution without spending real money - for testing
-pub async fn simulate_arbitrage_execution(token_a_mint: &str, 
+/// Simulate arbitrage execution without spending real money - for testing (advanced version)
+pub async fn simulate_arbitrage_execution_advanced(token_a_mint: &str, 
                                         token_b_mint: &str, 
                                         amount: f64) -> Result<ExecutionResult> {
     info!("🎭 SIMULANDO EJECUCIÓN DE ARBITRAGE");
@@ -537,6 +537,38 @@ pub async fn simulate_arbitrage_execution(token_a_mint: &str,
     info!("   💡 Nota: Esta es una simulación - no se ejecutaron transacciones reales");
     
     Ok(result)
+}
+
+/// Simulate arbitrage execution for testing
+pub async fn simulate_arbitrage_execution(input_token: &str, output_token: &str, amount: f64) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+    println!("🎯 [RealExecutor] Simulando arbitrage execution:");
+    println!("   📈 Input: {} -> Output: {} (Amount: {})", input_token, output_token, amount);
+    
+    // Simular verificaciones de sanidad
+    if amount <= 0.0 {
+        println!("   ❌ Amount inválido: {}", amount);
+        return Ok(false);
+    }
+    
+    // Simular que la ejecución tiene 95% de probabilidad de éxito
+    let random_value = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs() % 100;
+    
+    let success = random_value < 95;
+    
+    if success {
+        println!("   ✅ Simulación EXITOSA - Arbitrage execution completed");
+        println!("   💰 Ganancia estimada: {}%", (random_value % 5) + 1);
+    } else {
+        println!("   ⚠️  Simulación FALLIDA - Conditions not favorable");
+    }
+    
+    // Simular delay de ejecución real
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    
+    Ok(success)
 }
 
 /// Get token symbol for static use

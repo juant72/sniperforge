@@ -10,4 +10,4 @@ pub mod real_execution;
 pub use safe_testing::{SafeTester, RiskLevel, execute_safe_arbitrage_test};
 pub use jupiter_scanner::{JupiterScanner, Priority, execute_comprehensive_scan, execute_quick_scan};
 pub use automated_monitor::{AutomatedMonitor, MonitorConfig, start_automated_monitoring_with_config};
-pub use real_execution::{RealExecutor, create_mainnet_executor, simulate_arbitrage_execution};
+pub use real_execution::{RealExecutor, create_mainnet_executor, simulate_arbitrage_execution_advanced};
