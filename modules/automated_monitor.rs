@@ -150,10 +150,9 @@ impl AutomatedMonitor {
         info!("🔍 Ejecutando ciclo completo de monitoreo");
         let cycle_start = Instant::now();
 
-        // Step 1: Safe testing validation
-        let safe_results = self.safe_tester.execute_safe_test(
-            SafeTester::get_documented_successful_pairs()
-        ).await?;
+        // Step 1: Safe testing validation with real verified pairs
+        let verified_pairs = self.safe_tester.get_verified_mainnet_pairs().await?;
+        let safe_results = self.safe_tester.execute_safe_test(verified_pairs).await?;
 
         // Step 2: Comprehensive Jupiter scan
         let opportunities = self.jupiter_scanner.scan_all_opportunities().await?;

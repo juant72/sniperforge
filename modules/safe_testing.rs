@@ -220,8 +220,9 @@ impl SafeTester {
         
         let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
         
-        // STEP 1: Get real recent blockhash and fee calculator
-        let recent_blockhash_info = rpc_client.get_latest_blockhash().await?;
+        // STEP 1: Get real recent blockhash (synchronous call, no await needed)
+        let _recent_blockhash = rpc_client.get_latest_blockhash()
+            .map_err(|e| anyhow!("Failed to get blockhash: {}", e))?;
         
         // STEP 2: Calculate real fee for Jupiter swap transaction
         // Jupiter swaps typically use 200,000-400,000 compute units
@@ -312,7 +313,7 @@ impl SafeTester {
         let pairs_url = "https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000000";
         
         // Test connectivity first
-        let test_response = client.get(&pairs_url)
+        let test_response = client.get(pairs_url)
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await?;

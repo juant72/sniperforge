@@ -39,6 +39,15 @@ pub struct JupiterScanner {
 }
 
 impl JupiterScanner {
+    pub fn new() -> Self {
+        Self {
+            jupiter_url: "https://quote-api.jup.ag/v6".to_string(),
+            fee_threshold_lamports: 15_000, // Will be updated with real fees
+            scan_amounts: vec![0.005, 0.01, 0.03, 0.05],
+            supported_tokens: HashMap::new(), // Will be loaded from Jupiter registry
+        }
+    }
+
     pub async fn new_with_real_validation() -> Result<Self> {
         let mut scanner = Self::new();
         
@@ -108,7 +117,7 @@ impl JupiterScanner {
     async fn get_real_transaction_fee(&self) -> Result<u64> {
         use solana_client::rpc_client::RpcClient;
         
-        let rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
+        let _rpc_client = RpcClient::new("https://api.mainnet-beta.solana.com".to_string());
         
         // Calculate realistic Jupiter transaction cost
         let base_fee = 5_000; // Standard Solana transaction fee
@@ -241,8 +250,9 @@ impl JupiterScanner {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Jupiter quote failed: {} - {}", response.status(), error_text));
+            return Err(anyhow!("Jupiter quote failed: {} - {}", status, error_text));
         }
 
         let json: Value = response.json().await?;
@@ -305,32 +315,6 @@ impl JupiterScanner {
         
         let decimals = account.data[44]; // Decimals at offset 44 in SPL token mint
         Ok(10_f64.powi(decimals as i32))
-    }
-        
-        let url = format!(
-            "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
-            self.jupiter_url, input_mint, output_mint, amount_lamports
-        );
-
-        let client = reqwest::Client::new();
-        let response = client.get(&url)
-            .timeout(Duration::from_secs(15))
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Jupiter API error: {} for pair {}->{}", 
-                              response.status(), input_mint, output_mint));
-        }
-
-        let json: Value = response.json().await?;
-        
-        let out_amount_str = json["outAmount"]
-            .as_str()
-            .ok_or_else(|| anyhow!("Missing outAmount in Jupiter response"))?;
-
-        out_amount_str.parse::<f64>()
-            .map_err(|_| anyhow!("Invalid outAmount format: {}", out_amount_str))
     }
 
     /// Calculate confidence score based on historical success patterns
@@ -431,6 +415,41 @@ impl JupiterScanner {
 
         opportunities.sort_by(|a, b| b.estimated_profit.partial_cmp(&a.estimated_profit).unwrap());
         Ok(opportunities)
+    }
+
+    /// Quick scan for immediate opportunities with real validation
+    pub async fn scan_quick_opportunities(&self) -> Result<Vec<OpportunityResult>> {
+        info!("⚡ Quick scan for immediate opportunities - real data only");
+        
+        let mut immediate_opportunities = Vec::new();
+        
+        // Only scan most liquid pairs with small amounts for speed
+        let quick_pairs = vec![
+            ("SOL", "USDC", 0.001), // Very small amount for speed
+            ("SOL", "USDT", 0.001),
+            ("USDC", "USDT", 0.001),
+        ];
+        
+        for (token_a, token_b, amount) in quick_pairs {
+            match self.analyze_arbitrage_pair(token_a, token_b, amount).await {
+                Ok(opportunity) => {
+                    if opportunity.estimated_profit > 0.0 {
+                        immediate_opportunities.push(opportunity);
+                    }
+                }
+                Err(e) => {
+                    debug!("Quick scan pair {}/{} failed: {}", token_a, token_b, e);
+                }
+            }
+            
+            // Minimal delay for API rate limiting
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        
+        // Sort by profit potential
+        immediate_opportunities.sort_by(|a, b| b.estimated_profit.partial_cmp(&a.estimated_profit).unwrap());
+        
+        Ok(immediate_opportunities)
     }
 }
 
