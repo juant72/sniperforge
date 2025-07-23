@@ -1,0 +1,543 @@
+    Checking sniperforge v0.1.0 (C:\work\encrypia\labs\sniperforge)
+warning: unused import: `SafeTester`
+  --> modules\mod.rs:10:24
+   |
+10 | pub use safe_testing::{SafeTester, RiskLevel, execute_safe_arbitrage_test};
+   |                        ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `JupiterScanner`
+  --> modules\mod.rs:11:27
+   |
+11 | pub use jupiter_scanner::{JupiterScanner, Priority, execute_comprehensive_scan, execute_quick_scan};
+   |                           ^^^^^^^^^^^^^^
+
+warning: unused import: `AutomatedMonitor`
+  --> modules\mod.rs:12:29
+   |
+12 | pub use automated_monitor::{AutomatedMonitor, MonitorConfig, start_automated_monitoring_with_config};
+   |                             ^^^^^^^^^^^^^^^^
+
+warning: unused imports: `RealExecutor` and `create_mainnet_executor`
+  --> modules\mod.rs:13:26
+   |
+13 | pub use real_execution::{RealExecutor, create_mainnet_executor, simulate_arbitrage_execution};
+   |                          ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ENTERPRISE_CACHE_TTL_SECONDS` is never used
+  --> arbitrage_bot.rs:19:7
+   |
+19 | const ENTERPRISE_CACHE_TTL_SECONDS: u64 = 30; // Institutional cache policy
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: constant `ENTERPRISE_RISK_DAILY_VOLUME` is never used
+  --> arbitrage_bot.rs:22:7
+   |
+22 | const ENTERPRISE_RISK_DAILY_VOLUME: f64 = 1000.0; // SOL - Institutional volume limits
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MILITARY_LATENCY_THRESHOLD_MS` is never used
+  --> arbitrage_bot.rs:23:7
+   |
+23 | const MILITARY_LATENCY_THRESHOLD_MS: u64 = 500; // Military-grade latency requirements
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `INSTITUTIONAL_CONCURRENT_OPS` is never used
+  --> arbitrage_bot.rs:24:7
+   |
+24 | const INSTITUTIONAL_CONCURRENT_OPS: usize = 10; // Enterprise concurrency limits
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAINNET_JUPITER_API` is never used
+  --> arbitrage_bot.rs:27:7
+   |
+27 | const MAINNET_JUPITER_API: &str = "https://quote-api.jup.ag/v6";
+   |       ^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAINNET_JUPITER_SWAP_API` is never used
+  --> arbitrage_bot.rs:28:7
+   |
+28 | const MAINNET_JUPITER_SWAP_API: &str = "https://quote-api.jup.ag/v6/swap";
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAINNET_MAX_SLIPPAGE_BPS` is never used
+  --> arbitrage_bot.rs:30:7
+   |
+30 | const MAINNET_MAX_SLIPPAGE_BPS: u16 = 150; // 1.5% max slippage for mainnet
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAINNET_EXECUTION_TIMEOUT` is never used
+  --> arbitrage_bot.rs:31:7
+   |
+31 | const MAINNET_EXECUTION_TIMEOUT: u64 = 30; // 30 seconds max execution time
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: method `get_saber_relevant_pools` is never used
+   --> arbitrage_bot.rs:334:18
+    |
+68  | impl ProfessionalArbitrageEngine {
+    | -------------------------------- method in this implementation
+...
+334 |     pub async fn get_saber_relevant_pools(&mut self) -> Result<Vec<String>> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `MIN_TRADE_SIZE_SOL` is never used
+  --> types.rs:10:11
+   |
+10 | pub const MIN_TRADE_SIZE_SOL: f64 = 0.1;
+   |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_TRADE_SIZE_SOL` is never used
+  --> types.rs:11:11
+   |
+11 | pub const MAX_TRADE_SIZE_SOL: f64 = 100.0;
+   |           ^^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_SLIPPAGE_BPS` is never used
+  --> types.rs:12:11
+   |
+12 | pub const MAX_SLIPPAGE_BPS: u64 = 200; // 2.0%
+   |           ^^^^^^^^^^^^^^^^
+
+warning: constant `MILITARY_MIN_PROFIT_BPS` is never used
+  --> types.rs:13:11
+   |
+13 | pub const MILITARY_MIN_PROFIT_BPS: u64 = 50; // 0.5%
+   |           ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+  --> types.rs:22:5
+   |
+17 | pub enum PoolType {
+   |          -------- variants in this enum
+...
+22 |     Jupiter,
+   |     ^^^^^^^
+...
+26 |     Cropper,
+   |     ^^^^^^^
+27 |     Aldrin,
+   |     ^^^^^^
+28 |     Step,
+   |     ^^^^
+29 |     Marinade,
+   |     ^^^^^^^^
+30 |     Mercurial,
+   |     ^^^^^^^^^
+31 |     Quarry,
+   |     ^^^^^^
+32 |     Unknown,
+   |     ^^^^^^^
+   |
+   = note: `PoolType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variants `Bullish` and `Bearish` are never constructed
+  --> types.rs:38:5
+   |
+37 | pub enum MarketSentiment {
+   |          --------------- variants in this enum
+38 |     Bullish,
+   |     ^^^^^^^
+39 |     Bearish,
+   |     ^^^^^^^
+   |
+   = note: `MarketSentiment` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `pool_type`, `token_a_vault`, `token_b_vault`, and `last_updated` are never read
+  --> types.rs:48:9
+   |
+46 | pub struct PoolData {
+   |            -------- fields in this struct
+47 |     pub address: Pubkey,
+48 |     pub pool_type: PoolType,
+   |         ^^^^^^^^^
+...
+53 |     pub token_a_vault: Pubkey,
+   |         ^^^^^^^^^^^^^
+54 |     pub token_b_vault: Pubkey,
+   |         ^^^^^^^^^^^^^
+...
+57 |     pub last_updated: SystemTime,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `PoolData` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: struct `DiscoveredPool` is never constructed
+  --> types.rs:62:12
+   |
+62 | pub struct DiscoveredPool {
+   |            ^^^^^^^^^^^^^^
+   |
+   = note: `DiscoveredPool` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `source` and `confidence` are never read
+  --> types.rs:81:9
+   |
+78 | pub struct PriceData {
+   |            --------- fields in this struct
+...
+81 |     pub source: String,
+   |         ^^^^^^
+82 |     pub confidence: f64,
+   |         ^^^^^^^^^^
+   |
+   = note: `PriceData` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: struct `TokenInfo` is never constructed
+  --> types.rs:86:12
+   |
+86 | pub struct TokenInfo {
+   |            ^^^^^^^^^
+   |
+   = note: `TokenInfo` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `intermediate_token`, `expected_amount_out`, `profit_percentage`, `fees_lamports`, and `route_type` are never read
+   --> types.rs:102:9
+    |
+99  | pub struct DirectOpportunity {
+    |            ----------------- fields in this struct
+...
+102 |     pub intermediate_token: Pubkey,
+    |         ^^^^^^^^^^^^^^^^^^
+...
+106 |     pub expected_amount_out: u64,
+    |         ^^^^^^^^^^^^^^^^^^^
+107 |     pub profit_lamports: i64,
+108 |     pub profit_percentage: f64,
+    |         ^^^^^^^^^^^^^^^^^
+109 |     pub fees_lamports: u64,
+    |         ^^^^^^^^^^^^^
+110 |     pub route_type: String,
+    |         ^^^^^^^^^^
+    |
+    = note: `DirectOpportunity` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `total_volume`, `average_spread`, `success_rate`, `last_profitable_trade`, and `volatility_score` are never read
+   --> types.rs:115:9
+    |
+114 | pub struct PoolPerformanceData {
+    |            ------------------- fields in this struct
+115 |     pub total_volume: f64,
+    |         ^^^^^^^^^^^^
+116 |     pub average_spread: f64,
+    |         ^^^^^^^^^^^^^^
+117 |     pub success_rate: f64,
+    |         ^^^^^^^^^^^^
+118 |     pub last_profitable_trade: Option<SystemTime>,
+    |         ^^^^^^^^^^^^^^^^^^^^^
+119 |     pub volatility_score: f64,
+    |         ^^^^^^^^^^^^^^^^
+    |
+    = note: `PoolPerformanceData` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `average_profit_bps` and `max_drawdown` are never read
+   --> types.rs:137:9
+    |
+132 | pub struct RiskMetrics {
+    |            ----------- fields in this struct
+...
+137 |     pub average_profit_bps: f64,
+    |         ^^^^^^^^^^^^^^^^^^
+138 |     pub max_drawdown: f64,
+    |         ^^^^^^^^^^^^
+    |
+    = note: `RiskMetrics` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `total_volume_24h` and `average_spread` are never read
+   --> types.rs:144:9
+    |
+142 | pub struct MarketMetrics {
+    |            ------------- fields in this struct
+143 |     pub timestamp: u64,
+144 |     pub total_volume_24h: f64,
+    |         ^^^^^^^^^^^^^^^^
+145 |     pub average_spread: f64,
+    |         ^^^^^^^^^^^^^^
+    |
+    = note: `MarketMetrics` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `average_execution_time_ms`, `best_profit_opportunity`, and `hourly_pnl` are never read
+   --> types.rs:156:9
+    |
+152 | pub struct PerformanceMetrics {
+    |            ------------------ fields in this struct
+...
+156 |     pub average_execution_time_ms: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+157 |     pub best_profit_opportunity: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^
+158 |     pub hourly_pnl: VecDeque<f64>,
+    |         ^^^^^^^^^^
+    |
+    = note: `PerformanceMetrics` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `max_slippage_bps`, `max_trade_amount`, and `latency_compensation` are never read
+   --> types.rs:163:9
+    |
+162 | pub struct AdaptiveConfig {
+    |            -------------- fields in this struct
+163 |     pub max_slippage_bps: u64,
+    |         ^^^^^^^^^^^^^^^^
+164 |     pub min_profit_threshold: u64,
+165 |     pub max_trade_amount: u64,
+    |         ^^^^^^^^^^^^^^^^
+...
+168 |     pub latency_compensation: f64,
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `AdaptiveConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `monitoring_pools`, `last_price_update`, `profit_history`, `real_executor`, and `multi_token_config` are never read
+   --> types.rs:192:9
+    |
+179 | pub struct ProfessionalArbitrageEngine {
+    |            --------------------------- fields in this struct
+...
+192 |     pub monitoring_pools: Vec<String>,
+    |         ^^^^^^^^^^^^^^^^
+...
+205 |     pub last_price_update: Instant,
+    |         ^^^^^^^^^^^^^^^^^
+206 |     pub execution_times: VecDeque<u64>,
+207 |     pub profit_history: VecDeque<f64>,
+    |         ^^^^^^^^^^^^^^
+...
+218 |     pub real_executor: Option<()>, // Placeholder - functionality is in internal modules
+    |         ^^^^^^^^^^^^^
+...
+221 |     pub multi_token_config: Option<Box<dyn std::any::Any + Send + Sync>>, // Type-erased para evitar imports circulares
+    |         ^^^^^^^^^^^^^^^^^^
+
+warning: methods `get_cached_price_count` and `get_api_stats` are never used
+   --> price_feeds.rs:208:12
+    |
+22  | impl ProfessionalPriceFeeds {
+    | --------------------------- methods in this implementation
+...
+208 |     pub fn get_cached_price_count(&self) -> usize {
+    |            ^^^^^^^^^^^^^^^^^^^^^^
+...
+212 |     pub fn get_api_stats(&self) -> (u64, u64, u64) {
+    |            ^^^^^^^^^^^^^
+
+warning: methods `get_token_list` and `get_swap_quote_with_fees` are never used
+   --> jupiter_api.rs:110:18
+    |
+13  | impl JupiterAPI {
+    | --------------- methods in this implementation
+...
+110 |     pub async fn get_token_list(&self) -> Result<Vec<Value>> {
+    |                  ^^^^^^^^^^^^^^
+...
+132 |     pub async fn get_swap_quote_with_fees(
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_amm_input_exact` is never used
+  --> calculations.rs:44:8
+   |
+44 | pub fn calculate_amm_input_exact(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_price_impact` is never used
+  --> calculations.rs:81:8
+   |
+81 | pub fn calculate_price_impact(
+   |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_optimal_arbitrage_size` is never used
+   --> calculations.rs:107:8
+    |
+107 | pub fn calculate_optimal_arbitrage_size(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `calculate_slippage` is never used
+   --> calculations.rs:134:8
+    |
+134 | pub fn calculate_slippage(
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `estimate_arbitrage_gas_cost` is never used
+   --> calculations.rs:158:8
+    |
+158 | pub fn estimate_arbitrage_gas_cost(num_swaps: u32, complexity_factor: f64) -> u64 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `is_arbitrage_profitable` is never used
+   --> calculations.rs:172:8
+    |
+172 | pub fn is_arbitrage_profitable(
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `ENTERPRISE_RISK_DAILY_VOLUME` is never used
+  --> risk_manager.rs:11:7
+   |
+11 | const ENTERPRISE_RISK_DAILY_VOLUME: f64 = 1000.0; // SOL - Institutional volume limits
+   |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `signature`, `input_amount`, and `price_impact` are never read
+  --> real_execution.rs:20:9
+   |
+19 | pub struct JupiterSwapResult {
+   |            ----------------- fields in this struct
+20 |     pub signature: Signature,
+   |         ^^^^^^^^^
+21 |     pub input_amount: u64,
+   |         ^^^^^^^^^^^^
+22 |     pub output_amount: u64,
+23 |     pub price_impact: f64,
+   |         ^^^^^^^^^^^^
+   |
+   = note: `JupiterSwapResult` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: methods `get_relevant_pools` and `pool_contains_token` are never used
+   --> saber_integration.rs:104:18
+    |
+52  | impl SaberIntegration {
+    | --------------------- methods in this implementation
+...
+104 |     pub async fn get_relevant_pools(&mut self) -> Result<Vec<SaberPool>> {
+    |                  ^^^^^^^^^^^^^^^^^^
+...
+257 |     fn pool_contains_token(&self, pool: &SaberPool, token: &str) -> bool {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: variant `MarketConditionsChanged` is never constructed
+  --> modules\automated_monitor.rs:54:5
+   |
+51 | pub enum AlertType {
+   |          --------- variant in this enum
+...
+54 |     MarketConditionsChanged,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `AlertType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: method `get_status` is never used
+   --> modules\automated_monitor.rs:414:18
+    |
+68  | impl AutomatedMonitor {
+    | --------------------- method in this implementation
+...
+414 |     pub async fn get_status(&self) -> MonitoringStatus {
+    |                  ^^^^^^^^^^
+
+warning: function `start_automated_monitoring` is never used
+   --> modules\automated_monitor.rs:443:14
+    |
+443 | pub async fn start_automated_monitoring() -> Result<()> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `transaction_signature`, `initial_balance`, `final_balance`, `gas_fees_paid`, and `error_message` are never read
+  --> modules\real_execution.rs:26:9
+   |
+24 | pub struct ExecutionResult {
+   |            --------------- fields in this struct
+25 |     pub success: bool,
+26 |     pub transaction_signature: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+27 |     pub initial_balance: f64,
+   |         ^^^^^^^^^^^^^^^
+28 |     pub final_balance: f64,
+   |         ^^^^^^^^^^^^^
+...
+31 |     pub gas_fees_paid: f64,
+   |         ^^^^^^^^^^^^^
+32 |     pub error_message: Option<String>,
+   |         ^^^^^^^^^^^^^
+   |
+   = note: `ExecutionResult` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: fields `max_slippage_bps`, `timeout_seconds`, `priority_fee_lamports`, `max_retries`, and `confirmation_commitment` are never read
+  --> modules\real_execution.rs:37:9
+   |
+36 | pub struct ExecutionConfig {
+   |            --------------- fields in this struct
+37 |     pub max_slippage_bps: u16,
+   |         ^^^^^^^^^^^^^^^^
+38 |     pub timeout_seconds: u64,
+   |         ^^^^^^^^^^^^^^^
+39 |     pub priority_fee_lamports: u64,
+   |         ^^^^^^^^^^^^^^^^^^^^^
+40 |     pub max_retries: u32,
+   |         ^^^^^^^^^^^
+41 |     pub confirmation_commitment: String,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `ExecutionConfig` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: struct `RealExecutor` is never constructed
+  --> modules\real_execution.rs:56:12
+   |
+56 | pub struct RealExecutor {
+   |            ^^^^^^^^^^^^
+
+warning: multiple associated items are never used
+   --> modules\real_execution.rs:63:12
+    |
+62  | impl RealExecutor {
+    | ----------------- associated items in this implementation
+63  |     pub fn new(rpc_url: String, config: ExecutionConfig) -> Self {
+    |            ^^^
+...
+72  |     pub async fn execute_arbitrage(&self, 
+    |                  ^^^^^^^^^^^^^^^^^
+...
+163 |     async fn execute_arbitrage_cycle(&self, 
+    |              ^^^^^^^^^^^^^^^^^^^^^^^
+...
+207 |     async fn get_jupiter_swap_transaction(&self, 
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+258 |     async fn get_jupiter_quote(&self, input_mint: &str, output_mint: &str, amount: f64) -> Result<Value> {
+    |              ^^^^^^^^^^^^^^^^^
+...
+281 |     async fn send_and_confirm_transaction(&self, transaction: &Transaction) -> Result<String> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+288 |     async fn wait_for_confirmation(&self, signature: &str) -> Result<()> {
+    |              ^^^^^^^^^^^^^^^^^^^^^
+...
+311 |     async fn get_token_balance_with_retry(&self, wallet_keypair: &Keypair, token_mint: &str, max_retries: u32) -> Result<f64> {
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+331 |     async fn get_token_balance(&self, wallet_keypair: &Keypair, token_mint: &str) -> Result<f64> {
+    |              ^^^^^^^^^^^^^^^^^
+...
+352 |     async fn validate_execution_preconditions(&self, 
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+389 |     fn get_token_decimals_multiplier(&self, mint: &str) -> f64 {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+400 |     fn get_token_symbol(&self, mint: &str) -> &str {
+    |        ^^^^^^^^^^^^^^^^
+...
+411 |     fn log_execution_result(&self, result: &ExecutionResult) {
+    |        ^^^^^^^^^^^^^^^^^^^^
+...
+437 |     fn analyze_execution_performance(&self, result: &ExecutionResult) {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_mainnet_executor` is never used
+   --> modules\real_execution.rs:476:8
+    |
+476 | pub fn create_mainnet_executor() -> RealExecutor {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `create_devnet_executor` is never used
+   --> modules\real_execution.rs:483:8
+    |
+483 | pub fn create_devnet_executor() -> RealExecutor {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `execute_safe_arbitrage` is never used
+   --> modules\real_execution.rs:493:14
+    |
+493 | pub async fn execute_safe_arbitrage(wallet_keypair: &Keypair, 
+    |              ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `sniperforge` (bin "arbitrage_bot") generated 51 warnings (run `cargo fix --bin "arbitrage_bot"` to apply 4 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.90s
