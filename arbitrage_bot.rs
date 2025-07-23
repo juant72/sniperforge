@@ -13,21 +13,21 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Signer, read_keypair_file};
 use solana_client::rpc_client::RpcClient;
 
-// ===== ENTERPRISE CONSTANTS =====
-const MILITARY_MIN_PROFIT_BPS: u64 = 50; // 0.5% - Military precision threshold
-const INSTITUTIONAL_MAX_SLIPPAGE_BPS: u64 = 200; // 2.0% - Enterprise risk limit
-const ENTERPRISE_CACHE_TTL_SECONDS: u64 = 30; // Institutional cache policy
-const INSTITUTIONAL_MAX_TRADE_SOL: f64 = 100.0; // Enterprise position sizing
-const MILITARY_MIN_TRADE_SOL: f64 = 0.1; // Precision execution minimum
-const ENTERPRISE_RISK_DAILY_VOLUME: f64 = 1000.0; // SOL - Institutional volume limits
-const MILITARY_LATENCY_THRESHOLD_MS: u64 = 500; // Military-grade latency requirements
-const INSTITUTIONAL_CONCURRENT_OPS: usize = 10; // Enterprise concurrency limits
+// ===== REALISTIC ARBITRAGE CONSTANTS FOR MAINNET =====
+const REALISTIC_MIN_PROFIT_BPS: u64 = 5; // 0.05% - Threshold realista para arbitraje
+const REALISTIC_MAX_SLIPPAGE_BPS: u64 = 100; // 1.0% - Slippage conservador
+const ENTERPRISE_CACHE_TTL_SECONDS: u64 = 15; // Cache más rápido para oportunidades
+const REALISTIC_MAX_TRADE_SOL: f64 = 10.0; // 10 SOL máximo por trade
+const REALISTIC_MIN_TRADE_SOL: f64 = 0.01; // 0.01 SOL minimum trade
+const ENTERPRISE_RISK_DAILY_VOLUME: f64 = 100.0; // SOL - Volume diario conservador
+const REALISTIC_LATENCY_THRESHOLD_MS: u64 = 200; // 200ms latency threshold
+const INSTITUTIONAL_CONCURRENT_OPS: usize = 5; // 5 operaciones concurrentes
 
-// NEW: Real execution constants for mainnet
+// NEW: MAINNET execution constants - CORREGIDO
 const MAINNET_JUPITER_API: &str = "https://quote-api.jup.ag/v6";
 const MAINNET_JUPITER_SWAP_API: &str = "https://quote-api.jup.ag/v6/swap";
-const MAINNET_MIN_PROFIT_SOL: f64 = 0.01; // Minimum 0.01 SOL profit for real execution
-const MAINNET_MAX_SLIPPAGE_BPS: u16 = 150; // 1.5% max slippage for mainnet
+const MAINNET_MIN_PROFIT_SOL: f64 = 0.0015; // 0.0015 SOL = ~$0.045 profit mínimo
+const MAINNET_MAX_SLIPPAGE_BPS: u16 = 100; // 1.0% max slippage conservador
 const MAINNET_EXECUTION_TIMEOUT: u64 = 30; // 30 seconds max execution time
 
 // ===== ENTERPRISE MODULE IMPORTS =====
@@ -145,9 +145,9 @@ impl ProfessionalArbitrageEngine {
                 hourly_pnl: std::collections::VecDeque::new(),
             },
             adaptive_config: AdaptiveConfig {
-                max_slippage_bps: INSTITUTIONAL_MAX_SLIPPAGE_BPS,
-                min_profit_threshold: MILITARY_MIN_PROFIT_BPS,
-                max_trade_amount: (INSTITUTIONAL_MAX_TRADE_SOL * 1e9) as u64,
+                max_slippage_bps: REALISTIC_MAX_SLIPPAGE_BPS,
+                min_profit_threshold: REALISTIC_MIN_PROFIT_BPS,
+                max_trade_amount: (REALISTIC_MAX_TRADE_SOL * 1e9) as u64,
                 risk_multiplier: 1.0,
                 volatility_adjustment: 1.0,
                 latency_compensation: 1.0,
@@ -821,12 +821,12 @@ impl ProfessionalArbitrageEngine {
         };
         
         let current_balance = self.get_wallet_balance().await?;
-        let max_trade_sol = (current_balance * 0.1).min(INSTITUTIONAL_MAX_TRADE_SOL);
+        let max_trade_sol = (current_balance * 0.1).min(REALISTIC_MAX_TRADE_SOL);
         let optimal_amount = ((max_trade_sol * 1e9) as u64).min(
             (pool_a.token_a_amount.min(pool_a.token_b_amount)) / 20
         );
         
-        if optimal_amount < (MILITARY_MIN_TRADE_SOL * 1e9) as u64 {
+        if optimal_amount < (REALISTIC_MIN_TRADE_SOL * 1e9) as u64 {
             return Ok(None);
         }
         
@@ -901,7 +901,7 @@ impl ProfessionalArbitrageEngine {
         }
         
         let profit_bps = (net_profit * 10_000) / optimal_amount;
-        if profit_bps < MILITARY_MIN_PROFIT_BPS {
+        if profit_bps < REALISTIC_MIN_PROFIT_BPS {
             return Ok(None);
         }
         
@@ -978,9 +978,9 @@ async fn main() -> Result<()> {
     info!("⚔️  MILITARY-GRADE INITIALIZATION PROTOCOL");
     info!("🎯 INSTITUTIONAL OVERSIGHT: ACTIVE");
     
-    // Configuration
+    // Configuration - MAINNET REAL
     let mainnet_rpc = "https://api.mainnet-beta.solana.com";
-    let wallet_path = "mainnet-wallet.json";
+    let wallet_path = "wallets/mainnet-arbitrage-wallet.json"; // Corregido path
     
     println!("\n🎯 SNIPERFORGE ARBITRAGE SYSTEM - OPCIÓN C MODULAR");
     println!("═══════════════════════════════════════════════════════");
@@ -1108,12 +1108,12 @@ async fn main() -> Result<()> {
         "4" => {
             info!("🤖 Iniciando Automated Monitor - Modo Conservativo");
             let config = MonitorConfig {
-                scan_interval_minutes: 60,        // Scan cada hora
-                quick_scan_interval_minutes: 30,  // Quick scan cada 30 min
+                scan_interval_minutes: 10,        // Scan cada 10 minutos (más frecuente)
+                quick_scan_interval_minutes: 5,   // Quick scan cada 5 min (más frecuente)
                 auto_execute_enabled: false,      // Solo alertas, no auto-ejecución
-                min_confidence_score: 80.0,       // Alta confianza requerida
-                min_profit_threshold: 0.000050,   // 3.3x fees mínimo
-                max_daily_executions: 3,          // Límite conservativo
+                min_confidence_score: 60.0,       // Confianza media (menos restrictivo)
+                min_profit_threshold: 0.000015,   // 3x fees SOL real (0.000005 * 3)
+                max_daily_executions: 20,         // Límite más realista
                 alert_webhook_url: None,
             };
             
@@ -1133,12 +1133,12 @@ async fn main() -> Result<()> {
             warn!("⚠️ MODO AGRESIVO: Configuración para mercados volátiles");
             
             let config = MonitorConfig {
-                scan_interval_minutes: 15,        // Scan cada 15 min
-                quick_scan_interval_minutes: 5,   // Quick scan cada 5 min
+                scan_interval_minutes: 5,         // Scan cada 5 min (muy frecuente)
+                quick_scan_interval_minutes: 2,   // Quick scan cada 2 min (muy frecuente)
                 auto_execute_enabled: false,      // Mantener manual por seguridad
-                min_confidence_score: 70.0,       // Confianza moderada
-                min_profit_threshold: 0.000030,   // 2x fees mínimo
-                max_daily_executions: 10,         // Límite más alto
+                min_confidence_score: 50.0,       // Confianza moderada-baja (más oportunidades)
+                min_profit_threshold: 0.000010,   // 2x fees SOL real (0.000005 * 2)
+                max_daily_executions: 50,         // Límite más alto para más oportunidades
                 alert_webhook_url: None,
             };
             
