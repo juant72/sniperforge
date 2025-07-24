@@ -289,17 +289,10 @@ impl NetworkConfigBuilder {
                 network: name.to_string(),
                 rpc_endpoint: rpc_endpoint.to_string(),
                 program_ids: ProgramIds {
-                    system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
-                    token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-                        .unwrap(),
-                    associated_token_program: Pubkey::from_str(
-                        "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
-                    )
-                    .unwrap(),
-                    compute_budget_program: Pubkey::from_str(
-                        "ComputeBudget11111111111111111111111111111111",
-                    )
-                    .unwrap(),
+                    system_program: solana_sdk::system_program::id(),
+                    token_program: spl_token::id(),
+                    associated_token_program: spl_associated_token_account::id(),
+                    compute_budget_program: solana_sdk::compute_budget::id(),
                     jupiter_program: None,
                     orca_whirlpool_program: None,
                     raydium_amm_program: None,
