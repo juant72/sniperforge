@@ -11,22 +11,22 @@ use serde::{Deserialize, Serialize};
 
 // Phase 4 component imports
 use crate::phase4::event_driven_engine::{
-    EventDrivenArbitrageEngine, EventDrivenOpportunity, ArbitrageEvent, OpportunityType
+    EventDrivenArbitrageEngine, EventDrivenOpportunity, ArbitrageEvent, OpportunityType, ExecutionPriority
 };
 use crate::phase4::parallel_execution::{
-    ParallelExecutionEngine, ExecutionRequest, ExecutionResult, ExecutionStatus, ExecutionPriority
+    ParallelExecutionEngine, ExecutionRequest, ExecutionResult, ExecutionStatus
 };
 use crate::phase4::real_time_monitoring::{
-    RealTimeMonitoringEngine, MonitoringConfig, DashboardData, Alert, AlertLevel
+    RealTimeMonitoringEngine, MonitoringConfig, DashboardData, Alert, AlertSeverity
 };
 use crate::phase4::performance_benchmark::{
     PerformanceBenchmarkEngine, BenchmarkConfig, BenchmarkResults
 };
 
 // Previous phase imports
-use crate::phase1::jupiter_optimizer::JupiterOptimizerEngine;
-use crate::phase2::mev_protection::MEVProtectionEngine;
-use crate::phase3::dex_specialization::DEXSpecializationEngine;
+use crate::phase1::JupiterOptimizerEngine;
+use crate::phase2::MEVProtectionEngine;
+use crate::phase3::DEXSpecializationEngine;
 
 /// Configuration for the integrated arbitrage system
 #[derive(Debug, Clone)]

@@ -15,7 +15,7 @@ pub use parallel_execution::{
     ParallelExecutionEngine, ExecutionRequest, ExecutionResult, ExecutionStatus, ExecutionBatch
 };
 pub use real_time_monitoring::{
-    RealTimeMonitoringEngine, MonitoringConfig, DashboardData, Alert, AlertLevel
+    RealTimeMonitoringEngine, MonitoringConfig, DashboardData, Alert, AlertSeverity as AlertLevel
 };
 pub use performance_benchmark::{
     PerformanceBenchmarkEngine, BenchmarkConfig, BenchmarkResults, PerformanceBottleneck, OptimizationSuggestion

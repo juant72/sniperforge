@@ -476,7 +476,7 @@ impl PerformanceBenchmarkEngine {
             0.0
         };
 
-        let largest_opportunity_profit = profits.iter().fold(0.0, |a, &b| a.max(b));
+        let largest_opportunity_profit = profits.iter().fold(0.0f64, |a, &b| a.max(b));
 
         let total_profit_generated = executions.iter()
             .filter(|e| e.status == ExecutionStatus::Completed)

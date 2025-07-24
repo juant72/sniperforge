@@ -6,13 +6,16 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use anyhow::Result;
 use tokio::sync::{mpsc, RwLock, Mutex, Semaphore};
-use tokio::time::sleep;
+use tokio::time::sl    pub async fn get_resource_stats(&self) -> ResourceTracker {
+        let tracker = self.resource_tracker.read().await;
+        tracker.clone()
+    };
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use tracing::{info, warn, debug, error};
 
-use crate::phase4::event_driven_engine::{EventDrivenOpportunity, ExecutionPriority, OpportunityType};
-use crate::modules::MEVProtectionEngine;
+use crate::phase4::event_driven_engine::{EventDrivenOpportunity, ExecutionPriority, OpportunityType, JupiterOpportunity, DEXOpportunity};
+use crate::phase2::MEVProtectionEngine;
 
 /// Parallel execution configuration
 #[derive(Debug, Clone)]
@@ -72,7 +75,7 @@ pub struct ExecutionResult {
 }
 
 /// Resource tracking for parallel execution
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ResourceTracker {
     pub active_executions_by_dex: HashMap<String, usize>,
     pub active_executions_by_token: HashMap<Pubkey, usize>,
@@ -80,6 +83,21 @@ pub struct ResourceTracker {
     pub pending_executions: usize,
     pub completed_executions: usize,
     pub failed_executions: usize,
+}
+
+/// Execution request for parallel processing
+#[derive(Debug, Clone)]
+pub struct ExecutionRequest {
+    pub id: String,
+    pub opportunity_type: String,
+    pub input_token_mint: String,
+    pub output_token_mint: String,
+    pub input_amount_lamports: u64,
+    pub expected_output_lamports: u64,
+    pub max_slippage_bps: u32,
+    pub priority: ExecutionPriority,
+    pub timeout_seconds: u64,
+    pub created_at: Instant,
 }
 
 /// Execution batch for optimized processing
@@ -117,6 +135,7 @@ pub struct ParallelExecutionEngine {
 }
 
 #[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ParallelExecutionMetrics {
     pub total_opportunities_processed: u64,
     pub successful_executions: u64,
@@ -205,6 +224,47 @@ impl ParallelExecutionEngine {
         Ok(())
     }
 
+    /// Submit an execution request for parallel processing
+    pub async fn submit_execution(&self, execution_request: ExecutionRequest) -> Result<String> {
+        // Convert ExecutionRequest to EventDrivenOpportunity for internal processing
+        let opportunity = EventDrivenOpportunity {
+            id: execution_request.id.clone(),
+            opportunity_type: match execution_request.opportunity_type.as_str() {
+                "Jupiter" => OpportunityType::JupiterAutoRouted(JupiterOpportunity {
+                    route_info: "auto-routed".to_string(),
+                    input_amount: execution_request.input_amount_lamports,
+                    output_amount: execution_request.expected_output_lamports,
+                    price_impact: 0.1,
+                }),
+                "Cross-DEX" => OpportunityType::CrossDEXArbitrage {
+                    source_dex: "Raydium".to_string(),
+                    target_dex: "Orca".to_string(),
+                    price_difference_bps: 100,
+                },
+                _ => OpportunityType::DEXSpecialized(DEXOpportunity {
+                    dex_name: "Raydium".to_string(),
+                    pool_address: "placeholder".to_string(),
+                    opportunity_score: 0.8,
+                }),
+            },
+            input_token: execution_request.input_token_mint,
+            output_token: execution_request.output_token_mint,
+            input_amount_lamports: execution_request.input_amount_lamports,
+            expected_output_lamports: execution_request.expected_output_lamports,
+            expected_profit_lamports: execution_request.expected_output_lamports - execution_request.input_amount_lamports,
+            execution_priority: execution_request.priority,
+            max_slippage_bps: execution_request.max_slippage_bps,
+            timeout_seconds: execution_request.timeout_seconds,
+            created_at: execution_request.created_at,
+            validated_at: None,
+            opportunity_id: execution_request.id.clone(),
+        };
+
+        // Submit the opportunity
+        self.submit_opportunity(opportunity).await?;
+        Ok(execution_request.id)
+    }
+
     /// Submit a batch of opportunities for optimized execution
     pub async fn submit_batch(&self, opportunities: Vec<EventDrivenOpportunity>) -> Result<String> {
         if opportunities.is_empty() {
@@ -233,6 +293,8 @@ impl ParallelExecutionEngine {
             estimated_batch_time_ms,
         };
 
+        let opportunities_count = batch.opportunities.len();
+
         // Add to batch queue
         {
             let mut queue = self.batch_queue.lock().await;
@@ -243,7 +305,7 @@ impl ParallelExecutionEngine {
         }
 
         info!("📦 Batch submitted for execution: {} with {} opportunities", 
-            batch_id, batch.opportunities.len());
+            batch_id, opportunities_count);
         
         Ok(batch_id)
     }
@@ -256,7 +318,8 @@ impl ParallelExecutionEngine {
 
     /// Get current performance metrics
     pub async fn get_metrics(&self) -> ParallelExecutionMetrics {
-        self.performance_metrics.read().await.clone()
+        let metrics = self.performance_metrics.read().await;
+        metrics.clone()
     }
 
     /// Get current resource usage
@@ -289,22 +352,31 @@ impl ParallelExecutionEngine {
                 if let Some(opp) = opportunity {
                     // Try to acquire execution permit
                     if let Ok(permit) = execution_semaphore.try_acquire() {
-                        // Get DEX and token-specific semaphores
-                        let dex_permit = Self::acquire_dex_semaphore(
+                        // Get DEX and token names
+                        let dex_name = Self::extract_dex_name(&opp);
+                        let token_mint = Self::extract_token_mint(&opp);
+                        
+                        // Get semaphores
+                        let dex_sem_result = Self::acquire_dex_semaphore(
                             &dex_semaphores, 
-                            &Self::extract_dex_name(&opp), 
+                            &dex_name, 
                             config.max_concurrent_per_dex
                         ).await;
 
-                        let token_permit = Self::acquire_token_semaphore(
+                        let token_sem_result = Self::acquire_token_semaphore(
                             &token_semaphores,
-                            &Self::extract_token_mint(&opp),
+                            &token_mint,
                             config.max_concurrent_per_token
                         ).await;
 
-                        if dex_permit.is_ok() && token_permit.is_ok() {
-                            // Update resource tracking
-                            Self::update_resource_tracking_start(&resource_tracker, &opp).await;
+                        if let (Ok(dex_sem), Ok(token_sem)) = (dex_sem_result, token_sem_result) {
+                            // Try to acquire the specific semaphores
+                            if let (Ok(_dex_permit), Ok(_token_permit)) = (
+                                dex_sem.try_acquire(),
+                                token_sem.try_acquire()
+                            ) {
+                                // Update resource tracking
+                                Self::update_resource_tracking_start(&resource_tracker, &opp).await;
 
                             // Execute in parallel
                             let opp_clone = opp.clone();
@@ -331,15 +403,19 @@ impl ParallelExecutionEngine {
                                 Self::update_resource_tracking_complete(&tracker_clone, &execution_result).await;
                                 Self::update_performance_metrics(&metrics_clone, &execution_result).await;
 
-                                // Release permits
+                                // Release permits (they are dropped automatically)
                                 drop(permit);
-                                drop(dex_permit);
-                                drop(token_permit);
 
                                 debug!("✅ Parallel execution completed: {}", execution_result.opportunity_id);
                             });
+                            } else {
+                                // Put opportunity back in queue if can't acquire specific permits
+                                let mut queue = execution_queue.lock().await;
+                                queue.push(opp);
+                                drop(permit);
+                            }
                         } else {
-                            // Put opportunity back in queue if can't acquire all permits
+                            // Put opportunity back in queue if can't acquire semaphores
                             let mut queue = execution_queue.lock().await;
                             queue.push(opp);
                             drop(permit);
@@ -573,11 +649,11 @@ impl ParallelExecutionEngine {
     }
 
     /// Acquire DEX-specific semaphore
-    async fn acquire_dex_semaphore(
-        dex_semaphores: &Arc<RwLock<HashMap<String, Arc<Semaphore>>>>,
+    async fn acquire_dex_semaphore<'a>(
+        dex_semaphores: &'a Arc<RwLock<HashMap<String, Arc<Semaphore>>>>,
         dex_name: &str,
         max_concurrent: usize,
-    ) -> Result<tokio::sync::SemaphorePermit<'_>> {
+    ) -> Result<Arc<Semaphore>> {
         // Get or create DEX semaphore
         let semaphore = {
             let mut semaphores = dex_semaphores.write().await;
@@ -586,16 +662,15 @@ impl ParallelExecutionEngine {
                 .clone()
         };
 
-        semaphore.acquire().await
-            .map_err(|e| anyhow::anyhow!("Failed to acquire DEX semaphore: {}", e))
+        Ok(semaphore)
     }
 
     /// Acquire token-specific semaphore
-    async fn acquire_token_semaphore(
-        token_semaphores: &Arc<RwLock<HashMap<Pubkey, Arc<Semaphore>>>>,
+    async fn acquire_token_semaphore<'a>(
+        token_semaphores: &'a Arc<RwLock<HashMap<Pubkey, Arc<Semaphore>>>>,
         token_mint: &Pubkey,
         max_concurrent: usize,
-    ) -> Result<tokio::sync::SemaphorePermit<'_>> {
+    ) -> Result<Arc<Semaphore>> {
         // Get or create token semaphore
         let semaphore = {
             let mut semaphores = token_semaphores.write().await;
@@ -604,25 +679,24 @@ impl ParallelExecutionEngine {
                 .clone()
         };
 
-        semaphore.acquire().await
-            .map_err(|e| anyhow::anyhow!("Failed to acquire token semaphore: {}", e))
+        Ok(semaphore)
     }
 
     /// Extract DEX name from opportunity
     fn extract_dex_name(opportunity: &EventDrivenOpportunity) -> String {
         match &opportunity.opportunity_type {
             OpportunityType::JupiterAutoRouted(_) => "Jupiter".to_string(),
-            OpportunityType::DEXSpecialized(spec_opp) => spec_opp.dex_type.to_string(),
+            OpportunityType::DEXSpecialized(spec_opp) => spec_opp.dex_name.clone(),
             OpportunityType::CrossDEXArbitrage { buy_dex, .. } => buy_dex.clone(),
         }
     }
 
     /// Extract token mint from opportunity
     fn extract_token_mint(opportunity: &EventDrivenOpportunity) -> Pubkey {
-        match &opportunity.opportunity_type {
-            OpportunityType::JupiterAutoRouted(jupiter_opp) => jupiter_opp.input_token,
-            OpportunityType::DEXSpecialized(spec_opp) => spec_opp.token_a,
-            OpportunityType::CrossDEXArbitrage { token_mint, .. } => *token_mint,
+        // Use a default token for now - this should be parsed from input_token string
+        match opportunity.input_token.parse() {
+            Ok(pubkey) => pubkey,
+            Err(_) => Pubkey::default(), // Fallback to default
         }
     }
 

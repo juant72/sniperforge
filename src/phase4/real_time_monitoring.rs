@@ -89,6 +89,9 @@ pub enum AlertSeverity {
     Low = 1,
 }
 
+/// Alias for AlertSeverity for compatibility
+pub use AlertSeverity as AlertLevel;
+
 /// Real-time alert
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Alert {
