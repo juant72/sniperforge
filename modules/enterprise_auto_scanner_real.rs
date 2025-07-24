@@ -3,7 +3,7 @@
 // High-frequency arbitrage detection system using real Solana DEX data
 
 use anyhow::Result;
-use tracing::{info, warn, debug, error};
+use tracing::{info, debug};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -173,7 +173,7 @@ impl RealEnterpriseAutoScanner {
                 
                 for (pair, current_price) in current_prices {
                     if let Some(other_price) = other_prices.get(pair) {
-                        let spread = ((current_price - other_price).abs() / other_price.min(current_price)) * 100.0;
+                        let spread = ((*current_price - *other_price).abs() / other_price.min(*current_price)) * 100.0;
                         
                         if spread > 0.1 { // Only spreads > 0.1%
                             let priority = if spread > 2.0 {

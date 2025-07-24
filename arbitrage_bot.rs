@@ -1011,10 +1011,11 @@ async fn main() -> Result<()> {
     println!("B) Simulation mode (Legacy)");
     println!("M) Multi-token Tier 1 (Legacy)");
     println!("T) Multi-token Tier 2 (Legacy)");
+    println!("R) Real Trading Mode (Legacy - DANGER)");
     println!("");
     println!("0) Exit");
     
-    print!("Select option (1-8, A/E/D/C, B/M/T, 0): ");
+    print!("Select option (1-8, A/E/D/C, B/M/T/R, 0): ");
     use std::io::{self, Write};
     io::stdout().flush().unwrap();
     
@@ -1530,7 +1531,7 @@ async fn main() -> Result<()> {
                 }
             }
         },
-        "B" => {
+        "R" => {
             info!("⚠️  ENABLING REAL TRADING MODE (Legacy)");
             warn!("🚨 THIS WILL USE REAL MONEY - PROCEED WITH CAUTION");
             
