@@ -104,6 +104,10 @@ path = "test_phase2_mev_protection.rs"
 name = "test_phase2_simple"
 path = "test_phase2_simple.rs"
 
+[[bin]]
+name = "test_phase2_mev_protection_fixed"
+path = "test_phase2_mev_protection_fixed.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
