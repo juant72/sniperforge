@@ -7,8 +7,8 @@ use anyhow::Result;
 pub const EXPERT_MINIMUM_TRADE_SIZE: u64 = 1_000_000_000; // 1.0 SOL minimum (PROFITABLE)
 pub const EXPERT_MAXIMUM_TRADE_SIZE: u64 = 10_000_000_000; // 10.0 SOL maximum (SAFE)
 
-/// EXPERT PROFIT REQUIREMENTS - Based on real trading costs
-pub const MILITARY_MIN_PROFIT_BPS: u64 = 50; // 0.5% minimum profit (REALISTIC)
+/// EXPERT PROFIT REQUIREMENTS - Based on real trading costs (FIXED)
+pub const MILITARY_MIN_PROFIT_BPS: u64 = 15; // 0.15% minimum profit (REALISTIC for current fees)
 pub const EXPERT_MIN_POOL_TVL_USD: f64 = 10_000.0; // $10K minimum TVL
 
 /// EXPERT LIQUIDITY REQUIREMENTS - Based on slippage analysis

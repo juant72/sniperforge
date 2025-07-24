@@ -45,6 +45,11 @@ path = "test_system.rs"
 name = "test_options_4_8"
 path = "test_options_4_8.rs"
 
+# 🔍 DEBUG TOOLS
+[[bin]]
+name = "debug_fees"
+path = "debug_fees.rs"
+
 # �📋 BINARIOS ESENCIALES ACTIVOS
 [[bin]]
 name = "safe_arbitrage_test"

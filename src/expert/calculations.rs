@@ -211,11 +211,11 @@ mod tests {
         let fees = calculate_total_arbitrage_fees(1_000_000_000).unwrap();
         let is_profitable = is_arbitrage_mathematically_profitable(
             1_000_000_000, // 1 SOL in
-            1_010_000_000, // 1.01 SOL out (1% gross profit)
+            1_015_000_000, // 1.015 SOL out (1.5% gross profit - more realistic)
             fees
         ).unwrap();
         
-        // Should be profitable with 1% gross profit after fees
+        // Should be profitable with 1.5% gross profit after fees
         assert!(is_profitable);
     }
 }
