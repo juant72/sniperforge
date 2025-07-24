@@ -6,16 +6,15 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 use std::sync::Arc;
 use tracing::{info, warn, error};
 
-// Import all phases
-mod modules;
-use modules::{
+// Import all phases using the crate modules
+use sniperforge::modules::{
     // Phase 1: Jupiter Advanced
-    JupiterAdvancedEngine, JupiterAdvancedConfig, JupiterAdvancedOpportunity,
+    jupiter_advanced::{JupiterAdvancedEngine, JupiterAdvancedConfig, JupiterAdvancedOpportunity},
     // Phase 2: MEV Protection
-    MEVProtectionEngine, MEVProtectionConfig, MEVRiskLevel, RecommendedAction,
+    mev_protection::{MEVProtectionEngine, MEVProtectionConfig, MEVRiskLevel, RecommendedAction},
     // Phase 3: DEX Specialization
-    DEXSpecializationEngine, DEXSpecializationConfig, SpecializedOpportunity,
-    DEXType, StrategyType
+    dex_specialization::{DEXSpecializationEngine, DEXSpecializationConfig, SpecializedOpportunity,
+        DEXType, StrategyType}
 };
 
 /// Complete Arbitrage System - All Phases Integrated
@@ -333,7 +332,7 @@ impl CompleteArbitrageSystem {
 
     /// Analyze opportunities with MEV protection and rank them
     async fn analyze_and_rank_opportunities(
-        &self,
+        &mut self,
         mut opportunities: Vec<CompleteOpportunity>
     ) -> Result<Vec<CompleteOpportunity>> {
         // Phase 2: MEV analysis for all opportunities
@@ -543,13 +542,13 @@ pub async fn create_complete_system() -> Result<CompleteArbitrageSystem> {
 pub async fn create_production_system(target_tokens: Vec<&str>) -> Result<CompleteArbitrageSystem> {
     let wallet_keypair = Keypair::new();
     
-    let tokens: Result<Vec<Pubkey>> = target_tokens
+    let tokens: Result<Vec<Pubkey>, _> = target_tokens
         .into_iter()
         .map(|t| t.parse())
         .collect();
     
     let mut config = CompleteSystemConfig::default();
-    config.target_tokens = tokens?;
+    config.target_tokens = tokens.map_err(|e| anyhow::anyhow!("Failed to parse token pubkey: {}", e))?;
     config.cycle_interval_seconds = 10; // Faster cycles for production
     config.max_opportunities_per_cycle = 30;
     config.max_concurrent_executions = 5;

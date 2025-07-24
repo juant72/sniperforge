@@ -123,6 +123,16 @@ path = "test_integrated_system.rs"
 name = "test_complete_system"
 path = "test_complete_system.rs"
 
+# ===== COMPLETE SYSTEM SIMPLIFIED TESTING =====
+[[bin]]
+name = "test_complete_system_simplified"
+path = "test_complete_system_simplified.rs"
+
+# ===== QUICK COMPLETE SYSTEM TESTING =====
+[[bin]]
+name = "test_quick_complete"
+path = "test_quick_complete.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []
