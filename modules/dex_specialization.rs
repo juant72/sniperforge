@@ -52,7 +52,7 @@ pub struct SpecializedOpportunity {
     pub metadata: DEXMetadata,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DEXType {
     Raydium,
     Orca,
@@ -186,7 +186,7 @@ impl DEXSpecializationEngine {
                         let opp2 = dex_opps[j];
                         
                         // Check if different DEXs
-                        if !matches!(opp1.dex_type, opp2.dex_type) {
+                        if opp1.dex_type != opp2.dex_type {
                             if let Some(cross_opp) = self.create_cross_dex_opportunity(opp1, opp2).await {
                                 cross_dex_opps.push(cross_opp);
                             }

@@ -15,6 +15,9 @@ pub mod jupiter_advanced;     // PHASE 1: Expert Jupiter auto-routing
 // ===== PHASE 2: MEV PROTECTION =====
 pub mod mev_protection;       // PHASE 2: Real MEV protection with Jito integration
 
+// ===== PHASE 3: DEX SPECIALIZATION =====
+pub mod dex_specialization;   // PHASE 3: DEX-specific strategies
+
 // Re-export main types for easy access
 pub use safe_testing::{RiskLevel, execute_safe_arbitrage_test};
 pub use jupiter_scanner::{Priority, execute_comprehensive_scan, execute_quick_scan};
