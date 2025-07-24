@@ -108,6 +108,21 @@ path = "test_phase2_simple.rs"
 name = "test_phase2_mev_protection_fixed"
 path = "test_phase2_mev_protection_fixed.rs"
 
+# ===== PHASE 3: DEX SPECIALIZATION TESTING =====
+[[bin]]
+name = "test_phase3_dex_specialization"
+path = "test_phase3_dex_specialization.rs"
+
+# ===== INTEGRATED SYSTEM TESTING =====
+[[bin]]
+name = "test_integrated_system"
+path = "test_integrated_system.rs"
+
+# ===== COMPLETE SYSTEM TESTING =====
+[[bin]]
+name = "test_complete_system"
+path = "test_complete_system.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []

@@ -33,3 +33,10 @@ pub use mev_protection::{
     SandwichDetection, RiskLevel as MEVRiskLevel, RecommendedAction,
     BundleSubmissionResult, BundleStatus, NetworkCongestion
 };
+
+// ===== PHASE 3 DEX SPECIALIZATION EXPORTS =====
+pub use dex_specialization::{
+    DEXSpecializationEngine, DEXSpecializationConfig, SpecializedOpportunity,
+    DEXType, StrategyType, DEXMetadata, DEXStats,
+    create_default_dex_engine, create_custom_dex_engine
+};
