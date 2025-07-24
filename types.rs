@@ -224,4 +224,8 @@ pub struct ProfessionalArbitrageEngine {
     
     // Saber integration for real pool data
     pub saber_integration: Option<Box<dyn std::any::Any + Send + Sync>>, // SaberIntegration type-erased
+    
+    // ===== PHASE 1: EXPERT DeFi FEATURES =====
+    pub jupiter_advanced: Option<Box<dyn std::any::Any + Send + Sync>>, // JupiterAdvancedEngine type-erased
+    pub jupiter_advanced_enabled: bool,
 }

@@ -82,6 +82,28 @@ path = "phase4b_jupiter_scanner.rs"
 name = "setup_mainnet_wallet"
 path = "setup_mainnet_wallet.rs"
 
+# ===== PHASE 1: JUPITER ADVANCED TESTING =====
+[[bin]]
+name = "test_phase1_jupiter_advanced"
+path = "test_phase1_jupiter_advanced.rs"
+
+[[bin]]
+name = "test_phase1_advanced_complete"
+path = "test_phase1_advanced_complete.rs"
+
+[[bin]]
+name = "test_phase1_simple"
+path = "test_phase1_simple.rs"
+
+# ===== PHASE 2: MEV PROTECTION TESTING =====
+[[bin]]
+name = "test_phase2_mev_protection"
+path = "test_phase2_mev_protection.rs"
+
+[[bin]]
+name = "test_phase2_simple"
+path = "test_phase2_simple.rs"
+
 # Force no OpenSSL dependencies
 [features]
 default = []

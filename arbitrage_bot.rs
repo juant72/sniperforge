@@ -59,7 +59,9 @@ use modules::{
     execute_safe_arbitrage_test,
     execute_comprehensive_scan, execute_quick_scan,
     MonitorConfig, start_automated_monitoring_with_config,
-    simulate_arbitrage_execution_advanced
+    simulate_arbitrage_execution_advanced,
+    // PHASE 1: Expert Jupiter Advanced
+    JupiterAdvancedEngine, JupiterAdvancedConfig, JupiterAdvancedOpportunity
 };
 
 use types::*;
@@ -184,6 +186,10 @@ impl ProfessionalArbitrageEngine {
             
             // Saber integration for real pool data
             saber_integration: Some(Box::new(saber_integration)),
+            
+            // ===== PHASE 1: EXPERT DeFi FEATURES =====
+            jupiter_advanced: None, // Initialized on-demand
+            jupiter_advanced_enabled: false,
         };
         
         info!("✅ ENTERPRISE ARBITRAGE ENGINE: FULLY OPERATIONAL");
@@ -249,6 +255,31 @@ impl ProfessionalArbitrageEngine {
         info!("🛡️  RISK: Enhanced thresholds for ecosystem tokens applied");
         
         Ok(())
+    }
+    
+    /// PHASE 1: Enable Jupiter Advanced auto-routing features
+    pub async fn enable_jupiter_advanced_arbitrage(&mut self) -> Result<()> {
+        info!("🪐 PHASE 1: ACTIVATING JUPITER ADVANCED AUTO-ROUTING");
+        warn!("🚀 SWITCHING TO EXPERT-RECOMMENDED JUPITER FEATURES");
+        
+        // Initialize Jupiter Advanced Engine
+        let jupiter_advanced = JupiterAdvancedEngine::new(None).await?;
+        
+        // Store in type-erased box (same pattern as saber_integration)
+        self.jupiter_advanced = Some(Box::new(jupiter_advanced));
+        self.jupiter_advanced_enabled = true;
+        
+        info!("✅ PHASE 1: JUPITER ADVANCED ACTIVATED");
+        info!("🎯 STATUS: Expert auto-routing enabled (eliminates manual triangular)");
+        info!("🪐 FEATURES: Auto-routing, dynamic slippage, priority fees");
+        info!("💡 EXPERT INSIGHT: Jupiter already does triangular arbitrage automatically!");
+        
+        Ok(())
+    }
+    
+    /// PHASE 1: Check if Jupiter Advanced is enabled
+    pub fn is_jupiter_advanced_enabled(&self) -> bool {
+        self.jupiter_advanced_enabled
     }
     
     /// PROPOSAL-003: Verificar si multi-token está habilitado y listo
@@ -614,6 +645,25 @@ impl ProfessionalArbitrageEngine {
     async fn discover_institutional_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
         info!("🧮 ENTERPRISE OPPORTUNITY ANALYSIS: Military-grade market scanning");
         
+        let mut all_opportunities = Vec::new();
+        
+        // PHASE 1: JUPITER ADVANCED DISCOVERY (si está habilitado)
+        if self.is_jupiter_advanced_enabled() {
+            info!("🪐 PHASE 1: Using Jupiter Advanced auto-routing discovery");
+            
+            let jupiter_opportunities = self.discover_jupiter_advanced_opportunities().await?;
+            all_opportunities.extend(jupiter_opportunities);
+            
+            if !all_opportunities.is_empty() {
+                info!("💎 JUPITER ADVANCED: Found {} auto-routed opportunities", all_opportunities.len());
+                // Si encontramos oportunidades con Jupiter Advanced, priorizarlas
+                all_opportunities.sort_by(|a, b| b.profit_lamports.cmp(&a.profit_lamports));
+                return Ok(all_opportunities);
+            } else {
+                info!("📊 JUPITER ADVANCED: No opportunities found, falling back to legacy");
+            }
+        }
+        
         // PROPOSAL-003: Enhanced opportunity discovery con multi-token support
         if self.is_multitoken_enabled() {
             info!("🚀 PROPOSAL-003: Using enhanced multi-token opportunity discovery");
@@ -733,6 +783,105 @@ impl ProfessionalArbitrageEngine {
         info!("🎯 ENTERPRISE ANALYSIS COMPLETE: {} institutional opportunities identified", opportunities.len());
         info!("✅ MILITARY STATUS: Opportunities ranked by enterprise criteria");
         Ok(opportunities)
+    }
+    
+    /// PHASE 1: Discover opportunities using Jupiter Advanced auto-routing
+    async fn discover_jupiter_advanced_opportunities(&mut self) -> Result<Vec<DirectOpportunity>> {
+        info!("🪐 PHASE 1: JUPITER ADVANCED OPPORTUNITY DISCOVERY");
+        
+        if !self.jupiter_advanced_enabled {
+            return Ok(Vec::new());
+        }
+        
+        // Get Jupiter Advanced engine from type-erased storage
+        if let Some(jupiter_box) = &mut self.jupiter_advanced {
+            unsafe {
+                let jupiter_ptr = jupiter_box.as_mut() as *mut dyn std::any::Any as *mut JupiterAdvancedEngine;
+                if let Some(jupiter_engine) = jupiter_ptr.as_mut() {
+                    
+                    // Calculate optimal trade amount
+                    let current_balance = self.get_wallet_balance().await?;
+                    let max_trade_sol = (current_balance * 0.1).min(10.0); // 10% of balance, max 10 SOL
+                    let trade_amount = ((max_trade_sol * 1e9) as u64).max(10_000_000); // Min 0.01 SOL
+                    
+                    info!("💰 Jupiter Advanced: Trade amount {:.6} SOL", trade_amount as f64 / 1e9);
+                    
+                    // Get Jupiter Advanced opportunities
+                    let jupiter_opportunities = jupiter_engine.find_auto_routed_opportunities(trade_amount).await?;
+                    
+                    if jupiter_opportunities.is_empty() {
+                        info!("📊 JUPITER ADVANCED: No profitable auto-routed opportunities found");
+                        return Ok(Vec::new());
+                    }
+                    
+                    // Convert Jupiter opportunities to DirectOpportunity format
+                    let mut direct_opportunities = Vec::new();
+                    
+                    for jupiter_opp in jupiter_opportunities {
+                        // Create a simplified DirectOpportunity from Jupiter data
+                        // Note: This is a bridge between Jupiter Advanced and legacy system
+                        let direct_opp = DirectOpportunity {
+                            pool_a: PoolData {
+                                address: jupiter_opp.input_token,
+                                token_a_mint: jupiter_opp.input_token,
+                                token_b_mint: jupiter_opp.output_token,
+                                token_a_amount: jupiter_opp.input_amount,
+                                token_b_amount: jupiter_opp.output_amount,
+                                fee_rate: (jupiter_opp.slippage_bps as f64 / 10000.0) as f32,
+                                pool_type: PoolType::Jupiter, // New pool type for Jupiter routes
+                                tvl_usd: 0.0, // Not relevant for Jupiter routes
+                                volume_24h_usd: 0.0,
+                                is_active: true,
+                                last_updated: std::time::SystemTime::now(),
+                            },
+                            pool_b: PoolData {
+                                address: jupiter_opp.output_token,
+                                token_a_mint: jupiter_opp.output_token,
+                                token_b_mint: jupiter_opp.input_token,
+                                token_a_amount: jupiter_opp.output_amount,
+                                token_b_amount: jupiter_opp.input_amount,
+                                fee_rate: (jupiter_opp.slippage_bps as f64 / 10000.0) as f32,
+                                pool_type: PoolType::Jupiter,
+                                tvl_usd: 0.0,
+                                volume_24h_usd: 0.0,
+                                is_active: true,
+                                last_updated: std::time::SystemTime::now(),
+                            },
+                            intermediate_token: jupiter_opp.output_token, // Use output token as intermediate
+                            token_in: jupiter_opp.input_token,
+                            token_out: jupiter_opp.input_token, // Round trip back to input
+                            amount_in: jupiter_opp.input_amount,
+                            expected_amount_out: jupiter_opp.output_amount,
+                            profit_lamports: jupiter_opp.profit_lamports,
+                            profit_percentage: jupiter_opp.profit_percentage,
+                            fees_lamports: jupiter_opp.priority_fee_lamports,
+                            route_type: jupiter_opp.route_type,
+                        };
+                        
+                        info!("💎 JUPITER OPPORTUNITY CONVERTED:");
+                        info!("   🎯 Route: {}", direct_opp.route_type);
+                        info!("   💰 Profit: {:.6} SOL ({:.2}%)", 
+                              direct_opp.profit_lamports as f64 / 1e9, 
+                              direct_opp.profit_percentage);
+                        
+                        direct_opportunities.push(direct_opp);
+                    }
+                    
+                    // Update Jupiter performance cache
+                    if !direct_opportunities.is_empty() {
+                        jupiter_engine.update_performance_cache("AUTO_ROUTED", 1.0);
+                    }
+                    
+                    info!("✅ JUPITER ADVANCED: Converted {} opportunities to DirectOpportunity format", 
+                          direct_opportunities.len());
+                    
+                    return Ok(direct_opportunities);
+                }
+            }
+        }
+        
+        warn!("⚠️ JUPITER ADVANCED: Engine not available");
+        Ok(Vec::new())
     }
     
     /// PROPOSAL-003: Enhanced multi-token opportunity discovery
@@ -1204,6 +1353,31 @@ impl ProfessionalArbitrageEngine {
             ));
         } else {
             stats.push_str("\n\n🚀 PROPOSAL-003 MULTI-TOKEN STATUS: DISABLED (Single-pair mode)");
+        }
+        
+        // PHASE 1: Agregar estadísticas Jupiter Advanced si está habilitado
+        if self.is_jupiter_advanced_enabled() {
+            stats.push_str(&format!(
+                "\n\n🪐 PHASE 1: JUPITER ADVANCED STATUS:\n\
+                 🚀 Expert Auto-Routing: ENABLED\n\
+                 🎯 Auto-Triangular: Jupiter handles complex routes automatically\n\
+                 ⚡ Dynamic Slippage: ACTIVE\n\
+                 🛡️  Priority Fees: OPTIMIZED\n\
+                 💡 Expert Mode: PHASE 1 OPERATIONAL"
+            ));
+            
+            // Get Jupiter performance stats if available
+            if let Some(jupiter_box) = &self.jupiter_advanced {
+                unsafe {
+                    let jupiter_ptr = jupiter_box.as_ref() as *const dyn std::any::Any as *const JupiterAdvancedEngine;
+                    if let Some(jupiter_engine) = jupiter_ptr.as_ref() {
+                        let perf_stats = jupiter_engine.get_performance_stats();
+                        stats.push_str(&format!("\n\n{}", perf_stats));
+                    }
+                }
+            }
+        } else {
+            stats.push_str("\n\n🪐 PHASE 1: JUPITER ADVANCED STATUS: DISABLED (Legacy mode)");
         }
         
         stats
