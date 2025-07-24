@@ -11,6 +11,7 @@ use anyhow::{Result, anyhow};
 use tracing::{info, warn, error, debug};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Signer, read_keypair_file, Signature};
+use solana_sdk::signer::keypair::Keypair;
 use solana_client::rpc_client::RpcClient;
 
 // ===== JUPITER SWAP RESULT STRUCTURE =====
@@ -621,8 +622,83 @@ impl ProfessionalArbitrageEngine {
         
         // Legacy single-pair discovery (mantiene compatibilidad)
         info!("📊 Using legacy single-pair opportunity discovery");
+        println!("📋 [EXPERT AUDIT] ===== LEGACY ARBITRAGE ANALYSIS =====");
+        
         let mut opportunities = Vec::new();
         let pools: Vec<_> = self.operational_pools.values().collect();
+        
+        println!("🔍 [AUDIT] Starting analysis of {} operational pools", pools.len());
+        
+        let mut total_pairs_analyzed = 0;
+        let mut pairs_with_common_tokens = 0;
+        let mut calculation_errors = 0;
+        let mut below_threshold = 0;
+        
+        for (i, pool_a) in pools.iter().enumerate() {
+            for pool_b in pools.iter().skip(i + 1) {
+                total_pairs_analyzed += 1;
+                
+                if self.pools_have_common_token(pool_a, pool_b) {
+                    pairs_with_common_tokens += 1;
+                    
+                    println!("🎯 [AUDIT] Analyzing Pool Pair #{}: {} ↔ {}", 
+                        pairs_with_common_tokens,
+                        pool_a.address.to_string()[..8].to_uppercase(),
+                        pool_b.address.to_string()[..8].to_uppercase());
+                    
+                    match self.calculate_enterprise_arbitrage(pool_a, pool_b).await {
+                        Ok(Some(opportunity)) => {
+                            let profit_bps = (opportunity.profit_lamports * 10_000) / opportunity.amount_in as i64;
+                            
+                            if profit_bps >= self.adaptive_config.min_profit_threshold as i64 {
+                                println!("   ✅ APPROVED: {:.2}% profit (above {:.2}% threshold)", 
+                                    profit_bps as f64 / 100.0, 
+                                    self.adaptive_config.min_profit_threshold as f64 / 100.0);
+                                    
+                                info!("💎 INSTITUTIONAL OPPORTUNITY IDENTIFIED: {:.2}% profit margin", profit_bps as f64 / 100.0);
+                                info!("   ⚔️  MILITARY ASSESSMENT: Meets enterprise profit criteria");
+                                opportunities.push(opportunity);
+                                self.total_opportunities_found.fetch_add(1, Ordering::Relaxed);
+                            } else {
+                                println!("   ❌ REJECTED: {:.2}% profit (below {:.2}% threshold)", 
+                                    profit_bps as f64 / 100.0, 
+                                    self.adaptive_config.min_profit_threshold as f64 / 100.0);
+                                below_threshold += 1;
+                                debug!("📊 Opportunity below institutional threshold: {:.2}%", profit_bps as f64 / 100.0);
+                            }
+                        },
+                        Ok(None) => {
+                            println!("   ❌ REJECTED: No arbitrage opportunity detected");
+                            below_threshold += 1;
+                        },
+                        Err(e) => {
+                            println!("   ⚠️ ERROR: Calculation failed - {}", e);
+                            calculation_errors += 1;
+                        }
+                    }
+                } else {
+                    println!("🔍 [AUDIT] Skipping pair (no common tokens): {} ↔ {}", 
+                        pool_a.address.to_string()[..8].to_uppercase(),
+                        pool_b.address.to_string()[..8].to_uppercase());
+                }
+            }
+        }
+        
+        println!("📊 [EXPERT AUDIT] LEGACY ANALYSIS COMPLETE:");
+        println!("   🔢 Total pool pairs analyzed: {}", total_pairs_analyzed);
+        println!("   🤝 Pairs with common tokens: {}", pairs_with_common_tokens);
+        println!("   ✅ Approved opportunities: {}", opportunities.len());
+        println!("   ❌ Below profit threshold: {}", below_threshold);
+        println!("   ⚠️ Calculation errors: {}", calculation_errors);
+        println!("   📈 Success rate: {:.1}%", 
+            if pairs_with_common_tokens > 0 { opportunities.len() as f64 / pairs_with_common_tokens as f64 * 100.0 } else { 0.0 });
+        
+        if opportunities.is_empty() && pairs_with_common_tokens == 0 {
+            println!("💡 [AUDIT] DIAGNOSIS: No pools share common tokens for arbitrage");
+            println!("   📝 RECOMMENDATION: Need pools with same token pairs (e.g., USDC/SOL on different DEXs)");
+        }
+        
+        println!("📋 [EXPERT AUDIT] ===== LEGACY ANALYSIS COMPLETE =====");
         
         for (i, pool_a) in pools.iter().enumerate() {
             for pool_b in pools.iter().skip(i + 1) {

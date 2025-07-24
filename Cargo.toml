@@ -25,6 +25,16 @@ panic = "abort"
 name = "arbitrage_bot"
 path = "arbitrage_bot.rs"
 
+# 🏆 EXPERT DEFI ARBITRAGE SYSTEM
+[[bin]]
+name = "real_arbitrage_expert"
+path = "real_arbitrage_expert.rs"
+
+# 🧪 TEST EXPERT SYSTEM
+[[bin]]
+name = "test_expert_system"
+path = "test_expert_system.rs"
+
 # 🧪 SCRIPT DE PRUEBA DEL SISTEMA CORREGIDO
 [[bin]]
 name = "test_system"
