@@ -10,8 +10,17 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{Result, anyhow};
 use tracing::{info, warn, error, debug};
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::{Signer, read_keypair_file};
+use solana_sdk::signature::{Signer, read_keypair_file, Signature};
 use solana_client::rpc_client::RpcClient;
+
+// ===== JUPITER SWAP RESULT STRUCTURE =====
+#[derive(Debug, Clone)]
+pub struct JupiterSwapResult {
+    pub signature: Signature,
+    pub input_amount: u64,
+    pub output_amount: u64,
+    pub price_impact: f64,
+}
 
 // ===== REALISTIC ARBITRAGE CONSTANTS FOR MAINNET =====
 const REALISTIC_MIN_PROFIT_BPS: u64 = 5; // 0.05% - Threshold realista para arbitraje
@@ -799,8 +808,8 @@ impl ProfessionalArbitrageEngine {
                 
                 match &self.wallet_keypair {
                     Some(wallet) => {
-                        info!("🚨 EXECUTING REAL ARBITRAGE WITH ACTUAL FUNDS");
-                        RealExecutionEngine::execute_real_arbitrage_mainnet(self, opportunity, wallet).await
+                        // REAL ARBITRAGE EXECUTION WITH JUPITER SWAPS
+                        self.execute_real_jupiter_arbitrage(opportunity, wallet).await
                     },
                     None => {
                         error!("❌ CRITICAL ERROR: Real trading mode enabled but wallet not loaded");
@@ -809,6 +818,163 @@ impl ProfessionalArbitrageEngine {
                 }
             }
         }
+    }
+
+    /// Execute real arbitrage using Jupiter swaps (NEW IMPLEMENTATION)
+    async fn execute_real_jupiter_arbitrage(&self, opportunity: &DirectOpportunity, wallet: &Keypair) -> Result<String> {
+        info!("� EXECUTING REAL JUPITER ARBITRAGE ON MAINNET");
+        info!("📊 Trade route: {} -> {} -> {}", 
+              self.get_token_symbol_from_mint(&opportunity.token_in),
+              self.get_token_symbol_from_mint(&opportunity.intermediate_token),
+              self.get_token_symbol_from_mint(&opportunity.token_out)
+        );
+
+        let jupiter_client = reqwest::Client::new();
+        let execution_start = std::time::Instant::now();
+
+        // STEP 1: Execute first swap (token_in -> intermediate_token)
+        info!("1️⃣  SWAP 1: {} -> {}", 
+              self.get_token_symbol_from_mint(&opportunity.token_in),
+              self.get_token_symbol_from_mint(&opportunity.intermediate_token)
+        );
+
+        let swap1_result = self.execute_jupiter_swap(
+            &jupiter_client,
+            &opportunity.token_in,
+            &opportunity.intermediate_token,
+            opportunity.amount_in,
+            wallet
+        ).await?;
+
+        info!("✅ SWAP 1 COMPLETED: {} {}", swap1_result.signature, swap1_result.output_amount);
+        
+        // Wait for confirmation
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        // STEP 2: Execute second swap (intermediate_token -> token_out)
+        info!("2️⃣  SWAP 2: {} -> {}", 
+              self.get_token_symbol_from_mint(&opportunity.intermediate_token),
+              self.get_token_symbol_from_mint(&opportunity.token_out)
+        );
+
+        let swap2_result = self.execute_jupiter_swap(
+            &jupiter_client,
+            &opportunity.intermediate_token,
+            &opportunity.token_out,
+            swap1_result.output_amount,
+            wallet
+        ).await?;
+
+        info!("✅ SWAP 2 COMPLETED: {} {}", swap2_result.signature, swap2_result.output_amount);
+
+        let execution_time = execution_start.elapsed();
+        let final_amount = swap2_result.output_amount;
+        let actual_profit = final_amount.saturating_sub(opportunity.amount_in);
+        let actual_profit_sol = actual_profit as f64 / 1e9;
+
+        // Update metrics
+        self.successful_trades.fetch_add(1, Ordering::Relaxed);
+        self.total_profit_lamports.fetch_add(actual_profit, Ordering::Relaxed);
+
+        info!("🎉 ARBITRAGE COMPLETED SUCCESSFULLY!");
+        info!("💰 Actual Profit: {:.6} SOL", actual_profit_sol);
+        info!("⏱️  Execution Time: {}ms", execution_time.as_millis());
+        info!("📝 Swap 1: {}", swap1_result.signature);
+        info!("📝 Swap 2: {}", swap2_result.signature);
+
+        Ok(format!("ARBITRAGE_SUCCESS_{:.6}_SOL_{}ms", actual_profit_sol, execution_time.as_millis()))
+    }
+
+    /// Execute individual Jupiter swap
+    async fn execute_jupiter_swap(
+        &self,
+        client: &reqwest::Client,
+        input_mint: &Pubkey,
+        output_mint: &Pubkey,
+        amount: u64,
+        wallet: &Keypair
+    ) -> Result<JupiterSwapResult> {
+        info!("🔄 Executing Jupiter swap: {} -> {} ({})", 
+              input_mint.to_string()[..8].to_uppercase(),
+              output_mint.to_string()[..8].to_uppercase(),
+              amount
+        );
+
+        // STEP 1: Get quote from Jupiter
+        let quote_url = format!(
+            "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps={}",
+            MAINNET_JUPITER_API,
+            input_mint,
+            output_mint,
+            amount,
+            MAINNET_MAX_SLIPPAGE_BPS
+        );
+
+        let quote_response = client.get(&quote_url)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await?;
+
+        if !quote_response.status().is_success() {
+            return Err(anyhow!("Jupiter quote failed: {}", quote_response.status()));
+        }
+
+        let quote: serde_json::Value = quote_response.json().await?;
+        let out_amount: u64 = quote["outAmount"].as_str()
+            .ok_or_else(|| anyhow!("Invalid quote response"))?
+            .parse()?;
+
+        info!("💹 Quote: {} -> {} (impact: {}%)", 
+              amount, out_amount, quote["priceImpactPct"].as_f64().unwrap_or(0.0));
+
+        // STEP 2: Get swap transaction
+        let swap_request = serde_json::json!({
+            "quoteResponse": quote,
+            "userPublicKey": wallet.pubkey().to_string(),
+            "wrapAndUnwrapSol": true,
+            "useSharedAccounts": true,
+            "computeUnitPriceMicroLamports": 5000,
+            "prioritizationFeeLamports": 5000,
+        });
+
+        let swap_response = client.post(MAINNET_JUPITER_SWAP_API)
+            .json(&swap_request)
+            .timeout(Duration::from_secs(15))
+            .send()
+            .await?;
+
+        if !swap_response.status().is_success() {
+            return Err(anyhow!("Jupiter swap failed: {}", swap_response.status()));
+        }
+
+        let swap_data: serde_json::Value = swap_response.json().await?;
+        let transaction_b64 = swap_data["swapTransaction"].as_str()
+            .ok_or_else(|| anyhow!("No transaction in swap response"))?;
+
+        // STEP 3: Deserialize and sign transaction
+        use base64::{engine::general_purpose, Engine as _};
+        let tx_bytes = general_purpose::STANDARD.decode(transaction_b64)?;
+        let mut transaction: solana_sdk::transaction::Transaction = bincode::deserialize(&tx_bytes)?;
+
+        // Update recent blockhash
+        let recent_blockhash = self.client.get_latest_blockhash()?;
+        transaction.message.recent_blockhash = recent_blockhash;
+
+        // Sign transaction
+        transaction.sign(&[wallet], recent_blockhash);
+
+        // STEP 4: Send transaction
+        info!("📡 Sending transaction to blockchain...");
+        let signature = self.client.send_and_confirm_transaction(&transaction)?;
+
+        info!("✅ Swap executed successfully: {}", signature);
+
+        Ok(JupiterSwapResult {
+            signature,
+            input_amount: amount,
+            output_amount: out_amount,
+            price_impact: quote["priceImpactPct"].as_f64().unwrap_or(0.0),
+        })
     }
     
     async fn calculate_enterprise_arbitrage(&self, pool_a: &PoolData, pool_b: &PoolData) -> Result<Option<DirectOpportunity>> {
@@ -992,9 +1158,9 @@ async fn main() -> Result<()> {
     println!("2) Jupiter Scanner (Búsqueda de oportunidades)");
     println!("3) Quick Scan (Verificación rápida)");
     println!("");
-    println!("🏛️  ENTERPRISE MULTI-SOURCE SYSTEM:");
-    println!("A) AUTO-SCANNER ENTERPRISE (1-3s scanning ALL DEXs) 🚀");
-    println!("E) Enterprise Multi-Source Scan (PROFESSIONAL)");
+    println!("🏛️  ENTERPRISE TRADING SYSTEM:");
+    println!("A) 🚀 AUTO-TRADER: Scan + Execute Arbitrage (REAL MONEY)");
+    println!("E) Enterprise Multi-Source Scan (Detection Only)");
     println!("D) Direct DEX Access (No Aggregators)");
     println!("C) CEX-DEX Arbitrage Analysis");
     println!("");
@@ -1269,27 +1435,104 @@ async fn main() -> Result<()> {
             }
         },
         
-        // ===== ENTERPRISE AUTO-SCANNER (HIGH-FREQUENCY) =====
+        // ===== ENTERPRISE AUTO-SCANNER WITH REAL EXECUTION =====
         "A" => {
-            info!("🚀 ENTERPRISE AUTO-SCANNER: Starting high-frequency system");
-            warn!("⚡ HIGH-FREQUENCY MODE: Scanning ALL Solana DEXs every 1-3 seconds");
-            info!("📡 DEX Coverage: 10+ major DEXs (Jupiter, Raydium, Orca, Meteora, Phoenix, etc.)");
-            info!("🎯 Detection Speed: Real-time opportunity alerts");
-            info!("⚠️ WARNING: This is a continuous monitoring system - use Ctrl+C to stop");
+            info!("🚀 ENTERPRISE AUTO-TRADER: Scanning + Executing real arbitrage");
+            warn!("⚡ REAL MONEY MODE: Will execute profitable opportunities automatically");
+            warn!("💰 RISK: This trades with real SOL on Mainnet");
+            info!("📡 DEX Coverage: Jupiter, Raydium, Orca, Meteora, Phoenix");
+            info!("🎯 Min profit threshold: {:.6} SOL", MAINNET_MIN_PROFIT_SOL);
             
-            println!("\n🚀 STARTING ENTERPRISE AUTO-SCANNER...");
-            println!("📊 System will scan ALL major Solana DEXs continuously");
-            println!("⚡ Opportunities will be detected and reported in real-time");
-            println!("🔄 Press Ctrl+C to stop the scanner");
-            println!("════════════════════════════════════════════════════════");
+            print!("⚠️  Type 'EXECUTE' to start real auto-trading: ");
+            io::stdout().flush().unwrap();
+            let mut confirm = String::new();
+            io::stdin().read_line(&mut confirm).unwrap();
             
-            match modules::start_real_enterprise_auto_scanner().await {
-                Ok(_) => {
-                    info!("✅ Enterprise Auto-Scanner completed successfully");
+            if confirm.trim() == "EXECUTE" {
+                println!("\n🚀 STARTING ENTERPRISE AUTO-TRADER...");
+                println!("📊 Will scan AND execute profitable opportunities");
+                println!("⚡ Real swaps will be executed automatically");
+                println!("💰 Minimum profit: {:.6} SOL per trade", MAINNET_MIN_PROFIT_SOL);
+                println!("🔄 Press Ctrl+C to stop at any time");
+                println!("════════════════════════════════════════════════════════");
+                
+                // Initialize enterprise system with real trading enabled
+                let mut enterprise_system = ProfessionalArbitrageEngine::new_enterprise_professional(
+                    mainnet_rpc.to_string(), 
+                    wallet_path.to_string()
+                ).await?;
+                
+                // Enable real trading mode
+                enterprise_system.enable_real_trading_mainnet().await?;
+                
+                // Start continuous auto-trading loop
+                let mut total_profit = 0.0;
+                let mut trade_count = 0;
+                let start_time = std::time::Instant::now();
+                
+                loop {
+                    info!("🔍 Scanning for arbitrage opportunities...");
+                    
+                    // Discover opportunities using existing system
+                    match enterprise_system.discover_institutional_opportunities().await {
+                        Ok(opportunities) => {
+                            let profitable: Vec<_> = opportunities.iter()
+                                .filter(|opp| {
+                                    let profit_sol = opp.profit_lamports as f64 / 1e9;
+                                    profit_sol >= MAINNET_MIN_PROFIT_SOL
+                                })
+                                .collect();
+                            
+                            if !profitable.is_empty() {
+                                let best = profitable[0];
+                                let profit_sol = best.profit_lamports as f64 / 1e9;
+                                
+                                info!("🎯 EXECUTING: {} -> {} (profit: {:.6} SOL)", 
+                                      enterprise_system.get_token_symbol_from_mint(&best.token_in),
+                                      enterprise_system.get_token_symbol_from_mint(&best.token_out),
+                                      profit_sol
+                                );
+                                
+                                // Execute the arbitrage with real money
+                                match enterprise_system.execute_military_precision_arbitrage(best).await {
+                                    Ok(result) => {
+                                        trade_count += 1;
+                                        total_profit += profit_sol;
+                                        
+                                        info!("✅ TRADE #{} SUCCESS: {}", trade_count, result);
+                                        info!("💰 This trade profit: {:.6} SOL", profit_sol);
+                                        info!("💰 Total profit: {:.6} SOL", total_profit);
+                                        info!("⏱️  Running time: {}s", start_time.elapsed().as_secs());
+                                    }
+                                    Err(e) => {
+                                        error!("❌ Trade execution failed: {}", e);
+                                    }
+                                }
+                            } else {
+                                // No profitable opportunities found
+                                debug!("⏳ No profitable opportunities (threshold: {:.6} SOL)", MAINNET_MIN_PROFIT_SOL);
+                            }
+                        }
+                        Err(e) => {
+                            error!("❌ Opportunity discovery failed: {}", e);
+                        }
+                    }
+                    
+                    // High frequency scanning (like real MEV bots)
+                    tokio::time::sleep(Duration::from_millis(1000)).await; // 1 second intervals
                 }
-                Err(e) => {
-                    error!("❌ Enterprise Auto-Scanner failed: {}", e);
-                    warn!("💡 Try checking network connectivity and API availability");
+            } else {
+                warn!("🔒 Auto-trading cancelled - only scanning mode");
+                
+                // Just run the scanner without execution
+                match modules::start_real_enterprise_auto_scanner().await {
+                    Ok(_) => {
+                        info!("✅ Enterprise Auto-Scanner completed successfully");
+                    }
+                    Err(e) => {
+                        error!("❌ Enterprise Auto-Scanner failed: {}", e);
+                        warn!("💡 Try checking network connectivity and API availability");
+                    }
                 }
             }
         },
