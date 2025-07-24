@@ -1282,7 +1282,7 @@ async fn main() -> Result<()> {
             println!("🔄 Press Ctrl+C to stop the scanner");
             println!("════════════════════════════════════════════════════════");
             
-            match modules::start_enterprise_auto_scanner().await {
+            match modules::start_real_enterprise_auto_scanner().await {
                 Ok(_) => {
                     info!("✅ Enterprise Auto-Scanner completed successfully");
                 }
@@ -1433,7 +1433,7 @@ async fn main() -> Result<()> {
         },
         
         // ===== LEGACY MODES =====
-        "A" => {
+        "B" => {
             info!("🔒 Running in SIMULATION mode (Legacy)");
             loop {
                 match enterprise_system.run_enterprise_arbitrage().await {
