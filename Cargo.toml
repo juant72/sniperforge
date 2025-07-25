@@ -41,6 +41,14 @@ name = "wallet_monitor"
 path = "src/bin/wallet_monitor.rs"
 
 [[bin]]
+name = "check_balance"
+path = "src/bin/check_balance.rs"
+
+[[bin]]
+name = "balance_simple"
+path = "src/bin/balance_simple.rs"
+
+[[bin]]
 name = "arbitrage_bot_roadmap_complete"
 path = "arbitrage_bot_roadmap_complete.rs"
 
