@@ -31,5 +31,17 @@ pub mod types;
 pub mod ultimate_rpc_test;
 pub mod websocket_rpc_test; // Arbitrage detection and execution
 
+// ===== PHASE 4.5 INTEGRATION MODULES (SIMPLIFICADOS) =====
+// Sistema integrado que unifica todas las fases con evolución inteligente
+pub mod unified_config; // Configuración unificada para todas las fases
+pub mod jupiter_integration_simple; // Integración Phase 1: Jupiter Advanced (simplificado)
+pub mod mev_integration_simple; // Integración Phase 2: MEV Protection (simplificado)
+pub mod dex_integration_simple; // Integración Phase 3: DEX Specialization (simplificado)
+pub mod event_driven_integration_simple; // Integración Phase 4: Event-driven + Parallel (simplificado)
+pub mod arbitrage_bot_phase45_integrated; // Sistema principal integrado
+
+// Re-export del sistema integrado
+pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated;
+
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;
