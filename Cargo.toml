@@ -21,6 +21,18 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
+name = "arbitrage_bot_roadmap_complete"
+path = "arbitrage_bot_roadmap_complete.rs"
+
+[[bin]]
+name = "arbitrage_bot_real_data"
+path = "arbitrage_bot_real_data.rs"
+
+[[bin]]
+name = "arbitrage_bot_phase45_final"
+path = "arbitrage_bot_phase45_final.rs"
+
+[[bin]]
 name = "winning_arbitrage_bot"
 path = "winning_arbitrage_bot.rs"
 
@@ -60,6 +72,14 @@ path = "phase45_demo_simple.rs"
 [[bin]]
 name = "arbitrage_bot_phase45"
 path = "arbitrage_bot_phase45.rs"
+
+[[bin]]
+name = "arbitrage_bot_phase45_unified"
+path = "arbitrage_bot_phase45_unified.rs"
+
+[[bin]]
+name = "arbitrage_bot_phase45_complete"
+path = "arbitrage_bot_phase45_complete.rs"
 
 [[bin]]
 name = "arbitrage_mainnet_real"
