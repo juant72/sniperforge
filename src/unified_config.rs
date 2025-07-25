@@ -273,6 +273,11 @@ impl ConfigBuilder {
         self
     }
     
+    pub fn jito_max_priority_fee(mut self, fee: u64) -> Self {
+        self.config.jito_max_priority_fee = fee;
+        self
+    }
+    
     // Phase 3 configuration
     pub fn enable_dex_specialization(mut self, enabled: bool) -> Self {
         self.config.dex_specialization_enabled = enabled;
@@ -457,6 +462,37 @@ impl UnifiedPhase45Config {
             .enable_event_driven(true)
             .enable_parallel_execution(true)
             .max_concurrent_executions(10)
+            .build()
+    }
+    
+    /// Configuración para TRADING REAL 100% en mainnet
+    pub fn real_trading_mainnet() -> Self {
+        ConfigBuilder::from_preset(PhaseConfig::Aggressive)
+            .trading_range(0.01, 0.05)  // Entre 0.01 y 0.05 SOL por trade
+            .profit_requirements(20, 25) // 0.20% profit mínimo, 0.25% slippage máximo
+            .enable_jupiter_advanced(true)  // Jupiter avanzado para mejores rutas
+            .enable_mev_protection(true)    // MEV protection obligatorio para trading real
+            .enable_dex_specialization(true) // Especialización DEX para más oportunidades
+            .enable_parallel_execution(false) // Deshabilitado para trading real conservador
+            .max_concurrent_executions(1)   // Solo 1 trade a la vez para trading real
+            .jito_tip_lamports(50000)       // 0.00005 SOL tip para Jito
+            .jito_max_priority_fee(100000)  // 0.0001 SOL max priority fee
+            .build()
+    }
+    
+    /// Configuración para trading real agresivo (más riesgo, más profit)
+    pub fn aggressive_real_trading() -> Self {
+        ConfigBuilder::from_preset(PhaseConfig::Aggressive)
+            .trading_range(0.02, 0.1)   // Entre 0.02 y 0.1 SOL por trade
+            .profit_requirements(15, 30) // 0.15% profit mínimo, 0.30% slippage máximo
+            .enable_jupiter_advanced(true)
+            .enable_mev_protection(true)
+            .enable_dex_specialization(true)
+            .enable_event_driven(true)      // Event-driven para trading agresivo
+            .enable_parallel_execution(true)
+            .max_concurrent_executions(3)   // Hasta 3 trades simultáneos
+            .jito_tip_lamports(100000)      // 0.0001 SOL tip más alto
+            .jito_max_priority_fee(200000)  // 0.0002 SOL max priority fee
             .build()
     }
 }

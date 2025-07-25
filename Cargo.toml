@@ -21,6 +21,22 @@ codegen-units = 1
 panic = "abort"
 
 [[bin]]
+name = "trading_real_simple"
+path = "src/bin/trading_real_simple.rs"
+
+[[bin]]
+name = "arbitrage_phase45_clean"
+path = "src/bin/arbitrage_phase45_clean.rs"
+
+[[bin]]
+name = "arbitrage_real_trading"
+path = "src/bin/arbitrage_real_trading.rs"
+
+[[bin]]
+name = "wallet_monitor"
+path = "src/bin/wallet_monitor.rs"
+
+[[bin]]
 name = "arbitrage_bot_roadmap_complete"
 path = "arbitrage_bot_roadmap_complete.rs"
 
