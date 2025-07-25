@@ -25,6 +25,10 @@ name = "trading_real_simple"
 path = "src/bin/trading_real_simple.rs"
 
 [[bin]]
+name = "arbitrage_bot_real_integrated"
+path = "src/bin/arbitrage_bot_real_integrated.rs"
+
+[[bin]]
 name = "arbitrage_phase45_clean"
 path = "src/bin/arbitrage_phase45_clean.rs"
 

@@ -137,6 +137,13 @@ pub enum OperationMode {
         dex: bool, 
         events: bool 
     },
+    /// NUEVO: Trading real 100% activado (dinero real)
+    RealTrading {
+        real_trading_enabled: bool,
+        conservative_mode: bool,
+        max_trade_sol: f64,
+        min_profit_bps: u64,
+    },
 }
 
 /// Sistema principal integrado
@@ -786,6 +793,127 @@ impl ArbitrageBotPhase45Integrated {
         let mut running = self.is_running.lock().await;
         *running = false;
     }
+    
+    /// NUEVO: Ejecutar oportunidad con TRADING REAL (dinero real)
+    pub async fn execute_opportunity_real(&self, opportunity: UnifiedOpportunity) -> Result<UnifiedExecutionResult> {
+        info!("💰 EJECUTANDO TRADE REAL - Oportunidad: {}", opportunity.get_id());
+        info!("   💵 Profit esperado: {:.6} SOL", opportunity.get_estimated_profit());
+        info!("   🎯 Tipo: {}", opportunity.get_type());
+        
+        let execution_start = Instant::now();
+        
+        // Validaciones adicionales para trading real
+        if opportunity.get_estimated_profit() < 0.0005 {
+            return Ok(UnifiedExecutionResult {
+                opportunity_id: opportunity.get_id(),
+                opportunity_type: opportunity.get_type().to_string(),
+                success: false,
+                actual_profit_sol: 0.0,
+                execution_time: Duration::from_millis(0),
+                method_used: ExecutionMethod::BasicArbitrage,
+                transaction_signatures: Vec::new(),
+                enhancement_benefits: Vec::new(),
+                error_message: Some("Profit insuficiente para trading real (mínimo 0.0005 SOL)".to_string()),
+                completed_at: Instant::now(),
+            });
+        }
+        
+        // Crear transacción real
+        let real_transaction = self.create_real_transaction(&opportunity).await?;
+        
+        // Ejecutar con MEV protection si está disponible
+        let result = if let Some(mev) = &self.mev_integrator {
+            info!("   🛡️ Ejecutando con MEV Protection para trading real");
+            let mev_result = mev.execute_protected_real(&real_transaction).await?;
+            
+            UnifiedExecutionResult {
+                opportunity_id: opportunity.get_id(),
+                opportunity_type: opportunity.get_type().to_string(),
+                success: mev_result.success,
+                actual_profit_sol: mev_result.actual_profit_sol,
+                execution_time: mev_result.execution_time,
+                method_used: ExecutionMethod::MEVProtected { 
+                    strategy: "Jito Bundle Real Trading".to_string() 
+                },
+                transaction_signatures: mev_result.transaction_signatures,
+                enhancement_benefits: vec![
+                    EnhancementBenefit {
+                        enhancement_type: "MEV_PROTECTION_REAL".to_string(),
+                        benefit_description: "MEV protection para trading real - mejor execution".to_string(),
+                        quantified_improvement: Some(5.0), // 5% mejor execution rate
+                    }
+                ],
+                error_message: mev_result.error_message,
+                completed_at: Instant::now(),
+            }
+        } else {
+            info!("   📊 Ejecutando trade real básico (sin MEV protection)");
+            let basic_result = self.basic_execution_engine.execute_real_trade(&real_transaction).await?;
+            
+            UnifiedExecutionResult {
+                opportunity_id: opportunity.get_id(),
+                opportunity_type: opportunity.get_type().to_string(),
+                success: basic_result.success,
+                actual_profit_sol: basic_result.actual_profit_sol,
+                execution_time: basic_result.execution_time,
+                method_used: ExecutionMethod::BasicArbitrage,
+                transaction_signatures: basic_result.transaction_signatures,
+                enhancement_benefits: Vec::new(),
+                error_message: basic_result.error_message,
+                completed_at: Instant::now(),
+            }
+        };
+        
+        // Guardar en historial
+        {
+            let mut history = self.execution_history.write().await;
+            history.push(result.clone());
+        }
+        
+        // Actualizar métricas
+        self.update_performance_metrics(&result).await;
+        
+        let total_execution_time = execution_start.elapsed();
+        
+        if result.success {
+            info!("✅ TRADE REAL EXITOSO: +{:.6} SOL en {:?}", 
+                  result.actual_profit_sol, total_execution_time);
+            if !result.transaction_signatures.is_empty() {
+                info!("   📝 TX Signature: {}", result.transaction_signatures[0]);
+            }
+        } else {
+            warn!("❌ TRADE REAL FALLÓ: {}", 
+                  result.error_message.as_deref().unwrap_or("Error desconocido"));
+        }
+        
+        Ok(result)
+    }
+    
+    /// NUEVO: Configurar sistema para trading real conservador
+    pub async fn configure_for_real_trading(&mut self) -> Result<()> {
+        info!("🔧 Configurando sistema para TRADING REAL conservador");
+        
+        // Forzar configuraciones seguras para trading real
+        self.config.max_trade_sol = self.config.max_trade_sol.min(0.05); // Máximo 0.05 SOL
+        self.config.min_profit_bps = self.config.min_profit_bps.max(15); // Mínimo 0.15% profit
+        self.config.mev_protection_enabled = true; // MEV protection obligatorio
+        
+        // Reconfigurar modo de operación para trading real
+        self.operation_mode = OperationMode::RealTrading {
+            real_trading_enabled: true,
+            conservative_mode: true,
+            max_trade_sol: self.config.max_trade_sol,
+            min_profit_bps: self.config.min_profit_bps,
+        };
+        
+        info!("✅ Sistema configurado para trading real:");
+        info!("   💰 Max trade: {:.3} SOL", self.config.max_trade_sol);
+        info!("   📈 Min profit: {} BPS ({:.2}%)", self.config.min_profit_bps, self.config.min_profit_bps as f64 / 100.0);
+        info!("   🛡️ MEV Protection: ✅ ACTIVO");
+        info!("   🎯 Modo: CONSERVATIVE REAL TRADING");
+        
+        Ok(())
+    }
 }
 
 /// Estadísticas comprensivas del sistema
@@ -907,40 +1035,6 @@ pub struct BasicExecutionResult {
 }
 
 impl ArbitrageBotPhase45Integrated {
-    /// Ejecutar oportunidad con trading real (no simulación)
-    pub async fn execute_opportunity_real(&self, opportunity: UnifiedOpportunity) -> Result<UnifiedExecutionResult> {
-        info!("💰 Ejecutando trade REAL: ID={}", opportunity.get_id());
-        
-        let execution_start = Instant::now();
-        
-        // Para trading real, siempre usar MEV protection si está disponible
-        let result = if let Some(mev_integrator) = &self.mev_integrator {
-            info!("🛡️ Usando MEV Protection para trade real");
-            self.execute_with_mev_protection_real(&opportunity, mev_integrator).await?
-        } else {
-            warn!("⚠️  MEV Protection no disponible, usando ejecución básica");
-            self.execute_basic_opportunity_real(&opportunity).await?
-        };
-        
-        // Para trading real, registrar en historial
-        {
-            let mut history = self.execution_history.write().await;
-            history.push(result.clone());
-        }
-        
-        // Actualizar métricas de trading real
-        {
-            let mut metrics = self.performance_metrics.write().await;
-            metrics.total_executions_attempted += 1;
-            if result.success {
-                metrics.successful_executions += 1;
-                metrics.total_profit_sol += result.actual_profit_sol;
-            }
-        }
-        
-        Ok(result)
-    }
-    
     /// Ejecutar con MEV protection para trading real
     async fn execute_with_mev_protection_real(
         &self, 

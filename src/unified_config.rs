@@ -495,6 +495,86 @@ impl UnifiedPhase45Config {
             .jito_max_priority_fee(200000)  // 0.0002 SOL max priority fee
             .build()
     }
+    
+    /// Configuración solo básica (sistema original)
+    pub fn basic_only() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.05)
+            .profit_requirements(25, 50) // Conservador
+            .enable_jupiter_advanced(false)
+            .enable_mev_protection(false)
+            .enable_dex_specialization(false)
+            .enable_event_driven(false)
+            .enable_parallel_execution(false)
+            .build()
+    }
+    
+    /// Configuración enfocada en Jupiter
+    pub fn jupiter_focused() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.05)
+            .profit_requirements(20, 30)
+            .enable_jupiter_advanced(true)
+            .enable_mev_protection(false)
+            .enable_dex_specialization(false)
+            .enable_event_driven(false)
+            .enable_parallel_execution(false)
+            .build()
+    }
+    
+    /// Configuración especializada en DEX
+    pub fn dex_specialized() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.05)
+            .profit_requirements(20, 30)
+            .enable_jupiter_advanced(false)
+            .enable_mev_protection(false)
+            .enable_dex_specialization(true)
+            .enable_event_driven(false)
+            .enable_parallel_execution(false)
+            .build()
+    }
+    
+    /// Configuración event-driven
+    pub fn event_driven() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.05)
+            .profit_requirements(20, 30)
+            .enable_jupiter_advanced(false)
+            .enable_mev_protection(false)
+            .enable_dex_specialization(false)
+            .enable_event_driven(true)
+            .enable_parallel_execution(false)
+            .build()
+    }
+    
+    /// Configuración optimizada para paralelo
+    pub fn parallel_optimized() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.05)
+            .profit_requirements(20, 30)
+            .enable_jupiter_advanced(false)
+            .enable_mev_protection(false)
+            .enable_dex_specialization(false)
+            .enable_event_driven(false)
+            .enable_parallel_execution(true)
+            .max_concurrent_executions(5)
+            .build()
+    }
+    
+    /// Configuración para paper trading
+    pub fn paper_trading() -> Self {
+        ConfigBuilder::new()
+            .trading_range(0.01, 0.1) // Rangos más amplios para testing
+            .profit_requirements(10, 50) // Thresholds más flexibles
+            .enable_jupiter_advanced(true)
+            .enable_mev_protection(true)
+            .enable_dex_specialization(true)
+            .enable_event_driven(true)
+            .enable_parallel_execution(true)
+            .max_concurrent_executions(10)
+            .build()
+    }
 }
 
 #[cfg(test)]
