@@ -1171,12 +1171,20 @@ impl BasicExecutionEngine {
         info!("🔗 Creando transacción básica real...");
         
         // SIMULACIÓN CONTROLADA CON POSIBILIDAD DE ACTIVAR REAL
-        let simulate_real = std::env::var("FORCE_REAL_TRANSACTIONS").unwrap_or("false".to_string()) == "true";
+        let force_real = std::env::var("FORCE_REAL_TRANSACTIONS").unwrap_or("false".to_string()) == "true";
         
-        if simulate_real {
-            // TODO: Implementar swap básico real aquí
-            warn!("🚧 TRANSACCIÓN BÁSICA REAL PENDIENTE DE IMPLEMENTACIÓN");
-            return Err(anyhow::anyhow!("Real basic transactions not implemented yet"));
+        if force_real {
+            // Para transacciones básicas, también usar Jupiter pero con configuración más simple
+            match self.execute_jupiter_real_swap(transaction).await {
+                Ok(signature) => {
+                    info!("✅ SWAP BÁSICO REAL EJECUTADO: {}", signature);
+                    Ok(signature.to_string())
+                }
+                Err(e) => {
+                    error!("❌ Error en swap básico real: {}", e);
+                    Err(e)
+                }
+            }
         } else {
             // Simulación realista para testing
             tokio::time::sleep(Duration::from_millis(2000)).await; // Tiempo realista
@@ -1229,18 +1237,21 @@ impl MEVProtectionIntegrator {
     async fn create_and_send_real_transaction(&self, transaction: &RealTransaction) -> Result<String> {
         info!("🔗 Creando transacción real en blockchain...");
         
-        // SIMULACIÓN CONTROLADA CON POSIBILIDAD DE ACTIVAR REAL
-        // Para testing inicial, usar simulación que modifica balance ficticio
-        let simulate_real = std::env::var("FORCE_REAL_TRANSACTIONS").unwrap_or("false".to_string()) == "true";
+        // Verificar si debemos ejecutar transacciones reales
+        let force_real = std::env::var("FORCE_REAL_TRANSACTIONS").unwrap_or("false".to_string()) == "true";
         
-        if simulate_real {
-            // TODO: Implementar Jupiter swap real aquí
-            // let swap_instruction = create_jupiter_swap_instruction(...);
-            // let transaction = Transaction::new_signed_with_payer(...);
-            // let signature = self.rpc_client.send_and_confirm_transaction(&transaction).await?;
-            
-            warn!("🚧 TRANSACCIÓN REAL PENDIENTE DE IMPLEMENTACIÓN JUPITER");
-            return Err(anyhow::anyhow!("Real transactions not implemented yet"));
+        if force_real {
+            // IMPLEMENTACIÓN REAL: Jupiter swap
+            match self.execute_jupiter_real_swap(transaction).await {
+                Ok(signature) => {
+                    info!("✅ SWAP REAL EJECUTADO: {}", signature);
+                    Ok(signature.to_string())
+                }
+                Err(e) => {
+                    error!("❌ Error en swap real: {}", e);
+                    Err(e)
+                }
+            }
         } else {
             // Simulación realista para testing
             tokio::time::sleep(Duration::from_millis(2500)).await; // Tiempo realista de red
@@ -1248,6 +1259,125 @@ impl MEVProtectionIntegrator {
             info!("   ⚠️ MODO SIMULACIÓN: TX simulada para testing seguro");
             Ok(tx_signature)
         }
+    }
+    
+    /// Ejecutar swap real usando Jupiter API
+    async fn execute_jupiter_real_swap(&self, transaction: &RealTransaction) -> Result<solana_sdk::signature::Signature> {
+        use crate::jupiter_real_client::{JupiterRealClient, JupiterRealConfig, common_mints};
+        use crate::wallet_manager::WalletManager;
+        
+        info!("🎯 Ejecutando Jupiter swap real...");
+        
+        // 1. Cargar wallet (intentar diferentes métodos)
+        let wallet = self.load_wallet_for_real_trading().await?;
+        
+        // 2. Verificar balance mínimo
+        let min_balance = 0.01; // 0.01 SOL mínimo
+        wallet.check_balance(&self.rpc_client, min_balance).await?;
+        
+        // 3. Crear cliente Jupiter
+        let jupiter_config = JupiterRealConfig {
+            slippage_bps: 100, // 1% slippage para arbitrage
+            compute_unit_price_micro_lamports: Some(2000),
+            priority_fee_lamports: Some(10000),
+            ..Default::default()
+        };
+        
+        let jupiter_client = JupiterRealClient::new(
+            self.config.rpc_endpoint.clone(),
+            Some(jupiter_config)
+        )?;
+        
+        // 4. Determinar mints para el arbitrage
+        let (input_mint, output_mint, amount_lamports) = self.determine_swap_parameters(transaction)?;
+        
+        // 5. Obtener quote
+        let quote = jupiter_client.get_quote(
+            &input_mint,
+            &output_mint,
+            amount_lamports
+        ).await?;
+        
+        // 6. Verificar que el quote es profitable
+        let expected_output: u64 = quote.out_amount.parse()
+            .map_err(|e| anyhow::anyhow!("Invalid output amount: {}", e))?;
+        
+        let profit_lamports = expected_output.saturating_sub(amount_lamports);
+        let profit_sol = profit_lamports as f64 / 1_000_000_000.0;
+        
+        if profit_sol < 0.0001 {
+            return Err(anyhow::anyhow!("Profit too low: {:.6} SOL", profit_sol));
+        }
+        
+        info!("💰 Profit esperado del swap: {:.6} SOL", profit_sol);
+        
+        // 7. Ejecutar swap
+        let signature = jupiter_client.execute_swap(quote, wallet.keypair()).await?;
+        
+        info!("🎉 SWAP REAL COMPLETADO!");
+        info!("   📝 Signature: {}", signature);
+        
+        Ok(signature)
+    }
+    
+    /// Cargar wallet para trading real
+    async fn load_wallet_for_real_trading(&self) -> Result<crate::wallet_manager::WalletManager> {
+        use crate::wallet_manager::WalletManager;
+        
+        info!("🔐 Cargando wallet para trading real...");
+        
+        // Intentar diferentes métodos para cargar la wallet
+        
+        // Método 1: Variable de entorno
+        if let Ok(wallet) = WalletManager::from_env("SOLANA_PRIVATE_KEY") {
+            info!("✅ Wallet cargada desde SOLANA_PRIVATE_KEY");
+            return Ok(wallet);
+        }
+        
+        // Método 2: Archivo de keypair
+        if let Ok(wallet) = WalletManager::from_file("~/.config/solana/id.json") {
+            info!("✅ Wallet cargada desde ~/.config/solana/id.json");
+            return Ok(wallet);
+        }
+        
+        // Método 3: Archivo local
+        if let Ok(wallet) = WalletManager::from_file("./keypair.json") {
+            info!("✅ Wallet cargada desde ./keypair.json");
+            return Ok(wallet);
+        }
+        
+        // Error: No se pudo cargar wallet
+        error!("❌ No se pudo cargar wallet para trading real");
+        error!("   Configurar wallet usando uno de estos métodos:");
+        error!("   1. export SOLANA_PRIVATE_KEY='[1,2,3,...]' (JSON array)");
+        error!("   2. Copiar keypair a ~/.config/solana/id.json");
+        error!("   3. Copiar keypair a ./keypair.json");
+        
+        Err(anyhow::anyhow!("No wallet configured for real trading"))
+    }
+    
+    /// Determinar parámetros del swap basado en la oportunidad
+    fn determine_swap_parameters(&self, transaction: &RealTransaction) -> Result<(String, String, u64)> {
+        // Para arbitrage básico, usar SOL <-> USDC
+        let input_mint = "So11111111111111111111111111111111111111112".to_string(); // Wrapped SOL
+        let output_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(); // USDC
+        
+        // Convertir el monto de trade a lamports
+        let amount_lamports = (transaction.trade_amount_sol * 1_000_000_000.0) as u64;
+        
+        // Asegurar que el monto es razonable
+        if amount_lamports < 1_000_000 { // Mínimo 0.001 SOL
+            return Err(anyhow::anyhow!("Trade amount too small: {} lamports", amount_lamports));
+        }
+        
+        if amount_lamports > 100_000_000_000 { // Máximo 100 SOL
+            return Err(anyhow::anyhow!("Trade amount too large: {} lamports", amount_lamports));
+        }
+        
+        info!("🔄 Swap: {} SOL → USDC → SOL", transaction.trade_amount_sol);
+        info!("   💱 Amount: {} lamports", amount_lamports);
+        
+        Ok((input_mint, output_mint, amount_lamports))
     }
 }
 

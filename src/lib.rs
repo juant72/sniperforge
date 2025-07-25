@@ -39,6 +39,8 @@ pub mod mev_integration_simple; // Integración Phase 2: MEV Protection (simplif
 pub mod dex_integration_simple; // Integración Phase 3: DEX Specialization (simplificado)
 pub mod event_driven_integration_simple; // Integración Phase 4: Event-driven + Parallel (simplificado)
 pub mod arbitrage_bot_phase45_integrated; // Sistema principal integrado
+pub mod jupiter_real_client; // Cliente real de Jupiter para swaps reales
+pub mod wallet_manager; // Gestión segura de wallets para trading real
 
 // Re-export del sistema integrado
 pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated;
