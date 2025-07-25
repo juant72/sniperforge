@@ -240,7 +240,7 @@ impl RealTimeMonitoringEngine {
         
         // Start alert processor separately
         let alert_processor_task = {
-            let current_alerts = Arc::clone(&self.current_alerts);
+            let current_alerts = Arc::clone(&self.active_alerts);
             let execution_history = Arc::clone(&self.execution_history);
             let config = self.config.clone();
             
