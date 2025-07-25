@@ -6,10 +6,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use anyhow::Result;
 use tokio::sync::{mpsc, RwLock, Mutex, Semaphore};
-use tokio::time::sl    pub async fn get_resource_stats(&self) -> ResourceTracker {
-        let tracker = self.resource_tracker.read().await;
-        tracker.clone()
-    };
+use tokio::time::sleep;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use tracing::{info, warn, debug, error};
@@ -134,7 +131,6 @@ pub struct ParallelExecutionEngine {
     performance_metrics: Arc<RwLock<ParallelExecutionMetrics>>,
 }
 
-#[derive(Debug, Default)]
 #[derive(Debug, Clone, Default)]
 pub struct ParallelExecutionMetrics {
     pub total_opportunities_processed: u64,
@@ -231,20 +227,35 @@ impl ParallelExecutionEngine {
             id: execution_request.id.clone(),
             opportunity_type: match execution_request.opportunity_type.as_str() {
                 "Jupiter" => OpportunityType::JupiterAutoRouted(JupiterOpportunity {
+                    input_token: execution_request.input_token_mint.clone(),
                     route_info: "auto-routed".to_string(),
                     input_amount: execution_request.input_amount_lamports,
                     output_amount: execution_request.expected_output_lamports,
                     price_impact: 0.1,
+                    slippage_bps: 100,
+                    profit_lamports: execution_request.expected_output_lamports - execution_request.input_amount_lamports,
+                    profit_percentage: ((execution_request.expected_output_lamports - execution_request.input_amount_lamports) as f64 / execution_request.input_amount_lamports as f64) * 100.0,
+                    confidence_score: 0.8,
+                    estimated_execution_time_ms: 2000,
                 }),
                 "Cross-DEX" => OpportunityType::CrossDEXArbitrage {
-                    source_dex: "Raydium".to_string(),
-                    target_dex: "Orca".to_string(),
-                    price_difference_bps: 100,
+                    buy_dex: "Raydium".to_string(),
+                    sell_dex: "Orca".to_string(),
+                    token_mint: execution_request.input_token_mint.parse().unwrap_or_default(),
+                    spread_bps: 100,
                 },
                 _ => OpportunityType::DEXSpecialized(DEXOpportunity {
+                    input_token: execution_request.input_token_mint.parse().unwrap_or_default(),
+                    dex_type: "Raydium".to_string(),
                     dex_name: "Raydium".to_string(),
                     pool_address: "placeholder".to_string(),
+                    token_a: execution_request.input_token_mint.parse().unwrap_or_default(),
+                    token_b: execution_request.output_token_mint.parse().unwrap_or_default(),
+                    amount_in: execution_request.input_amount_lamports,
                     opportunity_score: 0.8,
+                    profit_lamports: execution_request.expected_output_lamports - execution_request.input_amount_lamports,
+                    profit_percentage: ((execution_request.expected_output_lamports - execution_request.input_amount_lamports) as f64 / execution_request.input_amount_lamports as f64) * 100.0,
+                    confidence_score: 0.8,
                 }),
             },
             input_token: execution_request.input_token_mint,
@@ -252,11 +263,28 @@ impl ParallelExecutionEngine {
             input_amount_lamports: execution_request.input_amount_lamports,
             expected_output_lamports: execution_request.expected_output_lamports,
             expected_profit_lamports: execution_request.expected_output_lamports - execution_request.input_amount_lamports,
+            profit_percentage: ((execution_request.expected_output_lamports - execution_request.input_amount_lamports) as f64 / execution_request.input_amount_lamports as f64) * 100.0,
             execution_priority: execution_request.priority,
-            max_slippage_bps: execution_request.max_slippage_bps,
-            timeout_seconds: execution_request.timeout_seconds,
+            estimated_execution_time_ms: 2000,
+            confidence_score: 0.8,
             created_at: execution_request.created_at,
+            expires_at: execution_request.created_at + std::time::Duration::from_secs(30),
+            max_slippage_bps: execution_request.max_slippage_bps,
+            timeout_seconds: 30,
             validated_at: None,
+            trigger_event: crate::phase4::event_driven_engine::ArbitrageEvent::PriceUpdate {
+                token_mint: execution_request.input_token_mint.parse().unwrap_or_default(),
+                dex_name: "Unknown".to_string(),
+                new_price: 0.0,
+                timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as u64,
+            },
+            execution_data: crate::phase4::event_driven_engine::ExecutionData {
+                trade_amount_lamports: execution_request.input_amount_lamports,
+                max_slippage_bps: execution_request.max_slippage_bps as u16,
+                priority_fee_lamports: 50_000,
+                estimated_gas: 200_000,
+                mev_protection_required: true,
+            },
             opportunity_id: execution_request.id.clone(),
         };
 

@@ -559,7 +559,12 @@ impl EventDrivenArbitrageEngine {
 
         let now = Instant::now();
         let opportunity = EventDrivenOpportunity {
+            id: opportunity_id.clone(),
             opportunity_id,
+            input_token: token_mint.to_string(),
+            output_token: token_mint.to_string(), // Same token in arbitrage
+            input_amount_lamports: trade_amount_lamports,
+            expected_output_lamports: trade_amount_lamports + expected_profit_lamports,
             trigger_event: ArbitrageEvent::PriceUpdate {
                 token_mint,
                 dex_name: buy_dex.to_string(),
@@ -579,6 +584,9 @@ impl EventDrivenArbitrageEngine {
             confidence_score: Self::calculate_confidence_score(spread_bps, trade_amount_lamports),
             created_at: now,
             expires_at: now + Duration::from_secs(config.opportunity_expiry_seconds),
+            max_slippage_bps: 100, // 1% max slippage
+            timeout_seconds: 30,
+            validated_at: None,
             execution_data: ExecutionData {
                 trade_amount_lamports,
                 max_slippage_bps: 100, // 1% max slippage
@@ -685,9 +693,14 @@ impl EventDrivenArbitrageEngine {
         };
 
         Ok(EventDrivenOpportunity {
+            id: opportunity_id.clone(),
             opportunity_id,
+            input_token: jupiter_opp.input_token.clone(),
+            output_token: jupiter_opp.input_token.clone(), // Use input_token for both since output_token doesn't exist
+            input_amount_lamports: jupiter_opp.input_amount,
+            expected_output_lamports: jupiter_opp.output_amount,
             trigger_event: ArbitrageEvent::PriceUpdate {
-                token_mint: jupiter_opp.input_token,
+                token_mint: jupiter_opp.input_token.parse().unwrap_or_default(),
                 dex_name: "Jupiter".to_string(),
                 new_price: 0.0, // Jupiter doesn't expose individual prices
                 timestamp: now.elapsed().as_millis() as u64,
@@ -700,9 +713,12 @@ impl EventDrivenArbitrageEngine {
             confidence_score: jupiter_opp.confidence_score,
             created_at: now,
             expires_at: now + Duration::from_secs(config.opportunity_expiry_seconds),
+            max_slippage_bps: jupiter_opp.slippage_bps,
+            timeout_seconds: 30,
+            validated_at: None,
             execution_data: ExecutionData {
                 trade_amount_lamports: jupiter_opp.input_amount,
-                max_slippage_bps: jupiter_opp.slippage_bps,
+                max_slippage_bps: jupiter_opp.slippage_bps as u16,
                 priority_fee_lamports: 100_000, // 0.0001 SOL
                 estimated_gas: 300_000,
                 mev_protection_required: config.enable_mev_protection,
@@ -767,9 +783,14 @@ impl EventDrivenArbitrageEngine {
         };
 
         Ok(EventDrivenOpportunity {
+            id: opportunity_id.clone(),
             opportunity_id,
+            input_token: specialized_opp.token_a.to_string(),
+            output_token: specialized_opp.token_b.to_string(),
+            input_amount_lamports: specialized_opp.amount_in,
+            expected_output_lamports: specialized_opp.amount_in + specialized_opp.profit_lamports, // Calculated output
             trigger_event: ArbitrageEvent::LiquidityChange {
-                pool_address: specialized_opp.pool_address,
+                pool_address: specialized_opp.pool_address.parse().unwrap_or_default(),
                 token_a: specialized_opp.token_a,
                 token_b: specialized_opp.token_b,
                 new_liquidity: 0, // Will be updated
@@ -783,6 +804,9 @@ impl EventDrivenArbitrageEngine {
             confidence_score: specialized_opp.confidence_score,
             created_at: now,
             expires_at: now + Duration::from_secs(config.opportunity_expiry_seconds),
+            max_slippage_bps: 150, // 1.5% max slippage for DEX operations
+            timeout_seconds: 45,
+            validated_at: None,
             execution_data: ExecutionData {
                 trade_amount_lamports: specialized_opp.amount_in,
                 max_slippage_bps: 150, // 1.5% for specialized strategies
