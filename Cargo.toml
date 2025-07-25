@@ -33,6 +33,10 @@ name = "arbitrage_bot_phase45_final"
 path = "arbitrage_bot_phase45_final.rs"
 
 [[bin]]
+name = "conservative_trading_real"
+path = "conservative_trading_real.rs"
+
+[[bin]]
 name = "winning_arbitrage_bot"
 path = "winning_arbitrage_bot.rs"
 

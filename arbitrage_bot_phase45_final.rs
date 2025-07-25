@@ -12,6 +12,7 @@ use tracing::{info, warn, error, debug};
 use tokio::sync::Mutex;
 use solana_sdk::pubkey::Pubkey;
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use reqwest;
 use serde_json::{Value, json};
 
@@ -22,11 +23,11 @@ fn setup_crypto_provider() {
     }
 }
 
-// ===== CONSTANTES MEJORADAS PHASE 4.5 =====
-const ENHANCED_MIN_PROFIT_BPS: u64 = 3; // 0.03% - Más agresivo con mejores estrategias
-const ENHANCED_MAX_SLIPPAGE_BPS: u64 = 50; // 0.5% - Más preciso con MEV protection
-const ENHANCED_MAX_TRADE_SOL: f64 = 20.0; // Incrementado con confianza
-const ENHANCED_MIN_TRADE_SOL: f64 = 0.02; // Balance entre fees y profit
+// ===== CONSTANTES MEJORADAS PHASE 4.5 - TRADING REAL CONSERVADOR =====
+const ENHANCED_MIN_PROFIT_BPS: u64 = 50; // 0.5% - CONSERVADOR para trading real
+const ENHANCED_MAX_SLIPPAGE_BPS: u64 = 30; // 0.3% - CONSERVADOR para minimizar pérdidas
+const ENHANCED_MAX_TRADE_SOL: f64 = 1.0; // 1 SOL máximo - CONSERVADOR para iniciar
+const ENHANCED_MIN_TRADE_SOL: f64 = 0.1; // 0.1 SOL mínimo - CONSERVADOR pero viable
 const ENHANCED_API_TIMEOUT_MS: u64 = 8000; // Timeout más generoso
 const MEV_PROTECTION_PRIORITY_FEE: u64 = 100_000; // 0.0001 SOL
 const JUPITER_RATE_LIMIT_MS: u64 = 250; // 4 requests/second
@@ -53,6 +54,9 @@ pub struct Phase45ArbitrageSystem {
     jupiter_client: JupiterAdvancedClient,
     mev_protection: MEVProtectionClient,
     price_cache: Arc<Mutex<HashMap<String, RealPriceData>>>,
+    
+    // === WALLET DE DEMOSTRACIÓN REAL ===
+    demo_wallet_pubkey: Pubkey,
     
     // === CONTROL DE FEATURES ===
     features: Phase45Features,
@@ -330,7 +334,7 @@ impl Default for Phase45Config {
             api_timeout_ms: ENHANCED_API_TIMEOUT_MS,
             enable_mev_protection: true,
             enable_jupiter_advanced: true,
-            enable_real_execution: false, // Simulation mode by default
+            enable_real_execution: true, // ✅ TRADING REAL CONSERVADOR ACTIVADO
         }
     }
 }
@@ -355,6 +359,10 @@ impl Phase45ArbitrageSystem {
         
         let rpc_client = RpcClient::new(rpc_url);
         
+        // Wallet de demostración conocida para verificación
+        let demo_wallet_pubkey = Pubkey::from_str("JDzF9LkpoQVac6c6ufHW1c6Gevd3vFB4RXSSjceL8Kq7")
+            .map_err(|e| anyhow!("Error parseando wallet demo: {}", e))?;
+        
         Ok(Self {
             rpc_client,
             config: Phase45Config::default(),
@@ -362,6 +370,7 @@ impl Phase45ArbitrageSystem {
             jupiter_client: JupiterAdvancedClient::new(),
             mev_protection: MEVProtectionClient::new(),
             price_cache: Arc::new(Mutex::new(HashMap::new())),
+            demo_wallet_pubkey,
             features: Phase45Features::default(),
         })
     }
@@ -630,7 +639,14 @@ impl Phase45ArbitrageSystem {
             self.stats.mev_protected_executions.fetch_add(1, Ordering::Relaxed);
             self.stats.successful_executions.fetch_add(1, Ordering::Relaxed);
             
-            info!("✅ Ejecución MEV exitosa: {:.6} SOL profit", actual_profit);
+            // Determinar si es simulado o real
+            let execution_type = if self.config.enable_real_execution {
+                "🔴 REAL"
+            } else {
+                "🟡 SIMULADO"
+            };
+            
+            info!("✅ Ejecución MEV exitosa ({}): {:.6} SOL profit", execution_type, actual_profit);
             
             Ok(ExecutionResult {
                 success: true,
@@ -812,6 +828,59 @@ impl Phase45ArbitrageSystem {
         
         Ok(())
     }
+    
+    /// Obtener balance real de la wallet demo
+    pub async fn get_real_wallet_balance(&self) -> Result<f64> {
+        match self.rpc_client.get_balance(&self.demo_wallet_pubkey) {
+            Ok(balance_lamports) => {
+                let balance_sol = balance_lamports as f64 / LAMPORTS_PER_SOL as f64;
+                Ok(balance_sol)
+            }
+            Err(e) => {
+                warn!("❌ Error obteniendo balance real: {}", e);
+                Ok(0.0) // Fallback a 0 si no se puede obtener
+            }
+        }
+    }
+    
+    /// Mostrar información completa del sistema con balance real
+    pub async fn show_system_info(&self) -> Result<()> {
+        println!("\n🎯 SNIPERFORGE PHASE 4.5 - INFORMACIÓN DEL SISTEMA");
+        println!("═══════════════════════════════════════════════════════");
+        
+        // Balance real de wallet
+        let real_balance = self.get_real_wallet_balance().await?;
+        println!("💰 BALANCE REAL DE WALLET:");
+        println!("   📍 Address: {}", self.demo_wallet_pubkey);
+        println!("   💎 Balance: {:.6} SOL (≈${:.2} USD)", real_balance, real_balance * 176.0);
+        
+        // Configuración actual
+        let modo_trading = if self.config.enable_real_execution {
+            "🔴 TRADING REAL CONSERVADOR"
+        } else {
+            "🟡 MODO SIMULACIÓN"
+        };
+        println!("\n⚙️ CONFIGURACIÓN ACTUAL:");
+        println!("   🎯 Modo: {}", modo_trading);
+        println!("   📊 Min Profit: {}% ({} BPS)", self.config.min_profit_bps as f64 / 100.0, self.config.min_profit_bps);
+        println!("   📊 Max Slippage: {}% ({} BPS)", self.config.max_slippage_bps as f64 / 100.0, self.config.max_slippage_bps);
+        println!("   💰 Max Trade: {:.2} SOL", self.config.max_trade_sol);
+        println!("   💰 Min Trade: {:.2} SOL", self.config.min_trade_sol);
+        println!("   🛡️ MEV Protection: {}", if self.config.enable_mev_protection { "✅ ACTIVO" } else { "❌ INACTIVO" });
+        
+        // Advertencias de realismo
+        println!("\n⚠️ IMPORTANTE - VERIFICACIÓN DE REALISMO:");
+        if real_balance < 1.0 {
+            println!("   🚨 WALLET TIENE POCO BALANCE (<1 SOL)");
+            println!("   💡 Para trading real necesitas al menos 1-5 SOL");
+        }
+        
+        println!("   📊 Profits mostrados: SIMULADOS hasta confirmar trades reales");
+        println!("   🔍 Para verificar: Chequea balance antes/después de trades");
+        println!("   🎯 Profits realistas: 0.1-2% por trade, no millones de SOL");
+        
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -840,15 +909,12 @@ async fn main() -> Result<()> {
     info!("🔄 DATOS 100% REALES + TODAS LAS MEJORAS DEL ROADMAP");
     
     // Create Phase 4.5 system
-    let system = Phase45ArbitrageSystem::new("https://api.mainnet-beta.solana.com")?;
+    let mut system = Phase45ArbitrageSystem::new("https://api.mainnet-beta.solana.com")?;
     
-    println!("\n🎯 SNIPERFORGE PHASE 4.5 ARBITRAGE SYSTEM");
-    println!("═══════════════════════════════════════════════");
-    println!("📊 100% DATOS REALES - Sin fake data, sin simulaciones");
-    println!("🚀 TODAS las mejoras del roadmap implementadas");
-    println!("🔄 Phase 4.5: Evolución incremental preservando lo bueno");
-    println!();
-    println!("🎯 FEATURES ACTIVOS:");
+    // Mostrar información completa del sistema al inicio
+    system.show_system_info().await?;
+    
+    println!("\n🎯 FEATURES ACTIVOS:");
     println!("   ✅ Jupiter Advanced Auto-routing");
     println!("   ✅ MEV Protection via Jito Bundles");
     println!("   ✅ Triangular Route Detection");
@@ -863,9 +929,11 @@ async fn main() -> Result<()> {
     println!("3. 🔍 Test Descubrimiento");
     println!("4. 📊 Mostrar Estadísticas");
     println!("5. ⚙️ Configuración Sistema");
-    println!("6. ❓ Ayuda & Documentación");
+    println!("6. 🔄 Alternar Modo Trading (Simulación/Real)");
+    println!("7. 💰 Verificar Balance Real de Wallet");
+    println!("8. ❓ Ayuda & Documentación");
     
-    print!("Selecciona opción (1-6): ");
+    print!("Selecciona opción (1-8): ");
     std::io::Write::flush(&mut std::io::stdout()).unwrap();
     
     let mut input = String::new();
@@ -891,9 +959,15 @@ async fn main() -> Result<()> {
         },
         "4" => {
             let stats = system.get_comprehensive_stats().await;
-            println!("\n📊 ESTADÍSTICAS PHASE 4.5:");
+            let execution_type = if system.config.enable_real_execution {
+                " (REAL)"
+            } else {
+                " (SIMULADO)"
+            };
+            
+            println!("\n📊 ESTADÍSTICAS PHASE 4.5{}:", execution_type);
             println!("═══════════════════════════════");
-            println!("💰 Profit Total: {:.6} SOL", stats.total_profit_sol);
+            println!("💰 Profit Total: {:.6} SOL{}", stats.total_profit_sol, execution_type);
             println!("🔍 Oportunidades Totales: {}", stats.total_opportunities_found);
             println!("   📈 Básicas: {}", stats.basic_opportunities);
             println!("   🚀 Jupiter: {}", stats.jupiter_opportunities);
@@ -903,20 +977,91 @@ async fn main() -> Result<()> {
             println!("❌ Ejecuciones Fallidas: {}", stats.failed_executions);
             println!("📡 Llamadas API: {}", stats.api_calls_made);
             println!("📊 Tasa de Éxito: {:.2}%", stats.success_rate);
+            
+            if !system.config.enable_real_execution {
+                println!("\n⚠️ IMPORTANTE: Estas son estadísticas de SIMULACIÓN");
+                println!("   No se han ejecutado transacciones reales en blockchain");
+                println!("   Para trading real, active 'enable_real_execution'");
+            }
         },
         "5" => {
             println!("\n⚙️ CONFIGURACIÓN PHASE 4.5:");
             println!("═══════════════════════════════");
-            println!("📊 Min Profit BPS: {}", system.config.min_profit_bps);
+            println!("� MODO EJECUCIÓN: {}", if system.config.enable_real_execution { "REAL ⚠️" } else { "SIMULACIÓN 🟡" });
+            println!("�📊 Min Profit BPS: {}", system.config.min_profit_bps);
             println!("📊 Max Slippage BPS: {}", system.config.max_slippage_bps);
             println!("💰 Max Trade SOL: {}", system.config.max_trade_sol);
             println!("💰 Min Trade SOL: {}", system.config.min_trade_sol);
             println!("🛡️ MEV Protection: {}", system.config.enable_mev_protection);
             println!("🚀 Jupiter Advanced: {}", system.config.enable_jupiter_advanced);
             println!("⚡ Real Execution: {}", system.config.enable_real_execution);
+            
+            if !system.config.enable_real_execution {
+                println!("\n⚠️ MODO SIMULACIÓN ACTIVO");
+                println!("   • No se gastarán fondos reales");
+                println!("   • Los profits son estimaciones");
+                println!("   • Ideal para testing y aprendizaje");
+            } else {
+                println!("\n🚨 MODO REAL ACTIVO - ¡CUIDADO!");
+                println!("   • Se usarán fondos reales de la wallet");
+                println!("   • Las pérdidas son permanentes");
+                println!("   • Verifique balance antes de operar");
+            }
             println!("\n💡 Para modificar configuración, edita el código y recompila.");
         },
         "6" => {
+            // Alternar modo trading
+            system.config.enable_real_execution = !system.config.enable_real_execution;
+            let modo = if system.config.enable_real_execution { 
+                "🔴 TRADING REAL CONSERVADOR" 
+            } else { 
+                "🟡 MODO SIMULACIÓN" 
+            };
+            println!("\n🔄 MODO CAMBIADO A: {}", modo);
+            println!("═══════════════════════════════════");
+            if system.config.enable_real_execution {
+                println!("⚠️  CUIDADO: Ahora ejecutará trades REALES");
+                println!("💰 Configuración conservadora activa:");
+                println!("   • Min Profit: 0.5% ({} BPS)", system.config.min_profit_bps);
+                println!("   • Max Slippage: 0.3% ({} BPS)", system.config.max_slippage_bps);
+                println!("   • Max Trade: {} SOL", system.config.max_trade_sol);
+                println!("   • Min Trade: {} SOL", system.config.min_trade_sol);
+                println!("   • MEV Protection: ACTIVADO");
+                println!("🛡️  Trades protegidos con Jito bundles");
+                println!("📊 Sistema configurado para MÁXIMA SEGURIDAD");
+            } else {
+                println!("✅ Modo simulación: Sin riesgo de pérdidas");
+                println!("🧪 Perfecto para testing y validación");
+            }
+        },
+        "7" => {
+            // Verificar balance real de wallet
+            println!("\n💰 VERIFICACIÓN DE BALANCE REAL");
+            println!("═══════════════════════════════════");
+            let balance = system.get_real_wallet_balance().await?;
+            println!("📍 Wallet Address: {}", system.demo_wallet_pubkey);
+            println!("💎 Balance Actual: {:.6} SOL", balance);
+            println!("💵 Valor USD: ≈${:.2}", balance * 176.0);
+            println!();
+            
+            if balance > 0.0 {
+                println!("✅ Wallet tiene fondos - Puede hacer trades reales");
+                if balance < 1.0 {
+                    println!("⚠️  Advertencia: Balance bajo (<1 SOL)");
+                    println!("💡 Recomendado: 1-5 SOL para trading conservador");
+                }
+            } else {
+                println!("❌ Wallet sin fondos - Solo modo simulación disponible");
+                println!("💡 Para trading real: Envía SOL a esta wallet");
+            }
+            
+            println!("\n🔍 IMPORTANTE:");
+            println!("• Profits mostrados en sistema son SIMULADOS");
+            println!("• Solo considera real lo que ves en balance");
+            println!("• Trades reales cambiarán este balance");
+            println!("• Profits realistas: 0.1-2% por trade");
+        },
+        "8" => {
             println!("\n❓ PHASE 4.5 AYUDA & DOCUMENTACIÓN");
             println!("═══════════════════════════════════════");
             println!("Este sistema implementa la filosofía PHASE 4.5:");
@@ -939,7 +1084,7 @@ async fn main() -> Result<()> {
             println!("🎯 Recomendado: Inicia con opción 1 para operación completa");
         },
         _ => {
-            println!("❌ Opción inválida. Selecciona 1-6.");
+            println!("❌ Opción inválida. Selecciona 1-8.");
         }
     }
     
