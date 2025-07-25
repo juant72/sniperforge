@@ -21,6 +21,29 @@ use crate::jupiter_integration_simple::{JupiterAdvancedIntegrator, UnifiedJupite
 use crate::mev_integration_simple::{MEVProtectionIntegrator, MEVProtectedOpportunity};
 use crate::dex_integration_simple::{DEXSpecializationIntegrator, EnhancedSpecializedOpportunity};
 use crate::event_driven_integration_simple::EventDrivenIntegrator;
+use crate::jupiter_real_client::JupiterQuoteResponse;
+
+/// Análisis detallado de fees para arbitraje
+#[derive(Debug, Clone)]
+struct FeesAnalysis {
+    // Fees de transacción blockchain
+    transaction_fee_swap1: u64,        // Fee del primer swap
+    transaction_fee_swap2: u64,        // Fee del segundo swap
+    priority_fee_swap1: u64,           // Priority fee primer swap
+    priority_fee_swap2: u64,           // Priority fee segundo swap
+    
+    // Fees de Jupiter/DEX
+    jupiter_platform_fee: u64,         // Platform fee de Jupiter
+    dex_liquidity_fee: u64,            // Fees de liquidez de DEXs
+    
+    // Price impact (pérdida por slippage)
+    price_impact_swap1: u64,           // Impact en primer swap
+    price_impact_swap2: u64,           // Impact en segundo swap
+    
+    // Totales
+    total_fees_lamports: u64,
+    total_fees_sol: f64,
+}
 
 /// Oportunidad unificada que puede venir de cualquier sistema
 #[derive(Debug, Clone)]
@@ -1284,33 +1307,86 @@ impl MEVProtectionIntegrator {
         // 4. Determinar mints para el arbitrage
         let (input_mint, output_mint, amount_lamports) = self.determine_swap_parameters(transaction)?;
         
-        // 5. Obtener quote
-        let quote = jupiter_client.get_quote(
+        // 5. Obtener quote para el primer swap (SOL → USDC)
+        let quote1 = jupiter_client.get_quote(
             &input_mint,
             &output_mint,
             amount_lamports
         ).await?;
         
-        // 6. Verificar que el quote es profitable
-        let expected_output: u64 = quote.out_amount.parse()
+        // Obtener cuánto USDC obtendremos
+        let usdc_amount: u64 = quote1.out_amount.parse()
             .map_err(|e| anyhow::anyhow!("Invalid output amount: {}", e))?;
         
-        let profit_lamports = expected_output.saturating_sub(amount_lamports);
-        let profit_sol = profit_lamports as f64 / 1_000_000_000.0;
+        // 6. Obtener quote para el segundo swap (USDC → SOL)
+        let quote2 = jupiter_client.get_quote(
+            &output_mint,
+            &input_mint,
+            usdc_amount
+        ).await?;
         
-        if profit_sol < 0.0001 {
-            return Err(anyhow::anyhow!("Profit too low: {:.6} SOL", profit_sol));
+        // 7. CÁLCULO COMPLETO DE FEES Y VALIDACIÓN DE RENTABILIDAD
+        let fees_analysis = self.calculate_total_fees(&quote1, &quote2, amount_lamports).await?;
+        
+        // Obtener cuánto SOL obtendremos de vuelta
+        let final_sol_amount: u64 = quote2.out_amount.parse()
+            .map_err(|e| anyhow::anyhow!("Invalid final output amount: {}", e))?;
+        
+        // Calcular profit BRUTO (sin fees)
+        let gross_profit_lamports = final_sol_amount.saturating_sub(amount_lamports);
+        let gross_profit_sol = gross_profit_lamports as f64 / 1_000_000_000.0;
+        
+        // Calcular profit NETO (después de fees)
+        let net_profit_lamports = gross_profit_lamports.saturating_sub(fees_analysis.total_fees_lamports);
+        let net_profit_sol = net_profit_lamports as f64 / 1_000_000_000.0;
+        
+        info!("📊 ANÁLISIS DE RENTABILIDAD:");
+        info!("   💰 Profit bruto: {:.6} SOL", gross_profit_sol);
+        info!("   💸 Total fees: {:.6} SOL", fees_analysis.total_fees_sol);
+        info!("   🎯 Profit neto: {:.6} SOL", net_profit_sol);
+        info!("   📈 ROI: {:.2}%", (net_profit_sol / (amount_lamports as f64 / 1_000_000_000.0)) * 100.0);
+        
+        // Validación de rentabilidad con margen de seguridad
+        let minimum_profit_threshold = 0.0005; // 0.5 mSOL mínimo
+        let minimum_roi_threshold = 2.0; // 2% ROI mínimo
+        
+        if net_profit_sol < minimum_profit_threshold {
+            return Err(anyhow::anyhow!(
+                "Profit neto insuficiente: {:.6} SOL < {:.6} SOL threshold (fees: {:.6} SOL)", 
+                net_profit_sol, minimum_profit_threshold, fees_analysis.total_fees_sol
+            ));
         }
         
-        info!("💰 Profit esperado del swap: {:.6} SOL", profit_sol);
+        let roi_percentage = (net_profit_sol / (amount_lamports as f64 / 1_000_000_000.0)) * 100.0;
+        if roi_percentage < minimum_roi_threshold {
+            return Err(anyhow::anyhow!(
+                "ROI insuficiente: {:.2}% < {:.1}% threshold", 
+                roi_percentage, minimum_roi_threshold
+            ));
+        }
         
-        // 7. Ejecutar swap
-        let signature = jupiter_client.execute_swap(quote, wallet.keypair()).await?;
+        info!("✅ ARBITRAJE RENTABLE - Ejecutando swaps...");
+        info!("   🔄 {} SOL → {} USDC → {} SOL", 
+              amount_lamports as f64 / 1_000_000_000.0,
+              usdc_amount as f64 / 1_000_000.0, // USDC tiene 6 decimales
+              final_sol_amount as f64 / 1_000_000_000.0);
         
-        info!("🎉 SWAP REAL COMPLETADO!");
-        info!("   📝 Signature: {}", signature);
+        // 8. Ejecutar primer swap (SOL → USDC)
+        info!("🔄 Ejecutando swap 1/2: SOL → USDC");
+        let signature1 = jupiter_client.execute_swap(quote1, wallet.keypair()).await?;
+        info!("✅ Swap 1 completado: {}", signature1);
         
-        Ok(signature)
+        // 9. Ejecutar segundo swap (USDC → SOL)
+        info!("🔄 Ejecutando swap 2/2: USDC → SOL");
+        let signature2 = jupiter_client.execute_swap(quote2, wallet.keypair()).await?;
+        
+        info!("🎉 ARBITRAJE REAL COMPLETADO!");
+        info!("   📝 Swap 1: {}", signature1);
+        info!("   📝 Swap 2: {}", signature2);
+        info!("   💰 Profit neto obtenido: {:.6} SOL", net_profit_sol);
+        info!("   📈 ROI final: {:.2}%", roi_percentage);
+        
+        Ok(format!("Arbitrage completed: {} + {} (Profit: {:.6} SOL)", signature1, signature2, net_profit_sol))
     }
     
     /// Cargar wallet para trading real
@@ -1371,6 +1447,98 @@ impl MEVProtectionIntegrator {
         info!("   💱 Amount: {} lamports", amount_lamports);
         
         Ok((input_mint, output_mint, amount_lamports))
+    }
+    
+    /// Calcular todos los fees involucrados en el arbitraje
+    async fn calculate_total_fees(
+        &self,
+        quote1: &JupiterQuoteResponse,
+        quote2: &JupiterQuoteResponse,
+        initial_amount: u64
+    ) -> Result<FeesAnalysis> {
+        info!("🧮 Calculando fees completos del arbitraje...");
+        
+        // 1. FEES DE TRANSACCIÓN BLOCKCHAIN
+        // Costo base de transacción en Solana
+        let base_tx_fee = 5000; // 5000 lamports por transacción básica
+        let transaction_fee_swap1 = base_tx_fee;
+        let transaction_fee_swap2 = base_tx_fee;
+        
+        // 2. PRIORITY FEES (configurados en JupiterRealConfig)
+        let priority_fee_swap1 = 10000; // 10000 lamports como configuramos
+        let priority_fee_swap2 = 10000;
+        
+        // 3. JUPITER PLATFORM FEES
+        // Jupiter cobra ~0.025% en algunos casos
+        let jupiter_fee_bps = 25; // 0.25% en basis points
+        let jupiter_platform_fee = (initial_amount * jupiter_fee_bps) / 10000;
+        
+        // 4. DEX LIQUIDITY FEES
+        // La mayoría de DEXs cobran 0.25-0.30%
+        let dex_fee_bps = 30; // 0.30% promedio
+        let dex_liquidity_fee = (initial_amount * dex_fee_bps) / 10000;
+        
+        // 5. PRICE IMPACT (estimado desde quotes)
+        let input1: u64 = quote1.in_amount.parse().unwrap_or(0);
+        let output1: u64 = quote1.out_amount.parse().unwrap_or(0);
+        let input2: u64 = quote2.in_amount.parse().unwrap_or(0);
+        let output2: u64 = quote2.out_amount.parse().unwrap_or(0);
+        
+        // Price impact del primer swap (SOL -> Token)
+        let theoretical_output1 = input1; // En un mundo perfecto, sin slippage
+        let price_impact_swap1 = if output1 < theoretical_output1 {
+            theoretical_output1 - output1
+        } else { 0 };
+        
+        // Price impact del segundo swap (Token -> SOL)
+        let theoretical_output2 = input2; // En un mundo perfecto
+        let price_impact_swap2 = if output2 < theoretical_output2 {
+            theoretical_output2 - output2  
+        } else { 0 };
+        
+        // 6. CALCULAR TOTALES
+        let total_fees_lamports = transaction_fee_swap1 
+            + transaction_fee_swap2
+            + priority_fee_swap1
+            + priority_fee_swap2
+            + jupiter_platform_fee
+            + dex_liquidity_fee
+            + price_impact_swap1
+            + price_impact_swap2;
+            
+        let total_fees_sol = total_fees_lamports as f64 / 1_000_000_000.0;
+        
+        let analysis = FeesAnalysis {
+            transaction_fee_swap1,
+            transaction_fee_swap2,
+            priority_fee_swap1,
+            priority_fee_swap2,
+            jupiter_platform_fee,
+            dex_liquidity_fee,
+            price_impact_swap1,
+            price_impact_swap2,
+            total_fees_lamports,
+            total_fees_sol,
+        };
+        
+        // Log detallado de fees
+        info!("💸 ANÁLISIS DETALLADO DE FEES:");
+        info!("   🔗 Transaction fees: {:.6} SOL ({} + {} lamports)", 
+              (transaction_fee_swap1 + transaction_fee_swap2) as f64 / 1_000_000_000.0,
+              transaction_fee_swap1, transaction_fee_swap2);
+        info!("   ⚡ Priority fees: {:.6} SOL ({} + {} lamports)", 
+              (priority_fee_swap1 + priority_fee_swap2) as f64 / 1_000_000_000.0,
+              priority_fee_swap1, priority_fee_swap2);
+        info!("   🏢 Jupiter platform: {:.6} SOL ({} lamports)", 
+              jupiter_platform_fee as f64 / 1_000_000_000.0, jupiter_platform_fee);
+        info!("   💧 DEX liquidity: {:.6} SOL ({} lamports)", 
+              dex_liquidity_fee as f64 / 1_000_000_000.0, dex_liquidity_fee);
+        info!("   📉 Price impact: {:.6} SOL ({} + {} lamports)", 
+              (price_impact_swap1 + price_impact_swap2) as f64 / 1_000_000_000.0,
+              price_impact_swap1, price_impact_swap2);
+        info!("   💸 TOTAL FEES: {:.6} SOL ({} lamports)", total_fees_sol, total_fees_lamports);
+        
+        Ok(analysis)
     }
 }
 
