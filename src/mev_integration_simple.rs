@@ -56,8 +56,8 @@ pub struct MEVProtectionResult {
 
 /// Integrador de protección MEV (simplificado)
 pub struct MEVProtectionIntegrator {
-    config: UnifiedPhase45Config,
-    rpc_client: Arc<RpcClient>,
+    pub config: UnifiedPhase45Config,
+    pub rpc_client: Arc<RpcClient>,
     protection_history: Arc<Mutex<Vec<MEVProtectionResult>>>,
     sandwich_detector: SandwichDetector,
 }

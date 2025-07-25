@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     transaction::Transaction,
-    signature::{Keypair, Signature},
+    signature::{Keypair, Signature, Signer},
     pubkey::Pubkey,
     commitment_config::CommitmentConfig,
 };
@@ -51,7 +51,7 @@ pub struct JupiterQuoteRequest {
 }
 
 /// Response de Jupiter quote API
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct JupiterQuoteResponse {
     #[serde(rename = "inputMint")]
     pub input_mint: String,
@@ -75,21 +75,21 @@ pub struct JupiterQuoteResponse {
     pub route_plan: Vec<RoutePlan>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct PlatformFee {
     pub amount: String,
     #[serde(rename = "feeBps")]
     pub fee_bps: u16,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RoutePlan {
     #[serde(rename = "swapInfo")]
     pub swap_info: SwapInfo,
     pub percent: u8,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SwapInfo {
     #[serde(rename = "ammKey")]
     pub amm_key: String,
@@ -180,8 +180,9 @@ impl JupiterRealClient {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Jupiter quote failed: {} - {}", response.status(), error_text));
+            return Err(anyhow!("Jupiter quote failed: {} - {}", status, error_text));
         }
 
         let quote: JupiterQuoteResponse = response.json().await?;
@@ -239,8 +240,9 @@ impl JupiterRealClient {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Jupiter swap API failed: {} - {}", response.status(), error_text));
+            return Err(anyhow!("Jupiter swap API failed: {} - {}", status, error_text));
         }
 
         let swap_response: JupiterSwapResponse = response.json().await?;

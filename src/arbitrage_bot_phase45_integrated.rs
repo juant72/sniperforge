@@ -1175,16 +1175,9 @@ impl BasicExecutionEngine {
         
         if force_real {
             // Para transacciones básicas, también usar Jupiter pero con configuración más simple
-            match self.execute_jupiter_real_swap(transaction).await {
-                Ok(signature) => {
-                    info!("✅ SWAP BÁSICO REAL EJECUTADO: {}", signature);
-                    Ok(signature.to_string())
-                }
-                Err(e) => {
-                    error!("❌ Error en swap básico real: {}", e);
-                    Err(e)
-                }
-            }
+            // Nota: BasicExecutionEngine no tiene execute_jupiter_real_swap, usar la implementación del MEV
+            warn!("🚧 TRANSACCIÓN BÁSICA REAL PENDIENTE DE IMPLEMENTACIÓN JUPITER");
+            return Err(anyhow::anyhow!("Real basic transactions not implemented yet"));
         } else {
             // Simulación realista para testing
             tokio::time::sleep(Duration::from_millis(2000)).await; // Tiempo realista
