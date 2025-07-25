@@ -49,6 +49,10 @@ name = "balance_simple"
 path = "src/bin/balance_simple.rs"
 
 [[bin]]
+name = "arbitrage_real_test"
+path = "src/bin/arbitrage_real_test.rs"
+
+[[bin]]
 name = "arbitrage_bot_roadmap_complete"
 path = "arbitrage_bot_roadmap_complete.rs"
 

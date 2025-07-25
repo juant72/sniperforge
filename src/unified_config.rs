@@ -441,8 +441,8 @@ impl UnifiedPhase45Config {
     
     pub fn safe_trading() -> Self {
         ConfigBuilder::from_preset(PhaseConfig::Balanced)
-            .trading_range(0.002, 0.005)
-            .profit_requirements(25, 15) // 0.25% profit, 0.15% slippage
+            .trading_range(0.0005, 0.002)  // ULTRA-MICRO: 0.5-2 mSOL máximo
+            .profit_requirements(50, 10)    // 0.50% profit, 0.10% slippage
             .build()
     }
     

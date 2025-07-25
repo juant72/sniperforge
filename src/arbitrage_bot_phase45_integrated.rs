@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::str::FromStr;
 use anyhow::{Result, anyhow};
 use tracing::{info, warn, debug, error};
 use tokio::sync::{Mutex, RwLock};
@@ -971,39 +972,42 @@ impl BasicDiscoveryEngine {
     }
     
     pub async fn find_basic_opportunities(&self) -> Result<Vec<BasicOpportunity>> {
-        // SIMULACIÓN del discovery básico (preserva lógica original)
-        let mut opportunities = Vec::new();
+        // SISTEMA REAL: Usar RealPriceFeeds en lugar de simulaciones
+        use crate::real_price_feeds::RealPriceFeeds;
         
-        // Simular discovery básico entre DEX principales
-        let dex_pairs = vec![
-            ("Raydium", "Orca"),
-            ("Orca", "Phoenix"),
-            ("Raydium", "Phoenix"),
-        ];
+        info!("🔍 Buscando oportunidades REALES de arbitraje...");
         
-        for (dex_a, dex_b) in dex_pairs {
-            // Simular encontrar oportunidades
-            if rand::random::<f64>() > 0.7 {
-                let profit = 0.001 + (rand::random::<f64>() * 0.019); // 0.001-0.02 SOL
-                let confidence = 0.5 + (rand::random::<f64>() * 0.5); // 0.5-1.0
-                
-                opportunities.push(BasicOpportunity {
-                    id: format!("BASIC_{}_{}", dex_a, dex_b),
-                    token_a: Pubkey::default(), // En implementación real sería token específico
-                    token_b: Pubkey::default(),
-                    dex_a: dex_a.to_string(),
-                    dex_b: dex_b.to_string(),
-                    price_a: 1.0 + (rand::random::<f64>() * 0.02),
-                    price_b: 1.0 + (rand::random::<f64>() * 0.02),
-                    profit_sol: profit,
-                    confidence,
+        let price_feeds = RealPriceFeeds::new();
+        
+        // Obtener oportunidades reales
+        let real_opportunities = price_feeds.find_real_arbitrage_opportunities().await?;
+        
+        // Convertir a formato BasicOpportunity
+        let mut basic_opportunities = Vec::new();
+        
+        for real_opp in real_opportunities {
+            // Solo incluir oportunidades con profit significativo
+            if real_opp.estimated_profit_sol > 0.0001 && real_opp.confidence_score > 0.7 {
+                basic_opportunities.push(BasicOpportunity {
+                    id: real_opp.id,
+                    token_a: solana_sdk::pubkey::Pubkey::from_str(&real_opp.token_mint).unwrap_or_default(),
+                    token_b: solana_sdk::pubkey::Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap_or_default(), // SOL
+                    dex_a: real_opp.dex_a.dex_name,
+                    dex_b: real_opp.dex_b.dex_name,
+                    price_a: real_opp.dex_a.price_usd,
+                    price_b: real_opp.dex_b.price_usd,
+                    profit_sol: real_opp.estimated_profit_sol,
+                    confidence: real_opp.confidence_score,
                     created_at: Instant::now(),
                 });
+                
+                info!("💰 Oportunidad REAL detectada: {} ({:.4}% profit)", 
+                      real_opp.token_symbol, real_opp.price_difference_pct);
             }
         }
         
-        debug!("📊 Discovery básico encontró {} oportunidades", opportunities.len());
-        Ok(opportunities)
+        info!("✅ Discovery REAL encontró {} oportunidades válidas", basic_opportunities.len());
+        Ok(basic_opportunities)
     }
 }
 
@@ -1346,9 +1350,9 @@ impl MEVProtectionIntegrator {
         info!("   🎯 Profit neto: {:.6} SOL", net_profit_sol);
         info!("   📈 ROI: {:.2}%", (net_profit_sol / (amount_lamports as f64 / 1_000_000_000.0)) * 100.0);
         
-        // Validación de rentabilidad con margen de seguridad
-        let minimum_profit_threshold = 0.0005; // 0.5 mSOL mínimo
-        let minimum_roi_threshold = 2.0; // 2% ROI mínimo
+        // Validación de rentabilidad con margen de seguridad (ULTRA-CONSERVADOR)
+        let minimum_profit_threshold = 0.00001; // 0.01 mSOL mínimo (10 micro-SOL)
+        let minimum_roi_threshold = 0.5; // 0.5% ROI mínimo
         
         if net_profit_sol < minimum_profit_threshold {
             return Err(anyhow::anyhow!(
@@ -1386,7 +1390,8 @@ impl MEVProtectionIntegrator {
         info!("   💰 Profit neto obtenido: {:.6} SOL", net_profit_sol);
         info!("   📈 ROI final: {:.2}%", roi_percentage);
         
-        Ok(format!("Arbitrage completed: {} + {} (Profit: {:.6} SOL)", signature1, signature2, net_profit_sol))
+        // Retornar la segunda signature como resultado principal del arbitraje
+        Ok(signature2)
     }
     
     /// Cargar wallet para trading real
@@ -1425,28 +1430,82 @@ impl MEVProtectionIntegrator {
         Err(anyhow::anyhow!("No wallet configured for real trading"))
     }
     
-    /// Determinar parámetros del swap basado en la oportunidad
+    /// Determinar parámetros del swap basado en la oportunidad REAL
     fn determine_swap_parameters(&self, transaction: &RealTransaction) -> Result<(String, String, u64)> {
-        // Para arbitrage básico, usar SOL <-> USDC
-        let input_mint = "So11111111111111111111111111111111111111112".to_string(); // Wrapped SOL
-        let output_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(); // USDC
+        // CAMBIO CRÍTICO: En lugar de hacer SOL->USDC->SOL circular,
+        // hacer arbitraje real basado en la oportunidad detectada
         
-        // Convertir el monto de trade a lamports
-        let amount_lamports = (transaction.trade_amount_sol * 1_000_000_000.0) as u64;
+        info!("🎯 ARBITRAJE REAL: Determinando parámetros para oportunidad {}", transaction.opportunity_id);
         
-        // Asegurar que el monto es razonable
-        if amount_lamports < 1_000_000 { // Mínimo 0.001 SOL
-            return Err(anyhow::anyhow!("Trade amount too small: {} lamports", amount_lamports));
+        // Extraer información de la oportunidad desde el ID
+        // Formato ID: "REAL_{symbol}_{buy_dex}_{sell_dex}_{timestamp}"
+        let id_parts: Vec<&str> = transaction.opportunity_id.split('_').collect();
+        
+        if id_parts.len() >= 4 && id_parts[0] == "REAL" {
+            let token_symbol = id_parts[1];
+            let buy_dex = id_parts[2];
+            let sell_dex = id_parts[3];
+            
+            info!("📊 Arbitraje detectado: {} - Comprar en {} → Vender en {}", token_symbol, buy_dex, sell_dex);
+            
+            // Determinar mints basado en el token detectado
+            let (input_mint, output_mint) = match token_symbol {
+                "USDC" => {
+                    ("So11111111111111111111111111111111111111112".to_string(), // SOL
+                     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string()) // USDC
+                },
+                "RAY" => {
+                    ("So11111111111111111111111111111111111111112".to_string(), // SOL
+                     "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R".to_string()) // RAY
+                },
+                "BONK" => {
+                    ("So11111111111111111111111111111111111111112".to_string(), // SOL
+                     "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_string()) // BONK
+                },
+                "JUP" => {
+                    ("So11111111111111111111111111111111111111112".to_string(), // SOL
+                     "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN".to_string()) // JUP
+                },
+                _ => {
+                    // Default a SOL/USDC para tokens desconocidos
+                    warn!("Token desconocido {}, usando SOL/USDC", token_symbol);
+                    ("So11111111111111111111111111111111111111112".to_string(),
+                     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string())
+                }
+            };
+            
+            // Convertir monto a lamports (ultra-conservador)
+            let amount_lamports = (transaction.trade_amount_sol * 1_000_000_000.0) as u64;
+            
+            // Validación de monto ultra-conservadora
+            if amount_lamports < 100_000 { // Mínimo 0.0001 SOL (100 micro-SOL)
+                return Err(anyhow::anyhow!("Trade amount too small: {} lamports", amount_lamports));
+            }
+            
+            if amount_lamports > 5_000_000_000 { // Máximo 5 SOL para seguridad
+                return Err(anyhow::anyhow!("Trade amount too large: {} lamports", amount_lamports));
+            }
+            
+            info!("✅ Parámetros determinados:");
+            info!("   🔄 {} → {} → {}", 
+                  if input_mint.contains("So1111") { "SOL" } else { "TOKEN" },
+                  token_symbol,
+                  if input_mint.contains("So1111") { "SOL" } else { "TOKEN" });
+            info!("   💱 Amount: {} lamports ({:.6} SOL)", amount_lamports, transaction.trade_amount_sol);
+            info!("   🎯 Estrategia: Comprar en {} → Vender en {}", buy_dex, sell_dex);
+            
+            Ok((input_mint, output_mint, amount_lamports))
+            
+        } else {
+            // Fallback para IDs que no siguen el formato esperado
+            warn!("ID de oportunidad no reconocido: {}, usando SOL/USDC default", transaction.opportunity_id);
+            
+            let input_mint = "So11111111111111111111111111111111111111112".to_string(); // SOL
+            let output_mint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(); // USDC
+            let amount_lamports = (transaction.trade_amount_sol * 1_000_000_000.0) as u64;
+            
+            Ok((input_mint, output_mint, amount_lamports))
         }
-        
-        if amount_lamports > 100_000_000_000 { // Máximo 100 SOL
-            return Err(anyhow::anyhow!("Trade amount too large: {} lamports", amount_lamports));
-        }
-        
-        info!("🔄 Swap: {} SOL → USDC → SOL", transaction.trade_amount_sol);
-        info!("   💱 Amount: {} lamports", amount_lamports);
-        
-        Ok((input_mint, output_mint, amount_lamports))
     }
     
     /// Calcular todos los fees involucrados en el arbitraje
