@@ -51,7 +51,7 @@ pub struct JupiterQuoteRequest {
 }
 
 /// Response de Jupiter quote API
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct JupiterQuoteResponse {
     #[serde(rename = "inputMint")]
     pub input_mint: String,

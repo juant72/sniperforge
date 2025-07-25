@@ -259,8 +259,8 @@ impl RealPriceFeeds {
             id: format!("REAL_{}_{}_{}_{}", symbol, buy_dex.dex_name, sell_dex.dex_name, chrono::Utc::now().timestamp()),
             token_mint: mint.to_string(),
             token_symbol: symbol.to_string(),
-            dex_a: buy_dex,
-            dex_b: sell_dex,
+            dex_a: buy_dex.clone(),
+            dex_b: sell_dex.clone(),
             price_difference_pct: price_diff_pct,
             estimated_profit_sol: estimated_profit_sol.max(0.0), // No profits negativos
             min_liquidity_usd: (buy_dex.liquidity_usd).min(sell_dex.liquidity_usd),

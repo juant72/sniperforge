@@ -124,6 +124,8 @@ impl RealArbitrageEngine {
             info!("⚡ Ejecutando oportunidad {}: {} ({})", 
                   index + 1, opportunity.token_symbol, opportunity.id);
 
+            let opportunity_id = opportunity.id.clone(); // Clone para usar después
+
             match self.execute_single_arbitrage(opportunity).await {
                 Ok(result) => {
                     if result.success {
@@ -136,7 +138,7 @@ impl RealArbitrageEngine {
                 Err(e) => {
                     error!("💥 Error ejecutando arbitraje: {}", e);
                     results.push(RealArbitrageResult {
-                        opportunity_id: opportunity.id,
+                        opportunity_id: opportunity_id,
                         success: false,
                         profit_sol: 0.0,
                         fees_paid_sol: 0.0,
@@ -195,7 +197,7 @@ impl RealArbitrageEngine {
 
     /// Ejecutar arbitraje individual
     async fn execute_single_arbitrage(&mut self, opportunity: RealArbitrageOpportunity) -> Result<RealArbitrageResult> {
-        let start_time = std::time::Instant::now();
+        let _start_time = std::time::Instant::now();
         
         info!("🔄 Ejecutando arbitraje: {} -> {}", 
               opportunity.dex_a.dex_name, opportunity.dex_b.dex_name);
@@ -213,7 +215,7 @@ impl RealArbitrageEngine {
             ArbitrageStrategy::FullJupiter { prefer_direct_routes } => {
                 self.execute_full_jupiter_arbitrage(&opportunity, prefer_direct_routes).await
             }
-            ArbitrageStrategy::FlashLoan { loan_amount_sol } => {
+            ArbitrageStrategy::FlashLoan { loan_amount_sol: _ } => {
                 // TODO: Implementar flash loans
                 Err(anyhow!("Flash loans not implemented yet"))
             }
@@ -284,7 +286,7 @@ impl RealArbitrageEngine {
         };
 
         let buy_signature_result = self.jupiter_client.execute_swap(
-            quote1.clone(),
+            &quote1,
             self.wallet.keypair()
         ).await;
 
@@ -343,7 +345,7 @@ impl RealArbitrageEngine {
         };
 
         let sell_signature_result = self.jupiter_client.execute_swap(
-            quote2.clone(),
+            &quote2,
             self.wallet.keypair()
         ).await;
 
