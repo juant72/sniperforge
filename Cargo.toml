@@ -20,61 +20,417 @@ lto = "thin"         # LTO más rápido que "fat"
 codegen-units = 1
 panic = "abort"
 
-# 🎯 SISTEMA PRINCIPAL MODULAR
+[[bin]]
+name = "winning_arbitrage_bot"
+path = "winning_arbitrage_bot.rs"
+
+[[bin]]
+name = "test_optimizations"
+path = "src/test_optimizations.rs"
+
+[[bin]]
+name = "arbiter"
+path = "arbiter.rs"
+
+[[bin]]
+name = "arbiter_real"
+path = "arbiter_real.rs"
+
+[[bin]]
+name = "arbiter_professional"
+path = "arbiter_professional.rs"
+
 [[bin]]
 name = "arbitrage_bot"
 path = "arbitrage_bot.rs"
 
-# 🚀 INTEGRATED SYSTEM - ALL PHASES 1-4
 [[bin]]
-name = "main_integrated"
-path = "src/bin/main_integrated.rs"
+name = "test_modular_system"
+path = "test_modular_system.rs"
 
 [[bin]]
-name = "complete_arbitrage_system"
-path = "src/bin/complete_arbitrage_system.rs"
+name = "arbitrage_mainnet_real"
+path = "arbitrage_mainnet_real.rs"
 
 [[bin]]
-name = "simple_arbitrage_system"
-path = "src/bin/simple_arbitrage_system.rs"
+name = "arbiter_dynamic"
+path = "arbiter_dynamic.rs"
 
-# 🏆 EXPERT DEFI ARBITRAGE SYSTEM
 [[bin]]
-name = "real_arbitrage_expert"
-path = "real_arbitrage_expert.rs"
+name = "arbiter_real_data"
+path = "arbiter_real_data.rs"
 
-# 🧪 TEST EXPERT SYSTEM
 [[bin]]
-name = "test_expert_system"
-path = "test_expert_system.rs"
+name = "test_expert_math"
+path = "test_expert_math.rs"
 
-# 🧪 SCRIPT DE PRUEBA DEL SISTEMA CORREGIDO
 [[bin]]
-name = "test_system"
-path = "test_system.rs"
+name = "military_arbitrage_simple_real"
+path = "military_arbitrage_simple_real.rs"
 
-# � PRUEBA ESPECÍFICA OPCIONES 4-8 
 [[bin]]
-name = "test_options_4_8"
-path = "test_options_4_8.rs"
+name = "test_military_system"
+path = "test_military_system.rs"
 
-# 🔍 DEBUG TOOLS
 [[bin]]
-name = "debug_fees"
-path = "debug_fees.rs"
+name = "test_real_arbitrage"
+path = "test_real_arbitrage.rs"
 
-# �📋 BINARIOS ESENCIALES ACTIVOS
 [[bin]]
-name = "safe_arbitrage_test"
-path = "safe_arbitrage_test.rs"
+name = "test_military_blockchain_live"
+path = "test_military_blockchain_live.rs"
+
+[[bin]]
+name = "military_arbitrage_simple"
+path = "military_arbitrage_simple.rs"
+
+[[bin]]
+name = "request_devnet_airdrop"
+path = "request_devnet_airdrop.rs"
+
+[[bin]]
+name = "test_devnet_tokens"
+path = "test_devnet_tokens.rs"
+
+[[bin]]
+name = "create_test_wallet"
+path = "create_test_wallet.rs"
+
+[[bin]]
+name = "sniperforge"
+path = "src/main.rs"
+
+[[bin]]
+name = "verify_tokens"
+path = "src/verify_tokens.rs"
+
+[[bin]]
+name = "test_all_rpc_methods"
+path = "test_all_rpc_methods.rs"
+
+[[bin]]
+name = "get_wallet_address"
+path = "get_wallet_address.rs"
+
+[[bin]]
+name = "test_orca_devnet_real"
+path = "test_orca_devnet_real.rs"
+
+[[bin]]
+name = "test_orca_devnet_simple"
+path = "test_orca_devnet_simple.rs"
+
+[[bin]]
+name = "test_simple_transfer"
+path = "test_simple_transfer.rs"
+
+[[bin]]
+name = "test_real_trading"
+path = "test_real_trading.rs"
+
+[[bin]]
+name = "test_military_real_data"
+path = "test_military_real_data.rs"
+
+[[bin]]
+name = "test_real_pool_discovery"
+path = "test_real_pool_discovery.rs"
+
+[[bin]]
+name = "test_real_execution"
+path = "test_real_execution.rs"
+
+[[bin]]
+name = "test_pool_apis"
+path = "test_pool_apis.rs"
+
+[[bin]]
+name = "test_raydium_api"
+path = "test_raydium_api.rs"
+
+[[bin]]
+name = "diagnose_system"
+path = "diagnose_system.rs"
+
+[[bin]]
+name = "test_sol_swap_real"
+path = "test_sol_swap_real.rs"
+
+[[bin]]
+name = "test_real_swap_configured"
+path = "test_real_swap_configured.rs"
+
+[[bin]]
+name = "test_jupiter_fixed"
+path = "test_jupiter_fixed.rs"
+
+[[bin]]
+name = "test_sol_to_usdc_devnet"
+path = "test_sol_to_usdc_devnet.rs"
+
+[[bin]]
+name = "find_working_routes"
+path = "find_working_routes.rs"
+
+[[bin]]
+name = "test_json_config_trading"
+path = "test_json_config_trading.rs"
+
+[[bin]]
+name = "verify_devnet_tokens"
+path = "verify_devnet_tokens.rs"
+
+[[bin]]
+name = "find_real_devnet_tokens"
+path = "find_real_devnet_tokens.rs"
+
+[[bin]]
+name = "create_devnet_tokens_automated"
+path = "create_devnet_tokens_automated.rs"
+
+[[bin]]
+name = "test_automated_tokens"
+path = "test_automated_tokens.rs"
+
+[[bin]]
+name = "test_devnet_functionality"
+path = "test_devnet_functionality.rs"
+
+[[bin]]
+name = "test_arbitrage_devnet"
+path = "test_arbitrage_devnet.rs"
+
+[[bin]]
+name = "run_expert_arbitrage"
+path = "run_expert_arbitrage_demo.rs"
+
+[[bin]]
+name = "run_real_expert_arbitrage"
+path = "run_real_expert_arbitrage.rs"
+
+[[bin]]
+name = "run_aggressive_real_arbitrage"
+path = "run_aggressive_real_arbitrage.rs"
+
+[[bin]]
+name = "test_arbitrage_devnet_simple"
+path = "test_arbitrage_devnet_simple.rs"
+
+[[bin]]
+name = "test_arbitrage_status"
+path = "test_arbitrage_status.rs"
+
+[[bin]]
+name = "test_arbitrage_quick"
+path = "test_arbitrage_quick.rs"
+
+[[bin]]
+name = "test_arbitrage_bot_devnet"
+path = "test_arbitrage_bot_devnet.rs"
+
+[[bin]]
+name = "test_arbitrage_devnet_new"
+path = "test_arbitrage_devnet_new.rs"
+
+[[bin]]
+name = "discover_devnet_tokens"
+path = "discover_devnet_tokens.rs"
+
+[[bin]]
+name = "test_arbitrage_real_devnet"
+path = "test_arbitrage_real_devnet.rs"
+
+[[bin]]
+name = "test_arbitrage_production_devnet"
+path = "test_arbitrage_production_devnet.rs"
+
+[[bin]]
+name = "test_arbitrage_real_profits"
+path = "test_arbitrage_real_profits.rs"
+
+[[bin]]
+name = "test_arbitrage_execution_ready"
+path = "test_arbitrage_execution_ready.rs"
+
+[[bin]]
+name = "test_real_arbitrage_devnet"
+path = "test_real_arbitrage_devnet.rs"
+
+[[bin]]
+name = "test_enhanced_arbitrage_monitor"
+path = "test_enhanced_arbitrage_monitor.rs"
+
+[[bin]]
+name = "test_sol_wrap_unwrap"
+path = "test_sol_wrap_unwrap.rs"
+
+[[bin]]
+name = "test_custom_tokens_swap"
+path = "test_custom_tokens_swap.rs"
+
+[[bin]]
+name = "test_custom_tokens_verify"
+path = "test_custom_tokens_verify.rs"
+
+[[bin]]
+name = "discover_jupiter_tokens"
+path = "discover_jupiter_tokens.rs"
+
+[[bin]]
+name = "test_orca_direct_amm"
+path = "test_orca_direct_amm.rs"
+
+[[bin]]
+name = "test_spl_token_swap"
+path = "test_spl_token_swap.rs"
+
+[[bin]]
+name = "test_real_amm_arbitrage"
+path = "test_real_amm_arbitrage.rs"
+
+[[bin]]
+name = "test_real_data_arbitrage"
+path = "test_real_data_arbitrage.rs"
+
+[[bin]]
+name = "test_market_data_arbitrage"
+path = "test_market_data_arbitrage.rs"
+
+[[bin]]
+name = "test_realtime_arbitrage_monitor"
+path = "test_realtime_arbitrage_monitor.rs"
+
+[[bin]]
+name = "check_devnet_balance"
+path = "check_devnet_balance.rs"
+
+[[bin]]
+name = "test_simple_arbitrage_real"
+path = "test_simple_arbitrage_real.rs"
+
+[[bin]]
+name = "test_arbitrage_real_jupiter"
+path = "test_arbitrage_real_jupiter.rs"
+
+[[bin]]
+name = "test_arbitrage_cross_dex"
+path = "test_arbitrage_cross_dex.rs"
+
+[[bin]]
+name = "execute_cross_dex_arbitrage"
+path = "execute_cross_dex_arbitrage.rs"
+
+[[bin]]
+name = "execute_cross_dex_arbitrage_v2"
+path = "execute_cross_dex_arbitrage_v2.rs"
+
+[[bin]]
+name = "execute_arbitrage_real_proof"
+path = "execute_arbitrage_real_proof.rs"
+
+[[bin]]
+name = "arbitrage_real_test"
+path = "arbitrage_real_test.rs"
+
+[[bin]]
+name = "arbitrage_real_working"
+path = "arbitrage_real_working.rs"
+
+[[bin]]
+name = "real_arbitrage_devnet_working"
+path = "real_arbitrage_devnet_working.rs"
+
+[[bin]]
+name = "convert_cli_wallet"
+path = "convert_cli_wallet.rs"
+
+[[bin]]
+name = "simple_arbitrage_proof"
+path = "simple_arbitrage_proof.rs"
+
+[[bin]]
+name = "real_arbitrage_quotes_test"
+path = "real_arbitrage_quotes_test.rs"
+
+[[bin]]
+name = "multi_dex_arbitrage_real"
+path = "multi_dex_arbitrage_real.rs"
+
+[[bin]]
+name = "orca_vs_jupiter_arbitrage"
+path = "orca_vs_jupiter_arbitrage.rs"
+
+[[bin]]
+name = "direct_swap_arbitrage"
+path = "direct_swap_arbitrage.rs"
+
+[[bin]]
+name = "orca_swap_phase1"
+path = "orca_swap_phase1.rs"
+
+[[bin]]
+name = "phase1b_working_tokens"
+path = "phase1b_working_tokens.rs"
+
+[[bin]]
+name = "phase2_complete_arbitrage"
+path = "phase2_complete_arbitrage.rs"
+
+[[bin]]
+name = "phase2b_optimized_arbitrage"
+path = "phase2b_optimized_arbitrage.rs"
 
 [[bin]]
 name = "phase2c_real_arbitrage"
 path = "phase2c_real_arbitrage.rs"
 
 [[bin]]
+name = "phase2d_optimized_multi"
+path = "phase2d_optimized_multi.rs"
+
+[[bin]]
+name = "phase2e_multi_cycle_clean"
+path = "phase2e_multi_cycle_clean.rs"
+
+[[bin]]
 name = "phase2f_hybrid_final"
 path = "phase2f_hybrid_final.rs"
+
+[[bin]]
+name = "phase2g_risk_management"
+path = "phase2g_risk_management.rs"
+
+[[bin]]
+name = "phase2h_precise_risk"
+path = "phase2h_precise_risk.rs"
+
+[[bin]]
+name = "phase2i_optimized_params"
+path = "phase2i_optimized_params.rs"
+
+[[bin]]
+name = "phase2j_test_series"
+path = "phase2j_test_series.rs"
+
+[[bin]]
+name = "phase2k_diagnosis"
+path = "phase2k_diagnosis.rs"
+
+[[bin]]
+name = "phase3_mainnet_preparation"
+path = "phase3_mainnet_preparation.rs"
+
+[[bin]]
+name = "phase3_mainnet_ultra_conservative"
+path = "phase3_mainnet_ultra_conservative.rs"
+
+[[bin]]
+name = "phase3_mainnet_simple"
+path = "phase3_mainnet_simple.rs"
+
+[[bin]]
+name = "phase3_mainnet_premium"
+path = "phase3_mainnet_premium.rs"
 
 [[bin]]
 name = "phase3_mainnet_2c_direct"
@@ -83,6 +439,10 @@ path = "phase3_mainnet_2c_direct.rs"
 [[bin]]
 name = "phase3b_mainnet_scaled"
 path = "phase3b_mainnet_scaled.rs"
+
+[[bin]]
+name = "phase3c_mainnet_bigscale"
+path = "phase3c_mainnet_bigscale.rs"
 
 [[bin]]
 name = "phase3d_mainnet_optimal"
@@ -97,59 +457,92 @@ name = "phase4b_jupiter_scanner"
 path = "phase4b_jupiter_scanner.rs"
 
 [[bin]]
-name = "setup_mainnet_wallet"
-path = "setup_mainnet_wallet.rs"
-
-# ===== PHASE 1: JUPITER ADVANCED TESTING =====
-[[bin]]
-name = "test_phase1_jupiter_advanced"
-path = "test_phase1_jupiter_advanced.rs"
+name = "safe_arbitrage_test"
+path = "safe_arbitrage_test.rs"
 
 [[bin]]
-name = "test_phase1_advanced_complete"
-path = "test_phase1_advanced_complete.rs"
+name = "arbitrage_monitor"
+path = "arbitrage_monitor.rs"
 
 [[bin]]
-name = "test_phase1_simple"
-path = "test_phase1_simple.rs"
-
-# ===== PHASE 2: MEV PROTECTION TESTING =====
-[[bin]]
-name = "test_phase2_mev_protection"
-path = "test_phase2_mev_protection.rs"
+name = "fast_arbitrage_hunter"
+path = "fast_arbitrage_hunter.rs"
 
 [[bin]]
-name = "test_phase2_simple"
-path = "test_phase2_simple.rs"
+name = "ultra_fast_hunter"
+path = "ultra_fast_hunter.rs"
 
 [[bin]]
-name = "test_phase2_mev_protection_fixed"
-path = "test_phase2_mev_protection_fixed.rs"
+name = "volatility_hunter"
+path = "volatility_hunter.rs"
 
-# ===== PHASE 3: DEX SPECIALIZATION TESTING =====
 [[bin]]
-name = "test_phase3_dex_specialization"
-path = "test_phase3_dex_specialization.rs"
+name = "mega_token_hunter"
+path = "mega_token_hunter.rs"
 
-# ===== INTEGRATED SYSTEM TESTING =====
 [[bin]]
-name = "test_integrated_system"
-path = "test_integrated_system.rs"
+name = "multi_dex_hunter"
+path = "multi_dex_hunter.rs"
 
-# ===== COMPLETE SYSTEM TESTING =====
 [[bin]]
-name = "test_complete_system"
-path = "test_complete_system.rs"
+name = "jupiter_v3_hunter"
+path = "jupiter_v3_hunter.rs"
 
-# ===== COMPLETE SYSTEM SIMPLIFIED TESTING =====
 [[bin]]
-name = "test_complete_system_simplified"
-path = "test_complete_system_simplified.rs"
+name = "pure_dex_hunter"
+path = "pure_dex_hunter.rs"
 
-# ===== QUICK COMPLETE SYSTEM TESTING =====
 [[bin]]
-name = "test_quick_complete"
-path = "test_quick_complete.rs"
+name = "real_arbitrage_hunter"
+path = "real_arbitrage_hunter.rs"
+
+[[bin]]
+name = "real_arbitrage_hunter_offline"
+path = "real_arbitrage_hunter_offline.rs"
+
+[[bin]]
+name = "analyze_opportunities"
+path = "analyze_opportunities.rs"
+
+[[bin]]
+name = "professional_arbitrage"
+path = "professional_arbitrage.rs"
+
+[[bin]]
+name = "secure_arbitrage_system"
+path = "secure_arbitrage_system.rs"
+
+[[bin]]
+name = "real_arbitrage_system"
+path = "real_arbitrage_system.rs"
+
+[[bin]]
+name = "test_arbitrage_calculations"
+path = "test_arbitrage_calculations.rs"
+
+[[bin]]
+name = "enhanced_arbitrage_system"
+path = "enhanced_arbitrage_system.rs"
+
+[[bin]]
+name = "military_arbitrage_system"
+path = "military_arbitrage_system.rs"
+
+[[bin]]
+name = "military_arbitrage_system_fixed"
+path = "military_arbitrage_system_fixed.rs"
+
+[[bin]]
+name = "militar_v2"
+path = "militar_v2.rs"
+
+[[bin]]
+name = "discover_real_pools"
+path = "discover_real_pools.rs"
+
+[[bin]]
+name = "analyze_pool_structure"
+path = "analyze_pool_structure.rs"
 
 # Force no OpenSSL dependencies
 [features]
@@ -181,7 +574,7 @@ rand = { version = "0.8", default-features = false, features = ["std", "std_rng"
 # Serde for serialization - minimal pero funcional
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
-toml = { version = "0.8", default-features = false, features = ["display", "parse"] }
+toml = { version = "0.8", default-features = false, features = ["display"] }
 dotenv = "0.15"
 bincode = { version = "1.3", default-features = false }
 
