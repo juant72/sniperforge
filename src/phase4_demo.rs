@@ -84,12 +84,14 @@ async fn demo_configuration_options() -> Result<()> {
         enable_real_time_monitoring: true,
         enable_performance_benchmarking: true,
         monitoring_config: MonitoringConfig {
-            enable_web_dashboard: true,
+            enable_real_time_dashboard: true,
             dashboard_port: 8080,
-            enable_alerting: true,
-            alert_webhook_url: None,
-            enable_metrics_collection: true,
-            metrics_retention_hours: 24,
+            enable_alerts: true,
+            enable_performance_tracking: true,
+            dashboard_update_interval_ms: 1000,
+            metrics_retention_minutes: 1440, // 24 hours in minutes
+            enable_web_interface: true,
+            alert_thresholds: crate::phase4::real_time_monitoring::AlertThresholds::default(),
         },
         benchmark_config: BenchmarkConfig {
             enable_continuous_benchmarking: true,
@@ -173,12 +175,14 @@ async fn demo_performance_monitoring() -> Result<()> {
         enable_real_time_monitoring: true,
         enable_performance_benchmarking: true,
         monitoring_config: MonitoringConfig {
-            enable_web_dashboard: true,
+            enable_real_time_dashboard: true,
             dashboard_port: 8080,
-            enable_alerting: true,
-            alert_webhook_url: None,
-            enable_metrics_collection: true,
-            metrics_retention_hours: 24,
+            enable_alerts: true,
+            enable_performance_tracking: true,
+            dashboard_update_interval_ms: 1000,
+            metrics_retention_minutes: 1440, // 24 hours in minutes
+            enable_web_interface: true,
+            alert_thresholds: crate::phase4::real_time_monitoring::AlertThresholds::default(),
         },
         benchmark_config: BenchmarkConfig {
             enable_continuous_benchmarking: true,

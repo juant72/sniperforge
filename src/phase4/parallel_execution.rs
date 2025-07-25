@@ -258,7 +258,7 @@ impl ParallelExecutionEngine {
                     confidence_score: 0.8,
                 }),
             },
-            input_token: execution_request.input_token_mint,
+            input_token: execution_request.input_token_mint.clone(),
             output_token: execution_request.output_token_mint,
             input_amount_lamports: execution_request.input_amount_lamports,
             expected_output_lamports: execution_request.expected_output_lamports,
@@ -378,81 +378,78 @@ impl ParallelExecutionEngine {
                 };
 
                 if let Some(opp) = opportunity {
-                    // Try to acquire execution permit
-                    if let Ok(permit) = execution_semaphore.try_acquire() {
-                        // Get DEX and token names
-                        let dex_name = Self::extract_dex_name(&opp);
-                        let token_mint = Self::extract_token_mint(&opp);
-                        
-                        // Get semaphores
-                        let dex_sem_result = Self::acquire_dex_semaphore(
-                            &dex_semaphores, 
-                            &dex_name, 
-                            config.max_concurrent_per_dex
-                        ).await;
+                    // Clone opportunity and semaphore for the task
+                    let opp_clone = opp.clone();
+                    let execution_sem = Arc::clone(&execution_semaphore);
+                    let dex_sems = Arc::clone(&dex_semaphores);
+                    let token_sems = Arc::clone(&token_semaphores);
+                    let results = Arc::clone(&execution_results);
+                    let tracker = Arc::clone(&resource_tracker);
+                    let perf_metrics = Arc::clone(&performance_metrics);
+                    let mev_clone = Arc::clone(&mev_protection);
+                    let config_clone = config.clone();
 
-                        let token_sem_result = Self::acquire_token_semaphore(
-                            &token_semaphores,
-                            &token_mint,
-                            config.max_concurrent_per_token
-                        ).await;
+                    tokio::spawn(async move {
+                        // Try to acquire execution permit
+                        if let Ok(_permit) = execution_sem.try_acquire() {
+                            // The permit is automatically dropped when _permit goes out of scope
+                            // Get DEX and token names
+                            let dex_name = Self::extract_dex_name(&opp_clone);
+                            let token_mint = Self::extract_token_mint(&opp_clone);
+                            
+                            // Get semaphores
+                            let dex_sem_result = Self::acquire_dex_semaphore(
+                                &dex_sems, 
+                                &dex_name, 
+                                config_clone.max_concurrent_per_dex
+                            ).await;
 
-                        if let (Ok(dex_sem), Ok(token_sem)) = (dex_sem_result, token_sem_result) {
-                            // Try to acquire the specific semaphores
-                            if let (Ok(_dex_permit), Ok(_token_permit)) = (
-                                dex_sem.try_acquire(),
-                                token_sem.try_acquire()
-                            ) {
-                                // Update resource tracking
-                                Self::update_resource_tracking_start(&resource_tracker, &opp).await;
+                            let token_sem_result = Self::acquire_token_semaphore(
+                                &token_sems,
+                                &token_mint,
+                                config_clone.max_concurrent_per_token
+                            ).await;
 
-                            // Execute in parallel
-                            let opp_clone = opp.clone();
-                            let results_clone = Arc::clone(&execution_results);
-                            let tracker_clone = Arc::clone(&resource_tracker);
-                            let metrics_clone = Arc::clone(&performance_metrics);
-                            let mev_clone = Arc::clone(&mev_protection);
-                            let config_clone = config.clone();
+                            if let (Ok(dex_sem), Ok(token_sem)) = (dex_sem_result, token_sem_result) {
+                                // Try to acquire the specific semaphores
+                                if let (Ok(_dex_permit), Ok(_token_permit)) = (
+                                    dex_sem.try_acquire(),
+                                    token_sem.try_acquire()
+                                ) {
+                                    // Update resource tracking
+                                    Self::update_resource_tracking_start(&tracker, &opp_clone).await;
 
-                            tokio::spawn(async move {
-                                let execution_result = Self::execute_opportunity_parallel(
-                                    opp_clone,
-                                    &mev_clone,
-                                    &config_clone,
-                                ).await;
+                                    // Execute the opportunity
+                                    let execution_result = Self::execute_opportunity_parallel(
+                                        opp_clone.clone(),
+                                        &mev_clone,
+                                        &config_clone,
+                                    ).await;
 
-                                // Store result
-                                {
-                                    let mut results = results_clone.write().await;
-                                    results.insert(execution_result.opportunity_id.clone(), execution_result.clone());
+                                    // Store result
+                                    {
+                                        let mut results = results.write().await;
+                                        results.insert(execution_result.opportunity_id.clone(), execution_result.clone());
+                                    }
+
+                                    // Update tracking
+                                    Self::update_resource_tracking_complete(&tracker, &execution_result).await;
+                                    Self::update_performance_metrics(&perf_metrics, &execution_result).await;
+
+                                    debug!("✅ Parallel execution completed: {}", execution_result.opportunity_id);
+                                } else {
+                                    // Put opportunity back in queue if can't acquire specific permits
+                                    warn!("❌ Could not acquire DEX/token permits for opportunity: {}", opp_clone.opportunity_id);
                                 }
-
-                                // Update tracking
-                                Self::update_resource_tracking_complete(&tracker_clone, &execution_result).await;
-                                Self::update_performance_metrics(&metrics_clone, &execution_result).await;
-
-                                // Release permits (they are dropped automatically)
-                                drop(permit);
-
-                                debug!("✅ Parallel execution completed: {}", execution_result.opportunity_id);
-                            });
                             } else {
-                                // Put opportunity back in queue if can't acquire specific permits
-                                let mut queue = execution_queue.lock().await;
-                                queue.push(opp);
-                                drop(permit);
+                                // Put opportunity back in queue if can't acquire semaphores
+                                warn!("❌ Could not acquire DEX/token semaphores for opportunity: {}", opp_clone.opportunity_id);
                             }
                         } else {
-                            // Put opportunity back in queue if can't acquire semaphores
-                            let mut queue = execution_queue.lock().await;
-                            queue.push(opp);
-                            drop(permit);
+                            // Could not acquire main execution permit
+                            warn!("❌ Could not acquire execution permit for opportunity: {}", opp_clone.opportunity_id);
                         }
-                    } else {
-                        // Put opportunity back in queue if can't acquire main permit
-                        let mut queue = execution_queue.lock().await;
-                        queue.push(opp);
-                    }
+                    });
                 } else {
                     // No opportunities in queue, sleep briefly
                     sleep(Duration::from_millis(50)).await;
