@@ -54,6 +54,8 @@ pub struct PoolData {
     pub token_b_vault: Pubkey,
     pub fee_rate: u64, // in basis points
     pub tvl_usd: f64,
+    pub volume_24h_usd: f64, // Daily volume in USD
+    pub is_active: bool, // Pool active status
     pub last_updated: SystemTime,
 }
 

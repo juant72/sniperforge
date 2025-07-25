@@ -25,6 +25,11 @@ panic = "abort"
 name = "arbitrage_bot"
 path = "arbitrage_bot.rs"
 
+# 🚀 INTEGRATED SYSTEM - ALL PHASES 1-4
+[[bin]]
+name = "main_integrated"
+path = "src/bin/main_integrated.rs"
+
 # 🏆 EXPERT DEFI ARBITRAGE SYSTEM
 [[bin]]
 name = "real_arbitrage_expert"
