@@ -48,6 +48,15 @@ path = "arbitrage_bot.rs"
 name = "test_modular_system"
 path = "test_modular_system.rs"
 
+# ===== PHASE 4.5: CONSOLIDACIÓN INTELIGENTE =====
+[[bin]]
+name = "phase45_demo"
+path = "phase45_demo.rs"
+
+[[bin]]
+name = "arbitrage_bot_phase45"
+path = "arbitrage_bot_phase45.rs"
+
 [[bin]]
 name = "arbitrage_mainnet_real"
 path = "arbitrage_mainnet_real.rs"
