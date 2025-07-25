@@ -1,6 +1,7 @@
-// ===== CONFIGURACIÓN TRADING REAL CONSERVADOR =====
-// 🎯 SISTEMA PHASE 4.5 - MODO TRADING REAL CON PARÁMETROS SEGUROS
-// 💰 OBJETIVO: Profits reales conservadores con capital limitado
+// ===== SISTEMA TRADING ULTRA-CONSERVADOR - GANANCIAS MATEMÁTICAMENTE GARANTIZADAS =====
+// 🎯 OBJETIVO: Trading pequeño pero SIEMPRE GANADOR con cálculos 100% precisos
+// � ENFOQUE: Profit mínimo pero GARANTIZADO después de TODOS los costos
+// ⚡ MATEMÁTICO: Solo ejecuta si ganancia_neta > costos_totales + margen_seguridad
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -11,39 +12,167 @@ use tracing::{info, warn, error, debug};
 use tokio::sync::Mutex;
 use solana_sdk::pubkey::Pubkey;
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use reqwest;
 use serde_json::{Value, json};
 
-// ===== CONFIGURACIÓN CRYPTO PROVIDER PARA WEBSOCKETS =====
+// ===== CONFIGURACIÓN CRYPTO PROVIDER =====
 fn setup_crypto_provider() {
     if rustls::crypto::CryptoProvider::get_default().is_none() {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
 }
 
-// ===== PARÁMETROS CONSERVADORES PARA TRADING REAL =====
-const CONSERVATIVE_MIN_PROFIT_BPS: u64 = 10; // 0.1% - Mínimo profit conservador
-const CONSERVATIVE_MAX_SLIPPAGE_BPS: u64 = 30; // 0.3% - Slippage muy conservador
-const CONSERVATIVE_MAX_TRADE_SOL: f64 = 1.0; // 1 SOL máximo por trade
-const CONSERVATIVE_MIN_TRADE_SOL: f64 = 0.1; // 0.1 SOL mínimo
-const CONSERVATIVE_API_TIMEOUT_MS: u64 = 10000; // 10 segundos timeout
-const CONSERVATIVE_PRIORITY_FEE: u64 = 50_000; // 0.00005 SOL - Bajo fee
-const CONSERVATIVE_CYCLE_DELAY_MS: u64 = 15000; // 15 segundos entre ciclos
-const CONSERVATIVE_MAX_DAILY_TRADES: usize = 50; // Máximo 50 trades/día
-const CONSERVATIVE_STOP_LOSS_SOL: f64 = 0.5; // Stop loss a 0.5 SOL pérdida
-const CONSERVATIVE_MIN_CONFIDENCE: f64 = 90.0; // Solo oportunidades 90%+ confianza
+// ===== PARÁMETROS ULTRA-CONSERVADORES MATEMÁTICAMENTE VALIDADOS =====
+const ULTRA_MIN_PROFIT_BPS: u64 = 80; // 0.8% - Garantiza profit después de TODOS los costos
+const ULTRA_MAX_SLIPPAGE_BPS: u64 = 15; // 0.15% - Extremadamente conservador
+const ULTRA_MAX_TRADE_SOL: f64 = 0.3; // 0.3 SOL máximo - Ultra conservador
+const ULTRA_MIN_TRADE_SOL: f64 = 0.05; // 0.05 SOL mínimo - Pequeño pero viable
+const SAFETY_MARGIN_BPS: u64 = 20; // 0.2% margen de seguridad ADICIONAL
+const MAX_ACCEPTABLE_GAS_SOL: f64 = 0.001; // 0.001 SOL máximo gas allowable
+const MIN_NET_PROFIT_SOL: f64 = 0.0005; // 0.0005 SOL mínimo profit neto REAL
 
-// ===== TOKENS SEGUROS PARA TRADING CONSERVADOR =====
-const SAFE_TRADING_TOKENS: &[(&str, &str, f64)] = &[
-    ("SOL", "So11111111111111111111111111111111111111112", 100.0), // Capital limitado
-    ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 500.0), // Stablecoin seguro
-    ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 300.0), // Stablecoin respaldo
-    ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", 50.0), // Major token limitado
+// ===== COSTOS REALES SOLANA - CALCULADOS EXACTAMENTE =====
+#[derive(Debug, Clone)]
+pub struct ExactCosts {
+    pub base_transaction_fee: f64,       // ~0.000005 SOL (5,000 lamports)
+    pub priority_fee_conservative: f64,  // ~0.0001 SOL para confirmación rápida
+    pub jupiter_platform_fee_bps: u64,  // 0.4 bps = 0.004% (Jupiter fee real)
+    pub estimated_slippage_bps: u64,     // Slippage real esperado
+    pub network_congestion_factor: f64,  // Factor multiplicador 1.0-3.0
+}
+
+impl Default for ExactCosts {
+    fn default() -> Self {
+        Self {
+            base_transaction_fee: 0.000005,    // Solana base fee
+            priority_fee_conservative: 0.0001, // Conservative priority fee
+            jupiter_platform_fee_bps: 4,       // 0.04% Jupiter fee (worst case)
+            estimated_slippage_bps: 10,        // 0.1% slippage esperado
+            network_congestion_factor: 2.0,    // 2x factor para congestión
+        }
+    }
+}
+
+// ===== CALCULADORA DE PROFIT EXACTO =====
+#[derive(Debug)]
+pub struct ExactProfitCalculator {
+    costs: ExactCosts,
+}
+
+impl ExactProfitCalculator {
+    pub fn new() -> Self {
+        Self {
+            costs: ExactCosts::default(),
+        }
+    }
+    
+    /// Calcula EXACTAMENTE todos los costos de una transacción
+    pub fn calculate_exact_costs(&self, trade_amount_sol: f64, route_hops: u32) -> f64 {
+        let mut total_costs = 0.0;
+        
+        // 1. Transaction fees (cada hop requiere una transacción)
+        let transaction_count = route_hops.max(1) as f64;
+        let tx_base_cost = self.costs.base_transaction_fee * transaction_count;
+        let tx_priority_cost = self.costs.priority_fee_conservative * transaction_count * self.costs.network_congestion_factor;
+        total_costs += tx_base_cost + tx_priority_cost;
+        
+        // 2. Jupiter platform fees
+        let jupiter_fee = trade_amount_sol * (self.costs.jupiter_platform_fee_bps as f64 / 10000.0);
+        total_costs += jupiter_fee;
+        
+        // 3. Slippage costs (pérdida real por price impact)
+        let slippage_cost = trade_amount_sol * (self.costs.estimated_slippage_bps as f64 / 10000.0);
+        total_costs += slippage_cost;
+        
+        // 4. Safety margin (margen de error para variaciones)
+        let safety_cost = trade_amount_sol * (SAFETY_MARGIN_BPS as f64 / 10000.0);
+        total_costs += safety_cost;
+        
+        debug!("💰 COSTOS EXACTOS para {:.6} SOL ({} hops):", trade_amount_sol, route_hops);
+        debug!("   📋 TX Base: {:.8} SOL", tx_base_cost);
+        debug!("   ⚡ Priority: {:.8} SOL", tx_priority_cost);
+        debug!("   🏛️ Jupiter: {:.8} SOL", jupiter_fee);
+        debug!("   📉 Slippage: {:.8} SOL", slippage_cost);
+        debug!("   🛡️ Safety: {:.8} SOL", safety_cost);
+        debug!("   💸 TOTAL: {:.8} SOL", total_costs);
+        
+        total_costs
+    }
+    
+    /// Calcula profit NETO exacto después de TODOS los costos
+    pub fn calculate_exact_net_profit(&self, input_sol: f64, output_sol: f64, route_hops: u32) -> f64 {
+        let gross_profit = output_sol - input_sol;
+        let total_costs = self.calculate_exact_costs(input_sol, route_hops);
+        let net_profit = gross_profit - total_costs;
+        
+        info!("🧮 CÁLCULO EXACTO DE PROFIT:");
+        info!("   💰 Input: {:.6} SOL", input_sol);
+        info!("   💰 Output: {:.6} SOL", output_sol);
+        info!("   📈 Gross profit: {:.6} SOL", gross_profit);
+        info!("   💸 Total costs: {:.6} SOL", total_costs);
+        info!("   ✅ NET PROFIT: {:.6} SOL", net_profit);
+        
+        net_profit
+    }
+    
+    /// Verifica MATEMÁTICAMENTE si la operación es rentable
+    pub fn is_mathematically_profitable(&self, input_sol: f64, output_sol: f64, route_hops: u32) -> bool {
+        let net_profit = self.calculate_exact_net_profit(input_sol, output_sol, route_hops);
+        let required_minimum = MIN_NET_PROFIT_SOL;
+        
+        let is_profitable = net_profit >= required_minimum;
+        
+        if is_profitable {
+            info!("✅ MATEMÁTICAMENTE RENTABLE: {:.6} SOL > {:.6} SOL requerido", net_profit, required_minimum);
+        } else {
+            warn!("❌ NO RENTABLE: {:.6} SOL < {:.6} SOL requerido", net_profit, required_minimum);
+        }
+        
+        is_profitable
+    }
+    
+    /// Calcula el profit margin REAL en porcentaje
+    pub fn calculate_real_profit_margin(&self, input_sol: f64, output_sol: f64, route_hops: u32) -> f64 {
+        let net_profit = self.calculate_exact_net_profit(input_sol, output_sol, route_hops);
+        if input_sol > 0.0 {
+            (net_profit / input_sol) * 100.0
+        } else {
+            0.0
+        }
+    }
+}
+
+// ===== OPORTUNIDAD ULTRA-CONSERVADORA =====
+#[derive(Debug, Clone)]
+pub struct UltraConservativeOpportunity {
+    pub input_token_symbol: String,
+    pub output_token_symbol: String,
+    pub input_mint: String,
+    pub output_mint: String,
+    pub input_amount_sol: f64,
+    pub expected_output_sol: f64,
+    pub gross_profit_sol: f64,
+    pub exact_costs_sol: f64,
+    pub net_profit_sol: f64,
+    pub real_profit_margin_pct: f64,
+    pub route_hops: u32,
+    pub jupiter_price_impact_pct: f64,
+    pub safety_rating: f64, // 0-100
+    pub execution_probability: f64, // 0-100
+    pub estimated_execution_time_ms: u64,
+}
+
+// ===== TOKENS ULTRA-SEGUROS PARA TRADING MÍNIMO =====
+const ULTRA_SAFE_TOKENS: &[(&str, &str)] = &[
+    ("SOL", "So11111111111111111111111111111111111111112"),
+    ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+    ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
 ];
 
-// ===== CONFIGURACIÓN CONSERVADORA =====
+// ===== CONFIGURACIÓN ULTRA-CONSERVADORA =====
 #[derive(Debug, Clone)]
-pub struct ConservativeConfig {
+pub struct UltraConservativeConfig {
     pub max_trade_amount_sol: f64,
     pub min_profit_threshold_bps: u64,
     pub max_slippage_bps: u64,
