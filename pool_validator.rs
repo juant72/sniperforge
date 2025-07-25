@@ -53,6 +53,8 @@ impl PoolValidator {
                     fee_rate: real_pool_data.fee_rate,
                     tvl_usd: tvl,
                     last_updated: SystemTime::now(),
+                    volume_24h_usd: 0.0,
+                    is_active: true,
                 })
             }
             Err(e) => {
@@ -299,6 +301,8 @@ impl PoolValidator {
             fee_rate: 30,
             tvl_usd: dynamic_tvl,
             last_updated: SystemTime::now(),
+            volume_24h_usd: 0.0,
+            is_active: true,
         })
     }
 }

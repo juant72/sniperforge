@@ -30,6 +30,14 @@ path = "arbitrage_bot.rs"
 name = "main_integrated"
 path = "src/bin/main_integrated.rs"
 
+[[bin]]
+name = "complete_arbitrage_system"
+path = "src/bin/complete_arbitrage_system.rs"
+
+[[bin]]
+name = "simple_arbitrage_system"
+path = "src/bin/simple_arbitrage_system.rs"
+
 # 🏆 EXPERT DEFI ARBITRAGE SYSTEM
 [[bin]]
 name = "real_arbitrage_expert"
