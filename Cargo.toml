@@ -54,6 +54,10 @@ name = "phase45_demo"
 path = "phase45_demo.rs"
 
 [[bin]]
+name = "phase45_demo_simple"
+path = "phase45_demo_simple.rs"
+
+[[bin]]
 name = "arbitrage_bot_phase45"
 path = "arbitrage_bot_phase45.rs"
 
@@ -583,7 +587,7 @@ rand = { version = "0.8", default-features = false, features = ["std", "std_rng"
 # Serde for serialization - minimal pero funcional
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
-toml = { version = "0.8", default-features = false, features = ["display"] }
+toml = { version = "0.8", default-features = false, features = ["display", "parse"] }
 dotenv = "0.15"
 bincode = { version = "1.3", default-features = false }
 
