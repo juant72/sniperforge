@@ -230,12 +230,35 @@ impl RealTimeMonitoringEngine {
     pub async fn start(&mut self) -> Result<()> {
         info!("🚀 Starting real-time monitoring engine...");
 
+        // Store enable_web_interface before borrowing
+        let enable_web_interface = self.config.enable_web_interface;
+
         // Start monitoring tasks
         let dashboard_updater = self.start_dashboard_updater();
-        let alert_processor = self.start_alert_processor();
         let metrics_collector = self.start_metrics_collector();
         let alert_evaluator = self.start_alert_evaluator();
-        let web_server = if self.config.enable_web_interface {
+        
+        // Start alert processor separately
+        let alert_processor_task = {
+            let current_alerts = Arc::clone(&self.current_alerts);
+            let execution_history = Arc::clone(&self.execution_history);
+            let config = self.config.clone();
+            
+            tokio::spawn(async move {
+                info!("📢 Alert processor started");
+                loop {
+                    sleep(Duration::from_millis(1000)).await;
+                    
+                    // Process alerts
+                    let alerts = current_alerts.read().await;
+                    if !alerts.is_empty() {
+                        debug!("Processing {} alerts", alerts.len());
+                    }
+                }
+            })
+        };
+        
+        let web_server = if enable_web_interface {
             Box::pin(self.start_web_server()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>
         } else {
             Box::pin(async { Ok(()) }) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>
@@ -246,7 +269,7 @@ impl RealTimeMonitoringEngine {
             result = dashboard_updater => {
                 error!("Dashboard updater terminated: {:?}", result);
             }
-            result = alert_processor => {
+            result = alert_processor_task => {
                 error!("Alert processor terminated: {:?}", result);
             }
             result = metrics_collector => {
