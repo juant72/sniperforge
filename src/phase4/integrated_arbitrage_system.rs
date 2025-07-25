@@ -131,9 +131,9 @@ impl IntegratedArbitrageSystem {
         // Create placeholder configurations for Phase 4 engines
         let event_driven_config = crate::phase4::event_driven_engine::EventDrivenConfig {
             opportunity_expiry_seconds: 30,
-            enable_jupiter_integration: true,
             enable_mev_protection: config.enable_mev_protection,
-            max_concurrent_opportunities: config.max_concurrent_executions,
+            max_concurrent_opportunities: config.max_concurrent_executions as usize,
+            ..Default::default()
         };
 
         // TEMPORARY: Skip Phase 4 engine initialization until engines are fully implemented
@@ -213,10 +213,10 @@ impl IntegratedArbitrageSystem {
 
         // Start main processing loops
         let processing_tasks = vec![
-            self.start_opportunity_processing(),
-            self.start_execution_processing(),
-            self.start_system_monitoring(),
-            self.start_health_checks(),
+            Box::pin(self.start_opportunity_processing()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>,
+            Box::pin(self.start_execution_processing()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>,
+            Box::pin(self.start_system_monitoring()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>,
+            Box::pin(self.start_health_checks()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>,
         ];
 
         // Run all tasks concurrently
@@ -333,7 +333,12 @@ impl IntegratedArbitrageSystem {
         info!("🔍 Triggering manual opportunity scan...");
 
         // Use event-driven engine to detect opportunities
-        let opportunities = self.event_driven_engine.scan_for_opportunities().await?;
+        let opportunities = if let Some(engine) = &self.event_driven_engine {
+            engine.scan_for_opportunities().await?
+        } else {
+            warn!("Event-driven engine not initialized");
+            Vec::new()
+        };
         
         let count = opportunities.len();
         info!("📈 Found {} opportunities from manual scan", count);
@@ -354,23 +359,33 @@ impl IntegratedArbitrageSystem {
 
         // Start event-driven engine
         let event_engine_task = {
-            let engine = self.event_driven_engine.clone_for_task();
-            let opportunity_tx = self.opportunity_tx.clone();
-            tokio::spawn(async move {
-                if let Err(e) = engine.start_with_channel(opportunity_tx).await {
-                    error!("Event-driven engine failed: {}", e);
-                }
-            })
+            if let Some(engine) = &self.event_driven_engine {
+                let engine_clone = engine.clone();
+                let opportunity_tx = self.opportunity_tx.clone();
+                Some(tokio::spawn(async move {
+                    if let Err(e) = engine_clone.start_with_channel(opportunity_tx).await {
+                        error!("Event-driven engine failed: {}", e);
+                    }
+                }))
+            } else {
+                warn!("Event-driven engine not available");
+                None
+            }
         };
 
         // Start parallel execution engine
         let execution_engine_task = {
-            let engine = self.parallel_execution_engine.clone_for_task();
-            tokio::spawn(async move {
-                if let Err(e) = engine.start().await {
-                    error!("Parallel execution engine failed: {}", e);
-                }
-            })
+            if let Some(engine) = &self.parallel_execution_engine {
+                let engine_clone = engine.clone();
+                Some(tokio::spawn(async move {
+                    if let Err(e) = engine_clone.start().await {
+                        error!("Parallel execution engine failed: {}", e);
+                    }
+                }))
+            } else {
+                warn!("Parallel execution engine not available");
+                None
+            }
         };
 
         // Start monitoring engine
@@ -402,8 +417,12 @@ impl IntegratedArbitrageSystem {
         }
 
         // Don't await these tasks - they run continuously
-        tokio::spawn(event_engine_task);
-        tokio::spawn(execution_engine_task);
+        if let Some(task) = event_engine_task {
+            tokio::spawn(task);
+        }
+        if let Some(task) = execution_engine_task {
+            tokio::spawn(task);
+        }
 
         info!("✅ All engines started");
         Ok(())
@@ -418,7 +437,11 @@ impl IntegratedArbitrageSystem {
             rx_guard.take().ok_or_else(|| anyhow::anyhow!("Opportunity receiver already taken"))?
         };
 
-        let execution_engine = self.parallel_execution_engine.clone_for_task();
+        let execution_engine = if let Some(engine) = &self.parallel_execution_engine {
+            Some(engine.clone())
+        } else {
+            None
+        };
         let system_state = Arc::clone(&self.system_state);
         let is_shutting_down = Arc::clone(&self.is_shutting_down);
         let config = self.config.clone();
@@ -471,13 +494,17 @@ impl IntegratedArbitrageSystem {
                             };
 
                             // Submit for execution
-                            match execution_engine.submit_execution(execution_request).await {
-                                Ok(execution_id) => {
-                                    debug!("✅ Submitted execution: {}", execution_id);
+                            if let Some(engine) = &execution_engine {
+                                match engine.submit_execution(execution_request).await {
+                                    Ok(execution_id) => {
+                                        debug!("✅ Submitted execution: {}", execution_id);
+                                    }
+                                    Err(e) => {
+                                        warn!("❌ Failed to submit execution: {}", e);
+                                    }
                                 }
-                                Err(e) => {
-                                    warn!("❌ Failed to submit execution: {}", e);
-                                }
+                            } else {
+                                warn!("⚠️ Execution engine not available, skipping execution");
                             }
                         } else {
                             debug!("💰 Opportunity below profit threshold: {} < {}", 

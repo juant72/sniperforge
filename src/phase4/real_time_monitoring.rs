@@ -236,7 +236,7 @@ impl RealTimeMonitoringEngine {
         let metrics_collector = self.start_metrics_collector();
         let alert_evaluator = self.start_alert_evaluator();
         let web_server = if self.config.enable_web_interface {
-            self.start_web_server()
+            Box::pin(self.start_web_server()) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>
         } else {
             Box::pin(async { Ok(()) }) as std::pin::Pin<Box<dyn futures::Future<Output = Result<()>> + Send>>
         };
