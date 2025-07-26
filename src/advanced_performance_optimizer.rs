@@ -12,7 +12,8 @@ use tracing::{info, warn, error, debug};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::arbitrage_bot_phase45_integrated::UnifiedOpportunity;
+// use crate::arbitrage_bot_phase45_integrated::UnifiedOpportunity; // ❌ ELIMINADO
+use crate::real_price_feeds::RealArbitrageOpportunity;
 
 /// Configuración del optimizador de performance
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,7 +68,7 @@ impl Default for PerformanceMetrics {
 /// Cache inteligente para oportunidades
 #[derive(Debug, Clone)]
 struct OpportunityCache {
-    data: HashMap<String, (UnifiedOpportunity, Instant)>,
+    data: HashMap<String, (RealArbitrageOpportunity, Instant)>,
     hits: u64,
     misses: u64,
     ttl: Duration,
@@ -83,7 +84,7 @@ impl OpportunityCache {
         }
     }
 
-    fn get(&mut self, key: &str) -> Option<UnifiedOpportunity> {
+    fn get(&mut self, key: &str) -> Option<RealArbitrageOpportunity> {
         if let Some((opportunity, timestamp)) = self.data.get(key) {
             if timestamp.elapsed() < self.ttl {
                 self.hits += 1;
@@ -98,7 +99,7 @@ impl OpportunityCache {
         None
     }
 
-    fn set(&mut self, key: String, opportunity: UnifiedOpportunity) {
+    fn set(&mut self, key: String, opportunity: RealArbitrageOpportunity) {
         self.data.insert(key, (opportunity, Instant::now()));
         debug!("💾 Cache SET para oportunidad");
     }
@@ -155,10 +156,10 @@ impl AdvancedPerformanceOptimizer {
     pub async fn optimize_opportunity_discovery<F, Fut>(
         &mut self,
         discovery_fn: F,
-    ) -> Result<Vec<UnifiedOpportunity>>
+    ) -> Result<Vec<RealArbitrageOpportunity>>
     where
         F: Fn() -> Fut + Send + Sync + Clone + 'static,
-        Fut: std::future::Future<Output = Result<Vec<UnifiedOpportunity>>> + Send,
+        Fut: std::future::Future<Output = Result<Vec<RealArbitrageOpportunity>>> + Send,
     {
         let start_time = Instant::now();
         self.metrics.total_cycles += 1;
@@ -207,10 +208,10 @@ impl AdvancedPerformanceOptimizer {
     async fn parallel_discovery<F, Fut>(
         &mut self,
         discovery_fn: F,
-    ) -> Result<Vec<UnifiedOpportunity>>
+    ) -> Result<Vec<RealArbitrageOpportunity>>
     where
         F: Fn() -> Fut + Send + Sync + Clone + 'static,
-        Fut: std::future::Future<Output = Result<Vec<UnifiedOpportunity>>> + Send,
+        Fut: std::future::Future<Output = Result<Vec<RealArbitrageOpportunity>>> + Send,
     {
         debug!("🔄 Ejecutando discovery paralelo");
 
@@ -256,17 +257,17 @@ impl AdvancedPerformanceOptimizer {
     }
 
     /// Deduplicar oportunidades similares
-    fn deduplicate_opportunities(&self, opportunities: &mut Vec<UnifiedOpportunity>) {
+    fn deduplicate_opportunities(&self, opportunities: &mut Vec<RealArbitrageOpportunity>) {
         let original_count = opportunities.len();
         
         // Ordenar por profit descendente y deduplicar por token/route similar
-        opportunities.sort_by(|a, b| b.get_estimated_profit().partial_cmp(&a.get_estimated_profit()).unwrap());
+        opportunities.sort_by(|a, b| b.estimated_profit_sol.partial_cmp(&a.estimated_profit_sol).unwrap());
         
         let mut seen_routes = std::collections::HashSet::new();
         opportunities.retain(|op| {
             let route_key = format!("{}_{}", 
-                op.get_input_mint().to_string(), 
-                op.get_output_mint().to_string()
+                op.token_mint, 
+                op.token_symbol
             );
             
             if seen_routes.contains(&route_key) {

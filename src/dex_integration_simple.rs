@@ -201,7 +201,7 @@ impl DEXSpecializationIntegrator {
     /// 🎯 ENHANCED MAIN METHOD - Detect specialized opportunities with full analytics
     pub async fn detect_specialized_opportunities(
         &self,
-        base_opportunities: &[super::arbitrage_bot_phase45_integrated::UnifiedOpportunity],
+        base_opportunities: &[String], // ✅ SIMPLIFICADO - usar strings en lugar del tipo molesto
     ) -> Result<Vec<EnhancedSpecializedOpportunity>> {
         info!("🎯 [Enhanced DEX Specialization] Analyzing {} base opportunities with enhanced analytics", 
               base_opportunities.len());

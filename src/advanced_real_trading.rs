@@ -10,8 +10,9 @@ use tokio::time::timeout;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, anyhow};
 use log::{info, warn, error, debug};
+use rand;
 
-use crate::arbitrage_bot_phase45_integrated::{ArbitrageBotPhase45Integrated, UnifiedOpportunity};
+use crate::real_price_feeds::RealArbitrageOpportunity;
 
 /// Configuración para trading real avanzado
 #[derive(Debug, Clone)]
@@ -89,7 +90,7 @@ impl Default for RealTimeTradingMetrics {
 #[derive(Debug, Clone)]
 pub struct TradeExecutionResult {
     pub trade_id: String,
-    pub opportunity: UnifiedOpportunity,
+    pub opportunity: RealArbitrageOpportunity,
     pub execution_successful: bool,
     pub actual_profit_sol: f64,
     pub fees_paid_sol: f64,
@@ -112,7 +113,7 @@ pub enum TradingSessionState {
 /// Sistema de trading real avanzado
 pub struct AdvancedRealTradingSystem {
     config: AdvancedTradingConfig,
-    arbitrage_engine: Arc<ArbitrageBotPhase45Integrated>,
+    // arbitrage_engine: Arc<ArbitrageBotPhase45Integrated>, // ❌ ELIMINADO - usar directamente real_price_feeds
     metrics: Arc<Mutex<RealTimeTradingMetrics>>,
     session_state: Arc<Mutex<TradingSessionState>>,
     trade_history: Arc<Mutex<Vec<TradeExecutionResult>>>,
@@ -122,7 +123,7 @@ pub struct AdvancedRealTradingSystem {
 
 impl AdvancedRealTradingSystem {
     /// Crear nueva instancia del sistema de trading real
-    pub fn new(config: AdvancedTradingConfig, arbitrage_engine: Arc<ArbitrageBotPhase45Integrated>) -> Self {
+    pub fn new(config: AdvancedTradingConfig) -> Self {
         let metrics = RealTimeTradingMetrics {
             trading_session_start: Instant::now(),
             ..Default::default()
@@ -130,7 +131,7 @@ impl AdvancedRealTradingSystem {
         
         Self {
             config,
-            arbitrage_engine,
+            // arbitrage_engine, // ❌ ELIMINADO - usar directamente real_price_feeds
             metrics: Arc::new(Mutex::new(metrics)),
             session_state: Arc::new(Mutex::new(TradingSessionState::Active)),
             trade_history: Arc::new(Mutex::new(Vec::new())),
@@ -170,8 +171,10 @@ impl AdvancedRealTradingSystem {
             return Ok(results);
         }
         
-        // Buscar oportunidades
-        let opportunities = self.arbitrage_engine.discover_opportunities().await?;
+        // Buscar oportunidades usando directamente real_price_feeds (sin el sistema eliminado)
+        use crate::real_price_feeds::RealPriceFeeds;
+        let price_feeds = RealPriceFeeds::new();
+        let opportunities = price_feeds.find_real_arbitrage_opportunities().await?;
         
         if opportunities.is_empty() {
             debug!("📊 No hay oportunidades detectadas en este ciclo");
@@ -213,12 +216,13 @@ impl AdvancedRealTradingSystem {
     }
     
     /// Filtrar oportunidades aptas para trading real
-    async fn filter_opportunities_for_real_trading(&self, opportunities: Vec<UnifiedOpportunity>) -> Result<Vec<UnifiedOpportunity>> {
+    async fn filter_opportunities_for_real_trading(&self, opportunities: Vec<RealArbitrageOpportunity>) -> Result<Vec<RealArbitrageOpportunity>> {
         let mut valid_opportunities = Vec::new();
         
         for opportunity in opportunities {
-            let profit_sol = opportunity.get_estimated_profit();
-            let confidence = opportunity.get_confidence();
+            // Usar los campos correctos de RealArbitrageOpportunity
+            let profit_sol = opportunity.estimated_profit_sol;
+            let confidence = opportunity.confidence_score;
             
             // Filtro 1: Profit mínimo
             if profit_sol < self.config.min_profit_threshold {
@@ -256,13 +260,17 @@ impl AdvancedRealTradingSystem {
     }
     
     /// Ejecutar un trade individual
-    async fn execute_single_trade(&self, opportunity: UnifiedOpportunity) -> Result<TradeExecutionResult> {
+    async fn execute_single_trade(&self, opportunity: RealArbitrageOpportunity) -> Result<TradeExecutionResult> {
         let trade_id = format!("trade_{}", chrono::Utc::now().timestamp_millis());
         let start_time = Instant::now();
         
+        // Usar los campos correctos de RealArbitrageOpportunity
+        let expected_profit = opportunity.estimated_profit_sol;
+        let confidence = opportunity.confidence_score;
+        
         info!("🔥 [EXECUTING REAL TRADE] ID: {}", trade_id);
-        info!("   💰 Expected profit: {} SOL", opportunity.get_estimated_profit());
-        info!("   🎯 Confidence: {}", opportunity.get_confidence());
+        info!("   💰 Expected profit: {} SOL", expected_profit);
+        info!("   🎯 Confidence: {}", confidence);
         
         // Verificar safety monitor antes de ejecutar
         if let Ok(mut monitor) = self.safety_monitor.lock() {
@@ -309,10 +317,10 @@ impl AdvancedRealTradingSystem {
     }
     
     /// Simular ejecución de trade (reemplazar con implementación real)
-    async fn simulate_trade_execution(&self, opportunity: &UnifiedOpportunity) -> Result<TradeSimulationResult> {
-        // Simulación realista basada en datos históricos
-        let base_profit = opportunity.get_estimated_profit();
-        let confidence = opportunity.get_confidence();
+    async fn simulate_trade_execution(&self, opportunity: &RealArbitrageOpportunity) -> Result<TradeSimulationResult> {
+        // Simulación realista basada en datos históricos - usando RealArbitrageOpportunity
+        let base_profit = opportunity.estimated_profit_sol;
+        let confidence = opportunity.confidence_score;
         
         // Simular variabilidad realista
         let success_probability = confidence * 0.9; // 90% de la confidence como probabilidad de éxito
@@ -519,7 +527,7 @@ impl SafetyMonitor {
         }
     }
     
-    fn approve_trade(&mut self, _opportunity: &UnifiedOpportunity) -> bool {
+    fn approve_trade(&mut self, _opportunity: &RealArbitrageOpportunity) -> bool {
         // Implementar lógica de aprobación de trades
         true // Por ahora aprobamos todos
     }

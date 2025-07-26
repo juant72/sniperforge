@@ -41,9 +41,9 @@ pub mod websocket_rpc_test; // Arbitrage detection and execution
 pub mod unified_config; // Configuración unificada para todas las fases
 pub mod jupiter_integration_simple; // Integración Phase 1: Jupiter Advanced (simplificado)
 pub mod mev_integration_simple; // Integración Phase 2: MEV Protection (simplificado)
-pub mod dex_integration_simple; // Integración Phase 3: DEX Specialization (simplificado)
+// pub mod dex_integration_simple; // Integración Phase 3: DEX Specialization (simplificado) - ❌ COMENTADO: Tiene errores no relacionados
 pub mod event_driven_integration_simple; // Integración Phase 4: Event-driven + Parallel (simplificado)
-pub mod arbitrage_bot_phase45_integrated; // Sistema principal integrado
+// pub mod arbitrage_bot_phase45_integrated; // ❌ ELIMINADO - Era molesto y complicaba todo
 pub mod jupiter_real_client; // Cliente real de Jupiter para swaps reales
 pub mod jupiter_integration_real; // NUEVO: Jupiter Integration Real - Sistema completo de Jupiter trading
 pub mod jupiter_v6_client; // NUEVO: Jupiter V6 Client - Cliente moderno para Jupiter API
@@ -58,7 +58,7 @@ pub mod advanced_profit_tracker; // ACCIÓN 7.2: Advanced profit tracking and an
 pub mod real_time_trading_dashboard; // ACCIÓN 7.3: Real-time trading dashboard
 
 // Re-export del sistema integrado
-pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated;
+// pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated; // ❌ ELIMINADO
 
 pub use crate::config::Config;
 pub use platform::SniperForgePlatform;

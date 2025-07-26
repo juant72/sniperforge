@@ -541,19 +541,31 @@ impl ArbitrageBotPhase45Integrated {
                    i, opp.get_id(), profit, confidence, opp_type);
         }
         
-        let min_profit_threshold = 0.00005; // ADJUSTED: Para permitir profits de 0.1% en 0.1 SOL (0.0001 SOL)
-        info!("🔍 [Filter Debug] Threshold: profit >= {:.8}, confidence >= 0.3", min_profit_threshold);
+        let min_profit_threshold = 0.00001; // AJUSTADO: Para permitir arbitrajes ganadores reales (0.001%)
+        let min_confidence_threshold = 0.2; // AJUSTADO: Para permitir oportunidades válidas con confianza razonable
+        info!("🔍 [Filter Debug] Threshold: profit >= {:.8}, confidence >= {:.2}", min_profit_threshold, min_confidence_threshold);
         
-        // Filtrar por criterios mínimos
+        // Filtrar por criterios mínimos - NUNCA bloquear arbitrajes ganadores reales
         opportunities.retain(|opp| {
             let profit = opp.get_estimated_profit();
             let confidence = opp.get_confidence();
             let profit_ok = profit >= min_profit_threshold;
-            let confidence_ok = confidence >= 0.3;
+            let confidence_ok = confidence >= min_confidence_threshold;
+            
+            // CRITERIO CRÍTICO: Si es un arbitraje realmente rentable (>0.05%), siempre permitir
+            let is_real_arbitrage = profit >= 0.0005; // 0.05% = arbitraje real ganador
             
             if !profit_ok || !confidence_ok {
-                info!("❌ [Filter] Rejected {}: profit={:.8}({}), confidence={:.3}({})", 
-                      opp.get_id(), profit, profit_ok, confidence, confidence_ok);
+                // Solo rechazar si NO es un arbitraje real ganador
+                if !is_real_arbitrage {
+                    info!("❌ [Filter] Rejected {}: profit={:.8}({}), confidence={:.3}({})", 
+                          opp.get_id(), profit, profit_ok, confidence, confidence_ok);
+                    return false;
+                } else {
+                    info!("✅ [Filter] ARBITRAJE GANADOR PERMITIDO {}: profit={:.8}, confidence={:.3}", 
+                          opp.get_id(), profit, confidence);
+                    return true;
+                }
             }
             
             profit_ok && confidence_ok

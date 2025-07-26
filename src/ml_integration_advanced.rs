@@ -3,7 +3,7 @@
 // Autor: SniperForge Advanced ML Engine
 // Fecha: 2025-07-26
 
-use crate::arbitrage_bot_phase45_integrated::UnifiedOpportunity;
+// use crate::arbitrage_bot_phase45_integrated::UnifiedOpportunity; // ❌ ELIMINADO
 use std::collections::{HashMap, VecDeque};
 use tokio::time::{Duration, Instant};
 use serde::{Serialize, Deserialize};
