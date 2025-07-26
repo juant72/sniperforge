@@ -650,11 +650,27 @@ impl DEXSpecializationIntegrator {
             score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // Enhanced filtering
+        // Enhanced filtering - FIXED: profit is in SOL (0.000017 for 1.7% on 1mSOL)
+        // DEBUG: Log what we're filtering
+        for opp in &opportunities {
+            debug!("🔍 [Filter Debug] Opp {}: profit={:.6}, confidence={:.3}, priority={}", 
+                   opp.base_opportunity_id, opp.enhanced_profit_sol, opp.confidence_multiplier, opp.execution_priority);
+        }
+        
         opportunities.retain(|opp| {
-            opp.enhanced_profit_sol > 0.0002 &&   // Enhanced minimum profit threshold
-            opp.confidence_multiplier > 0.4 &&    // Enhanced minimum confidence threshold
-            opp.execution_priority >= 6           // Enhanced priority threshold
+            let profit_ok = opp.enhanced_profit_sol > 0.000005; // 0.5% profit on 1mSOL = 0.000005 SOL
+            let confidence_ok = opp.confidence_multiplier > 0.4;
+            let priority_ok = opp.execution_priority >= 6;
+            
+            if !profit_ok || !confidence_ok || !priority_ok {
+                info!("❌ [Filter] Rejected {}: profit={:.6}({}), confidence={:.3}({}), priority={}({})",
+                      opp.base_opportunity_id, 
+                      opp.enhanced_profit_sol, profit_ok,
+                      opp.confidence_multiplier, confidence_ok,
+                      opp.execution_priority, priority_ok);
+            }
+            
+            profit_ok && confidence_ok && priority_ok
         });
 
         // Enhanced limit for optimal execution

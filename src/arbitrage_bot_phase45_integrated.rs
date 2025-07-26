@@ -530,14 +530,36 @@ impl ArbitrageBotPhase45Integrated {
     
     /// Filtrar y rankear oportunidades por calidad
     async fn filter_and_rank_opportunities(&self, mut opportunities: Vec<UnifiedOpportunity>) -> Vec<UnifiedOpportunity> {
+        info!("🔍 [Filter Debug] Procesando {} oportunidades antes del filtro", opportunities.len());
+        
+        // DEBUG: Log cada oportunidad antes del filtro
+        for (i, opp) in opportunities.iter().enumerate() {
+            let profit = opp.get_estimated_profit();
+            let confidence = opp.get_confidence();
+            let opp_type = opp.get_type();
+            debug!("   Opp {}: {} - profit={:.8}, confidence={:.3}, type={}", 
+                   i, opp.get_id(), profit, confidence, opp_type);
+        }
+        
+        let min_profit_threshold = 0.000005; // FIXED: 0.5% profit on 1mSOL = realistic threshold
+        info!("🔍 [Filter Debug] Threshold: profit >= {:.8}, confidence >= 0.3", min_profit_threshold);
+        
         // Filtrar por criterios mínimos
         opportunities.retain(|opp| {
             let profit = opp.get_estimated_profit();
             let confidence = opp.get_confidence();
+            let profit_ok = profit >= min_profit_threshold;
+            let confidence_ok = confidence >= 0.3;
             
-            profit >= self.config.min_profit_bps as f64 / 10000.0 && 
-            confidence >= 0.3 // Mínimo 30% confianza
+            if !profit_ok || !confidence_ok {
+                info!("❌ [Filter] Rejected {}: profit={:.8}({}), confidence={:.3}({})", 
+                      opp.get_id(), profit, profit_ok, confidence, confidence_ok);
+            }
+            
+            profit_ok && confidence_ok
         });
+        
+        info!("✅ [Filter Debug] {} oportunidades después del filtro", opportunities.len());
         
         // Rankear por score combinado: profit * confidence
         opportunities.sort_by(|a, b| {
