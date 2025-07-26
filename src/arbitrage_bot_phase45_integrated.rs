@@ -1158,8 +1158,8 @@ impl BasicDiscoveryEngine {
                     created_at: Instant::now(),
                 });
                 
-                info!("💰 Oportunidad REAL detectada: {} ({:.4}% profit)", 
-                      real_opp.token_symbol, real_opp.price_difference_pct);
+                info!("💰 Oportunidad REAL detectada: {} ({:.4}% profit real)", 
+                      real_opp.token_symbol, (real_opp.estimated_profit_sol / real_opp.trade_amount_sol) * 100.0);
             } else {
                 debug!("❌ Oportunidad rechazada: {} - Profit: {:.8} SOL < 0.00001 o Confianza: {:.2}% < 50%", 
                        real_opp.token_symbol, real_opp.estimated_profit_sol, real_opp.confidence_score * 100.0);

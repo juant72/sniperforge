@@ -64,7 +64,7 @@ impl RealPriceFeeds {
 
         Self {
             dexscreener_enabled: true,
-            jupiter_enabled: true,
+            jupiter_enabled: true, // ✅ Habilitado para trading real
             birdeye_enabled: false, // ❌ Deshabilitado - requiere API key
             http_client,
             last_coingecko_request: Arc::new(Mutex::new(std::time::Instant::now() - Duration::from_secs(60))),
@@ -362,14 +362,14 @@ impl RealPriceFeeds {
         Ok(prices)
     }
 
-    /// Obtener precio de Jupiter con endpoints corregidos y alternativas
+    /// Obtener precio de Jupiter con endpoints v6 actualizados
     async fn get_jupiter_price(&self, mint: &str) -> Result<DEXPrice> {
-        // ENDPOINTS CORREGIDOS DE JUPITER
+        // ENDPOINTS V6 DE JUPITER ACTUALIZADOS
         let endpoints = vec![
-            // Endpoint principal de Jupiter v6 (más reciente)
-            format!("https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000", mint),
-            // Endpoint alternativo si existe
-            format!("https://api.jup.ag/price/{}", mint),
+            // Token price endpoint (más directo)
+            format!("https://api.jup.ag/price/v2?ids={}", mint),
+            // Quote endpoint convertido a precio
+            format!("https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000&slippageBps=50", mint),
         ];
 
         let mut last_error = None;
@@ -398,25 +398,36 @@ impl RealPriceFeeds {
 
     /// Intentar un endpoint específico de Jupiter
     async fn try_jupiter_endpoint(&self, url: &str, mint: &str) -> Result<DEXPrice> {
-        let response = timeout(Duration::from_secs(10), // Más tiempo para Jupiter
+        let response = timeout(Duration::from_secs(15), // Más tiempo para Jupiter v6
             self.http_client
                 .get(url)
                 .header("User-Agent", "SniperForge/1.0")
-                .timeout(Duration::from_secs(8))
+                .header("Accept", "application/json")
+                .timeout(Duration::from_secs(12))
                 .send()
         ).await.map_err(|_| anyhow!("Jupiter request timeout"))?
           .map_err(|e| anyhow!("Jupiter connection error: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Jupiter API error: {} - {}", response.status(), response.text().await.unwrap_or_default()));
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Jupiter API error: {} - {}", response.status(), error_text));
         }
 
         let data: Value = response.json().await
             .map_err(|e| anyhow!("Jupiter JSON parse error: {}", e))?;
         
-        // Intentar diferentes formatos de respuesta de Jupiter
+        // Parsear respuesta de Jupiter v6
         let price_usd = if let Some(price_data) = data["data"][mint].as_object() {
+            // Formato v2 price API
             price_data["price"].as_f64()
+        } else if let Some(quote_data) = data.as_object() {
+            // Formato v6 quote API - calcular precio desde quote
+            if let Some(out_amount) = quote_data["outAmount"].as_str() {
+                let out_amount_f64: f64 = out_amount.parse().unwrap_or(0.0);
+                if out_amount_f64 > 0.0 {
+                    Some(out_amount_f64 / 1_000_000.0) // Convertir de microUSDC a USD
+                } else { None }
+            } else { None }
         } else if let Some(price) = data[mint]["price"].as_f64() {
             Some(price)
         } else if let Some(price_str) = data[mint]["price"].as_str() {

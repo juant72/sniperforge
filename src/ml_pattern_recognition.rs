@@ -397,9 +397,9 @@ pub fn analyze_market_condition(recent_opportunities: &[OpportunityPattern]) -> 
     
     let market_trend = if volatility > 1.5 {
         MarketTrend::HighVolatility
-    } else if avg_profit > 99.85 {
+    } else if avg_profit > 0.85 {
         MarketTrend::Bullish
-    } else if avg_profit < 99.80 {
+    } else if avg_profit < 0.80 {
         MarketTrend::Bearish
     } else {
         MarketTrend::Sideways
