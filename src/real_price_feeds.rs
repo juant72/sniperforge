@@ -9,6 +9,7 @@ use tracing::{info, warn, debug};
 use std::collections::HashMap;
 use serde_json::Value;
 use tokio::time::{timeout, Duration};
+use std::sync::{Arc, Mutex};
 
 /// Cliente para obtener precios reales de múltiples DEXs
 pub struct RealPriceFeeds {
@@ -16,6 +17,8 @@ pub struct RealPriceFeeds {
     jupiter_enabled: bool,
     birdeye_enabled: bool,
     http_client: reqwest::Client,
+    // Rate limiting para CoinGecko
+    last_coingecko_request: Arc<Mutex<std::time::Instant>>,
 }
 
 /// Precio real de un token en un DEX específico
@@ -64,6 +67,7 @@ impl RealPriceFeeds {
             jupiter_enabled: true,
             birdeye_enabled: false, // Requiere API key
             http_client,
+            last_coingecko_request: Arc::new(Mutex::new(std::time::Instant::now() - Duration::from_secs(60))),
         }
     }
 
@@ -354,8 +358,23 @@ impl RealPriceFeeds {
         })
     }
 
-    /// Obtener precio de CoinGecko como fallback (gratuito, sin API key)
+    /// Obtener precio de CoinGecko como fallback (gratuito, sin API key) con rate limiting
     async fn get_coingecko_price(&self, mint: &str) -> Result<DEXPrice> {
+        // Rate limiting: máximo 1 request cada 2 segundos para evitar 429
+        {
+            let mut last_request = self.last_coingecko_request.lock().unwrap();
+            let time_since_last = last_request.elapsed();
+            if time_since_last < Duration::from_secs(2) {
+                let wait_time = Duration::from_secs(2) - time_since_last;
+                debug!("⏳ Rate limiting CoinGecko: esperando {:?}", wait_time);
+                drop(last_request); // Release lock before sleeping
+                tokio::time::sleep(wait_time).await;
+                *self.last_coingecko_request.lock().unwrap() = std::time::Instant::now();
+            } else {
+                *last_request = std::time::Instant::now();
+            }
+        }
+
         // Mapeo de mints conocidos a IDs de CoinGecko
         let coingecko_id = match mint {
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "usd-coin",
@@ -378,7 +397,10 @@ impl RealPriceFeeds {
           .map_err(|e| anyhow!("CoinGecko connection error: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("CoinGecko API error: {}", response.status()));
+            return Err(anyhow!("CoinGecko API error: {} - {}", 
+                response.status(), 
+                response.text().await.unwrap_or_default()
+            ));
         }
 
         let data: Value = response.json().await

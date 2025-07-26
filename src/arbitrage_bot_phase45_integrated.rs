@@ -793,7 +793,7 @@ impl ArbitrageBotPhase45Integrated {
                         }
                         
                         // Ejecutar en background para paralelismo
-                        let _system = self.clone(); // Asumiríamos Clone implementado
+                        let _system = self; // Simplificado - no necesita Clone
                         // Cambiar a una ejecución sincrona para evitar problemas de ownership
                         if let Err(e) = self.execute_opportunity(opportunity).await {
                             error!("Error ejecutando oportunidad: {}", e);
@@ -987,7 +987,8 @@ impl BasicDiscoveryEngine {
         
         for real_opp in real_opportunities {
             // Solo incluir oportunidades con profit significativo
-            if real_opp.estimated_profit_sol > 0.0001 && real_opp.confidence_score > 0.7 {
+            // Filtros más permisivos para permitir más oportunidades
+            if real_opp.estimated_profit_sol > 0.00001 && real_opp.confidence_score > 0.5 { // Relajado: 0.01 mSOL y 50% confianza
                 basic_opportunities.push(BasicOpportunity {
                     id: real_opp.id,
                     token_a: solana_sdk::pubkey::Pubkey::from_str(&real_opp.token_mint).unwrap_or_default(),
