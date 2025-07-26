@@ -65,7 +65,7 @@ impl RealPriceFeeds {
         Self {
             dexscreener_enabled: true,
             jupiter_enabled: true,
-            birdeye_enabled: false, // Requiere API key
+            birdeye_enabled: true, // ✅ Birdeye tiene endpoints públicos gratuitos
             http_client,
             last_coingecko_request: Arc::new(Mutex::new(std::time::Instant::now() - Duration::from_secs(60))),
         }
@@ -157,16 +157,19 @@ impl RealPriceFeeds {
             }
         }
 
-        // 2. Birdeye API (gratuito, más confiable que Jupiter)
-        if let Ok(birdeye_price) = self.get_birdeye_price(mint).await {
-            info!("✅ Birdeye: precio ${:.6} obtenido", birdeye_price.price_usd);
-            prices.push(birdeye_price);
-            successful_sources += 1;
-        } else {
-            debug!("❌ Birdeye no disponible para {}", mint);
+        // 2. Birdeye API (gratuito, más confiable que Jupiter) - SEGUNDA PRIORIDAD
+        if self.birdeye_enabled {
+            match self.get_birdeye_price(mint).await {
+                Ok(birdeye_price) => {
+                    info!("✅ Birdeye: precio ${:.6} obtenido", birdeye_price.price_usd);
+                    prices.push(birdeye_price);
+                    successful_sources += 1;
+                },
+                Err(e) => warn!("⚠️ Birdeye error: {}", e),
+            }
         }
 
-        // 3. Jupiter Price API (menos confiable ahora) - BAJA PRIORIDAD
+        // 3. Jupiter Price API (menos confiable ahora) - SOLO SI NECESITAMOS MÁS FUENTES
         if self.jupiter_enabled && successful_sources < 2 {
             match self.get_jupiter_price(mint).await {
                 Ok(jupiter_price) => {
@@ -178,10 +181,10 @@ impl RealPriceFeeds {
             }
         }
 
-        // 4. Fallback inteligente solo si tenemos muy pocos datos
+        // 4. Fallback inteligente solo si tenemos muy pocos datos (NO CoinGecko por defecto)
         if prices.len() < 2 {
-            warn!("⚠️ Pocas fuentes disponibles, intentando fallbacks para token {}", mint);
-            if let Ok(fallback_price) = self.get_fallback_price(mint).await {
+            warn!("⚠️ Pocas fuentes disponibles ({} precios), usando fallbacks hardcoded", prices.len());
+            if let Ok(fallback_price) = self.get_hardcoded_fallback_price(mint).await {
                 prices.push(fallback_price);
             }
         }
@@ -190,29 +193,96 @@ impl RealPriceFeeds {
         Ok(prices)
     }
 
-    /// Precio de fallback cuando todas las APIs principales fallan
-    async fn get_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
-        // NO usar CoinGecko como fallback automático para evitar rate limiting
-        // Solo usar precios hardcoded más realistas
-        info!("⚠️ Usando precios hardcoded como fallback para {}", mint);
-        let fallback_prices = match mint {
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0001, // USDC
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0002, // USDT
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => 0.000036, // BONK 
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 3.02, // RAY
-            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => 0.556, // JUP
-            _ => return Err(anyhow!("No fallback price available for {}", mint)),
+    /// Precios hardcoded como último recurso (más confiable que APIs con rate limiting)
+    async fn get_hardcoded_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
+    /// Precios hardcoded como último recurso (más confiable que APIs con rate limiting)
+    async fn get_hardcoded_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
+        info!("⚠️ Usando precios hardcoded para {}", mint);
+        let (price_usd, symbol) = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => (1.0001, "USDC"), // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => (1.0002, "USDT"), // USDT
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => (0.000025, "BONK"), // BONK
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => (0.65, "RAY"), // Raydium
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => (0.85, "JUP"), // Jupiter
+            _ => return Err(anyhow!("Token {} no tiene fallback hardcoded", mint)),
         };
 
         Ok(DEXPrice {
-            dex_name: "HardcodedFallback".to_string(),
+            dex_name: "Hardcoded_Fallback".to_string(),
             token_mint: mint.to_string(),
-            price_usd: fallback_prices,
+            price_usd,
             price_sol: None,
-            liquidity_usd: 10000.0, // Liquidez simulada
-            volume_24h: 1000.0,
+            liquidity_usd: 1000000.0, // Asumir liquidez alta para fallback
+            volume_24h: 100000.0,
             last_updated: chrono::Utc::now(),
-            source: "Fallback".to_string(),
+            source: format!("Hardcoded ({})", symbol),
+        })
+    }
+
+    /// CoinGecko solo para uso MANUAL cuando sea necesario (evitar 429 automático)
+    async fn get_coingecko_price_manual(&self, mint: &str) -> Result<DEXPrice> {
+        // Rate limiting: máximo 1 request cada 3 segundos para evitar 429
+        {
+            let mut last_request = self.last_coingecko_request.lock().unwrap();
+            let time_since_last = last_request.elapsed();
+            if time_since_last < Duration::from_secs(3) {
+                let wait_time = Duration::from_secs(3) - time_since_last;
+                debug!("⏳ Rate limiting CoinGecko: esperando {:?}", wait_time);
+                drop(last_request);
+                tokio::time::sleep(wait_time).await;
+                *self.last_coingecko_request.lock().unwrap() = std::time::Instant::now();
+            } else {
+                *last_request = std::time::Instant::now();
+            }
+        }
+
+        // Mapeo conservador de tokens conocidos
+        let coingecko_id = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "usd-coin",
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "tether", 
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => "bonk",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "raydium",
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => "jupiter-exchange-solana",
+            _ => return Err(anyhow!("Token {} no soportado en CoinGecko", mint)),
+        };
+
+        let url = format!("https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=usd", coingecko_id);
+        
+        let response = timeout(Duration::from_secs(10),
+            self.http_client
+                .get(&url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .timeout(Duration::from_secs(8))
+                .send()
+        ).await.map_err(|_| anyhow!("CoinGecko timeout"))?
+          .map_err(|e| anyhow!("CoinGecko connection error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("CoinGecko API error: {} - {}", 
+                response.status(),
+                response.text().await.unwrap_or_default()
+            ));
+        }
+
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("CoinGecko JSON error: {}", e))?;
+
+        let price_usd = data[coingecko_id]["usd"].as_f64()
+            .ok_or_else(|| anyhow!("Invalid CoinGecko price format"))?;
+
+        if price_usd <= 0.0 {
+            return Err(anyhow!("Invalid CoinGecko price: {}", price_usd));
+        }
+
+        Ok(DEXPrice {
+            dex_name: "CoinGecko".to_string(),
+            token_mint: mint.to_string(),
+            price_usd,
+            price_sol: None,
+            liquidity_usd: 0.0,
+            volume_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+            source: "CoinGecko".to_string(),
         })
     }
 
