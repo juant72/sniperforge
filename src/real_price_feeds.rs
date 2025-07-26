@@ -195,8 +195,6 @@ impl RealPriceFeeds {
 
     /// Precios hardcoded como último recurso (más confiable que APIs con rate limiting)
     async fn get_hardcoded_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
-    /// Precios hardcoded como último recurso (más confiable que APIs con rate limiting)
-    async fn get_hardcoded_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
         info!("⚠️ Usando precios hardcoded para {}", mint);
         let (price_usd, symbol) = match mint {
             "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => (1.0001, "USDC"), // USDC
