@@ -123,6 +123,13 @@ impl RealPriceFeeds {
                 let price_a = &prices[i];
                 let price_b = &prices[j];
 
+                // ✅ PROTECCIÓN ANTI-CIRCULAR: No comparar mismo DEX
+                if price_a.dex_name == price_b.dex_name {
+                    debug!("⏸️ Saltando comparación circular: {} vs {} (mismo DEX: {})", 
+                           price_a.dex_name, price_b.dex_name, price_a.dex_name);
+                    continue;
+                }
+
                 // Calcular diferencia de precio
                 let price_diff_pct = ((price_b.price_usd - price_a.price_usd) / price_a.price_usd).abs() * 100.0;
 
@@ -642,6 +649,12 @@ impl RealPriceFeeds {
         price_b: DEXPrice,
         price_diff_pct: f64,
     ) -> Result<RealArbitrageOpportunity> {
+        
+        // ✅ SEGUNDA PROTECCIÓN ANTI-CIRCULAR: Verificar que no sean el mismo DEX
+        if price_a.dex_name == price_b.dex_name {
+            return Err(anyhow!("Arbitraje circular detectado: mismo DEX {} para {}", 
+                              price_a.dex_name, symbol));
+        }
         
         // Determinar DEX con menor precio (comprar) y mayor precio (vender)
         let min_price = price_a.price_usd.min(price_b.price_usd);
