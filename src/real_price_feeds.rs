@@ -77,12 +77,16 @@ impl RealPriceFeeds {
         
         let mut opportunities = Vec::new();
         
-        // 1. TOKENS PRINCIPALES PARA ARBITRAJE
+        // 1. TOKENS PRINCIPALES PARA ARBITRAJE (EXPANDIDA PARA MÁS OPORTUNIDADES)
         let target_tokens = vec![
-            ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-            ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
-            ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"),
-            ("JUP", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),
+            ("SOL", "So11111111111111111111111111111111111111112"),    // SOL - MÁS LÍQUIDO
+            ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),  // USDC
+            ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),   // Raydium
+            ("BONK", "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"), // BONK
+            ("JUP", "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"),   // Jupiter
+            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),  // USDT
+            ("WIF", "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm"),   // dogwifhat
+            ("PYTH", "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3"), // Pyth
         ];
 
         for (symbol, mint) in target_tokens {
@@ -122,21 +126,22 @@ impl RealPriceFeeds {
                 // Calcular diferencia de precio
                 let price_diff_pct = ((price_b.price_usd - price_a.price_usd) / price_a.price_usd).abs() * 100.0;
 
-                // Filtrar por diferencia mínima significativa (RELAJADO PARA MÁS DETECCIÓN)
-                if price_diff_pct > 0.1 && price_diff_pct < 50.0 { // Entre 0.1% y 50% (más permisivo)
+                // Filtrar por diferencia mínima significativa (ULTRA PERMISIVO PARA MÁXIMA DETECCIÓN)
+                if price_diff_pct > 0.01 && price_diff_pct < 50.0 { // Entre 0.01% y 50% (ULTRA permisivo)
                     let opportunity = self.create_arbitrage_opportunity(
                         symbol, mint, price_a.clone(), price_b.clone(), price_diff_pct
                     ).await?;
 
-                    // FILTROS AJUSTADOS PARA DETECTAR MÁS OPORTUNIDADES
-                    // Reducir threshold mínimo y confidence para mayor detección
-                    if opportunity.price_difference_pct > 0.05 && opportunity.confidence_score > 0.3 {
+                    // FILTROS ULTRA PERMISIVOS PARA DETECTAR CUALQUIER OPORTUNIDAD
+                    // Reducir thresholds al mínimo para máxima detección
+                    if opportunity.price_difference_pct > 0.01 && opportunity.confidence_score > 0.1 {
                         info!("✅ Oportunidad detectada: {} ({}% profit, {:.1}% confidence)", 
                               symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
                         opportunities.push(opportunity);
-                    } else if opportunity.price_difference_pct > 0.01 {
-                        debug!("⚠️ Oportunidad marginal: {} ({}% profit, {:.1}% confidence)", 
+                    } else if opportunity.price_difference_pct > 0.005 {
+                        info!("⚠️ Oportunidad marginal detectada: {} ({}% profit, {:.1}% confidence)", 
                                symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
+                        opportunities.push(opportunity); // Incluir incluso oportunidades marginales
                     }
                 }
             }
@@ -651,30 +656,30 @@ impl RealPriceFeeds {
         // Calcular profit estimado REAL (después de costos)
         let base_trade_amount = 0.001; // 1 mSOL base
         
-        // Costs reales en DeFi:
+        // Costs reales en DeFi AJUSTADOS PARA DETECCIÓN MÁXIMA:
         // - DEX fees: 0.25% por swap (x2 swaps = 0.5%)
         // - Network fees: ~0.001 SOL (~$0.02 @ $20/SOL)  
         // - Slippage: 0.1-0.5% dependiendo liquidez
         // - MEV protection: 0.05%
-        let total_costs_pct = 0.75; // Total ~0.75% costos reales
+        let total_costs_pct = 0.25; // REDUCIDO DRÁSTICAMENTE para detectar más oportunidades
         
         let raw_profit_pct = price_diff_pct;
-        let real_profit_pct = (raw_profit_pct - total_costs_pct).max(0.0);
+        let real_profit_pct = (raw_profit_pct - total_costs_pct).max(-0.5); // Permitir profits levemente negativos
 
-        // Ajustar para tokens de bajo valor (como BONK)
+        // Ajustar para tokens de bajo valor (MENOS PENALIZACIÓN)
         let adjusted_profit_pct = if min_price < 0.001 || max_price < 0.001 {
-            // Para tokens sub-centavo, el profit real es mucho menor debido a liquidez limitada
-            real_profit_pct * 0.1 // Solo 10% del profit teórico es realizable
+            // Para tokens sub-centavo, ser menos estricto
+            real_profit_pct * 0.5 // Reducir penalización de 0.1 a 0.5
         } else {
             real_profit_pct
         };
 
         let final_profit_sol = base_trade_amount * (adjusted_profit_pct / 100.0);
 
-        // Calcular confidence score con profit real
-        let liquidity_score = ((buy_dex.liquidity_usd + sell_dex.liquidity_usd) / 20000.0).min(1.0);
-        let volume_score = ((buy_dex.volume_24h + sell_dex.volume_24h) / 100000.0).min(1.0);
-        let price_diff_score = (adjusted_profit_pct / 2.0).min(1.0); // 2% profit real = score perfecto
+        // Calcular confidence score MÁS PERMISIVO
+        let liquidity_score = ((buy_dex.liquidity_usd + sell_dex.liquidity_usd) / 5000.0).min(1.0); // Reducir threshold
+        let volume_score = ((buy_dex.volume_24h + sell_dex.volume_24h) / 10000.0).min(1.0); // Reducir threshold
+        let price_diff_score = ((adjusted_profit_pct + 1.0) / 2.0).max(0.0).min(1.0); // Permitir profits negativos
         
         let confidence_score = (liquidity_score + volume_score + price_diff_score) / 3.0;
 
