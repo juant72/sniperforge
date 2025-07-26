@@ -298,7 +298,7 @@ impl ArbitrageBotPhase45Integrated {
         
         let dex_integrator = if config.dex_specialization_enabled {
             info!("🎯 Inicializando DEX Specialization Integrator...");
-            Some(Arc::new(DEXSpecializationIntegrator::new(config.clone(), rpc_client.clone()).await?))
+            Some(Arc::new(DEXSpecializationIntegrator::new(Arc::new(config.clone()), rpc_client.clone())))
         } else {
             info!("⏸️ DEX Specialization: Deshabilitado");
             None
@@ -430,10 +430,12 @@ impl ArbitrageBotPhase45Integrated {
         // 3. OPCIONAL: DEX Specialized Discovery
         if let Some(dex) = &self.dex_integrator {
             info!("   🎯 DEX Specialized discovery...");
-            // Ejemplo de especialización - en un caso real obtendríamos oportunidades base
-            match dex.specialize_opportunity("example_id", crate::dex_integration_simple::DEXType::Raydium).await {
-                Ok(dex_opp) => {
-                    all_opportunities.push(UnifiedOpportunity::DEXSpecialized(dex_opp));
+            // Usar las oportunidades base existentes para especialización
+            match dex.detect_specialized_opportunities(&all_opportunities).await {
+                Ok(dex_opps) => {
+                    for dex_opp in dex_opps {
+                        all_opportunities.push(UnifiedOpportunity::DEXSpecialized(dex_opp));
+                    }
                 },
                 Err(e) => warn!("Warning en DEX discovery: {}", e),
             }

@@ -164,6 +164,7 @@ pub enum FeeTrend {
 // ==================================================================================
 
 /// DEX Specialization Integrator Enhanced - ACCIÓN 6 Complete
+#[derive(Debug)]
 pub struct DEXSpecializationIntegrator {
     config: Arc<UnifiedPhase45Config>,
     rpc_client: Arc<RpcClient>,
@@ -201,7 +202,7 @@ impl DEXSpecializationIntegrator {
     /// 🎯 ENHANCED MAIN METHOD - Detect specialized opportunities with full analytics
     pub async fn detect_specialized_opportunities(
         &self,
-        base_opportunities: &[super::arbitrage_bot_phase45_integrated::UnifiedOpportunity],
+        base_opportunities: &[crate::opportunity_detector::Opportunity],
     ) -> Result<Vec<EnhancedSpecializedOpportunity>> {
         info!("🎯 [Enhanced DEX Specialization] Analyzing {} base opportunities with enhanced analytics", 
               base_opportunities.len());
@@ -210,33 +211,29 @@ impl DEXSpecializationIntegrator {
         let start_time = Instant::now();
 
         for opportunity in base_opportunities {
-            // Convert UnifiedOpportunity to a simple opportunity structure for analysis
-            let opportunity_id = opportunity.get_id();
-            let profit_sol = opportunity.get_estimated_profit();
-            
             // 🎯 PHASE 6A: Enhanced Raydium CLMM Analysis
-            if self.config.enable_raydium_clmm {
-                if let Ok(raydium_enhanced) = self.analyze_raydium_clmm_enhanced(&opportunity_id, profit_sol).await {
+            if self.config.dex_integrations.raydium_clmm {
+                if let Ok(raydium_enhanced) = self.analyze_raydium_clmm_enhanced(opportunity).await {
                     enhanced_opportunities.push(raydium_enhanced);
                 }
             }
 
             // 🎯 PHASE 6B: Enhanced Orca Whirlpool Analysis  
-            if self.config.enable_orca_whirlpools {
-                if let Ok(orca_enhanced) = self.analyze_orca_whirlpool_enhanced(&opportunity_id, profit_sol).await {
+            if self.config.dex_integrations.orca_whirlpools {
+                if let Ok(orca_enhanced) = self.analyze_orca_whirlpool_enhanced(opportunity).await {
                     enhanced_opportunities.push(orca_enhanced);
                 }
             }
 
             // 🎯 PHASE 6C: Cross-DEX Analysis
             if enhanced_opportunities.len() >= 2 {
-                if let Ok(cross_dex_enhanced) = self.analyze_cross_dex_enhanced(&opportunity_id, profit_sol).await {
+                if let Ok(cross_dex_enhanced) = self.analyze_cross_dex_enhanced(opportunity).await {
                     enhanced_opportunities.push(cross_dex_enhanced);
                 }
             }
 
             // Jupiter aggregation analysis
-            if let Ok(jupiter_enhanced) = self.analyze_jupiter_aggregation_enhanced(&opportunity_id, profit_sol).await {
+            if let Ok(jupiter_enhanced) = self.analyze_jupiter_aggregation_enhanced(opportunity).await {
                 enhanced_opportunities.push(jupiter_enhanced);
             }
         }
@@ -254,38 +251,37 @@ impl DEXSpecializationIntegrator {
     /// 🎯 PHASE 6A: Enhanced Raydium CLMM Analysis
     async fn analyze_raydium_clmm_enhanced(
         &self,
-        opportunity_id: &str,
-        profit_sol: f64,
+        opportunity: &crate::opportunity_detector::Opportunity,
     ) -> Result<EnhancedSpecializedOpportunity> {
-        debug!("🟦 [Enhanced Raydium CLMM] Analyzing opportunity: {}", opportunity_id);
+        debug!("🟦 [Enhanced Raydium CLMM] Analyzing opportunity: {}", opportunity.id);
 
         // Enhanced analysis components
         let liquidity_analysis = self.perform_enhanced_liquidity_analysis(
-            "SOL", 
-            "USDC",
+            &opportunity.input_token, 
+            &opportunity.output_token,
             DEXType::Raydium
         ).await.ok();
 
         let fee_optimization = self.perform_enhanced_fee_optimization(
-            "SOL", 
-            "USDC",
-            profit_sol
+            &opportunity.input_token, 
+            &opportunity.output_token,
+            opportunity.input_amount_sol as f64
         ).await.ok();
 
         let routing_strategy = self.determine_enhanced_routing_strategy(DEXType::Raydium).await.ok();
 
         let real_time_metrics = self.collect_enhanced_real_time_metrics(
-            "SOL",
-            "USDC",
+            &opportunity.input_token,
+            &opportunity.output_token,
             DEXType::Raydium
         ).await.ok();
 
         // Enhanced profit calculation
         let enhancement_factor = if self.enhanced_mode { 1.12 } else { 1.05 };
-        let enhanced_profit = profit_sol * enhancement_factor;
+        let enhanced_profit = opportunity.profit_sol * enhancement_factor;
 
         let enhanced_opportunity = EnhancedSpecializedOpportunity {
-            base_opportunity_id: opportunity_id.to_string(),
+            base_opportunity_id: opportunity.id.clone(),
             dex_type: DEXType::Raydium,
             specialization_strategy: SpecializationStrategy::EnhancedRaydiumCLMM {
                 fee_tier: fee_optimization.as_ref().map(|f| f.optimal_fee_tier).unwrap_or(25),
@@ -311,36 +307,35 @@ impl DEXSpecializationIntegrator {
     /// 🎯 PHASE 6B: Enhanced Orca Whirlpool Analysis
     async fn analyze_orca_whirlpool_enhanced(
         &self,
-        opportunity_id: &str,
-        profit_sol: f64,
+        opportunity: &crate::opportunity_detector::Opportunity,
     ) -> Result<EnhancedSpecializedOpportunity> {
-        debug!("🌊 [Enhanced Orca Whirlpool] Analyzing opportunity: {}", opportunity_id);
+        debug!("🌊 [Enhanced Orca Whirlpool] Analyzing opportunity: {}", opportunity.id);
 
         let liquidity_analysis = self.perform_enhanced_liquidity_analysis(
-            "SOL", 
-            "USDC",
+            &opportunity.input_token, 
+            &opportunity.output_token,
             DEXType::Orca
         ).await.ok();
 
         let fee_optimization = self.perform_enhanced_fee_optimization(
-            "SOL", 
-            "USDC",
-            profit_sol
+            &opportunity.input_token, 
+            &opportunity.output_token,
+            opportunity.input_amount_sol as f64
         ).await.ok();
 
         let routing_strategy = self.determine_enhanced_routing_strategy(DEXType::Orca).await.ok();
 
         let real_time_metrics = self.collect_enhanced_real_time_metrics(
-            "SOL",
-            "USDC",
+            &opportunity.input_token,
+            &opportunity.output_token,
             DEXType::Orca
         ).await.ok();
 
         let enhancement_factor = if self.enhanced_mode { 1.08 } else { 1.03 };
-        let enhanced_profit = profit_sol * enhancement_factor;
+        let enhanced_profit = opportunity.profit_sol * enhancement_factor;
 
         let enhanced_opportunity = EnhancedSpecializedOpportunity {
-            base_opportunity_id: opportunity_id.to_string(),
+            base_opportunity_id: opportunity.id.clone(),
             dex_type: DEXType::Orca,
             specialization_strategy: SpecializationStrategy::EnhancedOrcaWhirlpool {
                 fee_rate: fee_optimization.as_ref().map(|f| f.optimal_fee_tier).unwrap_or(30),
@@ -366,15 +361,14 @@ impl DEXSpecializationIntegrator {
     /// 🎯 PHASE 6C: Cross-DEX Analysis Enhanced
     async fn analyze_cross_dex_enhanced(
         &self,
-        opportunity_id: &str,
-        profit_sol: f64,
+        opportunity: &crate::opportunity_detector::Opportunity,
     ) -> Result<EnhancedSpecializedOpportunity> {
-        debug!("⚖️ [Cross-DEX Enhanced] Analyzing cross-DEX opportunity: {}", opportunity_id);
+        debug!("⚖️ [Cross-DEX Enhanced] Analyzing cross-DEX opportunity: {}", opportunity.id);
 
         let cross_dex_comparison = self.perform_cross_dex_comparison(
-            "SOL",
-            "USDC",
-            profit_sol
+            &opportunity.input_token,
+            &opportunity.output_token,
+            opportunity.input_amount_sol as f64
         ).await.ok();
 
         let optimal_dex = cross_dex_comparison.as_ref()
@@ -388,10 +382,10 @@ impl DEXSpecializationIntegrator {
         });
 
         let enhancement_factor = if self.enhanced_mode { 1.18 } else { 1.08 }; // Higher for cross-DEX
-        let enhanced_profit = profit_sol * enhancement_factor;
+        let enhanced_profit = opportunity.profit_sol * enhancement_factor;
 
         let enhanced_opportunity = EnhancedSpecializedOpportunity {
-            base_opportunity_id: opportunity_id.to_string(),
+            base_opportunity_id: opportunity.id.clone(),
             dex_type: optimal_dex,
             specialization_strategy: SpecializationStrategy::JupiterAggregation {
                 route_optimization: 0.95,
@@ -419,25 +413,24 @@ impl DEXSpecializationIntegrator {
     /// Jupiter Aggregation Analysis Enhanced
     async fn analyze_jupiter_aggregation_enhanced(
         &self,
-        opportunity_id: &str,
-        profit_sol: f64,
+        opportunity: &crate::opportunity_detector::Opportunity,
     ) -> Result<EnhancedSpecializedOpportunity> {
-        debug!("🪐 [Jupiter Enhanced] Analyzing aggregation opportunity: {}", opportunity_id);
+        debug!("🪐 [Jupiter Enhanced] Analyzing aggregation opportunity: {}", opportunity.id);
 
         let routing_strategy = Some(RoutingStrategy::MultiHop {
             route_hops: vec![
-                "SOL".to_string(),
+                opportunity.input_token.clone(),
                 "USDC".to_string(), // Common intermediate
-                "Target".to_string()
+                opportunity.output_token.clone()
             ],
             total_efficiency: 0.93,
         });
 
         let enhancement_factor = if self.enhanced_mode { 1.15 } else { 1.06 };
-        let enhanced_profit = profit_sol * enhancement_factor;
+        let enhanced_profit = opportunity.profit_sol * enhancement_factor;
 
         let enhanced_opportunity = EnhancedSpecializedOpportunity {
-            base_opportunity_id: opportunity_id.to_string(),
+            base_opportunity_id: opportunity.id.clone(),
             dex_type: DEXType::Jupiter,
             specialization_strategy: SpecializationStrategy::JupiterAggregation {
                 route_optimization: 0.95,
@@ -501,13 +494,19 @@ impl DEXSpecializationIntegrator {
 
     async fn perform_enhanced_fee_optimization(
         &self,
-        _input_token: &str,
-        _output_token: &str,
-        _amount_sol: f64,
+        input_token: &str,
+        output_token: &str,
+        amount_sol: f64,
     ) -> Result<FeeOptimization> {
-        debug!("💰 [Enhanced Fee Optimization] Optimizing fees for enhanced DEX analysis");
+        debug!("💰 [Enhanced Fee Optimization] Optimizing fees for amount: {:.4} SOL", amount_sol);
 
-        let optimal_fee_tier = 20;  // Enhanced default
+        let optimal_fee_tier = if amount_sol < 1.0 {
+            3   // 0.03% for small amounts (enhanced)
+        } else if amount_sol < 10.0 {
+            20  // 0.20% for medium amounts (enhanced)
+        } else {
+            80  // 0.80% for large amounts (enhanced)
+        };
 
         Ok(FeeOptimization {
             current_fee_bps: 25,  // Standard 0.25%
