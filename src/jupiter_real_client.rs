@@ -75,21 +75,21 @@ pub struct JupiterQuoteResponse {
     pub route_plan: Vec<RoutePlan>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PlatformFee {
     pub amount: String,
     #[serde(rename = "feeBps")]
     pub fee_bps: u16,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct RoutePlan {
     #[serde(rename = "swapInfo")]
     pub swap_info: SwapInfo,
     pub percent: u8,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SwapInfo {
     #[serde(rename = "ammKey")]
     pub amm_key: String,

@@ -286,7 +286,7 @@ impl RealArbitrageEngine {
         };
 
         let buy_signature_result = self.jupiter_client.execute_swap(
-            &quote1,
+            quote1,
             self.wallet.keypair()
         ).await;
 
@@ -345,7 +345,7 @@ impl RealArbitrageEngine {
         };
 
         let sell_signature_result = self.jupiter_client.execute_swap(
-            &quote2,
+            quote2,
             self.wallet.keypair()
         ).await;
 
