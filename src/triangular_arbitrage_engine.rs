@@ -301,29 +301,14 @@ impl TriangularArbitrageEngine {
 
     /// Actualizar cache de precios desde APIs reales
     async fn update_price_cache(&mut self) -> Result<()> {
-        // Precios reales simplificados (en producción usar APIs reales)
-        let real_rates = vec![
-            (("SOL", "USDC"), 20.0),      // 1 SOL = 20 USDC
-            (("USDC", "SOL"), 0.05),      // 1 USDC = 0.05 SOL
-            (("SOL", "RAY"), 30.77),      // 1 SOL = 30.77 RAY (precio RAY ~$0.65)
-            (("RAY", "SOL"), 0.0325),     // 1 RAY = 0.0325 SOL
-            (("USDC", "RAY"), 1.538),     // 1 USDC = 1.538 RAY
-            (("RAY", "USDC"), 0.65),      // 1 RAY = 0.65 USDC
-            (("SOL", "JUP"), 23.53),      // 1 SOL = 23.53 JUP (precio JUP ~$0.85)
-            (("JUP", "SOL"), 0.0425),     // 1 JUP = 0.0425 SOL
-            (("USDC", "JUP"), 1.176),     // 1 USDC = 1.176 JUP
-            (("JUP", "USDC"), 0.85),      // 1 JUP = 0.85 USDC
-            (("SOL", "BONK"), 800000.0),  // 1 SOL = 800k BONK (precio BONK ~$0.000025)
-            (("BONK", "SOL"), 0.00000125), // 1 BONK = 0.00000125 SOL
-            (("USDC", "BONK"), 40000.0),  // 1 USDC = 40k BONK
-            (("BONK", "USDC"), 0.000025), // 1 BONK = 0.000025 USDC
-        ];
+        // TODO: IMPLEMENTAR OBTENCIÓN DE PRECIOS REALES DESDE APIs
+        // Por ahora, cache vacío - se debe implementar integración con Jupiter/DexScreener
+        warn!("⚠️ Cache de precios triangular deshabilitado - requiere implementación real");
         
-        for ((from, to), rate) in real_rates {
-            self.price_cache.insert((from.to_string(), to.to_string()), rate);
-        }
+        // Limpiar cache para forzar búsqueda en APIs reales
+        self.price_cache.clear();
         
-        debug!("✅ Cache de precios actualizado con {} pares", self.price_cache.len());
+        debug!("✅ Cache de precios listo para APIs reales");
         Ok(())
     }
     

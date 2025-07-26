@@ -228,25 +228,44 @@ impl RealPriceFeeds {
         Ok(prices)
     }
 
-    /// Precios hardcoded como último recurso (más confiable que APIs con rate limiting)
+    /// Fallback usando CoinGecko como último recurso real (NO hardcoded)
     async fn get_hardcoded_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
-        info!("⚠️ Usando precios hardcoded para {}", mint);
-        let (price_usd, symbol) = match mint {
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => (1.0001, "USDC"), // USDC
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => (1.0002, "USDT"), // USDT
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => (0.000025, "BONK"), // BONK
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => (0.65, "RAY"), // Raydium
-            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => (0.85, "JUP"), // Jupiter
-            _ => return Err(anyhow!("Token {} no tiene fallback hardcoded", mint)),
+        info!("🔄 Fallback: CoinGecko precio obtenido para {}", mint);
+        
+        // Mapear mints a CoinGecko IDs
+        let coingecko_id = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "usd-coin", // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "tether", // USDT
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => "bonk", // BONK
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "raydium", // RAY
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => "jupiter-exchange-solana", // JUP
+            _ => return Err(anyhow!("Token {} no soportado en fallback CoinGecko", mint)),
+        };
+
+        // Obtener precio real de CoinGecko
+        let url = format!("https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=usd", coingecko_id);
+        let response = self.http_client.get(&url).send().await?;
+        let data: serde_json::Value = response.json().await?;
+        
+        let price_usd = data[coingecko_id]["usd"].as_f64()
+            .ok_or_else(|| anyhow!("No se pudo obtener precio de CoinGecko para {}", coingecko_id))?;
+
+        let symbol = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "USDC",
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "USDT", 
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => "BONK",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "RAY",
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => "JUP",
+            _ => "UNKNOWN",
         };
 
         Ok(DEXPrice {
-            dex_name: "Hardcoded_Fallback".to_string(),
+            dex_name: "CoinGecko_Fallback".to_string(),
             token_mint: mint.to_string(),
             price_usd,
             price_sol: None,
-            liquidity_usd: 1000000.0, // Asumir liquidez alta para fallback
-            volume_24h: 100000.0,
+            liquidity_usd: 1000000.0, // Liquidez asumida para fallback
+            volume_24h: 100000.0,      // Volumen asumido para fallback
             last_updated: chrono::Utc::now(),
             source: format!("Hardcoded ({})", symbol),
         })
