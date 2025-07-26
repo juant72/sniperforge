@@ -187,7 +187,7 @@ impl SandwichDetector {
             return Ok(Vec::new());
         }
         
-        let mut detected_patterns = Vec::new();
+        let detected_patterns = Vec::new();
         
         // Simular detección de patrones
         // En implementación real, aquí iría análisis de mempool y precios

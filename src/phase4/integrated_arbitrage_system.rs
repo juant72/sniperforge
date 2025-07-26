@@ -129,7 +129,7 @@ impl IntegratedArbitrageSystem {
 
         // Initialize Phase 4 engines
         // Create placeholder configurations for Phase 4 engines
-        let event_driven_config = crate::phase4::event_driven_engine::EventDrivenConfig {
+        let _event_driven_config = crate::phase4::event_driven_engine::EventDrivenConfig {
             opportunity_expiry_seconds: 30,
             enable_mev_protection: config.enable_mev_protection,
             max_concurrent_opportunities: config.max_concurrent_executions as usize,
@@ -142,7 +142,7 @@ impl IntegratedArbitrageSystem {
         
         // Create system without Phase 4 engines for now
         let (opportunity_tx, opportunity_rx) = mpsc::unbounded_channel::<EventDrivenOpportunity>();
-        let (execution_tx, execution_rx) = mpsc::unbounded_channel::<ExecutionRequest>();
+        let (_execution_tx, _execution_rx) = mpsc::unbounded_channel::<ExecutionRequest>();
 
         // Initialize optional engines
         let monitoring_engine = if config.enable_real_time_monitoring {
@@ -254,11 +254,11 @@ impl IntegratedArbitrageSystem {
         }
 
         // Stop engines (if they support graceful shutdown)
-        if let Some(monitoring) = &self.monitoring_engine {
+        if let Some(_monitoring) = &self.monitoring_engine {
             // monitoring.shutdown().await?;
         }
 
-        if let Some(benchmark) = &self.benchmark_engine {
+        if let Some(_benchmark) = &self.benchmark_engine {
             // benchmark.shutdown().await?;
         }
 

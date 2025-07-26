@@ -241,8 +241,8 @@ impl RealTimeMonitoringEngine {
         // Start alert processor separately
         let alert_processor_task = {
             let current_alerts = Arc::clone(&self.active_alerts);
-            let execution_history = Arc::clone(&self.execution_history);
-            let config = self.config.clone();
+            let _execution_history = Arc::clone(&self.execution_history);
+            let _config = self.config.clone();
             
             tokio::spawn(async move {
                 info!("📢 Alert processor started");

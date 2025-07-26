@@ -54,7 +54,7 @@ async fn demo_system_initialization() -> Result<()> {
 
     // Initialize the integrated system
     info!("🔧 Initializing integrated arbitrage system...");
-    let mut system = IntegratedArbitrageSystem::new(config).await?;
+    let system = IntegratedArbitrageSystem::new(config).await?;
     
     // Get initial system state
     let initial_state = system.get_system_state().await;
@@ -195,7 +195,7 @@ async fn demo_performance_monitoring() -> Result<()> {
         ..Default::default()
     };
 
-    let system = IntegratedArbitrageSystem::new(config).await?;
+    let _system = IntegratedArbitrageSystem::new(config).await?;
 
     info!("📈 Performance monitoring features:");
     info!("   • Real-time dashboard available at http://localhost:8080");

@@ -793,7 +793,7 @@ impl ArbitrageBotPhase45Integrated {
                         }
                         
                         // Ejecutar en background para paralelismo
-                        let system = self.clone(); // Asumiríamos Clone implementado
+                        let _system = self.clone(); // Asumiríamos Clone implementado
                         // Cambiar a una ejecución sincrona para evitar problemas de ownership
                         if let Err(e) = self.execute_opportunity(opportunity).await {
                             error!("Error ejecutando oportunidad: {}", e);

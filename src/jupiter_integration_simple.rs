@@ -104,7 +104,7 @@ impl JupiterAdvancedIntegrator {
         let start_time = Instant::now();
         debug!("🔍 Buscando oportunidades Jupiter Advanced...");
         
-        let mut opportunities = Vec::new();
+        let opportunities = Vec::new();
         
         // Simular búsqueda de oportunidades usando Jupiter client existente
         // En una implementación real, aquí iría la lógica avanzada de Jupiter

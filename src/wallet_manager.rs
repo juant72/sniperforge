@@ -126,7 +126,7 @@ impl WalletManager {
         
         // Esta es la clave privada correspondiente a JDzF9LkpoQVac6c6ufHW1c6Gevd3vFB4RXSSjceL8Kq7
         // SOLO para testing - en producción usar método seguro
-        let known_private_key = [
+        let _known_private_key = [
             // Esto debería venir de un método seguro en producción
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

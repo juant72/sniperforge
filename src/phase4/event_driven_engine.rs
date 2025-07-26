@@ -390,7 +390,7 @@ impl EventDrivenArbitrageEngine {
         let mut opportunities_found = 0;
 
         match event {
-            ArbitrageEvent::PriceUpdate { token_mint, dex_name, new_price, timestamp } => {
+            ArbitrageEvent::PriceUpdate { token_mint, dex_name, new_price, timestamp: _ } => {
                 // Update price cache
                 {
                     let mut cache = price_cache.write().await;
@@ -424,7 +424,7 @@ impl EventDrivenArbitrageEngine {
                 ).await?;
             }
 
-            ArbitrageEvent::LiquidityChange { pool_address, token_a, token_b, new_liquidity, .. } => {
+            ArbitrageEvent::LiquidityChange { token_a, token_b, new_liquidity, .. } => {
                 // Update liquidity in price cache
                 {
                     let mut cache = price_cache.write().await;
@@ -493,7 +493,7 @@ impl EventDrivenArbitrageEngine {
 
         // Get all cached prices for this token
         let cache = price_cache.read().await;
-        if let Some(current_price_data) = cache.get(&token_mint) {
+        if let Some(_current_price_data) = cache.get(&token_mint) {
             // Look for arbitrage opportunities against other DEXes
             // This is a simplified example - in reality you'd check multiple DEXes
             for (_, other_price_data) in cache.iter() {
@@ -548,7 +548,7 @@ impl EventDrivenArbitrageEngine {
         buy_dex: &str,
         sell_dex: &str,
         buy_price: f64,
-        sell_price: f64,
+        _sell_price: f64,
         spread_bps: u16,
         config: &EventDrivenConfig,
     ) -> Result<EventDrivenOpportunity> {
@@ -657,7 +657,7 @@ impl EventDrivenArbitrageEngine {
 
         // Get Jupiter opportunities
         let jupiter_opportunities = {
-            let engine = jupiter_engine.lock().await;
+            let _engine = jupiter_engine.lock().await;
             // Placeholder: Use empty vector until Jupiter engine methods are implemented
             vec![]
         };
@@ -748,7 +748,7 @@ impl EventDrivenArbitrageEngine {
 
         // Get DEX specialized opportunities
         let specialized_opportunities = {
-            let engine = dex_specialization.lock().await;
+            let _engine = dex_specialization.lock().await;
             // Placeholder: Use empty vector until DEX specialization engine methods are implemented
             vec![]
         };
@@ -935,7 +935,7 @@ impl EventDrivenArbitrageEngine {
     /// Execute a single arbitrage opportunity
     async fn execute_opportunity(
         opportunity: EventDrivenOpportunity,
-        mev_protection: &Arc<MEVProtectionEngine>,
+        _mev_protection: &Arc<MEVProtectionEngine>,
         config: &EventDrivenConfig,
     ) -> Result<u64> {
         let start_time = Instant::now();
