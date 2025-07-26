@@ -47,11 +47,15 @@ pub struct RealArbitrageOpportunity {
 }
 
 impl RealPriceFeeds {
-    /// Crear nuevo sistema de price feeds reales
+    /// Crear nuevo sistema de price feeds reales con configuración robusta
     pub fn new() -> Self {
         let http_client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(10))
-            .user_agent("SniperForge/1.0")
+            .timeout(Duration::from_secs(15))
+            .connect_timeout(Duration::from_secs(10))
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 SniperForge/1.0")
+            .tcp_keepalive(Duration::from_secs(30))
+            .pool_idle_timeout(Duration::from_secs(90))
+            .pool_max_idle_per_host(4)
             .build()
             .expect("Failed to create HTTP client");
 
@@ -130,100 +134,271 @@ impl RealPriceFeeds {
         Ok(opportunities)
     }
 
-    /// Obtener precios de múltiples DEXs
+    /// Obtener precios de múltiples DEXs con fallbacks y reintentos
     async fn get_multi_dex_prices(&self, mint: &str) -> Result<Vec<DEXPrice>> {
         let mut prices = Vec::new();
+        let mut successful_sources = 0;
 
-        // 1. DexScreener (gratuito, múltiples DEXs)
+        // 1. DexScreener (gratuito, múltiples DEXs) - PRIMERA PRIORIDAD
         if self.dexscreener_enabled {
             match self.get_dexscreener_prices(mint).await {
-                Ok(dex_prices) => prices.extend(dex_prices),
-                Err(e) => warn!("DexScreener error: {}", e),
+                Ok(dex_prices) => {
+                    if !dex_prices.is_empty() {
+                        info!("✅ DexScreener: {} precios obtenidos", dex_prices.len());
+                        prices.extend(dex_prices);
+                        successful_sources += 1;
+                    }
+                },
+                Err(e) => warn!("❌ DexScreener error: {}", e),
             }
         }
 
-        // 2. Jupiter Price API (gratuito)
+        // 2. Jupiter Price API (gratuito) - SEGUNDA PRIORIDAD
         if self.jupiter_enabled {
             match self.get_jupiter_price(mint).await {
-                Ok(jupiter_price) => prices.push(jupiter_price),
-                Err(e) => warn!("Jupiter price error: {}", e),
+                Ok(jupiter_price) => {
+                    info!("✅ Jupiter: precio ${:.6} obtenido", jupiter_price.price_usd);
+                    prices.push(jupiter_price);
+                    successful_sources += 1;
+                },
+                Err(e) => warn!("❌ Jupiter error: {}", e),
             }
         }
 
+        // 3. Fallback: usar precios sintéticos si todas las APIs fallan
+        if prices.is_empty() {
+            warn!("⚠️ Todas las APIs fallaron, usando fallback para token {}", mint);
+            if let Ok(fallback_price) = self.get_fallback_price(mint).await {
+                prices.push(fallback_price);
+            }
+        }
+
+        info!("📊 Total: {} precios de {} fuentes para {}", prices.len(), successful_sources, mint);
         Ok(prices)
     }
 
-    /// Obtener precios de DexScreener
+    /// Precio de fallback cuando todas las APIs principales fallan
+    async fn get_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
+        // Primero intentar CoinGecko como fallback inteligente
+        if let Ok(coingecko_price) = self.get_coingecko_price(mint).await {
+            info!("✅ Fallback exitoso con CoinGecko para {}", mint);
+            return Ok(coingecko_price);
+        }
+
+        // Solo usar precios hardcoded como último recurso
+        warn!("⚠️ Usando precios hardcoded como último recurso para {}", mint);
+        let fallback_prices = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0, // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0, // USDT
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => 0.000015, // BONK (aproximado)
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 2.50, // RAY (aproximado)
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => 0.85, // JUP (aproximado)
+            _ => return Err(anyhow!("No fallback price available for {}", mint)),
+        };
+
+        Ok(DEXPrice {
+            dex_name: "HardcodedFallback".to_string(),
+            token_mint: mint.to_string(),
+            price_usd: fallback_prices,
+            price_sol: None,
+            liquidity_usd: 10000.0, // Liquidez simulada
+            volume_24h: 1000.0,
+            last_updated: chrono::Utc::now(),
+            source: "Fallback".to_string(),
+        })
+    }
+
+    /// Obtener precios de DexScreener con mejor manejo de errores
     async fn get_dexscreener_prices(&self, mint: &str) -> Result<Vec<DEXPrice>> {
         let url = format!("https://api.dexscreener.com/latest/dex/tokens/{}", mint);
         
-        let response = timeout(Duration::from_secs(5), 
-            self.http_client.get(&url).send()
-        ).await??;
+        let response = timeout(Duration::from_secs(10), 
+            self.http_client
+                .get(&url)
+                .header("User-Agent", "SniperForge/1.0")
+                .timeout(Duration::from_secs(8))
+                .send()
+        ).await.map_err(|_| anyhow!("DexScreener request timeout"))?
+          .map_err(|e| anyhow!("DexScreener connection error: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("DexScreener API error: {}", response.status()));
+            return Err(anyhow!("DexScreener API error: {} - {}", 
+                response.status(), 
+                response.text().await.unwrap_or_default()
+            ));
         }
 
-        let data: Value = response.json().await?;
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("DexScreener JSON parse error: {}", e))?;
         let mut prices = Vec::new();
 
         if let Some(pairs) = data["pairs"].as_array() {
-            for pair in pairs.iter().take(5) { // Top 5 pools
-                if let (Some(dex_id), Some(price_usd), Some(liquidity)) = (
+            let valid_pairs: Vec<_> = pairs.iter()
+                .filter(|pair| {
+                    // Filtrar pools válidos
+                    let has_basic_data = pair["dexId"].is_string() && 
+                                       pair["priceUsd"].is_string() &&
+                                       pair["liquidity"]["usd"].is_number();
+                    
+                    let liquidity = pair["liquidity"]["usd"].as_f64().unwrap_or(0.0);
+                    let has_liquidity = liquidity > 1000.0; // Mínimo $1k liquidez
+                    
+                    has_basic_data && has_liquidity
+                })
+                .take(5) // Top 5 pools válidos
+                .collect();
+
+            for pair in valid_pairs {
+                if let (Some(dex_id), Some(price_str), Some(liquidity)) = (
                     pair["dexId"].as_str(),
-                    pair["priceUsd"].as_str().and_then(|s| s.parse::<f64>().ok()),
+                    pair["priceUsd"].as_str(),
                     pair["liquidity"]["usd"].as_f64(),
                 ) {
-                    prices.push(DEXPrice {
-                        dex_name: dex_id.to_string(),
-                        token_mint: mint.to_string(),
-                        price_usd,
-                        price_sol: None, // Se calcula después
-                        liquidity_usd: liquidity,
-                        volume_24h: pair["volume"]["h24"].as_f64().unwrap_or(0.0),
-                        last_updated: chrono::Utc::now(),
-                        source: "DexScreener".to_string(),
-                    });
+                    if let Ok(price_usd) = price_str.parse::<f64>() {
+                        if price_usd > 0.0 { // Precio válido
+                            prices.push(DEXPrice {
+                                dex_name: dex_id.to_string(),
+                                token_mint: mint.to_string(),
+                                price_usd,
+                                price_sol: None, // Se calcula después
+                                liquidity_usd: liquidity,
+                                volume_24h: pair["volume"]["h24"].as_f64().unwrap_or(0.0),
+                                last_updated: chrono::Utc::now(),
+                                source: "DexScreener".to_string(),
+                            });
+                        }
+                    }
                 }
             }
         }
 
-        debug!("📊 DexScreener: {} prices for {}", prices.len(), mint);
+        debug!("📊 DexScreener: {} valid prices for {}", prices.len(), mint);
         Ok(prices)
     }
 
-    /// Obtener precio de Jupiter
+    /// Obtener precio de Jupiter con reintentos y mejor manejo de errores
     async fn get_jupiter_price(&self, mint: &str) -> Result<DEXPrice> {
-        let url = format!("https://price.jup.ag/v4/price?ids={}", mint);
-        
-        let response = timeout(Duration::from_secs(5),
-            self.http_client.get(&url).send()
-        ).await??;
+        // Intentar múltiples endpoints de Jupiter (solo endpoints públicos gratuitos)
+        let endpoints = vec![
+            format!("https://price.jup.ag/v4/price?ids={}", mint),
+            // Removido el endpoint v2 que requiere autorización
+        ];
+
+        let mut last_error = None;
+
+        for endpoint in endpoints {
+            match self.try_jupiter_endpoint(&endpoint, mint).await {
+                Ok(price) => return Ok(price),
+                Err(e) => {
+                    warn!("Jupiter endpoint {} failed: {}", endpoint, e);
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        // Si Jupiter falla, intentar obtener precio de CoinGecko como alternativa
+        match self.get_coingecko_price(mint).await {
+            Ok(price) => {
+                info!("✅ Fallback: CoinGecko precio obtenido para {}", mint);
+                return Ok(price);
+            },
+            Err(e) => warn!("CoinGecko fallback failed: {}", e),
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("All Jupiter endpoints failed")))
+    }
+
+    /// Intentar un endpoint específico de Jupiter
+    async fn try_jupiter_endpoint(&self, url: &str, mint: &str) -> Result<DEXPrice> {
+        let response = timeout(Duration::from_secs(10), // Más tiempo para Jupiter
+            self.http_client
+                .get(url)
+                .header("User-Agent", "SniperForge/1.0")
+                .timeout(Duration::from_secs(8))
+                .send()
+        ).await.map_err(|_| anyhow!("Jupiter request timeout"))?
+          .map_err(|e| anyhow!("Jupiter connection error: {}", e))?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Jupiter price API error: {}", response.status()));
+            return Err(anyhow!("Jupiter API error: {} - {}", response.status(), response.text().await.unwrap_or_default()));
         }
 
-        let data: Value = response.json().await?;
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("Jupiter JSON parse error: {}", e))?;
         
-        if let Some(price_data) = data["data"][mint].as_object() {
-            let price_usd = price_data["price"].as_f64()
-                .ok_or_else(|| anyhow!("Invalid Jupiter price format"))?;
-
-            Ok(DEXPrice {
-                dex_name: "Jupiter".to_string(),
-                token_mint: mint.to_string(),
-                price_usd,
-                price_sol: None,
-                liquidity_usd: 0.0, // Jupiter agregado, no tiene liquidez específica
-                volume_24h: 0.0,
-                last_updated: chrono::Utc::now(),
-                source: "Jupiter".to_string(),
-            })
+        // Intentar diferentes formatos de respuesta de Jupiter
+        let price_usd = if let Some(price_data) = data["data"][mint].as_object() {
+            price_data["price"].as_f64()
+        } else if let Some(price) = data[mint]["price"].as_f64() {
+            Some(price)
+        } else if let Some(price_str) = data[mint]["price"].as_str() {
+            price_str.parse::<f64>().ok()
         } else {
-            Err(anyhow!("Token not found in Jupiter price API"))
+            None
+        };
+
+        let price_usd = price_usd
+            .ok_or_else(|| anyhow!("Invalid Jupiter price format for {}", mint))?;
+
+        debug!("📊 Jupiter price for {}: ${:.6}", mint, price_usd);
+
+        Ok(DEXPrice {
+            dex_name: "Jupiter".to_string(),
+            token_mint: mint.to_string(),
+            price_usd,
+            price_sol: None,
+            liquidity_usd: 0.0, // Jupiter agregado, no tiene liquidez específica
+            volume_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+            source: "Jupiter".to_string(),
+        })
+    }
+
+    /// Obtener precio de CoinGecko como fallback (gratuito, sin API key)
+    async fn get_coingecko_price(&self, mint: &str) -> Result<DEXPrice> {
+        // Mapeo de mints conocidos a IDs de CoinGecko
+        let coingecko_id = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "usd-coin",
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "tether",
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => "bonk",
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "raydium",
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => "jupiter-exchange-solana",
+            _ => return Err(anyhow!("Token {} not supported in CoinGecko fallback", mint)),
+        };
+
+        let url = format!("https://api.coingecko.com/api/v3/simple/price?ids={}&vs_currencies=usd", coingecko_id);
+        
+        let response = timeout(Duration::from_secs(10),
+            self.http_client
+                .get(&url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .timeout(Duration::from_secs(8))
+                .send()
+        ).await.map_err(|_| anyhow!("CoinGecko request timeout"))?
+          .map_err(|e| anyhow!("CoinGecko connection error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("CoinGecko API error: {}", response.status()));
         }
+
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("CoinGecko JSON parse error: {}", e))?;
+        
+        let price_usd = data[coingecko_id]["usd"].as_f64()
+            .ok_or_else(|| anyhow!("Invalid CoinGecko price format for {}", coingecko_id))?;
+
+        debug!("📊 CoinGecko price for {}: ${:.6}", mint, price_usd);
+
+        Ok(DEXPrice {
+            dex_name: "CoinGecko".to_string(),
+            token_mint: mint.to_string(),
+            price_usd,
+            price_sol: None,
+            liquidity_usd: 0.0,
+            volume_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+            source: "CoinGecko".to_string(),
+        })
     }
 
     /// Crear oportunidad de arbitraje
