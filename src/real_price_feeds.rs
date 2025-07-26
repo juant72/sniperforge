@@ -65,7 +65,7 @@ impl RealPriceFeeds {
         Self {
             dexscreener_enabled: true,
             jupiter_enabled: true,
-            birdeye_enabled: true, // ✅ Birdeye tiene endpoints públicos gratuitos
+            birdeye_enabled: false, // ❌ Deshabilitado - requiere API key
             http_client,
             last_coingecko_request: Arc::new(Mutex::new(std::time::Instant::now() - Duration::from_secs(60))),
         }
@@ -138,7 +138,7 @@ impl RealPriceFeeds {
         Ok(opportunities)
     }
 
-    /// Obtener precios de múltiples DEXs con fallbacks y reintentos
+    /// Obtener precios de múltiples DEXs con fallbacks y reintentos MEJORADO
     async fn get_multi_dex_prices(&self, mint: &str) -> Result<Vec<DEXPrice>> {
         let mut prices = Vec::new();
         let mut successful_sources = 0;
@@ -157,8 +157,18 @@ impl RealPriceFeeds {
             }
         }
 
-        // 2. Birdeye API (gratuito, más confiable que Jupiter) - SEGUNDA PRIORIDAD
-        if self.birdeye_enabled {
+        // 2. Coinbase (para tokens principales) - SEGUNDA PRIORIDAD
+        match self.get_coinbase_price(mint).await {
+            Ok(coinbase_price) => {
+                info!("✅ Coinbase: precio ${:.6} obtenido", coinbase_price.price_usd);
+                prices.push(coinbase_price);
+                successful_sources += 1;
+            },
+            Err(e) => debug!("⚠️ Coinbase not available for this token: {}", e),
+        }
+
+        // 3. Birdeye API (gratuito, más confiable que Jupiter) - TERCERA PRIORIDAD  
+        if self.birdeye_enabled && successful_sources < 3 {
             match self.get_birdeye_price(mint).await {
                 Ok(birdeye_price) => {
                     info!("✅ Birdeye: precio ${:.6} obtenido", birdeye_price.price_usd);
@@ -169,7 +179,7 @@ impl RealPriceFeeds {
             }
         }
 
-        // 3. Jupiter Price API (menos confiable ahora) - SOLO SI NECESITAMOS MÁS FUENTES
+        // 4. Jupiter Price API (menos confiable ahora) - SOLO SI NECESITAMOS MÁS FUENTES
         if self.jupiter_enabled && successful_sources < 2 {
             match self.get_jupiter_price(mint).await {
                 Ok(jupiter_price) => {
@@ -177,13 +187,13 @@ impl RealPriceFeeds {
                     prices.push(jupiter_price);
                     successful_sources += 1;
                 },
-                Err(e) => debug!("❌ Jupiter error (esperado): {}", e),
+                Err(e) => warn!("⚠️ Jupiter endpoint failed: {}", e),
             }
         }
 
-        // 4. Fallback inteligente solo si tenemos muy pocos datos (NO CoinGecko por defecto)
+        // 5. Fallback inteligente solo si tenemos muy pocos datos
         if prices.len() < 2 {
-            warn!("⚠️ Pocas fuentes disponibles ({} precios), usando fallbacks hardcoded", prices.len());
+            warn!("⚠️ Pocas fuentes disponibles ({} precios), usando fallbacks", prices.len());
             if let Ok(fallback_price) = self.get_hardcoded_fallback_price(mint).await {
                 prices.push(fallback_price);
             }
@@ -352,12 +362,14 @@ impl RealPriceFeeds {
         Ok(prices)
     }
 
-    /// Obtener precio de Jupiter con reintentos y mejor manejo de errores
+    /// Obtener precio de Jupiter con endpoints corregidos y alternativas
     async fn get_jupiter_price(&self, mint: &str) -> Result<DEXPrice> {
-        // Intentar múltiples endpoints de Jupiter (solo endpoints públicos gratuitos)
+        // ENDPOINTS CORREGIDOS DE JUPITER
         let endpoints = vec![
-            format!("https://price.jup.ag/v4/price?ids={}", mint),
-            // Removido el endpoint v2 que requiere autorización
+            // Endpoint principal de Jupiter v6 (más reciente)
+            format!("https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v&amount=1000000", mint),
+            // Endpoint alternativo si existe
+            format!("https://api.jup.ag/price/{}", mint),
         ];
 
         let mut last_error = None;
@@ -366,19 +378,19 @@ impl RealPriceFeeds {
             match self.try_jupiter_endpoint(&endpoint, mint).await {
                 Ok(price) => return Ok(price),
                 Err(e) => {
-                    warn!("Jupiter endpoint {} failed: {}", endpoint, e);
+                    debug!("Jupiter endpoint {} failed: {}", endpoint, e);
                     last_error = Some(e);
                 }
             }
         }
 
-        // Si Jupiter falla, intentar obtener precio de CoinGecko como alternativa
-        match self.get_coingecko_price(mint).await {
+        // Si Jupiter falla completamente, intentar CoinGecko como backup
+        match self.get_coingecko_price_manual(mint).await {
             Ok(price) => {
                 info!("✅ Fallback: CoinGecko precio obtenido para {}", mint);
                 return Ok(price);
             },
-            Err(e) => warn!("CoinGecko fallback failed: {}", e),
+            Err(e) => debug!("CoinGecko backup also failed: {}", e),
         }
 
         Err(last_error.unwrap_or_else(|| anyhow!("All Jupiter endpoints failed")))
@@ -473,6 +485,56 @@ impl RealPriceFeeds {
             volume_24h: 0.0,
             last_updated: chrono::Utc::now(),
             source: "Birdeye".to_string(),
+        })
+    }
+
+    /// NUEVA: API Coinbase como alternativa confiable para tokens principales
+    async fn get_coinbase_price(&self, mint: &str) -> Result<DEXPrice> {
+        // Mapeo de tokens Solana a símbolos Coinbase
+        let symbol = match mint {
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => "USDC",
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => "USDT",
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => "JUP", 
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => "RAY",
+            _ => return Err(anyhow!("Token {} no soportado en Coinbase", mint)),
+        };
+
+        let url = format!("https://api.coinbase.com/v2/exchange-rates?currency={}", symbol);
+        
+        let response = timeout(Duration::from_secs(8),
+            self.http_client
+                .get(&url)
+                .header("User-Agent", "SniperForge/1.0")
+                .send()
+        ).await.map_err(|_| anyhow!("Coinbase timeout"))?
+          .map_err(|e| anyhow!("Coinbase connection error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("Coinbase API error: {}", response.status()));
+        }
+
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("Coinbase JSON error: {}", e))?;
+
+        let price_usd = data["data"]["rates"]["USD"].as_str()
+            .and_then(|s| s.parse::<f64>().ok())
+            .ok_or_else(|| anyhow!("Invalid Coinbase price format"))?;
+
+        if price_usd <= 0.0 {
+            return Err(anyhow!("Invalid Coinbase price: {}", price_usd));
+        }
+
+        debug!("📊 Coinbase price for {}: ${:.6}", mint, price_usd);
+
+        Ok(DEXPrice {
+            dex_name: "Coinbase".to_string(),
+            token_mint: mint.to_string(),
+            price_usd,
+            price_sol: None,
+            liquidity_usd: 0.0,
+            volume_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+            source: "Coinbase_API".to_string(),
         })
     }
 
