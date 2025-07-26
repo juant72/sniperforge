@@ -57,6 +57,9 @@ pub mod advanced_performance_optimizer; // ACCIÓN 7.1: Performance optimization
 pub mod advanced_profit_tracker; // ACCIÓN 7.2: Advanced profit tracking and analytics  
 pub mod real_time_trading_dashboard; // ACCIÓN 7.3: Real-time trading dashboard
 
+// PRINCIPIO 26: FEE CALCULATION SYSTEM
+pub mod fee_calculator; // CRÍTICO: Sistema de cálculo preciso de fees totales
+
 // Re-export del sistema integrado
 // pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated; // ❌ ELIMINADO
 

@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 use tokio::time::{timeout, Duration};
 use std::sync::{Arc, Mutex};
+use crate::fee_calculator::{FeeCalculator, ArbitrageFeeBreakdown};
 
 /// Cliente para obtener precios reales de múltiples DEXs
 pub struct RealPriceFeeds {
@@ -19,6 +20,8 @@ pub struct RealPriceFeeds {
     http_client: reqwest::Client,
     // Rate limiting para CoinGecko
     last_coingecko_request: Arc<Mutex<std::time::Instant>>,
+    // NUEVO: Calculator de fees (PRINCIPIO 26)
+    fee_calculator: FeeCalculator,
 }
 
 /// Precio real de un token en un DEX específico
@@ -47,6 +50,10 @@ pub struct RealArbitrageOpportunity {
     pub min_liquidity_usd: f64,
     pub confidence_score: f64,
     pub trade_amount_sol: f64,
+    // NUEVO: Breakdown completo de fees (PRINCIPIO 26)
+    pub fee_breakdown: Option<ArbitrageFeeBreakdown>,
+    pub net_profit_after_fees: Option<f64>,
+    pub is_profitable_after_fees: Option<bool>,
 }
 
 impl RealPriceFeeds {
@@ -68,6 +75,7 @@ impl RealPriceFeeds {
             birdeye_enabled: false, // ❌ Deshabilitado - requiere API key
             http_client,
             last_coingecko_request: Arc::new(Mutex::new(std::time::Instant::now() - Duration::from_secs(60))),
+            fee_calculator: FeeCalculator::new(), // NUEVO: Calculator de fees precisos
         }
     }
 
@@ -142,8 +150,22 @@ impl RealPriceFeeds {
                     // FILTROS ULTRA PERMISIVOS PARA DETECTAR CUALQUIER OPORTUNIDAD
                     // Reducir thresholds al mínimo para máxima detección
                     if opportunity.price_difference_pct > 0.01 && opportunity.confidence_score > 0.1 {
-                        info!("✅ Oportunidad detectada: {} ({}% profit, {:.1}% confidence)", 
-                              symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
+                        // MOSTRAR BREAKDOWN DE FEES (PRINCIPIO 26)
+                        if let Some(ref breakdown) = opportunity.fee_breakdown {
+                            if breakdown.is_profitable {
+                                info!("✅ Oportunidad RENTABLE: {} ({}% gross, {:.6} SOL net profit after fees)", 
+                                      symbol, opportunity.price_difference_pct, breakdown.net_profit_sol);
+                                info!("   💸 Total Fees: {:.6} SOL | Jupiter: {:.6} | DEX: {:.6} | Slippage: {:.6}", 
+                                      breakdown.total_fees_sol, breakdown.jupiter_fee_sol, 
+                                      breakdown.dex_fees_sol, breakdown.slippage_cost_sol);
+                            } else {
+                                warn!("⚠️ Oportunidad NO rentable: {} ({}% gross, {:.6} SOL net LOSS after fees)", 
+                                      symbol, opportunity.price_difference_pct, breakdown.net_profit_sol);
+                            }
+                        } else {
+                            info!("✅ Oportunidad detectada: {} ({}% profit, {:.1}% confidence) [Sin breakdown fees]", 
+                                  symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
+                        }
                         opportunities.push(opportunity);
                     } else if opportunity.price_difference_pct > 0.005 {
                         info!("⚠️ Oportunidad marginal detectada: {} ({}% profit, {:.1}% confidence)", 
@@ -715,6 +737,22 @@ impl RealPriceFeeds {
         
         let confidence_score = (liquidity_score + volume_score + price_diff_score) / 3.0;
 
+        // NUEVO: Calcular fees precisos usando PRINCIPIO 26
+        let fee_breakdown = self.fee_calculator.calculate_arbitrage_fees(
+            base_trade_amount,
+            &buy_dex.dex_name,
+            &sell_dex.dex_name,
+            final_profit_sol.max(0.0),
+            buy_dex.liquidity_usd,
+            sell_dex.liquidity_usd,
+        ).await.ok(); // Si falla, continuar sin breakdown
+        
+        let (net_profit_after_fees, is_profitable_after_fees) = if let Some(ref breakdown) = fee_breakdown {
+            (Some(breakdown.net_profit_sol), Some(breakdown.is_profitable))
+        } else {
+            (None, None)
+        };
+
         Ok(RealArbitrageOpportunity {
             id: format!("REAL_{}_{}_{}_{}", symbol, buy_dex.dex_name, sell_dex.dex_name, chrono::Utc::now().timestamp()),
             token_mint: mint.to_string(),
@@ -726,6 +764,9 @@ impl RealPriceFeeds {
             min_liquidity_usd: (buy_dex.liquidity_usd).min(sell_dex.liquidity_usd),
             confidence_score,
             trade_amount_sol: base_trade_amount,
+            fee_breakdown,
+            net_profit_after_fees,
+            is_profitable_after_fees,
         })
     }
 

@@ -336,7 +336,21 @@
 - 🔍 **VALIDATION**: All configurable values must be externalized
 - 📋 **EXAMPLES**: `min_profit_threshold`, `max_concurrent_trades`, `api_timeouts`
 
-#### **✅ PRINCIPIO 26 - COMPETITIVE ADVANTAGE: BUILDING**
+#### **🚨 PRINCIPIO 26 - CÁLCULO PRECISO DE FEES TOTALES: CRÍTICO PARA RENTABILIDAD**
+- ❌ **CRITICAL ISSUE**: Sistema debe calcular PERFECTAMENTE todos los fees involucrados
+- 💰 **JUPITER FEES**: 0.25% - 0.50% por swap (varía según pool y liquidez)
+- 💰 **SOLANA TX FEES**: ~0.000005 SOL por transacción (~$0.001 USD)
+- 💰 **DEX FEES**: Raydium (0.25%), Orca (0.3%), Whirlpool (0.01%-1%)
+- 💰 **SLIPPAGE COSTS**: Variable según liquidez disponible en el momento
+- 💰 **MEV PROTECTION**: Fees adicionales si se usa anti-MEV
+- 📊 **FÓRMULA REAL**: `Total_Cost = Jupiter_Fee + Solana_Fee + DEX_Fee + Slippage + MEV_Fee`
+- ✅ **MANDATORY**: `Profit_Real > Total_Fees + Safety_Margin` antes de ejecutar
+- ❌ **PROHIBIDO**: Ejecutar arbitrages sin cálculo completo de fees
+- 🔍 **VALIDATION**: Cada trade debe mostrar breakdown completo de costs
+- 📋 **EXAMPLES**: "Profit: 0.001 SOL, Fees: 0.0008 SOL, Net: 0.0002 SOL"
+- ⚠️ **WARNING**: Muchos trades aparentemente rentables pierden dinero por fees mal calculados
+
+#### **✅ PRINCIPIO 27 - COMPETITIVE ADVANTAGE: BUILDING**
 - ✅ **FOUNDATION**: Unique ML auto-optimization approach
 - ✅ **CONFIRMED**: Real opportunity detection capability
 - 🔄 **EXPANDING**: Advanced strategies development
