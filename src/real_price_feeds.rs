@@ -122,14 +122,21 @@ impl RealPriceFeeds {
                 // Calcular diferencia de precio
                 let price_diff_pct = ((price_b.price_usd - price_a.price_usd) / price_a.price_usd).abs() * 100.0;
 
-                // Filtrar por diferencia mínima significativa
-                if price_diff_pct > 0.5 { // Mínimo 0.5% diferencia
+                // Filtrar por diferencia mínima significativa (RELAJADO PARA MÁS DETECCIÓN)
+                if price_diff_pct > 0.1 && price_diff_pct < 50.0 { // Entre 0.1% y 50% (más permisivo)
                     let opportunity = self.create_arbitrage_opportunity(
                         symbol, mint, price_a.clone(), price_b.clone(), price_diff_pct
                     ).await?;
 
-                    if opportunity.confidence_score > 0.6 { // Solo alta confianza
+                    // FILTROS AJUSTADOS PARA DETECTAR MÁS OPORTUNIDADES
+                    // Reducir threshold mínimo y confidence para mayor detección
+                    if opportunity.price_difference_pct > 0.05 && opportunity.confidence_score > 0.3 {
+                        info!("✅ Oportunidad detectada: {} ({}% profit, {:.1}% confidence)", 
+                              symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
                         opportunities.push(opportunity);
+                    } else if opportunity.price_difference_pct > 0.01 {
+                        debug!("⚠️ Oportunidad marginal: {} ({}% profit, {:.1}% confidence)", 
+                               symbol, opportunity.price_difference_pct, opportunity.confidence_score * 100.0);
                     }
                 }
             }
@@ -179,15 +186,21 @@ impl RealPriceFeeds {
             }
         }
 
-        // 4. Jupiter Price API (menos confiable ahora) - SOLO SI NECESITAMOS MÁS FUENTES
-        if self.jupiter_enabled && successful_sources < 2 {
-            match self.get_jupiter_price(mint).await {
-                Ok(jupiter_price) => {
+        // 4. Jupiter Price API con manejo robusto de errores
+        if self.jupiter_enabled && successful_sources < 3 {
+            match timeout(Duration::from_secs(5), self.get_jupiter_price(mint)).await {
+                Ok(Ok(jupiter_price)) => {
                     info!("✅ Jupiter: precio ${:.6} obtenido", jupiter_price.price_usd);
                     prices.push(jupiter_price);
                     successful_sources += 1;
                 },
-                Err(e) => warn!("⚠️ Jupiter endpoint failed: {}", e),
+                Ok(Err(e)) => {
+                    debug!("⚠️ Jupiter endpoint temporarily unavailable: {}", e);
+                    // No logging de error - es normal que Jupiter falle ocasionalmente
+                },
+                Err(_) => {
+                    debug!("⚠️ Jupiter timeout - continuando con otras fuentes");
+                }
             }
         }
 
@@ -409,8 +422,9 @@ impl RealPriceFeeds {
           .map_err(|e| anyhow!("Jupiter connection error: {}", e))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Jupiter API error: {} - {}", response.status(), error_text));
+            return Err(anyhow!("Jupiter API error: {} - {}", status, error_text));
         }
 
         let data: Value = response.json().await
@@ -625,21 +639,42 @@ impl RealPriceFeeds {
     ) -> Result<RealArbitrageOpportunity> {
         
         // Determinar DEX con menor precio (comprar) y mayor precio (vender)
+        let min_price = price_a.price_usd.min(price_b.price_usd);
+        let max_price = price_a.price_usd.max(price_b.price_usd);
+        
         let (buy_dex, sell_dex) = if price_a.price_usd < price_b.price_usd {
-            (price_a, price_b)
+            (price_a.clone(), price_b.clone())
         } else {
-            (price_b, price_a)
+            (price_b.clone(), price_a.clone())
         };
 
-        // Calcular profit estimado (conservador)
+        // Calcular profit estimado REAL (después de costos)
         let base_trade_amount = 0.001; // 1 mSOL base
-        let estimated_profit_pct = price_diff_pct - 1.0; // Menos 1% de fees/slippage
-        let estimated_profit_sol = base_trade_amount * (estimated_profit_pct / 100.0);
+        
+        // Costs reales en DeFi:
+        // - DEX fees: 0.25% por swap (x2 swaps = 0.5%)
+        // - Network fees: ~0.001 SOL (~$0.02 @ $20/SOL)  
+        // - Slippage: 0.1-0.5% dependiendo liquidez
+        // - MEV protection: 0.05%
+        let total_costs_pct = 0.75; // Total ~0.75% costos reales
+        
+        let raw_profit_pct = price_diff_pct;
+        let real_profit_pct = (raw_profit_pct - total_costs_pct).max(0.0);
 
-        // Calcular confidence score
+        // Ajustar para tokens de bajo valor (como BONK)
+        let adjusted_profit_pct = if min_price < 0.001 || max_price < 0.001 {
+            // Para tokens sub-centavo, el profit real es mucho menor debido a liquidez limitada
+            real_profit_pct * 0.1 // Solo 10% del profit teórico es realizable
+        } else {
+            real_profit_pct
+        };
+
+        let final_profit_sol = base_trade_amount * (adjusted_profit_pct / 100.0);
+
+        // Calcular confidence score con profit real
         let liquidity_score = ((buy_dex.liquidity_usd + sell_dex.liquidity_usd) / 20000.0).min(1.0);
         let volume_score = ((buy_dex.volume_24h + sell_dex.volume_24h) / 100000.0).min(1.0);
-        let price_diff_score = (price_diff_pct / 5.0).min(1.0); // 5% = score perfecto
+        let price_diff_score = (adjusted_profit_pct / 2.0).min(1.0); // 2% profit real = score perfecto
         
         let confidence_score = (liquidity_score + volume_score + price_diff_score) / 3.0;
 
@@ -649,8 +684,8 @@ impl RealPriceFeeds {
             token_symbol: symbol.to_string(),
             dex_a: buy_dex.clone(),
             dex_b: sell_dex.clone(),
-            price_difference_pct: price_diff_pct,
-            estimated_profit_sol: estimated_profit_sol.max(0.0), // No profits negativos
+            price_difference_pct: adjusted_profit_pct, // Usar profit real ajustado
+            estimated_profit_sol: final_profit_sol.max(0.0),
             min_liquidity_usd: (buy_dex.liquidity_usd).min(sell_dex.liquidity_usd),
             confidence_score,
             trade_amount_sol: base_trade_amount,
