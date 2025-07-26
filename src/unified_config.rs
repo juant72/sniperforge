@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use solana_sdk::pubkey::Pubkey;
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 /// Configuración unificada para todas las fases del sistema
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -588,6 +589,60 @@ impl UnifiedPhase45Config {
             .enable_parallel_execution(true)
             .max_concurrent_executions(10)
             .build()
+    }
+    
+    /// Crear configuración desde ArbitrageSettings JSON
+    pub fn from_json_settings(settings: &crate::arbitrage_settings::ArbitrageSettings) -> Self {
+        info!("🔧 Creando UnifiedPhase45Config desde arbitrage_settings.json");
+        
+        let mut config = Self::default();
+        
+        // Configuración básica de trading
+        config.max_trade_sol = settings.trading.max_trade_sol;
+        config.min_trade_sol = settings.trading.min_profit_threshold_sol;
+        config.min_profit_bps = (settings.trading.min_profit_threshold_sol * 10000.0) as u64;
+        config.max_slippage_bps = settings.risk_management.max_slippage_bps as u64;
+        
+        // APIs y timeouts
+        config.api_timeout_ms = (settings.apis.jupiter.timeout_seconds * 1000) as u64;
+        config.jupiter_timeout_seconds = settings.apis.jupiter.timeout_seconds;
+        
+        // MEV Protection
+        config.mev_protection_enabled = settings.mev_protection.enabled;
+        config.jito_rpc_url = settings.mev_protection.jito_rpc_url.clone();
+        config.jito_tip_lamports = settings.mev_protection.jito_tip_lamports;
+        config.enable_sandwich_detection = settings.mev_protection.sandwich_detection;
+        
+        // RPC
+        config.rpc_endpoint = settings.rpc.primary_url.clone();
+        
+        // Jupiter Advanced
+        config.jupiter_advanced_enabled = settings.apis.jupiter.enabled;
+        config.jupiter_max_accounts = 64;
+        config.jupiter_restrict_intermediate_tokens = true;
+        config.jupiter_dynamic_slippage = true;
+        config.jupiter_max_route_complexity = 3;
+        
+        // Performance
+        config.parallel_execution_enabled = settings.performance.parallel_api_calls;
+        config.max_concurrent_executions = settings.performance.max_concurrent_discoveries;
+        
+        // Event-driven si ML está habilitado
+        config.event_driven_enabled = settings.ml_analysis.enabled;
+        
+        // DEX specialization
+        config.dex_specialization_enabled = true;
+        config.enable_raydium_clmm = true;
+        config.enable_orca_whirlpools = true;
+        
+        info!("✅ UnifiedPhase45Config configurado desde JSON:");
+        info!("   • Max trade: {} SOL", config.max_trade_sol);
+        info!("   • Min profit: {} bps", config.min_profit_bps);
+        info!("   • MEV protection: {}", config.mev_protection_enabled);
+        info!("   • ML/Event-driven: {}", config.event_driven_enabled);
+        info!("   • Parallel execution: {}", config.parallel_execution_enabled);
+        
+        config
     }
 }
 

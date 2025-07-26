@@ -3,6 +3,7 @@
 
 pub mod analysis;
 pub mod arbitrage;
+pub mod arbitrage_settings; // Sistema de configuración centralizado JSON
 pub mod bots;
 pub mod config;
 pub mod dexscreener_testing; // DexScreener API testing
