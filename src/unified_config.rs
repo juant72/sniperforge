@@ -458,10 +458,24 @@ impl UnifiedPhase45Config {
     pub fn professional_trading() -> Self {
         ConfigBuilder::from_preset(PhaseConfig::Aggressive)
             .trading_range(0.01, 0.1)
-            .profit_requirements(10, 30) // 0.1% profit, 0.3% slippage
+            .profit_requirements(5, 50) // 0.05% profit, 0.5% slippage - MUY PERMISIVO PARA ML
             .enable_event_driven(true)
             .enable_parallel_execution(true)
             .max_concurrent_executions(10)
+            .build()
+    }
+    
+    /// Configuración específica para pruebas de Machine Learning
+    pub fn ml_testing() -> Self {
+        ConfigBuilder::from_preset(PhaseConfig::Aggressive)
+            .trading_range(0.001, 0.1)
+            .profit_requirements(1, 100) // 0.01% profit, 1% slippage - ULTRA PERMISIVO
+            .enable_jupiter_advanced(true)
+            .enable_mev_protection(true)
+            .enable_dex_specialization(true)
+            .enable_event_driven(true)
+            .enable_parallel_execution(true)
+            .max_concurrent_executions(5)
             .build()
     }
     

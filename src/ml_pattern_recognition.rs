@@ -148,7 +148,7 @@ impl PatternRecognitionEngine {
         }
     }
     
-    /// ACCIÓN 8.1: Scoring ML de calidad de oportunidad
+    /// ACCIÓN 8.1: Scoring ML de calidad de oportunidad (FIXED for real profits)
     pub fn score_opportunity(&mut self, 
                             token_pair: &str, 
                             profit_percentage: f64,
@@ -157,19 +157,29 @@ impl PatternRecognitionEngine {
         
         self.predictions_made += 1;
         
-        // Base profit score (normalized)
-        let base_profit_score = (profit_percentage - 99.0).max(0.0).min(2.0) / 2.0; // 99-101% -> 0-1
+        // Base profit score - FIXED for real 0.1-0.5% profits
+        let base_profit_score = if profit_percentage >= 0.5 {
+            1.0  // Excellent profit (0.5%+)
+        } else if profit_percentage >= 0.2 {
+            0.8  // Very good profit (0.2-0.5%)
+        } else if profit_percentage >= 0.1 {
+            0.6  // Good profit (0.1-0.2%)
+        } else if profit_percentage >= 0.05 {
+            0.4  // Acceptable profit (0.05-0.1%)
+        } else {
+            0.2  // Low profit (<0.05%)
+        };
         
         // Execution probability based on historical success rate
         let execution_probability = self.calculate_execution_probability(token_pair, profit_percentage);
         
-        // Risk score based on volatility and market conditions
-        let risk_score = self.calculate_risk_score(current_volatility, liquidity_level);
+        // Risk score based on volatility and market conditions (REDUCED risk weighting)
+        let risk_score = self.calculate_risk_score(current_volatility, liquidity_level) * 0.5; // Less conservative
         
         // Timing score based on current market conditions
         let timing_score = self.calculate_timing_score();
         
-        // Composite score using learned weights
+        // Composite score using learned weights (BOOSTED for real trading)
         let composite_score = (
             base_profit_score * self.profit_weight +
             execution_probability * self.timing_weight +
@@ -381,7 +391,7 @@ pub fn analyze_market_condition(recent_opportunities: &[OpportunityPattern]) -> 
         .sum::<f64>() / recent_opportunities.len() as f64;
     
     // Determine trend
-    let profit_variance: f64 = recent_opportunities.iter()
+    let _profit_variance: f64 = recent_opportunities.iter()
         .map(|o| (o.profit_percentage - avg_profit).powi(2))
         .sum::<f64>() / recent_opportunities.len() as f64;
     
