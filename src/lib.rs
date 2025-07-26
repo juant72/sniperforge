@@ -23,6 +23,8 @@ pub mod phase4_demo; // Phase 4 demonstration and testing
 pub mod real_price_feeds; // REAL PRICE FEEDS: Obtener precios reales de múltiples DEXs
 pub mod real_arbitrage_engine; // REAL ARBITRAGE ENGINE: Motor de arbitraje verdadero
 pub mod triangular_arbitrage_engine; // TRIANGULAR ARBITRAGE: Motor de arbitraje triangular con anti-circular
+pub mod fee_calculator; // PRINCIPIO 26: Cálculo preciso de fees totales para rentabilidad real
+pub mod optimal_trading_config; // NUEVO: Configuración optimizada para maximizar ganancias
 pub mod platform;
 pub mod portfolio; // Phase 6C Portfolio Management
 pub mod shared;
@@ -56,9 +58,6 @@ pub mod advanced_real_trading; // ACCIÓN 7.2: Advanced Real Trading System
 pub mod advanced_performance_optimizer; // ACCIÓN 7.1: Performance optimization engine
 pub mod advanced_profit_tracker; // ACCIÓN 7.2: Advanced profit tracking and analytics  
 pub mod real_time_trading_dashboard; // ACCIÓN 7.3: Real-time trading dashboard
-
-// PRINCIPIO 26: FEE CALCULATION SYSTEM
-pub mod fee_calculator; // CRÍTICO: Sistema de cálculo preciso de fees totales
 
 // Re-export del sistema integrado
 // pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated; // ❌ ELIMINADO

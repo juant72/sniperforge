@@ -1,13 +1,14 @@
 // ================================================================================
-// FEE CALCULATOR - PRINCIPIO 26: CÁLCULO PRECISO DE FEES TOTALES
+// FEE CALCULATOR - PRINCIPIO 26: CÁLCULO PRECISO DE FEES TOTALES + OPTIMAL SIZING
 // ================================================================================
 // Sistema para calcular EXACTAMENTE todos los costos involucrados en arbitraje
-// Crítico para determinar rentabilidad real de trades
+// Crítico para determinar rentabilidad real de trades con montos óptimos
 // ================================================================================
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use log::{info, warn, debug};
+use crate::optimal_trading_config::OptimalTradingConfig;
 
 /// Breakdown completo de todos los fees involucrados en un arbitrage
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -248,6 +249,78 @@ impl FeeCalculator {
     pub fn update_sol_price(&mut self, new_price_usd: f64) {
         self.sol_price_usd = new_price_usd;
         debug!("📊 SOL price updated to ${:.2}", new_price_usd);
+    }
+
+    /// NUEVO: Calcular monto óptimo de trade para maximizar profit
+    pub fn calculate_optimal_trade_amount(
+        &self,
+        gross_profit_percentage: f64,
+        available_liquidity_usd: f64,
+        config: &OptimalTradingConfig,
+    ) -> Result<f64> {
+        // 1. Calcular fees fijos típicos (independientes del monto)
+        let fixed_fees_sol = self.calculate_fixed_fees();
+        
+        // 2. Calcular monto mínimo para ser rentable
+        let min_trade_for_profit = if gross_profit_percentage > 0.0 {
+            let required_gross_profit = fixed_fees_sol + config.opportunity_filters.min_net_profit_sol;
+            required_gross_profit / (gross_profit_percentage / 100.0)
+        } else {
+            config.min_trade_amounts.sol_minimum
+        };
+        
+        // 3. Considerar liquidez disponible
+        let max_by_liquidity = (available_liquidity_usd / self.sol_price_usd) * 0.1; // Max 10% de liquidez
+        
+        // 4. Aplicar límites del config
+        let optimal_amount = min_trade_for_profit
+            .max(config.min_trade_amounts.sol_minimum)
+            .min(config.dynamic_sizing.max_trade_size_sol)
+            .min(max_by_liquidity);
+        
+        info!("🎯 OPTIMAL TRADE CALCULATION:");
+        info!("   📊 Gross profit: {:.3}%", gross_profit_percentage);
+        info!("   🔧 Fixed fees: {:.6} SOL", fixed_fees_sol);
+        info!("   💰 Min for profit: {:.6} SOL", min_trade_for_profit);
+        info!("   🌊 Max by liquidity: {:.6} SOL", max_by_liquidity);
+        info!("   ✅ OPTIMAL AMOUNT: {:.6} SOL (${:.2})", optimal_amount, optimal_amount * self.sol_price_usd);
+        
+        Ok(optimal_amount)
+    }
+    
+    /// Calcular fees fijos (Solana + base Jupiter)
+    fn calculate_fixed_fees(&self) -> f64 {
+        let solana_base_fee = 0.000005; // Base TX fee
+        let solana_priority_fee = 0.00001; // Typical priority fee
+        let jupiter_base_fee = 0.000003; // Minimum Jupiter fee
+        
+        solana_base_fee + solana_priority_fee + jupiter_base_fee
+    }
+
+    /// NUEVO: Verificar si un trade es rentable con el monto propuesto
+    pub fn is_trade_profitable_at_amount(
+        &self,
+        trade_amount_sol: f64,
+        gross_profit_percentage: f64,
+        config: &OptimalTradingConfig,
+    ) -> Result<bool> {
+        let gross_profit_sol = trade_amount_sol * (gross_profit_percentage / 100.0);
+        
+        // Calcular fees rápido (estimado)
+        let estimated_total_fees = self.estimate_total_fees(trade_amount_sol);
+        let net_profit_sol = gross_profit_sol - estimated_total_fees;
+        
+        Ok(config.is_opportunity_profitable(gross_profit_sol, estimated_total_fees, trade_amount_sol))
+    }
+    
+    /// Estimación rápida de fees totales
+    fn estimate_total_fees(&self, trade_amount_sol: f64) -> f64 {
+        let jupiter_fee = trade_amount_sol * 0.003; // 0.3% estimado
+        let solana_fees = 0.000015; // Fees fijos típicos
+        let dex_fees = trade_amount_sol * 0.006; // 0.6% estimado
+        let slippage = trade_amount_sol * 0.001; // 0.1% estimado
+        
+        jupiter_fee + solana_fees + dex_fees + slippage
     }
 }
 

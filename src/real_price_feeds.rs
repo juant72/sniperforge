@@ -11,6 +11,7 @@ use serde_json::Value;
 use tokio::time::{timeout, Duration};
 use std::sync::{Arc, Mutex};
 use crate::fee_calculator::{FeeCalculator, ArbitrageFeeBreakdown};
+use crate::optimal_trading_config::OptimalTradingConfig;
 
 /// Cliente para obtener precios reales de múltiples DEXs
 pub struct RealPriceFeeds {
@@ -707,25 +708,44 @@ impl RealPriceFeeds {
             (price_b.clone(), price_a.clone())
         };
 
-        // Calcular profit estimado REAL (después de costos)
-        let base_trade_amount = 0.001; // 1 mSOL base
+        // NUEVO: Calcular monto óptimo de trade basado en profit potencial (PRINCIPIO 26)
+        let config = OptimalTradingConfig::load_from_json().unwrap_or_default();
+        let gross_profit_pct = ((max_price - min_price) / min_price) * 100.0;
+        let min_liquidity_usd = buy_dex.liquidity_usd.min(sell_dex.liquidity_usd);
         
-        // Costs reales en DeFi AJUSTADOS PARA DETECCIÓN MÁXIMA:
-        // - DEX fees: 0.25% por swap (x2 swaps = 0.5%)
-        // - Network fees: ~0.001 SOL (~$0.02 @ $20/SOL)  
-        // - Slippage: 0.1-0.5% dependiendo liquidez
-        // - MEV protection: 0.05%
-        let total_costs_pct = 0.25; // REDUCIDO DRÁSTICAMENTE para detectar más oportunidades
+        // Calcular monto óptimo usando nuevo sistema
+        let optimal_trade_amount = self.fee_calculator.calculate_optimal_trade_amount(
+            gross_profit_pct,
+            min_liquidity_usd,
+            &config,
+        ).unwrap_or(config.min_trade_amounts.sol_minimum);
         
+        info!("🎯 OPTIMAL TRADE SIZING:");
+        info!("   📊 Gross profit: {:.3}%", gross_profit_pct);
+        info!("   💰 Optimal amount: {:.6} SOL (${:.2})", optimal_trade_amount, optimal_trade_amount * 185.0);
+        info!("   🌊 Available liquidity: ${:.0}", min_liquidity_usd);
+        
+        // Usar monto óptimo en lugar de hardcoded 0.001
+        let base_trade_amount = optimal_trade_amount;
+        
+        // Calcular profit real considerando fees (NUEVO MÉTODO OPTIMIZADO)
         let raw_profit_pct = price_diff_pct;
-        let real_profit_pct = (raw_profit_pct - total_costs_pct).max(-0.5); // Permitir profits levemente negativos
-
-        // Ajustar para tokens de bajo valor (MENOS PENALIZACIÓN)
-        let adjusted_profit_pct = if min_price < 0.001 || max_price < 0.001 {
+        
+        // Verificar si es rentable con el monto calculado usando el fee calculator
+        let is_profitable = self.fee_calculator.is_trade_profitable_at_amount(
+            base_trade_amount,
+            raw_profit_pct,
+            &config,
+        ).unwrap_or(false);
+        
+        // Para compatibilidad, calcular profit ajustado
+        let adjusted_profit_pct = if is_profitable {
+            raw_profit_pct * 0.9 // Usar 90% del profit bruto como estimado
+        } else if min_price < 0.001 || max_price < 0.001 {
             // Para tokens sub-centavo, ser menos estricto
-            real_profit_pct * 0.5 // Reducir penalización de 0.1 a 0.5
+            raw_profit_pct * 0.5
         } else {
-            real_profit_pct
+            raw_profit_pct * 0.7 // Profit conservador para tokens normales
         };
 
         let final_profit_sol = base_trade_amount * (adjusted_profit_pct / 100.0);
