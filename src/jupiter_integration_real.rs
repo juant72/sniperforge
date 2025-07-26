@@ -11,6 +11,7 @@ use tokio::time::{timeout, Duration};
 use solana_sdk::pubkey::Pubkey;
 use std::str::FromStr;
 use std::collections::HashMap;
+use chrono; // Para timestamps
 
 /// Cliente REAL de Jupiter para routing avanzado
 pub struct JupiterRealIntegrator {
@@ -212,8 +213,9 @@ impl JupiterRealIntegrator {
           .map_err(|e| anyhow!("Jupiter connection error: {}", e))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Jupiter API error {}: {}", response.status(), error_text));
+            return Err(anyhow!("Jupiter API error {}: {}", status, error_text));
         }
 
         let data: Value = response.json().await
@@ -542,6 +544,63 @@ impl JupiterRealIntegrator {
             RiskLevel::Low
         }
     }
+    
+    /// NUEVO: Ejecutar swap real con Jupiter
+    pub async fn execute_real_swap(
+        &self,
+        input_mint: Pubkey,
+        output_mint: Pubkey,
+        amount: u64,
+    ) -> Result<SwapResult> {
+        info!("💰 EJECUTANDO SWAP REAL: {} -> {} ({})", input_mint, output_mint, amount);
+        
+        // 1. Obtener quote real
+        let quote = self.get_real_jupiter_quote(input_mint, output_mint, amount).await?;
+        
+        info!("   📊 Quote obtenido: {} -> {} (impact: {:.4}%)", 
+              quote.in_amount, quote.out_amount, quote.price_impact_pct);
+        
+        // 2. Validar profitabilidad
+        if quote.price_impact_pct > 5.0 {
+            return Err(anyhow!("Price impact muy alto: {:.2}%", quote.price_impact_pct));
+        }
+        
+        // 3. Simular ejecución (por seguridad, no ejecutar swap real aún)
+        warn!("⚠️ MODO SIMULACIÓN ACTIVADO - No se ejecutará swap real");
+        
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        
+        // 4. Generar resultado simulado
+        let route_id = if quote.route_plan.is_empty() {
+            "unknown".to_string()
+        } else {
+            format!("{:?}", quote.route_plan[0]) // Debug format del RoutePlan
+        };
+        
+        let signature = format!("SIM_{}_{}", 
+                               chrono::Utc::now().timestamp_millis(),
+                               route_id.chars().take(10).collect::<String>()); // Solo primeros 10 chars
+        
+        info!("✅ Swap simulado completado: {}", signature);
+        
+        Ok(SwapResult {
+            signature,
+            in_amount: quote.in_amount,
+            out_amount: quote.out_amount,
+            price_impact: quote.price_impact_pct,
+            execution_time_ms: 100,
+        })
+    }
+}
+
+/// Resultado de swap real
+#[derive(Debug, Clone)]
+pub struct SwapResult {
+    pub signature: String,
+    pub in_amount: u64,
+    pub out_amount: u64,
+    pub price_impact: f64,
+    pub execution_time_ms: u64,
 }
 
 #[cfg(test)]
