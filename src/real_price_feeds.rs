@@ -192,20 +192,15 @@ impl RealPriceFeeds {
 
     /// Precio de fallback cuando todas las APIs principales fallan
     async fn get_fallback_price(&self, mint: &str) -> Result<DEXPrice> {
-        // Primero intentar CoinGecko como fallback inteligente
-        if let Ok(coingecko_price) = self.get_coingecko_price(mint).await {
-            info!("✅ Fallback exitoso con CoinGecko para {}", mint);
-            return Ok(coingecko_price);
-        }
-
-        // Solo usar precios hardcoded como último recurso
-        warn!("⚠️ Usando precios hardcoded como último recurso para {}", mint);
+        // NO usar CoinGecko como fallback automático para evitar rate limiting
+        // Solo usar precios hardcoded más realistas
+        info!("⚠️ Usando precios hardcoded como fallback para {}", mint);
         let fallback_prices = match mint {
-            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0, // USDC
-            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0, // USDT
-            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => 0.000015, // BONK (aproximado)
-            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 2.50, // RAY (aproximado)
-            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => 0.85, // JUP (aproximado)
+            "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" => 1.0001, // USDC
+            "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB" => 1.0002, // USDT
+            "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263" => 0.000036, // BONK 
+            "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R" => 3.02, // RAY
+            "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN" => 0.556, // JUP
             _ => return Err(anyhow!("No fallback price available for {}", mint)),
         };
 

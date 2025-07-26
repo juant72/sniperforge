@@ -1011,7 +1011,6 @@ impl BasicDiscoveryEngine {
                 debug!("❌ Oportunidad rechazada: {} - Profit: {:.8} SOL < 0.00001 o Confianza: {:.2}% < 50%", 
                        real_opp.token_symbol, real_opp.estimated_profit_sol, real_opp.confidence_score * 100.0);
             }
-            }
         }
         
         info!("✅ Discovery REAL encontró {} oportunidades válidas", basic_opportunities.len());
