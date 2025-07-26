@@ -33,6 +33,10 @@ name = "arbitrage_phase45_clean"
 path = "src/bin/arbitrage_phase45_clean.rs"
 
 [[bin]]
+name = "arbitrage_phase45_enhanced"
+path = "src/bin/arbitrage_phase45_enhanced.rs"
+
+[[bin]]
 name = "arbitrage_real_trading"
 path = "src/bin/arbitrage_real_trading.rs"
 
@@ -613,6 +617,11 @@ path = "analyze_pool_structure.rs"
 [features]
 default = []
 native-tls = []
+
+# ===== ACCIÓN 7.2: ADVANCED REAL TRADING SYSTEM =====
+[[bin]]
+name = "advanced_trading_demo"
+path = "src/bin/advanced_trading_demo.rs"
 
 [lib]
 name = "sniperforge"

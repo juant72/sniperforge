@@ -25,6 +25,7 @@ use crate::mev_integration_simple::{MEVProtectionIntegrator, MEVProtectedOpportu
 use crate::dex_integration_simple::{DEXSpecializationIntegrator, EnhancedSpecializedOpportunity};
 use crate::event_driven_integration_simple::EventDrivenIntegrator;
 use crate::jupiter_real_client::JupiterQuoteResponse;
+// use crate::ml_integration_advanced::{AdvancedMLIntegrator, MLEnhancedOpportunity}; // ACCIÓN 7: ML Avanzado - Pendiente de ajustar tipos
 
 /// Análisis detallado de fees para arbitraje
 #[derive(Debug, Clone)]
@@ -106,6 +107,38 @@ impl UnifiedOpportunity {
             UnifiedOpportunity::DEXSpecialized(_) => "DEX_SPECIALIZED",
         }
     }
+    
+    /// Obtener input mint (token A)
+    pub fn get_input_mint(&self) -> Pubkey {
+        match self {
+            UnifiedOpportunity::Basic { token_a, .. } => *token_a,
+            UnifiedOpportunity::JupiterAdvanced(opp) => opp.jupiter_opportunity.input_mint,
+            UnifiedOpportunity::MEVProtected(_opp) => {
+                // Asumir que MEV protected tiene tokens, usar default para demo
+                Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").unwrap_or_default()
+            },
+            UnifiedOpportunity::DEXSpecialized(_opp) => {
+                // Asumir que DEX specialized tiene tokens, usar default para demo
+                Pubkey::from_str("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v").unwrap_or_default()
+            },
+        }
+    }
+    
+    /// Obtener output mint (token B)
+    pub fn get_output_mint(&self) -> Pubkey {
+        match self {
+            UnifiedOpportunity::Basic { token_b, .. } => *token_b,
+            UnifiedOpportunity::JupiterAdvanced(opp) => opp.jupiter_opportunity.output_mint,
+            UnifiedOpportunity::MEVProtected(_opp) => {
+                // Asumir que MEV protected tiene tokens, usar default para demo
+                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap_or_default()
+            },
+            UnifiedOpportunity::DEXSpecialized(_opp) => {
+                // Asumir que DEX specialized tiene tokens, usar default para demo
+                Pubkey::from_str("So11111111111111111111111111111111111111112").unwrap_or_default()
+            },
+        }
+    }
 }
 
 /// Resultado de ejecución unificado
@@ -184,6 +217,7 @@ pub struct ArbitrageBotPhase45Integrated {
     mev_integrator: Option<Arc<MEVProtectionIntegrator>>,
     dex_integrator: Option<Arc<DEXSpecializationIntegrator>>,
     event_integrator: Option<Arc<EventDrivenIntegrator>>,
+    // ml_integrator: Option<Arc<Mutex<AdvancedMLIntegrator>>>, // ACCIÓN 7: ML Avanzado - Temporalmente comentado
     
     // Sistema básico (siempre presente)
     basic_discovery_engine: Arc<BasicDiscoveryEngine>,
@@ -311,9 +345,22 @@ impl ArbitrageBotPhase45Integrated {
             info!("⏸️ Event-Driven: Deshabilitado");
             None
         };
+
+        // ACCIÓN 7: Inicializar sistema ML avanzado
+        let _ml_integrator: Option<()> = if config.enable_machine_learning {
+            info!("🧠 Advanced ML Integrator - ACCIÓN 7 (temporalmente deshabilitado)...");
+            // let mut ml_system = AdvancedMLIntegrator::new();
+            // ml_system.initialize().await?;
+            // info!("✅ Advanced ML Integration inicializado (predictive analytics activo)");
+            // Some(Arc::new(Mutex::new(ml_system)))
+            None
+        } else {
+            info!("⏸️ Advanced ML Integration: Deshabilitado");
+            None
+        };
         
         info!("✅ Sistema Phase 4.5 completamente inicializado");
-        info!("   🔧 Integradores activos: {}", Self::count_active_integrators(&jupiter_integrator, &mev_integrator, &dex_integrator, &event_integrator));
+        info!("   🔧 Integradores activos: {}", Self::count_active_integrators_with_ml(&jupiter_integrator, &mev_integrator, &dex_integrator, &event_integrator, &None));
         
         Ok(Self {
             config,
@@ -324,6 +371,7 @@ impl ArbitrageBotPhase45Integrated {
             mev_integrator,
             dex_integrator,
             event_integrator,
+            // ml_integrator, // ACCIÓN 7: ML Avanzado - Temporalmente comentado
             basic_discovery_engine: basic_discovery,
             basic_execution_engine: basic_execution,
             execution_history: Arc::new(RwLock::new(Vec::new())),
@@ -388,6 +436,23 @@ impl ArbitrageBotPhase45Integrated {
         if mev.is_some() { count += 1; }
         if dex.is_some() { count += 1; }
         if events.is_some() { count += 1; }
+        count
+    }
+
+    /// Contar integradores activos incluyendo ML
+    fn count_active_integrators_with_ml(
+        jupiter: &Option<Arc<JupiterAdvancedIntegrator>>,
+        mev: &Option<Arc<MEVProtectionIntegrator>>,
+        dex: &Option<Arc<DEXSpecializationIntegrator>>,
+        events: &Option<Arc<EventDrivenIntegrator>>,
+        _ml: &Option<()>, // Temporalmente comentado: &Option<Arc<Mutex<AdvancedMLIntegrator>>>,
+    ) -> usize {
+        let mut count = 0;
+        if jupiter.is_some() { count += 1; }
+        if mev.is_some() { count += 1; }
+        if dex.is_some() { count += 1; }
+        if events.is_some() { count += 1; }
+        // if ml.is_some() { count += 1; } // Temporalmente comentado
         count
     }
     

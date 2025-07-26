@@ -10,6 +10,7 @@ pub mod enhanced_pool_discovery; // PROPOSAL-002: Multi-DEX pool discovery
 pub mod expert; // EXPERT SYSTEM MODULES
 pub mod jupiter_speed_test;
 pub mod ml; // Phase 6B ML module
+pub mod ml_pattern_recognition; // ACCIÓN 8.1: Pattern Recognition Engine
 pub mod multi_dex_scanner; // PROPOSAL-002: Multi-DEX scanner system
 pub mod multi_token_manager; // PROPOSAL-003: Multi-token management system
 pub mod multi_token_config; // PROPOSAL-003: Multi-token configuration system
@@ -44,6 +45,13 @@ pub mod arbitrage_bot_phase45_integrated; // Sistema principal integrado
 pub mod jupiter_real_client; // Cliente real de Jupiter para swaps reales
 pub mod jupiter_integration_real; // NUEVO: Jupiter Integration Real - Sistema completo de Jupiter trading
 pub mod wallet_manager; // Gestión segura de wallets para trading real
+// pub mod ml_integration_advanced; // ACCIÓN 7: Advanced Machine Learning Integration - Temporalmente comentado
+pub mod advanced_real_trading; // ACCIÓN 7.2: Advanced Real Trading System
+
+// ACCIÓN 7: ADVANCED OPTIMIZATIONS MODULES
+pub mod advanced_performance_optimizer; // ACCIÓN 7.1: Performance optimization engine
+pub mod advanced_profit_tracker; // ACCIÓN 7.2: Advanced profit tracking and analytics  
+pub mod real_time_trading_dashboard; // ACCIÓN 7.3: Real-time trading dashboard
 
 // Re-export del sistema integrado
 pub use arbitrage_bot_phase45_integrated::ArbitrageBotPhase45Integrated;

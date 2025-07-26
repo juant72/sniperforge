@@ -571,7 +571,7 @@ impl DEXSpecializationIntegrator {
 
     async fn assess_enhanced_risks(
         &self,
-        dex_type: DEXType,
+        _dex_type: DEXType,
         liquidity_analysis: &Option<LiquidityAnalysis>,
     ) -> Vec<RiskFactor> {
         let mut risk_factors = Vec::new();
@@ -600,7 +600,7 @@ impl DEXSpecializationIntegrator {
         &self,
         input_token: &str,
         output_token: &str,
-        amount_sol: f64,
+        _amount_sol: f64,
     ) -> Result<CrossDEXComparison> {
         debug!("⚖️ [Enhanced Cross-DEX Comparison] Comparing DEXs for {}/{}", input_token, output_token);
 
