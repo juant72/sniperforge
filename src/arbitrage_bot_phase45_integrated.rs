@@ -987,6 +987,9 @@ impl BasicDiscoveryEngine {
         
         for real_opp in real_opportunities {
             // Solo incluir oportunidades con profit significativo
+            debug!("🔍 Evaluando oportunidad: {} - Profit: {:.8} SOL, Confianza: {:.2}%", 
+                   real_opp.token_symbol, real_opp.estimated_profit_sol, real_opp.confidence_score * 100.0);
+            
             // Filtros más permisivos para permitir más oportunidades
             if real_opp.estimated_profit_sol > 0.00001 && real_opp.confidence_score > 0.5 { // Relajado: 0.01 mSOL y 50% confianza
                 basic_opportunities.push(BasicOpportunity {
@@ -1004,6 +1007,10 @@ impl BasicDiscoveryEngine {
                 
                 info!("💰 Oportunidad REAL detectada: {} ({:.4}% profit)", 
                       real_opp.token_symbol, real_opp.price_difference_pct);
+            } else {
+                debug!("❌ Oportunidad rechazada: {} - Profit: {:.8} SOL < 0.00001 o Confianza: {:.2}% < 50%", 
+                       real_opp.token_symbol, real_opp.estimated_profit_sol, real_opp.confidence_score * 100.0);
+            }
             }
         }
         

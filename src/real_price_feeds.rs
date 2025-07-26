@@ -157,21 +157,30 @@ impl RealPriceFeeds {
             }
         }
 
-        // 2. Jupiter Price API (gratuito) - SEGUNDA PRIORIDAD
-        if self.jupiter_enabled {
+        // 2. Birdeye API (gratuito, más confiable que Jupiter)
+        if let Ok(birdeye_price) = self.get_birdeye_price(mint).await {
+            info!("✅ Birdeye: precio ${:.6} obtenido", birdeye_price.price_usd);
+            prices.push(birdeye_price);
+            successful_sources += 1;
+        } else {
+            debug!("❌ Birdeye no disponible para {}", mint);
+        }
+
+        // 3. Jupiter Price API (menos confiable ahora) - BAJA PRIORIDAD
+        if self.jupiter_enabled && successful_sources < 2 {
             match self.get_jupiter_price(mint).await {
                 Ok(jupiter_price) => {
                     info!("✅ Jupiter: precio ${:.6} obtenido", jupiter_price.price_usd);
                     prices.push(jupiter_price);
                     successful_sources += 1;
                 },
-                Err(e) => warn!("❌ Jupiter error: {}", e),
+                Err(e) => debug!("❌ Jupiter error (esperado): {}", e),
             }
         }
 
-        // 3. Fallback: usar precios sintéticos si todas las APIs fallan
-        if prices.is_empty() {
-            warn!("⚠️ Todas las APIs fallaron, usando fallback para token {}", mint);
+        // 4. Fallback inteligente solo si tenemos muy pocos datos
+        if prices.len() < 2 {
+            warn!("⚠️ Pocas fuentes disponibles, intentando fallbacks para token {}", mint);
             if let Ok(fallback_price) = self.get_fallback_price(mint).await {
                 prices.push(fallback_price);
             }
@@ -355,6 +364,52 @@ impl RealPriceFeeds {
             volume_24h: 0.0,
             last_updated: chrono::Utc::now(),
             source: "Jupiter".to_string(),
+        })
+    }
+
+    /// Obtener precio de Birdeye API (alternativa confiable a Jupiter)
+    async fn get_birdeye_price(&self, mint: &str) -> Result<DEXPrice> {
+        let url = format!("https://public-api.birdeye.so/public/price?address={}", mint);
+        
+        let response = timeout(Duration::from_secs(8),
+            self.http_client
+                .get(&url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("X-Chain", "solana")
+                .timeout(Duration::from_secs(6))
+                .send()
+        ).await.map_err(|_| anyhow!("Birdeye request timeout"))?
+          .map_err(|e| anyhow!("Birdeye connection error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!("Birdeye API error: {} - {}", 
+                response.status(),
+                response.text().await.unwrap_or_default()
+            ));
+        }
+
+        let data: Value = response.json().await
+            .map_err(|e| anyhow!("Birdeye JSON parse error: {}", e))?;
+
+        // Birdeye response format: {"data": {"value": 1.234}}
+        let price_usd = data["data"]["value"].as_f64()
+            .ok_or_else(|| anyhow!("Invalid Birdeye price format for {}", mint))?;
+
+        if price_usd <= 0.0 {
+            return Err(anyhow!("Invalid price from Birdeye: {}", price_usd));
+        }
+
+        debug!("📊 Birdeye price for {}: ${:.6}", mint, price_usd);
+
+        Ok(DEXPrice {
+            dex_name: "Birdeye".to_string(),
+            token_mint: mint.to_string(),
+            price_usd,
+            price_sol: None,
+            liquidity_usd: 0.0,
+            volume_24h: 0.0,
+            last_updated: chrono::Utc::now(),
+            source: "Birdeye".to_string(),
         })
     }
 
