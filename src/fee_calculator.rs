@@ -45,6 +45,30 @@ pub struct ArbitrageFeeBreakdown {
     pub is_profitable: bool,           // true solo si net profit > 0
 }
 
+/// Resultado del cálculo óptimo de Flashbots
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlashbotsOptimalResult {
+    pub optimal_amount_sol: f64,        // Monto óptimo a usar
+    pub theoretical_optimal: f64,       // Óptimo teórico sin límites de capital
+    pub expected_gross_profit: f64,     // Profit esperado antes de fees
+    pub capital_efficiency: f64,        // % de eficiencia vs óptimo teórico
+    pub is_capital_limited: bool,       // true si limitado por capital disponible
+    pub profit_per_sol: f64,           // ROI por SOL invertido
+}
+
+impl FlashbotsOptimalResult {
+    pub fn no_opportunity() -> Self {
+        Self {
+            optimal_amount_sol: 0.0,
+            theoretical_optimal: 0.0,
+            expected_gross_profit: 0.0,
+            capital_efficiency: 0.0,
+            is_capital_limited: false,
+            profit_per_sol: 0.0,
+        }
+    }
+}
+
 /// Configuración de fees por DEX (actualizable vía JSON)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DEXFeeConfig {
@@ -248,7 +272,122 @@ impl FeeCalculator {
     /// Actualizar precio de SOL para cálculos USD
     pub fn update_sol_price(&mut self, new_price_usd: f64) {
         self.sol_price_usd = new_price_usd;
-        debug!("📊 SOL price updated to ${:.2}", new_price_usd);
+    }
+    
+    /// FLASHBOTS OPTIMAL TRADE SIZE CALCULATION
+    /// Basado en investigación de Flashbots - simple-blind-arbitrage
+    /// Calcula el tamaño óptimo de trade para maximizar profit bruto
+    pub fn calculate_flashbots_optimal_size(
+        &self,
+        reserves_a: (f64, f64), // (reserve_in, reserve_out) exchange A
+        reserves_b: (f64, f64), // (reserve_in, reserve_out) exchange B  
+        available_capital_sol: f64,
+        max_capital_ratio: f64, // Máximo % del capital a usar (ej: 0.8 = 80%)
+    ) -> Result<FlashbotsOptimalResult> {
+        let (r_i_a, r_o_a) = reserves_a;
+        let (r_i_b, r_o_b) = reserves_b;
+        
+        // Constantes de Uniswap V2 (fee structure)
+        let fee_constant = 997.0;
+        let fee_divisor = 1000.0;
+        
+        info!("🎯 FLASHBOTS OPTIMAL CALCULATION:");
+        info!("   Exchange A reserves: {:.6} / {:.6}", r_i_a, r_o_a);
+        info!("   Exchange B reserves: {:.6} / {:.6}", r_i_b, r_o_b);
+        info!("   Available capital: {:.6} SOL", available_capital_sol);
+        
+        // Verificar que tenemos liquidez suficiente
+        if r_i_a <= 0.0 || r_o_a <= 0.0 || r_i_b <= 0.0 || r_o_b <= 0.0 {
+            warn!("❌ Invalid reserves - cannot calculate optimal size");
+            return Ok(FlashbotsOptimalResult::no_opportunity());
+        }
+        
+        // Fórmula de Flashbots para tamaño óptimo:
+        // optimal = (sqrt(F² * R_o_A * R_o_B / (R_i_B * R_i_A)) - D) * 
+        //           (R_i_B * R_i_A * D) / ((F * R_i_B * D) + (F² * R_o_A))
+        
+        let numerator_sqrt = (fee_constant * fee_constant * r_o_a * r_o_b) / (r_i_b * r_i_a);
+        
+        if numerator_sqrt <= 0.0 {
+            warn!("❌ Negative sqrt input - no arbitrage opportunity");
+            return Ok(FlashbotsOptimalResult::no_opportunity());
+        }
+        
+        let sqrt_result = numerator_sqrt.sqrt();
+        let numerator = (sqrt_result - fee_divisor) * (r_i_b * r_i_a * fee_divisor);
+        let denominator = (fee_constant * r_i_b * fee_divisor) + (fee_constant * fee_constant * r_o_a);
+        
+        if denominator <= 0.0 {
+            warn!("❌ Invalid denominator - cannot calculate optimal size");
+            return Ok(FlashbotsOptimalResult::no_opportunity());
+        }
+        
+        let optimal_amount_raw = numerator / denominator;
+        
+        info!("   📊 Raw optimal amount: {:.6} SOL", optimal_amount_raw);
+        
+        // Aplicar límites de capital
+        let max_allowed = available_capital_sol * max_capital_ratio;
+        let optimal_amount = optimal_amount_raw.min(max_allowed).max(0.001); // Mínimo 0.001 SOL
+        
+        // Calcular profit esperado con este tamaño
+        let gross_profit = self.calculate_gross_profit_for_amount(
+            optimal_amount, 
+            reserves_a, 
+            reserves_b
+        )?;
+        
+        // Calcular eficiencia (qué tan cerca estamos del óptimo teórico)
+        let efficiency = if optimal_amount_raw > 0.0 {
+            (optimal_amount / optimal_amount_raw).min(1.0)
+        } else {
+            0.0
+        };
+        
+        info!("   ✅ Final optimal amount: {:.6} SOL (${:.2})", 
+              optimal_amount, optimal_amount * self.sol_price_usd);
+        info!("   📈 Expected gross profit: {:.6} SOL", gross_profit);
+        info!("   🎯 Capital efficiency: {:.1}%", efficiency * 100.0);
+        
+        Ok(FlashbotsOptimalResult {
+            optimal_amount_sol: optimal_amount,
+            theoretical_optimal: optimal_amount_raw,
+            expected_gross_profit: gross_profit,
+            capital_efficiency: efficiency,
+            is_capital_limited: optimal_amount_raw > max_allowed,
+            profit_per_sol: if optimal_amount > 0.0 { gross_profit / optimal_amount } else { 0.0 },
+        })
+    }
+    
+    /// Calcula el profit bruto para un monto específico usando las reservas
+    pub fn calculate_gross_profit_for_amount(
+        &self,
+        amount_in: f64,
+        reserves_a: (f64, f64),
+        reserves_b: (f64, f64)
+    ) -> Result<f64> {
+        let (r_i_a, r_o_a) = reserves_a;
+        let (r_i_b, r_o_b) = reserves_b;
+        
+        // Simular el trade A->B->A
+        let amount_out_a = self.calculate_uniswap_output(amount_in, r_i_a, r_o_a);
+        let amount_out_b = self.calculate_uniswap_output(amount_out_a, r_i_b, r_o_b);
+        
+        let gross_profit = amount_out_b - amount_in;
+        Ok(gross_profit.max(0.0))
+    }
+    
+    /// Calcula output de Uniswap V2 dado input y reservas
+    fn calculate_uniswap_output(&self, amount_in: f64, reserve_in: f64, reserve_out: f64) -> f64 {
+        if reserve_in <= 0.0 || reserve_out <= 0.0 || amount_in <= 0.0 {
+            return 0.0;
+        }
+        
+        let amount_in_with_fee = amount_in * 997.0; // 0.3% fee
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = (reserve_in * 1000.0) + amount_in_with_fee;
+        
+        numerator / denominator
     }
 
     /// NUEVO: Calcular monto óptimo de trade para maximizar profit

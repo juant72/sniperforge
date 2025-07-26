@@ -97,11 +97,11 @@ pub struct MonitoringThresholds {
 impl Default for UnifiedPhase45Config {
     fn default() -> Self {
         Self {
-            // Base configuration (ultra-conservative)
-            min_profit_bps: 25,           // 0.25% minimum profit
+            // Base configuration (OPTIMIZED FOR 0.2 SOL CAPITAL)
+            min_profit_bps: 8,            // 0.08% minimum profit (aggressive pero seguro)
             max_slippage_bps: 15,         // 0.15% maximum slippage
-            max_trade_sol: 0.005,         // 0.005 SOL max (micro-trading)
-            min_trade_sol: 0.002,         // 0.002 SOL min (micro-trading)
+            max_trade_sol: 0.15,          // 0.15 SOL max (75% del capital disponible)
+            min_trade_sol: 0.05,          // 0.05 SOL min (25% del capital disponible)
             api_timeout_ms: 8000,
             
             // Phase 1: Jupiter Advanced

@@ -49,6 +49,14 @@ name = "check_balance"
 path = "src/bin/check_balance.rs"
 
 [[bin]]
+name = "test_flashbots_optimal"
+path = "test_flashbots_optimal.rs"
+
+[[bin]]
+name = "test_flashbots_simple"
+path = "test_flashbots_simple.rs"
+
+[[bin]]
 name = "balance_simple"
 path = "src/bin/balance_simple.rs"
 
