@@ -447,7 +447,7 @@ impl FeeCalculator {
         
         // Calcular fees rápido (estimado)
         let estimated_total_fees = self.estimate_total_fees(trade_amount_sol);
-        let net_profit_sol = gross_profit_sol - estimated_total_fees;
+        let _net_profit_sol = gross_profit_sol - estimated_total_fees;
         
         Ok(config.is_opportunity_profitable(gross_profit_sol, estimated_total_fees, trade_amount_sol))
     }

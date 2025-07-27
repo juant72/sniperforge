@@ -24,25 +24,25 @@ pub struct JupiterV6QuoteRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PlatformFee {
     pub amount: String,
-    pub feeBps: u16,
+    pub fee_bps: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RoutePlanStep {
-    pub swapInfo: SwapInfo,
+    pub swap_info: SwapInfo,
     pub percent: u8,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SwapInfo {
-    pub ammKey: String,
+    pub amm_key: String,
     pub label: String,
-    pub inputMint: String,
-    pub outputMint: String,
-    pub inAmount: String,
-    pub outAmount: String,
-    pub feeAmount: String,
-    pub feeMint: String,
+    pub input_mint: String,
+    pub output_mint: String,
+    pub in_amount: String,
+    pub out_amount: String,
+    pub fee_amount: String,
+    pub fee_mint: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

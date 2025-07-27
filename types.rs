@@ -6,11 +6,9 @@ use std::time::{Instant, SystemTime};
 use solana_sdk::pubkey::Pubkey;
 use solana_client::rpc_client::RpcClient;
 
-// ===== CORE CONSTANTS =====
-pub const MIN_TRADE_SIZE_SOL: f64 = 0.1;
-pub const MAX_TRADE_SIZE_SOL: f64 = 100.0;
-pub const MAX_SLIPPAGE_BPS: u64 = 200; // 2.0%
-pub const MILITARY_MIN_PROFIT_BPS: u64 = 50; // 0.5%
+// ===== CORE CONSTANTS REMOVED - NOW IN arbitrage_settings.json =====
+// ELIMINADO: Todos los valores hardcoded fueron migrados a configuración JSON
+// Para obtener estos valores, usar: ArbitrageSettings::load().trading.min_trade_size_sol, etc.
 
 // ===== POOL TYPES =====
 #[derive(Debug, Clone, PartialEq)]

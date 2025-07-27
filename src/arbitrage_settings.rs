@@ -39,6 +39,16 @@ pub struct TradingConfig {
     pub min_confidence_threshold: f64,
     pub max_concurrent_trades: usize,
     pub trade_timeout_seconds: u64,
+    // ===== NUEVOS CAMPOS PARA ELIMINAR HARDCODING =====
+    pub min_trade_size_sol: f64,
+    pub max_trade_size_sol: f64,
+    pub max_slippage_bps: u64,
+    pub military_min_profit_bps: u64,
+    pub base_profit_percentage: f64,
+    pub max_profit_percentage: f64,
+    pub default_trade_amount_usd: f64,
+    pub estimated_gas_cost_usd: f64,
+    pub estimated_execution_time_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,6 +300,16 @@ impl ArbitrageSettings {
                 min_confidence_threshold: 0.1,
                 max_concurrent_trades: 1,
                 trade_timeout_seconds: 10,
+                // ===== VALORES PARA TESTING =====
+                min_trade_size_sol: 0.001,
+                max_trade_size_sol: 0.01,
+                max_slippage_bps: 500, // 5.0% higher for testing
+                military_min_profit_bps: 10, // 0.1% lower for testing
+                base_profit_percentage: 0.001, // 0.1%
+                max_profit_percentage: 0.005, // 0.5%
+                default_trade_amount_usd: 100.0, // $100 for testing
+                estimated_gas_cost_usd: 1.0, // Low gas for testing
+                estimated_execution_time_ms: 1000, // Faster for testing
             },
             wallet: WalletConfig {
                 keypair_file: "./test_keypair.json".to_string(),
@@ -414,6 +434,16 @@ pub fn create_default_config_file() -> Result<()> {
                 min_confidence_threshold: 0.3,
                 max_concurrent_trades: 3,
                 trade_timeout_seconds: 30,
+                // ===== VALORES PARA PRODUCCIÓN =====
+                min_trade_size_sol: 0.1,
+                max_trade_size_sol: 100.0,
+                max_slippage_bps: 200, // 2.0%
+                military_min_profit_bps: 50, // 0.5%
+                base_profit_percentage: 0.005, // 0.5%
+                max_profit_percentage: 0.015, // 1.5%
+                default_trade_amount_usd: 10000.0, // $10k base trade size
+                estimated_gas_cost_usd: 50.0, // Estimated total gas costs
+                estimated_execution_time_ms: 3000, // Tiempo estimado
             },
             wallet: WalletConfig {
                 keypair_file: "./keypair.json".to_string(),
@@ -549,6 +579,16 @@ impl Default for ArbitrageSettings {
                 min_confidence_threshold: 0.3,
                 max_concurrent_trades: 3,
                 trade_timeout_seconds: 30,
+                // ===== VALORES ANTERIORMENTE HARDCODED =====
+                min_trade_size_sol: 0.1,
+                max_trade_size_sol: 100.0,
+                max_slippage_bps: 200, // 2.0%
+                military_min_profit_bps: 50, // 0.5%
+                base_profit_percentage: 0.005, // 0.5%
+                max_profit_percentage: 0.015, // 1.5%
+                default_trade_amount_usd: 10000.0, // $10k base trade size
+                estimated_gas_cost_usd: 50.0, // Estimated total gas costs
+                estimated_execution_time_ms: 3000, // Tiempo estimado
             },
             wallet: WalletConfig {
                 keypair_file: "./keypair.json".to_string(),
