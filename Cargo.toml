@@ -57,6 +57,10 @@ name = "test_flashbots_simple"
 path = "test_flashbots_simple.rs"
 
 [[bin]]
+name = "arbitrage_flashbots_optimal"
+path = "src/bin/arbitrage_flashbots_optimal.rs"
+
+[[bin]]
 name = "balance_simple"
 path = "src/bin/balance_simple.rs"
 
