@@ -225,7 +225,8 @@ core.*
 # Eclipse
 .project
 .metadata
-bin/
+# NOTA: NO ignorar src/bin/ porque contiene código fuente de Rust binarios
+# bin/ <- REMOVIDO porque src/bin/ debe estar tracked
 tmp/
 *.tmp
 *.bak
