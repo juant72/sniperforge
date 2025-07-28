@@ -21,6 +21,7 @@ pub mod phase3; // Phase 3: DEX Specialization
 pub mod phase4; // Phase 4: Advanced Features (Event-driven, Parallel, Monitoring, Benchmarking)
 pub mod phase4_demo; // Phase 4 demonstration and testing
 pub mod real_price_feeds; // REAL PRICE FEEDS: Obtener precios reales de múltiples DEXs
+pub mod optimized_real_price_feeds; // OPTIMIZED: Parallel processing version
 pub mod real_arbitrage_engine; // REAL ARBITRAGE ENGINE: Motor de arbitraje verdadero
 pub mod triangular_arbitrage_engine; // TRIANGULAR ARBITRAGE: Motor de arbitraje triangular con anti-circular
 pub mod fee_calculator; // PRINCIPIO 26: Cálculo preciso de fees totales para rentabilidad real

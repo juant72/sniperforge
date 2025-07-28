@@ -9,9 +9,10 @@ use tracing::{info, warn, error};
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
-use crate::real_price_feeds::{RealPriceFeeds, RealArbitrageOpportunity, DEXPrice};
+use crate::optimized_real_price_feeds::{RealPriceFeeds, RealArbitrageOpportunity, DEXPrice};
 use crate::jupiter_real_client::JupiterRealClient;
 use crate::wallet_manager::WalletManager;
+use crate::optimal_trading_config::OptimalTradingConfig;
 
 /// Motor de arbitraje real entre DEXs
 pub struct RealArbitrageEngine {
@@ -77,7 +78,7 @@ impl RealArbitrageEngine {
         wallet: WalletManager,
         config: RealArbitrageConfig,
     ) -> Result<Self> {
-        let price_feeds = RealPriceFeeds::new();
+        let price_feeds = RealPriceFeeds::new(OptimalTradingConfig::default());
         let direct_dex_clients = HashMap::new(); // Se implementa después
 
         Ok(Self {
