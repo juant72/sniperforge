@@ -132,7 +132,7 @@ impl OptimizedRealPriceFeeds {
                 reqwest::Client::builder()
                     .timeout(API_TIMEOUT)
                     .pool_max_idle_per_host(4)  // Connection pooling
-                    .http2_keep_alive_interval(Some(Duration::from_secs(30)))  // HTTP/2 keep-alive
+                    .tcp_keepalive(Duration::from_secs(30))  // TCP keep-alive
                     .build()
                     .unwrap_or_else(|_| reqwest::Client::new())
             );
@@ -259,7 +259,7 @@ impl OptimizedRealPriceFeeds {
 
         for result in results {
             match result {
-                Ok(mut prices) => all_prices.extend(prices),
+                Ok(prices) => all_prices.extend(prices),
                 Err(e) => debug!("⚠️ API call failed: {}", e),
             }
         }
@@ -346,7 +346,7 @@ impl OptimizedRealPriceFeeds {
             *last_request = std::time::Instant::now();
         }
 
-        let client = &self.client_pool[2]; // Use third client from pool
+        let _client = &self.client_pool[2]; // Use third client from pool
         
         // For demonstration - actual Coinbase API implementation would go here
         // Using placeholder for now
