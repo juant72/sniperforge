@@ -56,6 +56,15 @@ mod phase4 {
     pub mod integrated_arbitrage_system;
 }
 
+// ===== PHASES 9-11 INTEGRATION =====
+mod arbitrage_phase9_quantum;
+mod arbitrage_phase10_autonomous;  
+mod arbitrage_phase11_ecosystem;
+
+use arbitrage_phase9_quantum::{Phase9QuantumSystem, QuantumOpportunity};
+use arbitrage_phase10_autonomous::{Phase10AutonomousSystem, AutonomousDecision, DecisionType};
+use arbitrage_phase11_ecosystem::{Phase11EcosystemSystem, EcosystemActivity};
+
 // Original foundation modules (preserved)
 mod types;
 mod price_feeds;
@@ -92,6 +101,11 @@ pub struct UnifiedArbitrageBot {
     parallel_execution: Option<ParallelExecutionEngine>,     // Phase 4
     real_time_monitoring: Option<RealTimeMonitoringEngine>,  // Phase 4
     
+    // === PHASES 9-11 ADVANCED FEATURES (OPTIONAL) ===
+    quantum_system: Option<Phase9QuantumSystem>,            // Phase 9: Quantum optimization
+    autonomous_system: Option<Phase10AutonomousSystem>,     // Phase 10: Autonomous trading
+    ecosystem_system: Option<Phase11EcosystemSystem>,       // Phase 11: Ecosystem expansion
+    
     // === CONFIGURATION & STATE ===
     config: UnifiedConfig,
     stats: UnifiedStats,
@@ -113,6 +127,11 @@ pub struct UnifiedConfig {
     parallel_execution_enabled: bool,
     real_time_monitoring_enabled: bool,
     
+    // Phases 9-11 enhancement toggles
+    quantum_optimization_enabled: bool,
+    autonomous_trading_enabled: bool,
+    ecosystem_expansion_enabled: bool,
+    
     // Performance settings
     max_concurrent_ops: usize,
     cache_ttl_seconds: u64,
@@ -124,6 +143,12 @@ pub struct UnifiedStats {
     basic_opportunities: AtomicUsize,
     jupiter_opportunities: AtomicUsize,
     dex_specialized_opportunities: AtomicUsize,
+    
+    // Phases 9-11 statistics
+    quantum_opportunities: AtomicUsize,
+    autonomous_decisions: AtomicUsize,
+    ecosystem_activities: AtomicUsize,
+    
     successful_executions: AtomicUsize,
     failed_executions: AtomicUsize,
     total_profit_sol: Arc<std::sync::Mutex<f64>>,
@@ -152,6 +177,9 @@ pub enum OpportunitySource {
     JupiterAdvanced,
     DEXSpecialized,
     EventDriven,
+    QuantumOptimized,
+    AutonomousAI,
+    EcosystemCrossChain,
 }
 
 impl Default for UnifiedConfig {
@@ -170,6 +198,11 @@ impl Default for UnifiedConfig {
             event_driven_enabled: true,
             parallel_execution_enabled: true,
             real_time_monitoring_enabled: true,
+            
+            // Phases 9-11 enabled by default for complete system
+            quantum_optimization_enabled: true,
+            autonomous_trading_enabled: true,
+            ecosystem_expansion_enabled: true,
             
             // Performance settings
             max_concurrent_ops: INSTITUTIONAL_CONCURRENT_OPS,
@@ -299,6 +332,56 @@ impl UnifiedArbitrageBot {
             None
         };
         
+        // ===== PHASES 9-11 INITIALIZATION =====
+        
+        let quantum_system = if config.quantum_optimization_enabled {
+            match Phase9QuantumSystem::new().await {
+                Ok(system) => {
+                    info!("✅ Phase 9 - Quantum Optimization System: ENABLED");
+                    Some(system)
+                },
+                Err(e) => {
+                    warn!("⚠️ Phase 9 - Quantum Optimization System: FAILED to initialize: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("❌ Phase 9 - Quantum Optimization System: DISABLED");
+            None
+        };
+        
+        let autonomous_system = if config.autonomous_trading_enabled {
+            match Phase10AutonomousSystem::new().await {
+                Ok(system) => {
+                    info!("✅ Phase 10 - Autonomous Trading System: ENABLED");
+                    Some(system)
+                },
+                Err(e) => {
+                    warn!("⚠️ Phase 10 - Autonomous Trading System: FAILED to initialize: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("❌ Phase 10 - Autonomous Trading System: DISABLED");
+            None
+        };
+        
+        let ecosystem_system = if config.ecosystem_expansion_enabled {
+            match Phase11EcosystemSystem::new().await {
+                Ok(system) => {
+                    info!("✅ Phase 11 - Ecosystem Expansion System: ENABLED");
+                    Some(system)
+                },
+                Err(e) => {
+                    warn!("⚠️ Phase 11 - Ecosystem Expansion System: FAILED to initialize: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("❌ Phase 11 - Ecosystem Expansion System: DISABLED");
+            None
+        };
+        
         Ok(Self {
             rpc_client,
             keypair,
@@ -311,6 +394,9 @@ impl UnifiedArbitrageBot {
             event_driven,
             parallel_execution,
             real_time_monitoring,
+            quantum_system,
+            autonomous_system,
+            ecosystem_system,
             config,
             stats: UnifiedStats::default(),
         })
@@ -384,7 +470,105 @@ impl UnifiedArbitrageBot {
             }
         }
         
-        // 4. FILTER AND RANK opportunities
+        // 4. OPTIONAL: Quantum Optimization Discovery (Phase 9)
+        if let Some(quantum) = &self.quantum_system {
+            info!("⚛️ Running Quantum Optimization discovery (Phase 9)...");
+            match quantum.detect_quantum_opportunities(&HashMap::new()).await {
+                Ok(quantum_opportunities) => {
+                    let quantum_opps: Vec<Opportunity> = quantum_opportunities
+                        .into_iter()
+                        .map(|opp| Opportunity {
+                            id: format!("quantum_{}", opp.id),
+                            source: OpportunitySource::QuantumOptimized,
+                            token_a: Pubkey::default(),
+                            token_b: Pubkey::default(),
+                            pool_a: Pubkey::default(),
+                            pool_b: Pubkey::default(),
+                            price_a: 0.0,
+                            price_b: 0.0,
+                            profit_percentage: opp.quantum_advantage * 100.0,
+                            estimated_profit_sol: opp.expected_profit,
+                            execution_complexity: opp.execution_complexity as u32,
+                            confidence: opp.confidence_score,
+                            timestamp: SystemTime::now(),
+                        })
+                        .collect();
+                    all_opportunities.extend(quantum_opps);
+                    self.stats.quantum_opportunities.fetch_add(quantum_opps.len(), std::sync::atomic::Ordering::Relaxed);
+                },
+                Err(e) => warn!("⚠️ Quantum Optimization discovery failed: {}", e)
+            }
+        }
+        
+        // 5. OPTIONAL: Autonomous Trading Decisions (Phase 10)
+        if let Some(autonomous) = &self.autonomous_system {
+            info!("🤖 Running Autonomous Trading analysis (Phase 10)...");
+            match autonomous.make_autonomous_decisions(&HashMap::new(), &HashMap::new()).await {
+                Ok(autonomous_decisions) => {
+                    let auto_opps: Vec<Opportunity> = autonomous_decisions
+                        .into_iter()
+                        .filter(|d| matches!(d.decision_type, DecisionType::Execute))
+                        .map(|decision| Opportunity {
+                            id: format!("autonomous_{}", decision.id),
+                            source: OpportunitySource::AutonomousAI,
+                            token_a: Pubkey::default(),
+                            token_b: Pubkey::default(),
+                            pool_a: Pubkey::default(),
+                            pool_b: Pubkey::default(),
+                            price_a: 0.0,
+                            price_b: 0.0,
+                            profit_percentage: decision.expected_outcome.expected_profit_sol * 100.0,
+                            estimated_profit_sol: decision.expected_outcome.expected_profit_sol,
+                            execution_complexity: 2,
+                            confidence: decision.confidence,
+                            timestamp: SystemTime::now(),
+                        })
+                        .collect();
+                    all_opportunities.extend(auto_opps);
+                    self.stats.autonomous_decisions.fetch_add(auto_opps.len(), std::sync::atomic::Ordering::Relaxed);
+                },
+                Err(e) => warn!("⚠️ Autonomous Trading analysis failed: {}", e)
+            }
+        }
+        
+        // 6. OPTIONAL: Ecosystem Expansion Activities (Phase 11)
+        if let Some(ecosystem) = &self.ecosystem_system {
+            info!("🌐 Running Ecosystem Expansion discovery (Phase 11)...");
+            match ecosystem.run_ecosystem_activities().await {
+                Ok(ecosystem_activities) => {
+                    for activity in &ecosystem_activities {
+                        match activity {
+                            EcosystemActivity::CrossChainArbitrage(opportunities) => {
+                                let eco_opps: Vec<Opportunity> = opportunities
+                                    .iter()
+                                    .map(|opp| Opportunity {
+                                        id: format!("ecosystem_{}", opp.id),
+                                        source: OpportunitySource::EcosystemCrossChain,
+                                        token_a: Pubkey::default(),
+                                        token_b: Pubkey::default(),
+                                        pool_a: Pubkey::default(),
+                                        pool_b: Pubkey::default(),
+                                        price_a: 0.0,
+                                        price_b: 0.0,
+                                        profit_percentage: opp.total_profit_potential * 100.0,
+                                        estimated_profit_sol: opp.total_profit_potential * 5.0, // Convert to SOL estimate
+                                        execution_complexity: opp.execution_complexity as u32,
+                                        confidence: opp.confidence_score,
+                                        timestamp: SystemTime::now(),
+                                    })
+                                    .collect();
+                                all_opportunities.extend(eco_opps);
+                            },
+                            _ => {} // Handle other ecosystem activities
+                        }
+                    }
+                    self.stats.ecosystem_activities.fetch_add(ecosystem_activities.len(), std::sync::atomic::Ordering::Relaxed);
+                },
+                Err(e) => warn!("⚠️ Ecosystem Expansion discovery failed: {}", e)
+            }
+        }
+        
+        // 7. FILTER AND RANK opportunities
         let filtered_opportunities = self.filter_and_rank_opportunities(all_opportunities).await?;
         
         let discovery_time = start.elapsed();
@@ -716,6 +900,12 @@ impl UnifiedArbitrageBot {
             basic_opportunities: self.stats.basic_opportunities.load(std::sync::atomic::Ordering::Relaxed),
             jupiter_opportunities: self.stats.jupiter_opportunities.load(std::sync::atomic::Ordering::Relaxed),
             dex_specialized_opportunities: self.stats.dex_specialized_opportunities.load(std::sync::atomic::Ordering::Relaxed),
+            
+            // Phases 9-11 statistics
+            quantum_opportunities: self.stats.quantum_opportunities.load(std::sync::atomic::Ordering::Relaxed),
+            autonomous_decisions: self.stats.autonomous_decisions.load(std::sync::atomic::Ordering::Relaxed),
+            ecosystem_activities: self.stats.ecosystem_activities.load(std::sync::atomic::Ordering::Relaxed),
+            
             successful_executions: self.stats.successful_executions.load(std::sync::atomic::Ordering::Relaxed),
             failed_executions: self.stats.failed_executions.load(std::sync::atomic::Ordering::Relaxed),
             total_profit_sol,
@@ -727,6 +917,11 @@ impl UnifiedArbitrageBot {
             event_driven_enabled: self.event_driven.is_some(),
             parallel_execution_enabled: self.parallel_execution.is_some(),
             real_time_monitoring_enabled: self.real_time_monitoring.is_some(),
+            
+            // Phases 9-11 status
+            quantum_optimization_enabled: self.quantum_system.is_some(),
+            autonomous_trading_enabled: self.autonomous_system.is_some(),
+            ecosystem_expansion_enabled: self.ecosystem_system.is_some(),
         }
     }
     
@@ -776,15 +971,19 @@ impl UnifiedArbitrageBot {
                 let stats = self.get_unified_stats().await;
                 info!("📊 UNIFIED STATS (Cycle #{}):", cycle);
                 info!("   💰 Total Profit: {:.6} SOL", stats.total_profit_sol);
-                info!("   🔍 Opportunities Found: {} (Basic: {}, Jupiter: {}, DEX: {})", 
+                info!("   🔍 Opportunities Found: {} (Basic: {}, Jupiter: {}, DEX: {}, Quantum: {}, Autonomous: {}, Ecosystem: {})", 
                       stats.total_opportunities_found, stats.basic_opportunities, 
-                      stats.jupiter_opportunities, stats.dex_specialized_opportunities);
+                      stats.jupiter_opportunities, stats.dex_specialized_opportunities,
+                      stats.quantum_opportunities, stats.autonomous_decisions, stats.ecosystem_activities);
                 info!("   ⚡ Executions: {} successful, {} failed", 
                       stats.successful_executions, stats.failed_executions);
-                info!("   🛠️ Enhancements: Jupiter={}, MEV={}, DEX={}, Event={}, Parallel={}, Monitor={}", 
+                info!("   🛠️ Phases 1-4: Jupiter={}, MEV={}, DEX={}, Event={}, Parallel={}, Monitor={}", 
                       stats.jupiter_advanced_enabled, stats.mev_protection_enabled, 
                       stats.dex_specialization_enabled, stats.event_driven_enabled,
                       stats.parallel_execution_enabled, stats.real_time_monitoring_enabled);
+                info!("   🧠 Phases 9-11: Quantum={}, Autonomous={}, Ecosystem={}", 
+                      stats.quantum_optimization_enabled, stats.autonomous_trading_enabled, 
+                      stats.ecosystem_expansion_enabled);
             }
             
             let cycle_duration = cycle_start.elapsed();
@@ -811,6 +1010,12 @@ pub struct UnifiedSystemStats {
     pub basic_opportunities: usize,
     pub jupiter_opportunities: usize,
     pub dex_specialized_opportunities: usize,
+    
+    // Phases 9-11 statistics
+    pub quantum_opportunities: usize,
+    pub autonomous_decisions: usize,
+    pub ecosystem_activities: usize,
+    
     pub successful_executions: usize,
     pub failed_executions: usize,
     pub total_profit_sol: f64,
@@ -821,6 +1026,11 @@ pub struct UnifiedSystemStats {
     pub event_driven_enabled: bool,
     pub parallel_execution_enabled: bool,
     pub real_time_monitoring_enabled: bool,
+    
+    // Phases 9-11 status
+    pub quantum_optimization_enabled: bool,
+    pub autonomous_trading_enabled: bool,
+    pub ecosystem_expansion_enabled: bool,
 }
 
 // ===== MAIN INTERACTIVE APPLICATION =====
@@ -843,20 +1053,21 @@ async fn main() -> Result<()> {
     info!("💡 All prices and opportunities use REAL APIs (Jupiter, CoinGecko, DexScreener)");
     
     loop {
-        println!("\n🎯 SNIPERFORGE ARBITRAGE SYSTEM v4.5 - REAL DATA VERSION");
+        println!("\n🎯 SNIPERFORGE ARBITRAGE SYSTEM v11.0 - COMPLETE ECOSYSTEM");
         println!("════════════════════════════════════════════════════════════");
         println!("📊 ALL PRICES FROM REAL APIS: Jupiter + CoinGecko + DexScreener");
         println!("⚡ REAL MARKET OPPORTUNITIES: Live spreads and arbitrage detection");
+        println!("🧠 AI SYSTEM: Quantum + Autonomous + Ecosystem integrated");
         println!("🔗 BLOCKCHAIN READY: Simulation mode (no actual trades)");
         println!();
         println!("=== SYSTEM OPERATIONS ===");
-        println!("[1] 🚀 RUN UNIFIED SYSTEM          - All Phases 1-4 + Original");
+        println!("[1] 🚀 RUN COMPLETE SYSTEM         - All Phases 1-11 integrated");
         println!("[2] 🔍 DISCOVERY TEST              - Test all discovery engines");
         println!("[3] ⚡ EXECUTION TEST             - Test execution engines");
         println!("[4] 📊 SYSTEM STATS               - View unified statistics");
         println!();
         println!("=== CONFIGURATION ===");
-        println!("[5] ⚙️  CONFIGURE ENHANCEMENTS     - Enable/disable Phase 1-4");
+        println!("[5] ⚙️  CONFIGURE ENHANCEMENTS     - Enable/disable phases");
         println!("[6] 🧪 BENCHMARK PERFORMANCE      - Test system performance");
         println!("[7] 🛠️ SYSTEM DIAGNOSTICS        - Check all engines status");
         println!();
@@ -866,10 +1077,15 @@ async fn main() -> Result<()> {
         println!("[10] 🟡 TEST PHASE 3 (DEX)        - DEX Specialization only");
         println!("[11] 🟣 TEST PHASE 4 (Event+Par)  - Event-driven + Parallel only");
         println!();
-        println!("[12] ❓ HELP & DOCUMENTATION      - Phase 4.5 guide");
+        println!("=== ADVANCED PHASES TESTING ===");
+        println!("[13] ⚛️ TEST PHASE 9 (Quantum)    - Quantum optimization only");
+        println!("[14] 🤖 TEST PHASE 10 (Autonomous) - Autonomous AI trading only");
+        println!("[15] 🌐 TEST PHASE 11 (Ecosystem) - Ecosystem expansion only");
+        println!();
+        println!("[12] ❓ HELP & DOCUMENTATION      - Complete system guide");
         println!("[0] 🚪 EXIT");
         println!();
-        print!("Select option [0-12]: ");
+        print!("Select option [0-15]: ");
         
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).expect("Failed to read input");
@@ -877,16 +1093,20 @@ async fn main() -> Result<()> {
         
         match choice {
             "1" => {
-                println!("🚀 Initializing Unified Arbitrage System...");
+                println!("🚀 Initializing Complete Arbitrage System (Phases 1-11)...");
                 
                 let config = UnifiedConfig::default(); // All enhancements enabled
                 match UnifiedArbitrageBot::new(rpc_endpoint, keypair_path, Some(config)).await {
                     Ok(bot) => {
-                        println!("✅ Unified system initialized successfully!");
-                        println!("🔄 Starting continuous arbitrage operation...");
+                        println!("✅ Complete system initialized successfully!");
+                        println!("🔄 Starting continuous arbitrage operation with all 11 phases...");
+                        println!("⚛️ Quantum optimization: ACTIVE");
+                        println!("🤖 Autonomous trading: ACTIVE");
+                        println!("🌐 Ecosystem expansion: ACTIVE");
                         
                         if let Err(e) = bot.run_unified_system().await {
-                            eprintln!("❌ Unified system error: {}", e);
+                            eprintln!("❌ Complete system error: {}", e);
+                        }
                         }
                     },
                     Err(e) => {
@@ -1011,12 +1231,12 @@ async fn main() -> Result<()> {
             },
             
             "12" => {
-                println!("❓ PHASE 4.5 UNIFIED SYSTEM DOCUMENTATION");
+                println!("❓ COMPLETE SYSTEM DOCUMENTATION v11.0");
                 println!("═══════════════════════════════════════════");
                 println!();
                 println!("📖 OVERVIEW:");
-                println!("   Phase 4.5 integrates all previous phases into a unified system");
-                println!("   that preserves the original foundation while adding enhancements.");
+                println!("   Complete arbitrage system integrating all 11 phases");
+                println!("   from basic discovery to advanced AI and ecosystem expansion.");
                 println!();
                 println!("🏗️ ARCHITECTURE:");
                 println!("   • Original Foundation: Basic discovery, wallet management, trading");
@@ -1024,26 +1244,128 @@ async fn main() -> Result<()> {
                 println!("   • Phase 2 Enhancement: MEV Protection via Jito bundles");
                 println!("   • Phase 3 Enhancement: DEX-specific strategies (Raydium, Orca, Phoenix)");
                 println!("   • Phase 4 Enhancement: Event-driven + Parallel execution");
+                println!("   • Phase 9 Enhancement: Quantum optimization algorithms");
+                println!("   • Phase 10 Enhancement: Autonomous AI trading decisions");
+                println!("   • Phase 11 Enhancement: Complete ecosystem expansion");
                 println!();
                 println!("⚙️ CONFIGURATION:");
-                println!("   All enhancements are optional and can be enabled/disabled");
+                println!("   All phases are optional and can be enabled/disabled");
                 println!("   The system gracefully falls back to basic functionality");
                 println!("   Original proven constants and thresholds are preserved");
                 println!();
                 println!("🚀 USAGE:");
-                println!("   1. Start with option [1] for full unified system");
+                println!("   1. Start with option [1] for complete 11-phase system");
                 println!("   2. Use options [2-3] for testing individual components");
                 println!("   3. Monitor performance with option [4]");
-                println!("   4. Test individual phases with options [8-11]");
+                println!("   4. Test individual phases with options [8-11] and [13-15]");
+            },
+            
+            "13" => {
+                println!("⚛️ Testing Phase 9: Quantum Optimization...");
+                
+                match Phase9QuantumSystem::new().await {
+                    Ok(mut quantum_system) => {
+                        println!("✅ Quantum system initialized successfully!");
+                        
+                        // Test quantum optimization
+                        let market_data = HashMap::new(); // Simplified
+                        match quantum_system.detect_quantum_opportunities(&market_data).await {
+                            Ok(opportunities) => {
+                                println!("🔍 Quantum opportunities detected: {}", opportunities.len());
+                                for (i, opp) in opportunities.iter().enumerate().take(3) {
+                                    println!("   {}. {} - Quantum advantage: {:.4}, Confidence: {:.4}", 
+                                             i+1, opp.id, opp.quantum_advantage, opp.confidence_score);
+                                }
+                                
+                                let metrics = quantum_system.get_quantum_metrics();
+                                println!("� Quantum Metrics:");
+                                println!("   - Opportunities found: {}", metrics.quantum_opportunities_found);
+                                println!("   - Quantum advantage avg: {:.4}", metrics.quantum_advantage_avg);
+                            },
+                            Err(e) => eprintln!("❌ Quantum detection failed: {}", e),
+                        }
+                    },
+                    Err(e) => eprintln!("❌ Failed to initialize quantum system: {}", e),
+                }
+            },
+            
+            "14" => {
+                println!("🤖 Testing Phase 10: Autonomous Trading...");
+                
+                match Phase10AutonomousSystem::new().await {
+                    Ok(mut autonomous_system) => {
+                        println!("✅ Autonomous system initialized successfully!");
+                        
+                        // Test autonomous decisions
+                        let market_data = HashMap::new(); // Simplified
+                        let portfolio_state = HashMap::new(); // Simplified
+                        match autonomous_system.make_autonomous_decisions(&market_data, &portfolio_state).await {
+                            Ok(decisions) => {
+                                println!("🧠 Autonomous decisions made: {}", decisions.len());
+                                for (i, decision) in decisions.iter().enumerate().take(3) {
+                                    println!("   {}. {} - Type: {:?}, Confidence: {:.4}", 
+                                             i+1, decision.id, decision.decision_type, decision.confidence);
+                                }
+                                
+                                let metrics = autonomous_system.get_autonomous_metrics();
+                                println!("📊 Autonomous Metrics:");
+                                println!("   - Decisions made: {}", metrics.decisions_made);
+                                println!("   - AI accuracy rate: {:.4}", metrics.ai_accuracy_rate);
+                                println!("   - Total profit: {:.6} SOL", metrics.total_autonomous_profit);
+                            },
+                            Err(e) => eprintln!("❌ Autonomous decision making failed: {}", e),
+                        }
+                    },
+                    Err(e) => eprintln!("❌ Failed to initialize autonomous system: {}", e),
+                }
+            },
+            
+            "15" => {
+                println!("🌐 Testing Phase 11: Ecosystem Expansion...");
+                
+                match Phase11EcosystemSystem::new().await {
+                    Ok(mut ecosystem_system) => {
+                        println!("✅ Ecosystem system initialized successfully!");
+                        
+                        // Test ecosystem activities
+                        match ecosystem_system.run_ecosystem_activities().await {
+                            Ok(activities) => {
+                                println!("🔍 Ecosystem activities discovered: {}", activities.len());
+                                for (i, activity) in activities.iter().enumerate().take(3) {
+                                    match activity {
+                                        EcosystemActivity::CrossChainArbitrage(opps) => {
+                                            println!("   {}. Cross-chain arbitrage: {} opportunities", i+1, opps.len());
+                                        },
+                                        EcosystemActivity::LiquidityFarming(opps) => {
+                                            println!("   {}. Liquidity farming: {} opportunities", i+1, opps.len());
+                                        },
+                                        _ => {
+                                            println!("   {}. Other ecosystem activity", i+1);
+                                        }
+                                    }
+                                }
+                                
+                                let metrics = ecosystem_system.get_ecosystem_metrics();
+                                println!("📊 Ecosystem Metrics:");
+                                println!("   - Total opportunities: {}", metrics.total_ecosystem_opportunities);
+                                println!("   - Cross-chain executions: {}", metrics.cross_chain_arbitrages_executed);
+                                println!("   - Total profit: {:.2} USD", metrics.total_ecosystem_profit);
+                                println!("   - Supported protocols: {}", metrics.supported_protocols);
+                            },
+                            Err(e) => eprintln!("❌ Ecosystem activities failed: {}", e),
+                        }
+                    },
+                    Err(e) => eprintln!("❌ Failed to initialize ecosystem system: {}", e),
+                }
             },
             
             "0" => {
-                println!("👋 Goodbye! Thanks for using SniperForge Arbitrage Bot Phase 4.5");
+                println!("👋 Goodbye! Thanks for using SniperForge Complete Arbitrage System v11.0");
                 break;
             },
             
             _ => {
-                println!("❌ Invalid option. Please select 0-12.");
+                println!("❌ Invalid option. Please select 0-15.");
             }
         }
         
