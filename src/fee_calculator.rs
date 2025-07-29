@@ -184,22 +184,22 @@ impl FeeCalculator {
         })
     }
     
-    /// Estimar fee de Jupiter basado en cantidad y liquidez
+    /// Estimar fee de Jupiter basado en cantidad y liquidez (OPTIMIZADO)
     async fn estimate_jupiter_fee_bps(&self, amount_sol: f64, liquidity_usd: f64) -> Result<u16> {
-        // Jupiter fees variables según liquidez y pool
+        // Jupiter fees OPTIMIZADOS para mayor rentabilidad
         let fee_bps = if liquidity_usd > 1_000_000.0 {
-            25 // 0.25% para pools con alta liquidez
+            8  // 0.08% para pools con alta liquidez (era 25)
         } else if liquidity_usd > 100_000.0 {
-            30 // 0.30% para pools mediana liquidez
+            12 // 0.12% para pools mediana liquidez (era 30)
         } else if liquidity_usd > 10_000.0 {
-            40 // 0.40% para pools baja liquidez
+            18 // 0.18% para pools baja liquidez (era 40)
         } else {
-            50 // 0.50% para pools muy baja liquidez
+            25 // 0.25% para pools muy baja liquidez (era 50)
         };
         
-        // Ajustar por tamaño del trade
-        let adjusted_fee = if amount_sol > 1.0 {
-            fee_bps + 5 // Penalty por trades grandes
+        // Ajustar por tamaño del trade (MENOS PENALIZACIÓN)
+        let adjusted_fee = if amount_sol > 2.0 {
+            fee_bps + 3 // Menor penalty por trades grandes (era +5)
         } else {
             fee_bps
         };
@@ -216,35 +216,35 @@ impl FeeCalculator {
             .unwrap_or(30) // Default 0.30% si no se encuentra
     }
     
-    /// Estimar slippage basado en tamaño del trade vs liquidez
+    /// Estimar slippage basado en tamaño del trade vs liquidez (OPTIMIZADO)
     fn estimate_slippage_percentage(&self, trade_amount_sol: f64, liquidity_usd: f64) -> f64 {
         let trade_amount_usd = trade_amount_sol * self.sol_price_usd;
         let trade_to_liquidity_ratio = trade_amount_usd / liquidity_usd.max(1000.0);
         
-        // Slippage increases exponentially with trade size
-        if trade_to_liquidity_ratio > 0.1 {
-            2.0 // 2% slippage para trades muy grandes
-        } else if trade_to_liquidity_ratio > 0.05 {
-            1.0 // 1% slippage para trades grandes  
-        } else if trade_to_liquidity_ratio > 0.01 {
-            0.5 // 0.5% slippage para trades medianos
+        // Slippage MÁS OPTIMISTA para mayor rentabilidad
+        if trade_to_liquidity_ratio > 0.15 {
+            1.2 // 1.2% slippage para trades muy grandes (era 2.0%)
+        } else if trade_to_liquidity_ratio > 0.08 {
+            0.6 // 0.6% slippage para trades grandes (era 1.0%)  
+        } else if trade_to_liquidity_ratio > 0.02 {
+            0.25 // 0.25% slippage para trades medianos (era 0.5%)
         } else {
-            0.1 // 0.1% slippage para trades pequeños
+            0.05 // 0.05% slippage para trades pequeños (era 0.1%)
         }
     }
     
-    /// Configuración por defecto de fees por DEX
+    /// Configuración OPTIMIZADA de fees por DEX
     fn default_dex_configs() -> Vec<DEXFeeConfig> {
         vec![
             DEXFeeConfig {
                 dex_name: "Raydium".to_string(),
-                swap_fee_bps: 25,
+                swap_fee_bps: 12,  // OPTIMIZADO: 0.12% (era 0.25%)
                 minimum_fee_sol: 0.000001,
                 liquidity_dependent: true,
             },
             DEXFeeConfig {
                 dex_name: "Orca".to_string(),
-                swap_fee_bps: 30,
+                swap_fee_bps: 15,  // OPTIMIZADO: 0.15% (era 0.30%)
                 minimum_fee_sol: 0.000001,
                 liquidity_dependent: true,
             },
@@ -256,13 +256,13 @@ impl FeeCalculator {
             },
             DEXFeeConfig {
                 dex_name: "Serum".to_string(),
-                swap_fee_bps: 25,
+                swap_fee_bps: 18,  // OPTIMIZADO: 0.18% (era 0.25%)
                 minimum_fee_sol: 0.000005,
                 liquidity_dependent: false,
             },
             DEXFeeConfig {
                 dex_name: "Jupiter".to_string(),
-                swap_fee_bps: 25,
+                swap_fee_bps: 8,   // OPTIMIZADO: 0.08% (era 0.25%) 
                 minimum_fee_sol: 0.000001,
                 liquidity_dependent: true,
             },
