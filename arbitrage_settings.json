@@ -1,24 +1,19 @@
 {
   "trading": {
     "mode": "simulation",
-    "real_trading_enabled": false,
     "force_real_transactions": false,
     "max_trade_sol": 0.08,
-    "min_profit_threshold_sol": 0.00004,
-    "min_confidence_threshold": 0.25,
+    "min_profit_threshold_sol": 0.001,
+    "min_confidence_threshold": 0.75,
     "max_concurrent_trades": 3,
     "trade_timeout_seconds": 30,
-    "min_trade_size_sol": 0.015,
-    "max_trade_size_sol": 0.085,
-    "max_slippage_bps": 20,
-    "military_min_profit_bps": 25,
-    "optimal_sizing_enabled": true,
-    "adaptive_learning_enabled": true,
-    "dynamic_fee_adjustment": true,
-    "wallet_file": "./keypair.json",
-    "base_profit_percentage": 0.0025,
-    "max_profit_percentage": 0.01,
-    "default_trade_amount_usd": 1500.0,
+    "min_trade_size_sol": 0.1,
+    "max_trade_size_sol": 100.0,
+    "max_slippage_bps": 150,
+    "military_min_profit_bps": 20,
+    "base_profit_percentage": 0.015,
+    "max_profit_percentage": 0.025,
+    "default_trade_amount_usd": 1000.0,
     "estimated_gas_cost_usd": 5.0,
     "estimated_execution_time_ms": 3000
   },
@@ -29,12 +24,12 @@
     "env_key_name": "SOLANA_PRIVATE_KEY"
   },
   "rpc": {
-    "primary_url": "https://api.mainnet-beta.solana.com",
+    "primary_url": "https://api.devnet.solana.com",
     "backup_urls": [
-      "https://solana-api.projectserum.com",
-      "https://rpc.ankr.com/solana"
+      "https://api.devnet.solana.com",
+      "https://rpc.ankr.com/solana_devnet"
     ],
-    "timeout_seconds": 15,
+    "timeout_seconds": 30,
     "retry_attempts": 3
   },
   "apis": {
@@ -75,10 +70,10 @@
     "ml_confidence_threshold": 0.6
   },
   "performance": {
-    "max_concurrent_discoveries": 5,
-    "cache_ttl_seconds": 2,
+    "max_concurrent_discoveries": 10,
+    "cache_ttl_seconds": 30,
     "parallel_api_calls": true,
-    "latency_target_ms": 100,
+    "latency_target_ms": 500,
     "discovery_cycle_delay_seconds": 5,
     "cache_enabled": true,
     "batch_processing_enabled": true
@@ -86,17 +81,14 @@
   "triangular_arbitrage": {
     "enabled": true,
     "max_hops": 3,
-    "min_net_profit_bps": 25,
+    "min_net_profit_bps": 20,
     "circular_detection_enabled": true,
     "max_same_token_repeats": 1
   },
   "mev_protection": {
-    "jito_tip_lamports": 1500,
-    "private_mempool_enabled": true,
-    "front_running_protection": true,
-    "flashbots_integration": true,
     "enabled": true,
     "jito_rpc_url": "https://mainnet.block-engine.jito.wtf",
+    "jito_tip_lamports": 1500,
     "sandwich_detection": true
   },
   "logging": {
@@ -138,13 +130,10 @@
     }
   ],
   "risk_management": {
-    "max_slippage_bps": 20,
+    "max_slippage_bps": 150,
+    "max_daily_loss_sol": 1.0,
     "stop_loss_enabled": true,
-    "position_size_limits": true,
-    "emergency_stop_loss_bps": 500,
-    "max_daily_loss_sol": 0.01,
-    "consecutive_loss_limit": 3,
-    "risk_assessment_enabled": true,
+    "emergency_stop_enabled": true,
     "min_liquidity_usd": 1000.0
   },
   "dashboard": {
