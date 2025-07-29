@@ -197,6 +197,9 @@ doc/
 !tsconfig.json
 !Cargo.json
 !rust-toolchain.json
+!arbitrage_settings.json
+!*_settings.json
+!config/*.json
 keypairs/
 wallets/
 *.key
