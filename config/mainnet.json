@@ -1,0 +1,135 @@
+{
+  "network": "mainnet",
+  "display_name": "Solana MainNet",
+  "rpc_endpoint": "https://solana-mainnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg",
+  "explorer_base_url": "https://explorer.solana.com",
+  "explorer_cluster_param": "mainnet-beta",
+  
+  "program_ids": {
+    "system_program": "11111111111111111111111111111111",
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+    "jupiter_program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "orca_whirlpool_program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "raydium_amm_program": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+    "spl_token_swap_program": "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8"
+  },
+  
+  "token_addresses": {
+    "sol": {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "SOL",
+      "name": "Solana",
+      "decimals": 9,
+      "verified": true,
+      "tradeable": true
+    },
+    "usdc": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "name": "USD Coin",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true
+    },
+    "usdt": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "symbol": "USDT",
+      "name": "Tether USD",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true
+    },
+    "ray": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "symbol": "RAY",
+      "name": "Raydium",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true
+    },
+    "bonk": {
+      "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+      "symbol": "BONK",
+      "name": "BONK",
+      "decimals": 5,
+      "verified": true,
+      "tradeable": true
+    }
+  },
+  
+  "trading_pairs": [
+    {
+      "base": "sol",
+      "quote": "usdc",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 0.1,
+      "default_slippage_bps": 100,
+      "priority": 1,
+      "enabled": true
+    },
+    {
+      "base": "sol",
+      "quote": "usdt",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 0.1,
+      "default_slippage_bps": 100,
+      "priority": 2,
+      "enabled": true
+    },
+    {
+      "base": "sol",
+      "quote": "ray",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 0.05,
+      "default_slippage_bps": 200,
+      "priority": 3,
+      "enabled": true
+    },
+    {
+      "base": "usdc",
+      "quote": "ray",
+      "min_trade_amount": 1.0,
+      "max_trade_amount": 100.0,
+      "default_slippage_bps": 150,
+      "priority": 4,
+      "enabled": true
+    }
+  ],
+  
+  "dex_config": {
+    "jupiter": {
+      "enabled": true,
+      "base_url": "https://lite-api.jup.ag",
+      "quote_url": "https://quote-api.jup.ag/v6",
+      "swap_url": "https://quote-api.jup.ag/v6",
+      "timeout_seconds": 30,
+      "max_retries": 3,
+      "priority": 1
+    },
+    "orca": {
+      "enabled": true,
+      "priority": 2
+    },
+    "raydium": {
+      "enabled": true,
+      "priority": 3
+    }
+  },
+  
+  "safety_limits": {
+    "max_swap_amount_sol": 0.1,
+    "min_balance_reserve_sol": 0.05,
+    "max_slippage_bps": 500,
+    "transaction_timeout_seconds": 60
+  },
+  
+  "feature_flags": {
+    "enable_real_transactions": false,
+    "enable_transaction_simulation": true,
+    "enable_balance_checks": true,
+    "enable_program_id_validation": true,
+    "verbose_logging": false
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "network": "devnet",
+  "display_name": "Solana DevNet",
+  "rpc_endpoint": "https://solana-devnet.g.alchemy.com/v2/X64q4zZFEMz_RYzthxUMg",
+  "explorer_base_url": "https://explorer.solana.com",
+  "explorer_cluster_param": "devnet",
+  
+  "program_ids": {
+    "system_program": "11111111111111111111111111111111",
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+    "jupiter_program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "orca_whirlpool_program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "spl_token_swap_program": "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8"
+  },
+  
+  "token_addresses": {
+    "sol": {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "SOL",
+      "name": "Solana",
+      "decimals": 9,
+      "verified": true,
+      "tradeable": true,
+      "note": "Native SOL - guaranteed to exist on DevNet"
+    },
+    "wsol": {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "wSOL",
+      "name": "Wrapped SOL",
+      "decimals": 9,
+      "verified": true,
+      "tradeable": true,
+      "note": "Same as SOL but wrapped - for testing wrap/unwrap operations"
+    },
+    "usdc": {
+      "address": "2iEJ8jXQN9xmhA7w9SpVgFGNkCYEsEf8LfEFumKjNRQo",
+      "symbol": "USDC-Test",
+      "name": "USD Coin Test",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true,
+      "note": "Token real creado en DevNet para testing"
+    },
+    "ray": {
+      "address": "7QT4DzmTUfE3jTDHcmCPD9AHHRjkLGc9wKNp5JEJiSXW",
+      "symbol": "RAY-Test",
+      "name": "Raydium Test",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true,
+      "note": "Token real creado en DevNet para testing"
+    }
+  },
+  
+  "trading_pairs": [
+    {
+      "base": "sol",
+      "quote": "wsol",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 0.1,
+      "default_slippage_bps": 100,
+      "priority": 1,
+      "enabled": false,
+      "note": "SOL->wSOL conversion (same token, mainly for testing wrapping)"
+    },
+    {
+      "base": "sol",
+      "quote": "usdc",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 1.0,
+      "default_slippage_bps": 100,
+      "priority": 2,
+      "enabled": true,
+      "note": "SOL->USDC arbitrage pair"
+    },
+    {
+      "base": "sol",
+      "quote": "ray",
+      "min_trade_amount": 0.001,
+      "max_trade_amount": 1.0,
+      "default_slippage_bps": 100,
+      "priority": 3,
+      "enabled": true,
+      "note": "SOL->RAY arbitrage pair"
+    },
+    {
+      "base": "usdc",
+      "quote": "ray",
+      "min_trade_amount": 1.0,
+      "max_trade_amount": 1000.0,
+      "default_slippage_bps": 100,
+      "priority": 4,
+      "enabled": true,
+      "note": "USDC->RAY arbitrage pair"
+    }
+  ],
+  
+  "dex_config": {
+    "jupiter": {
+      "enabled": true,
+      "base_url": "https://lite-api.jup.ag",
+      "quote_url": "https://quote-api.jup.ag/v6",
+      "swap_url": "https://quote-api.jup.ag/v6",
+      "timeout_seconds": 30,
+      "max_retries": 3,
+      "priority": 1
+    },
+    "orca": {
+      "enabled": true,
+      "priority": 2,
+      "note": "Orca Whirlpool pools on DevNet may be limited"
+    },
+    "raydium": {
+      "enabled": false,
+      "priority": 3,
+      "note": "Raydium may not be fully available on DevNet"
+    }
+  },
+  
+  "arbitrage_settings": {
+    "min_profit_threshold": 0.005,
+    "max_slippage": 0.01,
+    "detection_interval_ms": 1000,
+    "execution_timeout_ms": 30000,
+    "enabled": true
+  },
+  
+  "safety_limits": {
+    "max_swap_amount_sol": 1.0,
+    "min_balance_reserve_sol": 0.01,
+    "max_slippage_bps": 1000,
+    "transaction_timeout_seconds": 60
+  },
+  
+  "feature_flags": {
+    "enable_real_transactions": false,
+    "enable_transaction_simulation": true,
+    "enable_balance_checks": true,
+    "enable_program_id_validation": true,
+    "verbose_logging": true
+  }
+}

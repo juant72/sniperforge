@@ -1,0 +1,208 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-07-21",
+  "emergency_procedures": {
+    "immediate_stop": {
+      "triggers": [
+        "daily_loss_limit_exceeded",
+        "rapid_drawdown_detected",
+        "system_compromise_suspected",
+        "manual_emergency_stop"
+      ],
+      "actions": [
+        "cancel_all_pending_orders",
+        "close_all_positions",
+        "transfer_to_cold_storage",
+        "notify_emergency_contacts",
+        "generate_incident_report"
+      ],
+      "execution_time_seconds": 30
+    },
+    "market_crash_response": {
+      "sol_price_drop_threshold": 0.15,
+      "actions": [
+        "reduce_position_sizes_50_percent",
+        "increase_profit_thresholds",
+        "disable_new_positions",
+        "monitor_liquidity_closely"
+      ],
+      "review_interval_minutes": 15
+    },
+    "exchange_outage": {
+      "detection_criteria": [
+        "consecutive_api_failures_5",
+        "rpc_timeout_threshold_exceeded",
+        "zero_liquidity_detected"
+      ],
+      "response": [
+        "switch_to_backup_dex",
+        "reduce_trade_frequency", 
+        "increase_health_check_frequency",
+        "notify_operations_team"
+      ]
+    },
+    "liquidity_crisis": {
+      "detection": {
+        "tvl_drop_threshold": 0.3,
+        "spread_widening_threshold": 2.0,
+        "consecutive_failed_trades": 3
+      },
+      "response": [
+        "pause_trading_affected_pairs",
+        "switch_to_conservative_mode",
+        "reduce_trade_sizes",
+        "increase_profit_thresholds"
+      ]
+    }
+  },
+  "escalation_procedures": {
+    "level_1_alert": {
+      "triggers": [
+        "profit_below_threshold_1_hour",
+        "slippage_above_normal_3_trades",
+        "api_latency_high"
+      ],
+      "actions": [
+        "log_detailed_metrics",
+        "increase_monitoring_frequency",
+        "send_slack_notification"
+      ],
+      "escalate_if_continues_minutes": 30
+    },
+    "level_2_alert": {
+      "triggers": [
+        "consecutive_losses_5",
+        "drawdown_2_percent",
+        "system_performance_degraded"
+      ],
+      "actions": [
+        "reduce_trade_frequency_50_percent",
+        "notify_risk_manager",
+        "generate_diagnostic_report"
+      ],
+      "escalate_if_continues_minutes": 15
+    },
+    "level_3_emergency": {
+      "triggers": [
+        "daily_loss_50_percent_limit",
+        "system_security_breach",
+        "multiple_system_failures"
+      ],
+      "actions": [
+        "execute_immediate_stop",
+        "notify_c_level_executives",
+        "initiate_disaster_recovery"
+      ]
+    }
+  },
+  "contact_information": {
+    "primary_contacts": [
+      {
+        "role": "Lead Developer",
+        "name": "Emergency Contact 1",
+        "phone": "+1-555-0101",
+        "email": "lead@sniperforge.com",
+        "slack": "@lead_dev"
+      },
+      {
+        "role": "Risk Manager", 
+        "name": "Emergency Contact 2",
+        "phone": "+1-555-0102",
+        "email": "risk@sniperforge.com",
+        "slack": "@risk_manager"
+      }
+    ],
+    "escalation_contacts": [
+      {
+        "role": "CTO",
+        "phone": "+1-555-0201",
+        "email": "cto@sniperforge.com"
+      }
+    ],
+    "external_contacts": [
+      {
+        "service": "Infrastructure Provider",
+        "contact": "support@helius.xyz",
+        "purpose": "RPC issues"
+      },
+      {
+        "service": "Exchange Relations",
+        "contact": "api@jupiter.ag", 
+        "purpose": "API issues"
+      }
+    ]
+  },
+  "recovery_procedures": {
+    "system_restart": {
+      "steps": [
+        "verify_system_integrity",
+        "check_wallet_balances",
+        "validate_pool_connections",
+        "run_health_checks",
+        "restore_from_last_checkpoint",
+        "gradually_resume_trading"
+      ],
+      "verification_requirements": [
+        "two_person_approval",
+        "system_diagnostics_passed",
+        "risk_parameters_confirmed"
+      ]
+    },
+    "data_corruption_recovery": {
+      "backup_locations": [
+        "local_backup_directory",
+        "cloud_storage_primary",
+        "cloud_storage_secondary"
+      ],
+      "recovery_steps": [
+        "identify_corruption_scope",
+        "restore_from_most_recent_backup",
+        "verify_data_integrity",
+        "reconcile_trading_history",
+        "validate_current_positions"
+      ]
+    },
+    "wallet_compromise": {
+      "immediate_actions": [
+        "freeze_all_accounts",
+        "transfer_to_emergency_wallet",
+        "change_all_credentials",
+        "notify_security_team",
+        "begin_forensic_analysis"
+      ],
+      "emergency_wallet": "EMERGENCY_WALLET_ADDRESS_ENCRYPTED"
+    }
+  },
+  "communication_protocols": {
+    "notification_channels": {
+      "slack_workspace": "sniperforge-alerts",
+      "emergency_channel": "#emergency-response",
+      "status_page": "status.sniperforge.com",
+      "incident_email": "incidents@sniperforge.com"
+    },
+    "message_templates": {
+      "level_1": "ALERT: {system} - {issue} detected at {timestamp}",
+      "level_2": "WARNING: {system} - Critical issue: {issue}. Response initiated.",
+      "level_3": "EMERGENCY: {system} - Emergency procedures activated. All trading halted."
+    }
+  },
+  "testing_schedule": {
+    "emergency_drills": {
+      "frequency": "monthly",
+      "scenarios": [
+        "immediate_stop_drill",
+        "wallet_compromise_simulation", 
+        "exchange_outage_response",
+        "communication_tree_test"
+      ]
+    },
+    "system_recovery_tests": {
+      "frequency": "quarterly",
+      "scenarios": [
+        "full_system_restore",
+        "backup_integrity_verification",
+        "disaster_recovery_simulation"
+      ]
+    }
+  }
+}

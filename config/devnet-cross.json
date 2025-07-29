@@ -1,0 +1,126 @@
+{
+  "network": "devnet-cross",
+  "display_name": "Solana DevNet (Cross-Network Testing)",
+  "rpc_endpoint": "https://api.devnet.solana.com",
+  "explorer_base_url": "https://explorer.solana.com",
+  "explorer_cluster_param": "devnet",
+  
+  "program_ids": {
+    "system_program": "11111111111111111111111111111111",
+    "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+    "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+    "jupiter_program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+    "orca_whirlpool_program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "spl_token_swap_program": "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8"
+  },
+  
+  "token_addresses": {
+    "sol": {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "SOL",
+      "name": "Solana",
+      "decimals": 9,
+      "verified": true,
+      "tradeable": true,
+      "note": "Native SOL - always works"
+    },
+    "usdc_cross": {
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "symbol": "USDC",
+      "name": "USD Coin (Cross-Network)",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true,
+      "note": "⚠️ WARNING: MainNet USDC that works in Jupiter but may fail in execution"
+    },
+    "usdt_cross": {
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "symbol": "USDT",
+      "name": "Tether USD (Cross-Network)",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true,
+      "note": "⚠️ WARNING: MainNet USDT that works in Jupiter but may fail in execution"
+    },
+    "ray_cross": {
+      "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+      "symbol": "RAY",
+      "name": "Raydium (Cross-Network)",
+      "decimals": 6,
+      "verified": true,
+      "tradeable": true,
+      "note": "⚠️ WARNING: MainNet RAY that works in Jupiter but may fail in execution"
+    }
+  },
+  
+  "trading_pairs": [
+    {
+      "base": "sol",
+      "quote": "usdc_cross",
+      "min_trade_amount": 0.0001,
+      "max_trade_amount": 0.01,
+      "default_slippage_bps": 300,
+      "priority": 1,
+      "enabled": true,
+      "note": "⚠️ TESTING ONLY: Cross-network pair for system validation"
+    },
+    {
+      "base": "sol",
+      "quote": "usdt_cross",
+      "min_trade_amount": 0.0001,
+      "max_trade_amount": 0.01,
+      "default_slippage_bps": 300,
+      "priority": 2,
+      "enabled": true,
+      "note": "⚠️ TESTING ONLY: Cross-network pair for system validation"
+    },
+    {
+      "base": "sol",
+      "quote": "ray_cross",
+      "min_trade_amount": 0.0001,
+      "max_trade_amount": 0.01,
+      "default_slippage_bps": 300,
+      "priority": 3,
+      "enabled": true,
+      "note": "⚠️ TESTING ONLY: Cross-network pair for system validation"
+    }
+  ],
+  
+  "dex_config": {
+    "jupiter": {
+      "enabled": true,
+      "base_url": "https://lite-api.jup.ag",
+      "quote_url": "https://quote-api.jup.ag/v6",
+      "swap_url": "https://quote-api.jup.ag/v6",
+      "timeout_seconds": 30,
+      "max_retries": 3,
+      "priority": 1
+    },
+    "orca": {
+      "enabled": true,
+      "priority": 2,
+      "note": "Cross-network testing"
+    },
+    "raydium": {
+      "enabled": false,
+      "priority": 3,
+      "note": "Cross-network testing"
+    }
+  },
+  
+  "safety_limits": {
+    "max_swap_amount_sol": 0.01,
+    "min_balance_reserve_sol": 0.05,
+    "max_slippage_bps": 1000,
+    "transaction_timeout_seconds": 60
+  },
+  
+  "feature_flags": {
+    "enable_real_transactions": false,
+    "enable_transaction_simulation": true,
+    "enable_balance_checks": true,
+    "enable_program_id_validation": false,
+    "verbose_logging": true
+  }
+}

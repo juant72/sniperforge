@@ -1,0 +1,132 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-07-21",
+  "description": "Verified high-liquidity pools for institutional arbitrage operations",
+  "verification_criteria": {
+    "min_tvl_usd": 400000,
+    "min_24h_volume_usd": 100000,
+    "max_age_days": 90,
+    "verified_by_team": true,
+    "audit_status": "passed"
+  },
+  "whitelisted_pools": {
+    "sol_usdc": [
+      {
+        "address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+        "dex": "raydium",
+        "pool_type": "amm",
+        "tvl_usd": 2500000,
+        "daily_volume_usd": 5000000,
+        "fee_tier": 0.0025,
+        "verified_date": "2025-07-21",
+        "risk_rating": "low",
+        "notes": "Primary SOL/USDC pool - highest liquidity"
+      },
+      {
+        "address": "HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ",
+        "dex": "orca",
+        "pool_type": "whirlpool",
+        "tvl_usd": 1800000,
+        "daily_volume_usd": 3200000,
+        "fee_tier": 0.003,
+        "verified_date": "2025-07-21",
+        "risk_rating": "low",
+        "notes": "Orca Whirlpool - concentrated liquidity"
+      },
+      {
+        "address": "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP",
+        "dex": "orca",
+        "pool_type": "stable_swap",
+        "tvl_usd": 1200000,
+        "daily_volume_usd": 2100000,
+        "fee_tier": 0.003,
+        "verified_date": "2025-07-21",
+        "risk_rating": "medium",
+        "notes": "Secondary Orca pool"
+      }
+    ],
+    "sol_eth": [
+      {
+        "address": "74Ciu5yRzhe8TFTHvQuEVbFZJrbnCMRoohBK33NNiPtv",
+        "dex": "orca",
+        "pool_type": "whirlpool", 
+        "tvl_usd": 850000,
+        "daily_volume_usd": 1200000,
+        "fee_tier": 0.005,
+        "verified_date": "2025-07-21",
+        "risk_rating": "medium"
+      },
+      {
+        "address": "EuK3xDa4rWuHeMQCBsHf1ETZNiEQb5C476oE9u9kp8Ji",
+        "dex": "raydium",
+        "pool_type": "amm",
+        "tvl_usd": 750000,
+        "daily_volume_usd": 980000,
+        "fee_tier": 0.0025,
+        "verified_date": "2025-07-21",
+        "risk_rating": "medium"
+      }
+    ],
+    "usdc_usdt": [
+      {
+        "address": "77quYg4MGneUdjgXCunt9GgM1usmrxKY31twEy3WHwcS",
+        "dex": "orca",
+        "pool_type": "stable_swap",
+        "tvl_usd": 3200000,
+        "daily_volume_usd": 8500000,
+        "fee_tier": 0.001,
+        "verified_date": "2025-07-21",
+        "risk_rating": "low",
+        "notes": "Stable pair - low volatility"
+      }
+    ]
+  },
+  "blacklisted_pools": [
+    {
+      "address": "BLACKLISTED_POOL_ADDRESS_1",
+      "reason": "Low liquidity",
+      "blacklisted_date": "2025-07-15",
+      "review_date": "2025-08-15"
+    },
+    {
+      "address": "BLACKLISTED_POOL_ADDRESS_2", 
+      "reason": "Suspicious activity",
+      "blacklisted_date": "2025-07-10",
+      "review_date": "2025-08-10"
+    }
+  ],
+  "pool_monitoring": {
+    "health_check_interval_minutes": 30,
+    "tvl_drop_alert_threshold": 0.2,
+    "volume_drop_alert_threshold": 0.3,
+    "auto_blacklist_criteria": {
+      "consecutive_failed_trades": 5,
+      "tvl_below_minimum": true,
+      "suspicious_price_movements": true
+    }
+  },
+  "dynamic_discovery": {
+    "enabled": true,
+    "scan_interval_hours": 6,
+    "min_age_hours": 168,
+    "auto_whitelist_criteria": {
+      "min_tvl_usd": 500000,
+      "min_volume_24h_usd": 200000,
+      "stability_period_days": 7,
+      "requires_manual_approval": true
+    }
+  },
+  "verification_process": {
+    "steps": [
+      "pool_address_validation",
+      "dex_contract_verification", 
+      "liquidity_analysis",
+      "volume_analysis",
+      "fee_structure_review",
+      "security_audit",
+      "manual_approval"
+    ],
+    "required_approvals": 2,
+    "verification_expiry_days": 90
+  }
+}

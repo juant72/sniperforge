@@ -1,0 +1,105 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-07-21",
+  "trading_routes": {
+    "sol_usdc": {
+      "primary_path": ["raydium", "orca"],
+      "backup_paths": [
+        ["meteora", "lifinity"],
+        ["jupiter_aggregator", "openbook"],
+        ["phoenix", "cropper"]
+      ],
+      "emergency_path": ["direct_jupiter"],
+      "max_hops": 3,
+      "min_liquidity_usd": 100000,
+      "preferred_slippage": 0.5,
+      "max_slippage": 2.0,
+      "route_timeout_ms": 5000,
+      "retry_attempts": 3,
+      "circuit_breaker": {
+        "failure_threshold": 5,
+        "recovery_time_minutes": 10
+      }
+    },
+    "sol_eth": {
+      "primary_path": ["orca_whirlpool", "raydium"],
+      "backup_paths": [
+        ["jupiter_aggregator"],
+        ["meteora", "orca"]
+      ],
+      "emergency_path": ["direct_jupiter"],
+      "max_hops": 2,
+      "min_liquidity_usd": 50000,
+      "preferred_slippage": 0.8,
+      "max_slippage": 3.0,
+      "route_timeout_ms": 8000,
+      "retry_attempts": 2
+    },
+    "sol_btc": {
+      "primary_path": ["orca", "raydium"],
+      "backup_paths": [["jupiter_aggregator"]],
+      "emergency_path": ["direct_jupiter"],
+      "max_hops": 2,
+      "min_liquidity_usd": 75000,
+      "preferred_slippage": 1.0,
+      "max_slippage": 4.0
+    },
+    "usdc_usdt": {
+      "primary_path": ["orca", "raydium"],
+      "backup_paths": [["meteora"], ["openbook"]],
+      "max_hops": 1,
+      "min_liquidity_usd": 200000,
+      "preferred_slippage": 0.1,
+      "max_slippage": 0.5
+    }
+  },
+  "dex_configurations": {
+    "raydium": {
+      "enabled": true,
+      "priority": 1,
+      "fee_tier": 0.0025,
+      "api_endpoint": "https://api.raydium.io",
+      "pool_discovery_interval": 300,
+      "health_check_interval": 60
+    },
+    "orca": {
+      "enabled": true,
+      "priority": 2,
+      "fee_tier": 0.003,
+      "api_endpoint": "https://api.orca.so",
+      "supports_whirlpools": true
+    },
+    "meteora": {
+      "enabled": true,
+      "priority": 3,
+      "fee_tier": 0.0025,
+      "dynamic_fees": true
+    },
+    "jupiter_aggregator": {
+      "enabled": true,
+      "priority": 10,
+      "api_endpoint": "https://quote-api.jup.ag",
+      "use_as_fallback": true,
+      "rate_limit_per_second": 10
+    }
+  },
+  "route_health_check": {
+    "interval_seconds": 30,
+    "failure_threshold": 3,
+    "auto_disable_unhealthy": true,
+    "health_check_timeout_ms": 10000,
+    "metrics_collection": {
+      "track_latency": true,
+      "track_success_rate": true,
+      "track_slippage": true,
+      "track_liquidity": true
+    }
+  },
+  "monitoring": {
+    "alert_on_route_failure": true,
+    "alert_on_high_slippage": true,
+    "slippage_alert_threshold": 2.0,
+    "latency_alert_threshold_ms": 10000,
+    "log_all_route_attempts": true
+  }
+}
