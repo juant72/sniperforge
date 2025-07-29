@@ -15,7 +15,17 @@
     "max_profit_percentage": 0.025,
     "default_trade_amount_usd": 1000.0,
     "estimated_gas_cost_usd": 5.0,
-    "estimated_execution_time_ms": 3000
+    "estimated_execution_time_ms": 3000,
+    "pre_execution_validation": true,
+    "program_id_whitelist": [
+      "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+      "11111111111111111111111111111111",
+      "ComputeBudget111111111111111111111111111111",
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+    ],
+    "simulation_before_execution": true,
+    "max_simulation_retries": 2
   },
   "wallet": {
     "keypair_file": "./keypair.json",
@@ -35,15 +45,19 @@
   "apis": {
     "dexscreener": {
       "enabled": true,
-      "timeout_seconds": 10,
-      "max_retries": 2
+      "timeout_seconds": 3,
+      "max_retries": 2,
+      "batch_requests": true,
+      "rate_limit_per_sec": 10
     },
     "jupiter": {
       "enabled": true,
-      "timeout_seconds": 5,
-      "max_retries": 3,
+      "timeout_seconds": 2,
+      "max_retries": 2,
       "quote_api_url": "https://quote-api.jup.ag/v6",
-      "price_api_url": "https://api.jup.ag/price/v2"
+      "price_api_url": "https://api.jup.ag/price/v2",
+      "connection_pool_size": 5,
+      "keepalive_timeout": 30
     },
     "coinbase": {
       "enabled": true,
@@ -71,12 +85,15 @@
   },
   "performance": {
     "max_concurrent_discoveries": 10,
-    "cache_ttl_seconds": 30,
+    "cache_ttl_seconds": 15,
     "parallel_api_calls": true,
-    "latency_target_ms": 500,
-    "discovery_cycle_delay_seconds": 5,
+    "latency_target_ms": 250,
+    "discovery_cycle_delay_seconds": 3,
     "cache_enabled": true,
-    "batch_processing_enabled": true
+    "batch_processing_enabled": true,
+    "connection_pooling": true,
+    "max_connections_per_api": 5,
+    "request_timeout_ms": 2000
   },
   "triangular_arbitrage": {
     "enabled": true,
@@ -95,7 +112,13 @@
     "level": "info",
     "file_enabled": true,
     "file_path": "./arbitrage.log",
-    "console_enabled": true
+    "console_enabled": true,
+    "structured_logging": true,
+    "performance_logs": true,
+    "error_categorization": true,
+    "network_debug": false,
+    "file_rotation": true,
+    "max_file_size_mb": 50
   },
   "target_tokens": [
     {
