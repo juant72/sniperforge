@@ -2,16 +2,16 @@
   "trading": {
     "mode": "simulation",
     "force_real_transactions": false,
-    "max_trade_sol": 0.08,
-    "min_profit_threshold_sol": 0.001,
-    "min_confidence_threshold": 0.75,
-    "max_concurrent_trades": 3,
+    "max_trade_sol": 0.05,
+    "min_profit_threshold_sol": 0.002,
+    "min_confidence_threshold": 0.5,
+    "max_concurrent_trades": 2,
     "trade_timeout_seconds": 30,
-    "min_trade_size_sol": 0.1,
+    "min_trade_size_sol": 0.01,
     "max_trade_size_sol": 100.0,
-    "max_slippage_bps": 150,
-    "military_min_profit_bps": 20,
-    "base_profit_percentage": 0.015,
+    "max_slippage_bps": 100,
+    "military_min_profit_bps": 15,
+    "base_profit_percentage": 0.005,
     "max_profit_percentage": 0.025,
     "default_trade_amount_usd": 1000.0,
     "estimated_gas_cost_usd": 5.0,
@@ -22,10 +22,19 @@
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
       "11111111111111111111111111111111",
       "ComputeBudget111111111111111111111111111111",
-      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+      "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+      "9W959DqEETiGZocYWCQPaJ6sBmUzgfxXfqGeTEdp3aQP",
+      "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+      "DjVE6JNiYqPL2QXyCUUh8rNjHrbz9hXHNYt99MQ59qw1",
+      "EhpbDdNX2ya45KAR8p9FydBE9MJSJgNnuJNsNc7fzhg7",
+      "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+      "CAMMCzo5YL8w4VFF8KVHrK22GGUQpMNRoyz8rqE5g9Qy",
+      "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+      "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1",
+      "27haf8L6oxUeXrHrgEgsexjSY5hbVUWEmvv9Nyxg8vQv"
     ],
     "simulation_before_execution": true,
-    "max_simulation_retries": 2
+    "max_simulation_retries": 3
   },
   "wallet": {
     "keypair_file": "./keypair.json",
@@ -34,10 +43,12 @@
     "env_key_name": "SOLANA_PRIVATE_KEY"
   },
   "rpc": {
-    "primary_url": "https://api.devnet.solana.com",
+    "primary_url": "https://api.mainnet-beta.solana.com",
     "backup_urls": [
-      "https://api.devnet.solana.com",
-      "https://rpc.ankr.com/solana_devnet"
+      "https://api.mainnet-beta.solana.com",
+      "https://rpc.ankr.com/solana",
+      "https://solana-api.projectserum.com",
+      "https://mainnet.helius-rpc.com/?api-key=public"
     ],
     "timeout_seconds": 30,
     "retry_attempts": 3
@@ -45,14 +56,14 @@
   "apis": {
     "dexscreener": {
       "enabled": true,
-      "timeout_seconds": 3,
+      "timeout_seconds": 4,
       "max_retries": 2,
       "batch_requests": true,
-      "rate_limit_per_sec": 10
+      "rate_limit_per_sec": 15
     },
     "jupiter": {
       "enabled": true,
-      "timeout_seconds": 2,
+      "timeout_seconds": 5,
       "max_retries": 2,
       "quote_api_url": "https://quote-api.jup.ag/v6",
       "price_api_url": "https://api.jup.ag/price/v2",
@@ -61,34 +72,34 @@
     },
     "coinbase": {
       "enabled": true,
-      "timeout_seconds": 8,
+      "timeout_seconds": 6,
       "max_retries": 2
     },
     "birdeye": {
-      "enabled": false,
+      "enabled": true,
       "api_key": "",
-      "timeout_seconds": 10
+      "timeout_seconds": 5
     }
   },
   "anti_circular": {
     "enabled": true,
     "prevent_same_dex_arbitrage": true,
-    "max_same_token_repeats": 1,
+    "max_same_token_repeats": 2,
     "circular_detection_enabled": true
   },
   "ml_analysis": {
     "enabled": true,
-    "min_score_threshold": 0.2,
+    "min_score_threshold": 0.3,
     "pattern_recognition_enabled": true,
     "adaptive_parameters_enabled": true,
     "ml_confidence_threshold": 0.6
   },
   "performance": {
-    "max_concurrent_discoveries": 10,
-    "cache_ttl_seconds": 15,
+    "max_concurrent_discoveries": 8,
+    "cache_ttl_seconds": 10,
     "parallel_api_calls": true,
-    "latency_target_ms": 250,
-    "discovery_cycle_delay_seconds": 3,
+    "latency_target_ms": 400,
+    "discovery_cycle_delay_seconds": 2,
     "cache_enabled": true,
     "batch_processing_enabled": true,
     "connection_pooling": true,
