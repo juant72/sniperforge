@@ -84,7 +84,7 @@ impl DexScreenerClient {
                 volume_24h: pair.volume.h24,
                 liquidity: pair.liquidity.usd,
                 market_cap: pair.fdv.unwrap_or(0.0),
-                last_updated: Instant::now(),
+                last_updated: Some(Instant::now()),
             };
             
             // Cache the result
@@ -196,7 +196,7 @@ impl DexScreenerClient {
                 price_usd: pair.price_usd.parse().unwrap_or(0.0),
                 liquidity: pair.liquidity.usd,
                 volume_24h: pair.volume.h24,
-                last_updated: Instant::now(),
+                last_updated: Some(Instant::now()),
             };
             
             // Cache the result
@@ -303,7 +303,24 @@ pub struct TokenInfo {
     pub volume_24h: f64,
     pub liquidity: f64,
     pub market_cap: f64,
-    pub last_updated: Instant,
+    #[serde(skip)]
+    pub last_updated: Option<Instant>,
+}
+
+impl Default for TokenInfo {
+    fn default() -> Self {
+        Self {
+            address: String::new(),
+            name: String::new(),
+            symbol: String::new(),
+            price_usd: 0.0,
+            price_change_24h: 0.0,
+            volume_24h: 0.0,
+            liquidity: 0.0,
+            market_cap: 0.0,
+            last_updated: None,
+        }
+    }
 }
 
 /// Trending token information
@@ -329,7 +346,23 @@ pub struct PairInfo {
     pub price_usd: f64,
     pub liquidity: f64,
     pub volume_24h: f64,
-    pub last_updated: Instant,
+    #[serde(skip)]
+    pub last_updated: Option<Instant>,
+}
+
+impl Default for PairInfo {
+    fn default() -> Self {
+        Self {
+            address: String::new(),
+            dex: String::new(),
+            base_token: TokenBasic::default(),
+            quote_token: TokenBasic::default(),
+            price_usd: 0.0,
+            liquidity: 0.0,
+            volume_24h: 0.0,
+            last_updated: None,
+        }
+    }
 }
 
 /// Basic token information
@@ -338,6 +371,16 @@ pub struct TokenBasic {
     pub address: String,
     pub symbol: String,
     pub name: String,
+}
+
+impl Default for TokenBasic {
+    fn default() -> Self {
+        Self {
+            address: String::new(),
+            symbol: String::new(),
+            name: String::new(),
+        }
+    }
 }
 
 // API Response Types

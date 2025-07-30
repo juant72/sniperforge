@@ -24,17 +24,17 @@ impl SniperForgeConfig {
     /// Create a simplified config for the arbitrage engine
     pub fn to_simple_config(&self) -> SimpleConfig {
         SimpleConfig {
-            solana_rpc_url: self.apis.solana_rpc_url.clone(),
-            solana_ws_url: self.apis.solana_ws_url.clone(),
-            max_slippage: self.trading.max_slippage,
-            min_profit_threshold: self.trading.min_profit_threshold,
-            max_position_size: self.trading.max_position_size,
-            private_key_path: self.security.private_key_path.clone(),
-            enable_simulation: self.security.enable_simulation,
+            solana_rpc_url: self.security.rpc_url.clone(),
+            solana_ws_url: self.security.rpc_url.replace("http", "ws"), // Convert HTTP to WS
+            max_slippage: self.trading.max_slippage_bps as f64 / 10000.0, // Convert bps to decimal
+            min_profit_threshold: self.trading.min_profit_bps as f64 / 10000.0, // Convert bps to decimal
+            max_position_size: self.trading.max_trade_size_sol,
+            private_key_path: self.security.wallet_path.clone(),
+            enable_simulation: !self.trading.enabled, // If trading disabled, use simulation
             log_level: "info".to_string(),
-            dexscreener_base_url: self.apis.dexscreener_base_url.clone(),
-            max_requests_per_second: self.performance.max_requests_per_second,
-            cooldown_period_ms: self.performance.cooldown_period_ms,
+            dexscreener_base_url: "https://api.dexscreener.com".to_string(), // Default value
+            max_requests_per_second: 10, // Default value
+            cooldown_period_ms: 1000, // Default value
         }
     }
 }

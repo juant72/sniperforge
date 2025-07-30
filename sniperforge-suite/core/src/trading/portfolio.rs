@@ -87,7 +87,8 @@ impl PortfolioManager {
         
         // Keep only last 1000 trades
         if metrics.trades.len() > 1000 {
-            metrics.trades.drain(0..metrics.trades.len() - 1000);
+            let trades_to_remove = metrics.trades.len() - 1000;
+            metrics.trades.drain(0..trades_to_remove);
         }
         
         info!("Recorded trade - Total trades: {}, Win rate: {:.2}%", 
@@ -106,7 +107,7 @@ impl PortfolioManager {
     pub async fn calculate_risk_metrics(&self, current_prices: &HashMap<String, f64>) -> RiskMetrics {
         let positions = self.positions.read().await;
         let mut total_value = 0.0;
-        let mut max_single_position = 0.0;
+        let mut max_single_position: f64 = 0.0;
         let mut diversification_score = 0.0;
         
         for (symbol, position) in positions.iter() {

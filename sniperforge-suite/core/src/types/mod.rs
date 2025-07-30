@@ -156,6 +156,12 @@ pub enum SniperForgeError {
     Timeout { seconds: u64 },
 }
 
+impl From<String> for SniperForgeError {
+    fn from(error: String) -> Self {
+        SniperForgeError::Config(error)
+    }
+}
+
 /// Result type alias
 pub type Result<T> = std::result::Result<T, SniperForgeError>;
 
