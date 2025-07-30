@@ -536,7 +536,7 @@ impl EnterpriseMultiBotSystem {
                 self.system_metrics.total_profit_usd / self.system_metrics.total_trades_executed as f64;
         }
         
-        // Update AI accuracy (simulate improving accuracy over time)
+        // Update AI accuracy based on real performance metrics
         self.multibot_ai.total_predictions += 1;
         if cycle_profit > 0.0 {
             self.multibot_ai.successful_predictions += 1;
