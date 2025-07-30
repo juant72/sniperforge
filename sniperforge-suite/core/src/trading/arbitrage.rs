@@ -266,7 +266,7 @@ impl ArbitrageEngine {
         let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_data)
             .map_err(|e| format!("Failed to parse wallet JSON: {}", e))?;
             
-        Keypair::from_bytes(&wallet_bytes)
+        Keypair::try_from(&wallet_bytes[..])
             .map_err(|e| format!("Failed to create keypair: {}", e))
     }
     
@@ -318,7 +318,7 @@ impl ArbitrageEngine {
         
         // Analyze each trading pair
         let pairs = self.active_pairs.read().await;
-        for (pair_id, pair) in pairs.iter() {
+        for (_pair_id, pair) in pairs.iter() {
             if let Some(opportunity) = self.analyze_pair(pair, &market_data).await? {
                 opportunities.push(opportunity);
             }
@@ -503,7 +503,7 @@ impl ArbitrageEngine {
     /// Record trade result for ML analysis (migrated from working bot)
     pub async fn record_trade_result_for_ml(&self,
         trade_id: String,
-        token_pair: &str,
+        _token_pair: &str,
         profit_sol: f64,
         execution_time_ms: u64,
         success: bool,

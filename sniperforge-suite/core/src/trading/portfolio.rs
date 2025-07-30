@@ -13,7 +13,7 @@ use tracing::{info, debug};
 /// Portfolio manager for tracking positions and balances
 #[derive(Clone)]
 pub struct PortfolioManager {
-    config: SimpleConfig,
+    _config: SimpleConfig,  // Reserved for future configuration features
     positions: Arc<RwLock<HashMap<String, Position>>>,
     performance_metrics: Arc<RwLock<PerformanceMetrics>>,
     last_update: Arc<RwLock<Instant>>,
@@ -23,7 +23,7 @@ impl PortfolioManager {
     /// Create a new portfolio manager
     pub fn new(config: SimpleConfig) -> Self {
         Self {
-            config,
+            _config: config,
             positions: Arc::new(RwLock::new(HashMap::new())),
             performance_metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
             last_update: Arc::new(RwLock::new(Instant::now())),

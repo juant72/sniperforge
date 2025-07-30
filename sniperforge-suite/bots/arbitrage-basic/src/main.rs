@@ -192,8 +192,8 @@ pub struct EnterpriseMultiBotSystem {
     // Enterprise MultiBot AI (Unified Intelligence)
     multibot_ai: EnterpriseBotAI,
     
-    // Data feeds and infrastructure
-    price_feeds: RealPriceFeeds,
+    // Data feeds and infrastructure (reserved for future use)
+    _price_feeds: RealPriceFeeds,
     
     // System state and metrics
     current_phase: SystemPhase,
@@ -324,7 +324,7 @@ impl EnterpriseMultiBotSystem {
             ai_engine,
             analytics_engine,
             multibot_ai,
-            price_feeds: RealPriceFeeds::new(),
+            _price_feeds: RealPriceFeeds::new(),
             current_phase: SystemPhase::PhaseUnifiedEnterprise,
             active_strategies,
             system_metrics: MultiBotMetrics::default(),

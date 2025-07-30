@@ -13,7 +13,7 @@ use tracing::{info, warn, error, debug};
 /// Price feed manager that aggregates data from multiple sources
 #[derive(Clone)]
 pub struct PriceFeedManager {
-    config: SimpleConfig,
+    _config: SimpleConfig,  // Reserved for future configuration features
     dexscreener_client: DexScreenerClient,
     market_data: Arc<RwLock<MarketData>>,
     last_update: Arc<RwLock<Instant>>,
@@ -25,7 +25,7 @@ impl PriceFeedManager {
         let dexscreener_client = DexScreenerClient::new(config);
         
         Self {
-            config: config.clone(),
+            _config: config.clone(),
             dexscreener_client,
             market_data: Arc::new(RwLock::new(MarketData::new())),
             last_update: Arc::new(RwLock::new(Instant::now())),

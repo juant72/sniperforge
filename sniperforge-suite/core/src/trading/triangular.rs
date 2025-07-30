@@ -381,7 +381,7 @@ impl TriangularArbitrageEngine {
     }
 
     /// Integrar con RealPriceFeeds para obtener precios reales
-    pub async fn integrate_with_price_feeds(&mut self, price_feeds: &crate::apis::RealPriceFeeds) -> Result<()> {
+    pub async fn integrate_with_price_feeds(&mut self, _price_feeds: &crate::apis::RealPriceFeeds) -> Result<()> {
         info!("🔄 Integrando triangular arbitrage con price feeds reales...");
         
         // Obtener precios de todos los pares relevantes
@@ -393,10 +393,10 @@ impl TriangularArbitrageEngine {
             ("USDC", "JUP"), ("JUP", "USDC"),
         ];
 
-        for (base, quote) in important_pairs {
+        for (_base, _quote) in important_pairs {
             // TODO: Implementar obtención real de precios
-            // let price = price_feeds.get_pair_price(base, quote).await?;
-            // self.price_cache.insert((base.to_string(), quote.to_string()), price);
+            // let price = _price_feeds.get_pair_price(_base, _quote).await?;
+            // self.price_cache.insert((_base.to_string(), _quote.to_string()), price);
         }
 
         info!("✅ Triangular arbitrage integrado con price feeds");
