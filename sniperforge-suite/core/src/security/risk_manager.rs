@@ -172,7 +172,7 @@ impl AdvancedRiskManager {
         self.last_risk_check = Some(Utc::now());
         
         let mut risk_factors = Vec::new();
-        let mut total_risk_score = 0.0;
+        let mut total_risk_score: f64 = 0.0;
         
         // 1. Verificar circuit breaker
         if self.circuit_breaker_active {

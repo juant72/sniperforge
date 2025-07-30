@@ -7,6 +7,27 @@ use tracing::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+/// Respuesta de Jupiter Quote API
+#[derive(Debug, Deserialize)]
+pub struct JupiterQuote {
+    #[serde(rename = "inputMint")]
+    pub input_mint: String,
+    #[serde(rename = "inAmount")]
+    pub in_amount: String,
+    #[serde(rename = "outputMint")]
+    pub output_mint: String,
+    #[serde(rename = "outAmount")]
+    pub out_amount: u64,
+    #[serde(rename = "otherAmountThreshold")]
+    pub other_amount_threshold: String,
+    #[serde(rename = "swapMode")]
+    pub swap_mode: String,
+    #[serde(rename = "slippageBps")]
+    pub slippage_bps: u16,
+    #[serde(rename = "priceImpactPct")]
+    pub price_impact_pct: Option<String>,
+}
+
 /// Configuración específica para arbitraje triangular
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TriangularArbitrageConfig {
@@ -329,20 +350,82 @@ impl TriangularArbitrageEngine {
 
     /// Actualizar cache de precios desde APIs reales
     async fn update_price_cache(&mut self) -> Result<()> {
-        // TODO: IMPLEMENTAR OBTENCIÓN DE PRECIOS REALES DESDE APIs
-        // Por ahora, usar datos simulados para demostrar funcionalidad
-        warn!("⚠️ Usando precios simulados - integrar con RealPriceFeeds");
+        info!("🔄 Actualizando precios reales desde Jupiter API...");
         
-        // Simular algunos precios para pruebas
-        self.price_cache.insert(("SOL".to_string(), "USDC".to_string()), 100.0);
-        self.price_cache.insert(("USDC".to_string(), "SOL".to_string()), 0.01);
-        self.price_cache.insert(("SOL".to_string(), "RAY".to_string()), 50.0);
-        self.price_cache.insert(("RAY".to_string(), "SOL".to_string()), 0.02);
-        self.price_cache.insert(("USDC".to_string(), "RAY".to_string()), 0.5);
-        self.price_cache.insert(("RAY".to_string(), "USDC".to_string()), 2.0);
+        // Obtener precios reales desde Jupiter
+        let real_prices = self.fetch_real_prices_from_jupiter().await?;
         
-        debug!("✅ Cache de precios actualizado con {} pares", self.price_cache.len());
+        // Actualizar cache con precios reales
+        for ((from_token, to_token), price) in real_prices {
+            self.price_cache.insert((from_token, to_token), price);
+        }
+        
+        info!("✅ Cache actualizado con {} precios reales", self.price_cache.len());
         Ok(())
+    }
+    
+    /// Obtener precios reales desde Jupiter API
+    async fn fetch_real_prices_from_jupiter(&self) -> Result<HashMap<(String, String), f64>> {
+        let mut real_prices = HashMap::new();
+        
+        // Principales tokens de Solana mainnet con addresses reales
+        let tokens = vec![
+            ("SOL", "So11111111111111111111111111111111111111112"),
+            ("USDC", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+            ("USDT", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"),
+            ("RAY", "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"),
+            ("SRM", "SRMuApVNdxXokk5GT7XD5cUUgXMBCoAz2LHeuAoKWRt"),
+        ];
+        
+        // Crear cliente HTTP para Jupiter API
+        let client = reqwest::Client::new();
+        
+        for (from_symbol, from_mint) in &tokens {
+            for (to_symbol, to_mint) in &tokens {
+                if from_symbol != to_symbol {
+                    match self.get_jupiter_quote(&client, from_mint, to_mint, 1000000).await {
+                        Ok(quote) => {
+                            let rate = quote.out_amount as f64 / 1000000.0;
+                            real_prices.insert((from_symbol.to_string(), to_symbol.to_string()), rate);
+                            debug!("📊 {}/{}: {:.6}", from_symbol, to_symbol, rate);
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Error obteniendo precio {}/{}: {}", from_symbol, to_symbol, e);
+                        }
+                    }
+                    
+                    // Rate limiting
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                }
+            }
+        }
+        
+        Ok(real_prices)
+    }
+    
+    /// Obtener quote real desde Jupiter API
+    async fn get_jupiter_quote(&self, 
+                              client: &reqwest::Client,
+                              input_mint: &str, 
+                              output_mint: &str, 
+                              amount: u64) -> Result<JupiterQuote> {
+        let url = format!(
+            "https://quote-api.jup.ag/v6/quote?inputMint={}&outputMint={}&amount={}",
+            input_mint, output_mint, amount
+        );
+        
+        let response = client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await?;
+        
+        if response.status().is_success() {
+            let quote: JupiterQuote = response.json().await?;
+            Ok(quote)
+        } else {
+            Err(anyhow::anyhow!("Jupiter API error: {}", response.status()))
+        }
     }
     
     /// Obtener tasa de cambio desde cache

@@ -60,13 +60,13 @@ pub struct SimpleConfig {
 impl Default for SimpleConfig {
     fn default() -> Self {
         Self {
-            solana_rpc_url: "https://api.devnet.solana.com".to_string(),
-            solana_ws_url: "wss://api.devnet.solana.com/".to_string(),
+            solana_rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
+            solana_ws_url: "wss://api.mainnet-beta.solana.com/".to_string(),
             max_slippage: 0.005,
             min_profit_threshold: 0.001,
             max_position_size: 0.1,
             private_key_path: "./wallet.json".to_string(),
-            enable_simulation: true,
+            enable_simulation: false,  // MAINNET = NO SIMULATION
             log_level: "info".to_string(),
             dexscreener_base_url: "https://api.dexscreener.com".to_string(),
             max_requests_per_second: 10,
