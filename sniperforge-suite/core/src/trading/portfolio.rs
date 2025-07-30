@@ -5,10 +5,10 @@ use crate::{
 use std::{
     collections::HashMap,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, debug};
+use tracing::{info, debug};
 
 /// Portfolio manager for tracking positions and balances
 #[derive(Clone)]

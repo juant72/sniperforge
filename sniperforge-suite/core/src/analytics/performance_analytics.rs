@@ -7,7 +7,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use tracing::{debug, info, warn};
+use tracing::info;
 use rand;
 
 /// Configuración de Analytics AI

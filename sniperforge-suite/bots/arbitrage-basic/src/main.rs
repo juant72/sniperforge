@@ -677,7 +677,7 @@ impl EnterpriseMultiBotSystem {
         
         // Real AI optimization based on performance data
         let current_performance = self.system_metrics.success_rate_percentage;
-        let ai_accuracy = self.system_metrics.ai_accuracy_rate;
+        let _ai_accuracy = self.system_metrics.ai_accuracy_rate;
         
         // Adaptive learning based on real metrics
         if current_performance > 85.0 {

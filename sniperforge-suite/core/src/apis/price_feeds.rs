@@ -4,7 +4,6 @@ use crate::{
     apis::dexscreener::DexScreenerClient,
 };
 use std::{
-    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };

@@ -2,13 +2,10 @@
 //! Implementa detección y ejecución de oportunidades de arbitraje triangular
 //! con protección anti-circular avanzada y cálculos de profit reales
 
-use crate::types::{ArbitragePair, Token};
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
 use tracing::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use tokio::time::{Duration, Instant};
 
 /// Configuración específica para arbitraje triangular
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -7,7 +7,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 use rand;
 
 /// Configuración del motor de AI empresarial

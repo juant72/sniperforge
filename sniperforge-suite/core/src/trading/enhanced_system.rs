@@ -6,7 +6,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Configuración del sistema de trading simplificado
 #[derive(Debug, Clone, Serialize, Deserialize)]

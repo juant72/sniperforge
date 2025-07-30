@@ -3,7 +3,7 @@ use crate::{
     types::{ArbitrageOpportunity, ApiResult as Result},
 };
 use std::time::Duration;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 /// Risk management for trading operations
 #[derive(Clone)]

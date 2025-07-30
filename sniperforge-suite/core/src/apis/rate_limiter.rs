@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{sync::Semaphore, time::sleep};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Rate limiter for API requests
 pub struct RateLimiter {

@@ -1,9 +1,9 @@
 use crate::{
     config::SimpleConfig,
-    types::{ApiResult as Result, MarketData},
+    types::ApiResult as Result,
     apis::rate_limiter::RateLimiter,
 };
-use reqwest::{Client, Response};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, debug};
+use tracing::debug;
 
 /// DexScreener API client for market data
 #[derive(Clone)]

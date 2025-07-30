@@ -6,10 +6,9 @@
 // ================================================================================
 
 use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use chrono::{DateTime, Utc};
-use tracing::{info, warn, debug};
-use anyhow::Result;
+use tracing::{info, debug};
 
 // ================================================================================
 // PATTERN RECOGNITION STRUCTURES (MIGRATED FROM WORKING BOT)

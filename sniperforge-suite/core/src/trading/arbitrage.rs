@@ -16,7 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{sync::RwLock, time::sleep};
-use tracing::{info, warn, error, debug};
+use tracing::{info, debug};
 use chrono::{DateTime, Utc};
 
 // ================================================================================
