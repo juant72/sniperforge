@@ -172,7 +172,13 @@ impl EnterpriseFlashLoanEngine {
                     net_profit_sol: net_profit,
                 };
                 
-                opportunities.push(opportunity);
+                opportunities.push(opportunity.clone());
+                
+                // Guardar en historial para análisis futuro
+                self.opportunity_history.push_back(opportunity.clone());
+                if self.opportunity_history.len() > self.settings.max_history_size {
+                    self.opportunity_history.pop_front();
+                }
             }
         }
         
@@ -325,6 +331,44 @@ mod tests {
         // Debería ejecutar exitosamente en modo simulación
         let result = engine.execute_flash_loan(&opportunity, true).await.unwrap();
         assert!(result, "Flash loan simulation debería ser exitosa");
+        
+        // Verificar que se guardó en historial
+        assert!(engine.opportunity_history.len() > 0, "Debería tener oportunidades en historial");
+    }
+    
+    #[test]
+    fn test_opportunity_history_management() {
+        let mut settings = SimpleConfig::default();
+        settings.max_history_size = 2; // Límite pequeño para testing
+        
+        let mut engine = EnterpriseFlashLoanEngine::new(None, settings);
+        
+        // Agregar oportunidades al historial
+        for i in 0..5 {
+            let opp = FlashLoanOpportunity {
+                id: format!("FL_{}", i),
+                timestamp: Utc::now(),
+                loan_amount_sol: 100.0,
+                estimated_profit_sol: 5.0,
+                estimated_profit_percentage: 5.0,
+                execution_path: vec!["Jupiter".to_string()],
+                estimated_gas_cost: 200_000,
+                risk_score: 0.3,
+                confidence_score: 0.9,
+                flash_loan_provider: "Marginfi".to_string(),
+                repayment_amount_sol: 100.05,
+                net_profit_sol: 4.95,
+            };
+            
+            engine.opportunity_history.push_back(opp.clone());
+            if engine.opportunity_history.len() > engine.settings.max_history_size {
+                engine.opportunity_history.pop_front();
+            }
+        }
+        
+        // El historial no debería exceder el máximo configurado
+        assert_eq!(engine.opportunity_history.len(), 2, "Historial debe respetar max_history_size");
+    }
         
         // Estadísticas deberían actualizarse
         assert!(engine.get_statistics().total_flash_loans_attempted > 0);

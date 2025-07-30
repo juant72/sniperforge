@@ -268,10 +268,22 @@ impl EnterpriseCrossChainEngine {
             for target_chain in &self.config.supported_chains[i+1..] {
                 // Buscar oportunidades en ambas direcciones
                 if let Some(opp) = self.find_opportunity_between_chains(source_chain, target_chain).await {
-                    opportunities.push(opp);
+                    opportunities.push(opp.clone());
+                    
+                    // Guardar en historial para análisis futuro
+                    self.opportunity_history.push_back(opp);
+                    if self.opportunity_history.len() > self.settings.max_history_size {
+                        self.opportunity_history.pop_front();
+                    }
                 }
                 if let Some(opp) = self.find_opportunity_between_chains(target_chain, source_chain).await {
-                    opportunities.push(opp);
+                    opportunities.push(opp.clone());
+                    
+                    // Guardar en historial para análisis futuro
+                    self.opportunity_history.push_back(opp);
+                    if self.opportunity_history.len() > self.settings.max_history_size {
+                        self.opportunity_history.pop_front();
+                    }
                 }
             }
         }

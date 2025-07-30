@@ -519,6 +519,13 @@ impl PerformanceAnalyticsAI {
         // Generar recomendaciones
         let recommendations = self.recommendation_engine.generate_recommendations(&metrics);
         
+        // Verificar si es momento de generar reporte periódico
+        let should_generate_report = self.should_generate_periodic_report();
+        
+        if should_generate_report {
+            self.generate_time_based_report(&metrics, overall_score).await?;
+        }
+        
         // Identificar fortalezas y áreas de mejora
         let improving_metrics: Vec<String> = metrics.iter()
             .filter(|m| m.trend == "Improving")
@@ -569,6 +576,65 @@ impl PerformanceAnalyticsAI {
               analysis.overall_performance_score, analysis.recommendations.len());
         
         Ok(analysis)
+    }
+    
+    /// Verificar si debe generar reporte periódico
+    fn should_generate_periodic_report(&self) -> bool {
+        match self.last_report_time {
+            None => true, // Primer reporte
+            Some(last_time) => {
+                let now = Utc::now();
+                let duration = now.signed_duration_since(last_time);
+                
+                // Generar reporte cada 1 hora
+                duration.num_hours() >= 1
+            }
+        }
+    }
+    
+    /// Generar reporte basado en tiempo
+    async fn generate_time_based_report(&mut self, metrics: &[PerformanceMetric], score: f64) -> Result<()> {
+        let now = Utc::now();
+        
+        info!("📊 === REPORTE PERIÓDICO DE PERFORMANCE ===");
+        info!("🕐 Timestamp: {}", now.format("%Y-%m-%d %H:%M:%S UTC"));
+        info!("📈 Score General: {:.1}/100", score);
+        info!("📊 Métricas Analizadas: {}", metrics.len());
+        
+        // Agrupar métricas por categoría
+        let mut categories: std::collections::HashMap<String, Vec<&PerformanceMetric>> = std::collections::HashMap::new();
+        for metric in metrics {
+            categories.entry(metric.category.clone()).or_insert_with(Vec::new).push(metric);
+        }
+        
+        // Reportar por categoría
+        for (category, cat_metrics) in categories {
+            info!("📂 Categoría: {}", category);
+            for metric in cat_metrics {
+                let trend_emoji = match metric.trend.as_str() {
+                    "Improving" => "📈",
+                    "Declining" => "📉",
+                    "Stable" => "➡️",
+                    _ => "❓",
+                };
+                
+                info!("  {} {}: {:.2} {} (cambio: {:.1}%)", 
+                      trend_emoji, metric.metric_name, metric.current_value, metric.unit, metric.change_percentage);
+            }
+        }
+        
+        // Actualizar timestamp del último reporte
+        self.last_report_time = Some(now);
+        
+        info!("📊 === FIN REPORTE PERIÓDICO ===");
+        
+        Ok(())
+    }
+    
+    /// Obtener estadísticas de reportes
+    pub fn get_reporting_stats(&self) -> (Option<DateTime<Utc>>, bool) {
+        (self.last_report_time, self.should_generate_periodic_report())
+    }
     }
     
     /// Generar predicciones de performance

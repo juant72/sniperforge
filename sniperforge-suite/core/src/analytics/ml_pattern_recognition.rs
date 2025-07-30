@@ -200,6 +200,61 @@ impl PatternRecognitionEngine {
         score
     }
     
+    /// Verificar y actualizar accuracy del modelo ML
+    pub fn check_accuracy(&mut self) -> f64 {
+        let now = Instant::now();
+        
+        // Solo verificar accuracy cada 10 minutos para performance
+        if now.duration_since(self.last_accuracy_check).as_secs() < 600 {
+            return self.get_current_accuracy();
+        }
+        
+        self.last_accuracy_check = now;
+        
+        // Calcular accuracy basado en predicciones recientes vs resultados reales
+        let accuracy = if self.predictions_made > 0 {
+            (self.successful_predictions as f64 / self.predictions_made as f64) * 100.0
+        } else {
+            0.0
+        };
+        
+        info!("🎯 ML Accuracy Check: {:.1}% ({}/{} predictions)", 
+              accuracy, self.successful_predictions, self.predictions_made);
+        
+        // Auto-adjust learning parameters based on accuracy
+        if accuracy < 70.0 {
+            self.learning_rate = (self.learning_rate * 1.1).min(0.05); // Increase learning rate
+            warn!("📉 Low accuracy detected, increasing learning rate to {:.4}", self.learning_rate);
+        } else if accuracy > 90.0 {
+            self.learning_rate = (self.learning_rate * 0.9).max(0.001); // Decrease learning rate
+            info!("📈 High accuracy achieved, reducing learning rate to {:.4}", self.learning_rate);
+        }
+        
+        accuracy
+    }
+    
+    /// Reportar resultado de predicción para actualizar accuracy
+    pub fn report_prediction_result(&mut self, was_successful: bool) {
+        if was_successful {
+            self.successful_predictions += 1;
+        }
+        
+        // Trigger accuracy check if enough predictions accumulated
+        if self.predictions_made % 50 == 0 {
+            self.check_accuracy();
+        }
+    }
+    
+    /// Obtener accuracy actual sin recalcular
+    pub fn get_current_accuracy(&self) -> f64 {
+        if self.predictions_made > 0 {
+            (self.successful_predictions as f64 / self.predictions_made as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+    }
+    
     /// Predicción de parámetros adaptativos
     pub fn predict_adaptive_parameters(&self, 
                                      opportunity_score: &OpportunityScore,

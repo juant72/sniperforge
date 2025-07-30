@@ -35,6 +35,7 @@ impl SniperForgeConfig {
             dexscreener_base_url: "https://api.dexscreener.com".to_string(), // Default value
             max_requests_per_second: 10, // Default value
             cooldown_period_ms: 1000, // Default value
+            max_history_size: 1000, // Default value
         }
     }
 }
@@ -53,6 +54,7 @@ pub struct SimpleConfig {
     pub dexscreener_base_url: String,
     pub max_requests_per_second: u32,
     pub cooldown_period_ms: u64,
+    pub max_history_size: usize,
 }
 
 impl Default for SimpleConfig {
@@ -69,6 +71,7 @@ impl Default for SimpleConfig {
             dexscreener_base_url: "https://api.dexscreener.com".to_string(),
             max_requests_per_second: 10,
             cooldown_period_ms: 100,
+            max_history_size: 1000,
         }
     }
 }
