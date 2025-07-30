@@ -635,7 +635,6 @@ impl PerformanceAnalyticsAI {
     pub fn get_reporting_stats(&self) -> (Option<DateTime<Utc>>, bool) {
         (self.last_report_time, self.should_generate_periodic_report())
     }
-    }
     
     /// Generar predicciones de performance
     fn generate_predictions(&self, metrics: &[PerformanceMetric]) -> Vec<PerformancePrediction> {

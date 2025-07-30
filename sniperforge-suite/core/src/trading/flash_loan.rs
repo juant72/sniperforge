@@ -369,8 +369,4 @@ mod tests {
         // El historial no debería exceder el máximo configurado
         assert_eq!(engine.opportunity_history.len(), 2, "Historial debe respetar max_history_size");
     }
-        
-        // Estadísticas deberían actualizarse
-        assert!(engine.get_statistics().total_flash_loans_attempted > 0);
-    }
 }

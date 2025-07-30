@@ -8,7 +8,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::time::Instant;
 use chrono::{DateTime, Utc};
-use tracing::{info, debug};
+use tracing::{info, debug, warn};
 
 // ================================================================================
 // PATTERN RECOGNITION STRUCTURES (MIGRATED FROM WORKING BOT)
@@ -252,7 +252,6 @@ impl PatternRecognitionEngine {
         } else {
             0.0
         }
-    }
     }
     
     /// Predicción de parámetros adaptativos

@@ -40,15 +40,31 @@ impl Default for EnterpriseCrossChainConfig {
             supported_chains: vec![
                 "Solana".to_string(),
                 "Ethereum".to_string(), 
+                "Arbitrum".to_string(),
                 "Polygon".to_string(),
-                "BSC".to_string(),
+                "Optimism".to_string(),
+                "Base".to_string(),
                 "Avalanche".to_string(),
+                "BSC".to_string(),          // Binance Smart Chain
+                "Fantom".to_string(),       // Fantom Opera
+                "Cronos".to_string(),       // Cronos Chain
+                "Moonbeam".to_string(),     // Moonbeam (Polkadot)
+                "Aurora".to_string(),       // Aurora (Near)
+                "Harmony".to_string(),      // Harmony ONE
+                "Celo".to_string(),         // Celo Network
+                "Gnosis".to_string(),       // Gnosis Chain
             ],
             bridge_providers: vec![
                 "Wormhole".to_string(),
                 "LayerZero".to_string(),
+                "Synapse".to_string(),
                 "Multichain".to_string(),
                 "Portal".to_string(),
+                "Allbridge".to_string(),    // Solana-focused bridge
+                "Mayan".to_string(),        // Cross-chain swaps
+                "deBridge".to_string(),     // Universal cross-chain protocol
+                "Hop".to_string(),          // L2 bridge aggregator
+                "Across".to_string(),       // Intent-based bridge
             ],
             max_bridge_amount_sol: 500.0,     // Nivel empresarial: 500 SOL máximo
             min_cross_chain_profit_bps: 100,  // 1.0% profit mínimo (mayor que single-chain)
