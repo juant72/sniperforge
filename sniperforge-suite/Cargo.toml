@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "core",
+    "bots/arbitrage-basic",
     # Future bots will be added here
     # "bots/arbitrage-pro",
     # "shared/types",
