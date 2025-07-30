@@ -290,12 +290,12 @@ impl CrossChainPriceMonitor {
     /// Precio de fallback si fallan las APIs
     fn get_fallback_price(&self, token: &str) -> f64 {
         match token {
-            "SOL" => 150.0,
-            "ETH" => 2500.0,
-            "USDC" | "USDT" => 1.0,
-            "WBTC" => 45000.0,
-            "RAY" => 1.5,
-            "SRM" => 0.5,
+            "SOL" => SimpleConfig::get_config_value("FALLBACK_SOL_PRICE", "150.0").parse().unwrap_or(150.0),
+            "ETH" => SimpleConfig::get_config_value("FALLBACK_ETH_PRICE", "2500.0").parse().unwrap_or(2500.0),
+            "USDC" | "USDT" => SimpleConfig::get_config_value("FALLBACK_USDC_PRICE", "1.0").parse().unwrap_or(1.0),
+            "WBTC" => SimpleConfig::get_config_value("FALLBACK_WBTC_PRICE", "45000.0").parse().unwrap_or(45000.0),
+            "RAY" => SimpleConfig::get_config_value("FALLBACK_RAY_PRICE", "1.5").parse().unwrap_or(1.5),
+            "SRM" => SimpleConfig::get_config_value("FALLBACK_SRM_PRICE", "0.5").parse().unwrap_or(0.5),
             _ => 1.0,
         }
     }
@@ -421,7 +421,10 @@ impl EnterpriseCrossChainEngine {
                     let target_price = self.price_monitor.get_chain_price(token, target_chain)?;
                     
                     let trade_amount_usd = self.calculate_optimal_trade_amount();
-                    let bridge_fee_usd = trade_amount_usd * 0.003; // 0.3% bridge fee típico
+                    let bridge_fee_pct = SimpleConfig::get_config_value("BRIDGE_FEE_PERCENTAGE", "0.003")
+                        .parse()
+                        .unwrap_or(0.003);
+                    let bridge_fee_usd = trade_amount_usd * bridge_fee_pct;
                     let gas_cost_usd = 50.0; // $50 gas cost estimado
                     let estimated_profit_usd = trade_amount_usd * (price_diff_pct.abs() / 100.0);
                     let net_profit_usd = estimated_profit_usd - bridge_fee_usd - gas_cost_usd;
@@ -469,7 +472,14 @@ impl EnterpriseCrossChainEngine {
             
             self.stats.total_cross_chain_attempts += 1;
             
-            if opportunity.risk_score < 0.6 && opportunity.confidence_score > 0.75 {
+            let min_confidence = SimpleConfig::get_config_value("MIN_CONFIDENCE_SCORE", "0.6")
+                .parse()
+                .unwrap_or(0.6);
+            let min_risk_threshold = SimpleConfig::get_config_value("MAX_RISK_SCORE", "0.8")
+                .parse()
+                .unwrap_or(0.8);
+                
+            if opportunity.risk_score < min_risk_threshold && opportunity.confidence_score > min_confidence {
                 self.stats.successful_cross_chain_trades += 1;
                 self.stats.total_cross_chain_profit_usd += opportunity.net_profit_usd;
                 self.stats.total_bridge_fees_paid_usd += opportunity.bridge_fee_usd;
@@ -499,7 +509,10 @@ impl EnterpriseCrossChainEngine {
     
     /// Calcular cantidad óptima de trade
     fn calculate_optimal_trade_amount(&self) -> f64 {
-        let max_amount_usd = self.config.max_bridge_amount_sol * 150.0; // Usar precio SOL real
+        let sol_price = SimpleConfig::get_config_value("FALLBACK_SOL_PRICE", "150.0")
+            .parse()
+            .unwrap_or(150.0);
+        let max_amount_usd = self.config.max_bridge_amount_sol * sol_price;
         // Cantidad óptima basada en liquidez del mercado actual
         let optimal_percentage = self.get_current_market_liquidity_percentage();
         max_amount_usd * optimal_percentage
@@ -508,8 +521,9 @@ impl EnterpriseCrossChainEngine {
     /// Obtener porcentaje óptimo basado en liquidez actual del mercado
     fn get_current_market_liquidity_percentage(&self) -> f64 {
         // Análisis de liquidez real del mercado
-        // Por ahora usar 25% como valor conservador y seguro
-        0.25 // 25% del máximo disponible
+        SimpleConfig::get_config_value("OPTIMAL_TRADE_PERCENTAGE", "0.25")
+            .parse()
+            .unwrap_or(0.25)
     }
     
     /// Seleccionar mejor proveedor de bridge basado en métricas reales
@@ -534,12 +548,34 @@ impl EnterpriseCrossChainEngine {
     fn estimate_bridge_time(&self, source_chain: &str, target_chain: &str) -> u64 {
         // Tiempos reales promedio basados en datos históricos
         match (source_chain, target_chain) {
-            ("Solana", "Ethereum") | ("Ethereum", "Solana") => 180,      // 3 minutos
-            ("Solana", "Polygon") | ("Polygon", "Solana") => 120,        // 2 minutos  
-            ("Solana", "BSC") | ("BSC", "Solana") => 150,                // 2.5 minutos
-            ("Ethereum", "Polygon") | ("Polygon", "Ethereum") => 90,     // 1.5 minutos
-            ("Ethereum", "Arbitrum") | ("Arbitrum", "Ethereum") => 60,   // 1 minuto
-            _ => 180, // Default 3 minutos para otros casos
+            ("Solana", "Ethereum") | ("Ethereum", "Solana") => {
+                SimpleConfig::get_config_value("BRIDGE_TIME_SOLANA_ETHEREUM", "180")
+                    .parse()
+                    .unwrap_or(180)
+            },
+            ("Solana", "Polygon") | ("Polygon", "Solana") => {
+                SimpleConfig::get_config_value("BRIDGE_TIME_SOLANA_POLYGON", "120")
+                    .parse()
+                    .unwrap_or(120)
+            },
+            ("Solana", "BSC") | ("BSC", "Solana") => {
+                SimpleConfig::get_config_value("BRIDGE_TIME_SOLANA_BSC", "150")
+                    .parse()
+                    .unwrap_or(150)
+            },
+            ("Ethereum", "Polygon") | ("Polygon", "Ethereum") => {
+                SimpleConfig::get_config_value("BRIDGE_TIME_ETHEREUM_POLYGON", "90")
+                    .parse()
+                    .unwrap_or(90)
+            },
+            ("Ethereum", "Arbitrum") | ("Arbitrum", "Ethereum") => {
+                SimpleConfig::get_config_value("BRIDGE_TIME_ETHEREUM_ARBITRUM", "60")
+                    .parse()
+                    .unwrap_or(60)
+            },
+            _ => SimpleConfig::get_config_value("BRIDGE_TIME_DEFAULT", "180")
+                .parse()
+                .unwrap_or(180),
         }
     }
     
@@ -563,7 +599,9 @@ impl EnterpriseCrossChainEngine {
     fn get_current_market_volatility(&self) -> f64 {
         // Por ahora usar volatilidad conservadora
         // En producción consultaría APIs de volatilidad real
-        0.15 // 15% volatilidad base
+        SimpleConfig::get_config_value("BASE_MARKET_VOLATILITY", "0.15")
+            .parse()
+            .unwrap_or(0.15)
     }
     
     /// Calcular confianza real basada en datos del mercado
@@ -598,20 +636,26 @@ impl EnterpriseCrossChainEngine {
     
     /// Estimar factor de liquidez
     fn estimate_liquidity_factor(&self, source_chain: &str, target_chain: &str) -> f64 {
+        let base_factor = SimpleConfig::get_config_value("BASE_LIQUIDITY_FACTOR", "0.75")
+            .parse()
+            .unwrap_or(0.75);
+            
         match (source_chain, target_chain) {
-            ("Solana", "Ethereum") | ("Ethereum", "Solana") => 0.8,
-            ("Ethereum", "Polygon") | ("Polygon", "Ethereum") => 0.9,
-            ("Solana", "Polygon") | ("Polygon", "Solana") => 0.7,
-            _ => 0.6,
+            ("Solana", "Ethereum") | ("Ethereum", "Solana") => base_factor * 1.07, // +7%
+            ("Ethereum", "Polygon") | ("Polygon", "Ethereum") => base_factor * 1.2, // +20%
+            ("Solana", "Polygon") | ("Polygon", "Solana") => base_factor * 0.93,    // -7%
+            _ => base_factor * 0.8,  // -20% para otros pares
         }
     }
     
     /// Estimar impacto de slippage
     fn estimate_slippage_impact(&self, amount_usd: f64, token: &str) -> f64 {
         let base_slippage = match token {
-            "SOL" | "ETH" | "USDC" | "USDT" => 0.001, // 0.1% para tokens principales
-            "WBTC" => 0.002,                          // 0.2% para WBTC
-            _ => 0.005,                               // 0.5% para otros tokens
+            "SOL" => SimpleConfig::get_config_value("SLIPPAGE_BASE_SOL", "0.001").parse().unwrap_or(0.001),
+            "ETH" => SimpleConfig::get_config_value("SLIPPAGE_BASE_ETH", "0.001").parse().unwrap_or(0.001),
+            "USDC" | "USDT" => SimpleConfig::get_config_value("SLIPPAGE_BASE_USDC", "0.001").parse().unwrap_or(0.001),
+            "WBTC" => SimpleConfig::get_config_value("SLIPPAGE_BASE_WBTC", "0.002").parse().unwrap_or(0.002),
+            _ => SimpleConfig::get_config_value("SLIPPAGE_BASE_OTHER", "0.005").parse().unwrap_or(0.005),
         };
         
         // Slippage aumenta con el tamaño de la orden

@@ -166,7 +166,9 @@ impl EnterpriseFlashLoanEngine {
                     estimated_profit_sol: estimated_profit,
                     estimated_profit_percentage: profit_pct * 100.0,
                     execution_path: execution_path.clone(),
-                    estimated_gas_cost: 200_000,
+                    estimated_gas_cost: SimpleConfig::get_config_value("ESTIMATED_GAS_COST", "200000")
+                        .parse()
+                        .unwrap_or(200000),
                     risk_score: self.calculate_real_risk_score(&estimated_profit, profit_pct),
                     confidence_score: self.calculate_real_confidence_score(profit_pct, &execution_path),
                     flash_loan_provider: self.select_best_provider(),
@@ -233,8 +235,12 @@ impl EnterpriseFlashLoanEngine {
         // Por ahora usar heurística conservadora
         // En producción consultaría volatilidad real, spreads, etc.
         let base_score = 0.4; // Base de 40%
-        let volatility_bonus = 0.2; // +20% en mercados volátiles
-        let liquidity_factor = 0.25; // Factor de liquidez
+        let volatility_bonus = SimpleConfig::get_config_value("BASE_MARKET_VOLATILITY", "0.15")
+            .parse()
+            .unwrap_or(0.15);
+        let liquidity_factor = SimpleConfig::get_config_value("BASE_LIQUIDITY_FACTOR", "0.25")
+            .parse()
+            .unwrap_or(0.25);
         
         base_score + volatility_bonus + liquidity_factor
     }
@@ -244,15 +250,24 @@ impl EnterpriseFlashLoanEngine {
         let market_liquidity = self.get_current_market_liquidity();
         let max_amount = self.config.max_loan_amount_sol;
         
-        // Usar entre 15-40% del máximo basado en liquidez
-        let percentage = 0.15 + (market_liquidity * 0.25);
+        // Usar entre min-max% del máximo basado en liquidez
+        let min_pct = SimpleConfig::get_config_value("MIN_TRADE_PERCENTAGE", "0.15")
+            .parse()
+            .unwrap_or(0.15);
+        let max_pct = SimpleConfig::get_config_value("MAX_TRADE_PERCENTAGE", "0.4")
+            .parse()
+            .unwrap_or(0.4);
+            
+        let percentage = min_pct + (market_liquidity * (max_pct - min_pct));
         max_amount * percentage
     }
     
     /// Obtener liquidez actual del mercado
     fn get_current_market_liquidity(&self) -> f64 {
         // En producción consultaría pools de liquidez reales
-        0.75 // 75% liquidez disponible (conservador)
+        SimpleConfig::get_config_value("BASE_LIQUIDITY_FACTOR", "0.75")
+            .parse()
+            .unwrap_or(0.75)
     }
     
     /// Calcular porcentaje de profit esperado basado en spreads reales
@@ -268,7 +283,9 @@ impl EnterpriseFlashLoanEngine {
     /// Obtener spread actual del mercado
     fn get_current_market_spread(&self) -> f64 {
         // En producción consultaría spreads reales entre DEXes
-        0.003 // 0.3% spread promedio entre DEXes
+        SimpleConfig::get_config_value("BASE_MARKET_SPREAD", "0.003")
+            .parse()
+            .unwrap_or(0.003)
     }
     
     /// Verificar si la oportunidad es rentable

@@ -1,7 +1,7 @@
 //! Configuration management for SniperForge
 
 use serde::{Deserialize, Serialize};
-use std::{env, path::Path};
+use std::{env, path::Path, collections::HashMap};
 use crate::types::Result;
 
 /// Simple configuration alias for backward compatibility
@@ -78,22 +78,115 @@ impl Default for SimpleConfig {
 
 impl SimpleConfig {
     pub fn from_env() -> Result<Self> {
+        Self::load_from_file(".env.mainnet")
+    }
+    
+    pub fn load_from_file(config_file: &str) -> Result<Self> {
+        // Cargar el archivo de configuración
+        let config_map = Self::parse_env_file(config_file)?;
         let mut config = Self::default();
         
-        if let Ok(rpc_url) = env::var("SOLANA_RPC_URL") {
-            config.solana_rpc_url = rpc_url;
+        // Basic connection settings
+        if let Some(rpc_url) = config_map.get("SOLANA_RPC_URL") {
+            config.solana_rpc_url = rpc_url.clone();
         }
         
-        if let Ok(ws_url) = env::var("SOLANA_WS_URL") {
-            config.solana_ws_url = ws_url;
+        if let Some(ws_url) = config_map.get("SOLANA_WS_URL") {
+            config.solana_ws_url = ws_url.clone();
         }
         
-        if let Ok(slippage) = env::var("MAX_SLIPPAGE") {
+        // Trading parameters
+        if let Some(slippage) = config_map.get("MAX_SLIPPAGE") {
             config.max_slippage = slippage.parse()
                 .map_err(|_| "Invalid MAX_SLIPPAGE value".to_string())?;
         }
         
+        if let Some(min_profit) = config_map.get("MIN_PROFIT_THRESHOLD") {
+            config.min_profit_threshold = min_profit.parse()
+                .map_err(|_| "Invalid MIN_PROFIT_THRESHOLD value".to_string())?;
+        }
+        
+        if let Some(max_position) = config_map.get("MAX_POSITION_SIZE") {
+            config.max_position_size = max_position.parse()
+                .map_err(|_| "Invalid MAX_POSITION_SIZE value".to_string())?;
+        }
+        
+        // Wallet configuration
+        if let Some(wallet_path) = config_map.get("WALLET_PATH") {
+            config.private_key_path = wallet_path.clone();
+        }
+        
+        // Simulation mode
+        if let Some(enable_sim) = config_map.get("ENABLE_SIMULATION") {
+            config.enable_simulation = enable_sim.parse()
+                .map_err(|_| "Invalid ENABLE_SIMULATION value".to_string())?;
+        }
+        
+        // Network configuration
+        if let Some(max_rps) = config_map.get("MAX_REQUESTS_PER_SECOND") {
+            config.max_requests_per_second = max_rps.parse()
+                .map_err(|_| "Invalid MAX_REQUESTS_PER_SECOND value".to_string())?;
+        }
+        
+        if let Some(cooldown) = config_map.get("COOLDOWN_PERIOD_MS") {
+            config.cooldown_period_ms = cooldown.parse()
+                .map_err(|_| "Invalid COOLDOWN_PERIOD_MS value".to_string())?;
+        }
+        
+        if let Some(history_size) = config_map.get("MAX_HISTORY_SIZE") {
+            config.max_history_size = history_size.parse()
+                .map_err(|_| "Invalid MAX_HISTORY_SIZE value".to_string())?;
+        }
+        
+        // API URLs
+        if let Some(dex_url) = config_map.get("DEXSCREENER_API_URL") {
+            config.dexscreener_base_url = dex_url.clone();
+        }
+        
+        // Logging
+        if let Some(log_level) = config_map.get("LOG_LEVEL") {
+            config.log_level = log_level.clone();
+        }
+        
         Ok(config)
+    }
+    
+    /// Parse .env file manually without using environment variables
+    fn parse_env_file(file_path: &str) -> Result<HashMap<String, String>> {
+        let mut config_map = HashMap::new();
+        
+        if !std::path::Path::new(file_path).exists() {
+            return Err(format!("Configuration file '{}' not found", file_path).into());
+        }
+        
+        let content = std::fs::read_to_string(file_path)
+            .map_err(|e| format!("Failed to read config file '{}': {}", file_path, e))?;
+        
+        for line in content.lines() {
+            let line = line.trim();
+            
+            // Skip empty lines and comments
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            
+            // Parse key=value pairs
+            if let Some(eq_pos) = line.find('=') {
+                let key = line[..eq_pos].trim().to_string();
+                let value = line[eq_pos + 1..].trim().to_string();
+                config_map.insert(key, value);
+            }
+        }
+        
+        Ok(config_map)
+    }
+    
+    /// Get a configuration value from the loaded config
+    pub fn get_config_value(key: &str, default: &str) -> String {
+        match Self::parse_env_file(".env.mainnet") {
+            Ok(config_map) => config_map.get(key).cloned().unwrap_or_else(|| default.to_string()),
+            Err(_) => default.to_string(),
+        }
     }
 }
 
