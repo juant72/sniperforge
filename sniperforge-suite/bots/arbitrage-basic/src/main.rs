@@ -3,9 +3,10 @@ use sniperforge_core::{
     SniperForgeConfig,
     apis::{RealPriceFeeds},
     analytics::{PatternRecognitionEngine, OpportunityPattern},
+    trading::{TriangularArbitrageEngine, TriangularArbitrageConfig, EnterpriseFlashLoanEngine, EnterpriseFlashLoanConfig},
 };
 use tokio::time::{sleep, Duration};
-use tracing::{info, error};
+use tracing::{info, error, warn};
 use anyhow::Result;
 use chrono::Utc;
 
@@ -31,6 +32,37 @@ async fn main() -> Result<()> {
     // Initialize ML Pattern Recognition Engine (migrated from working bot)
     let mut ml_engine = PatternRecognitionEngine::new();
     info!("✅ ML Pattern Recognition Engine inicializado");
+    
+    // Initialize Triangular Arbitrage Engine (migrated from working bot)
+    let triangular_config = TriangularArbitrageConfig {
+        enabled: true,
+        min_profit_threshold: 0.005, // 0.5% mínimo
+        max_cost_bps: 500,           // 5% máximo costos
+        max_execution_risk_score: 0.7,
+        min_liquidity_usd: 50000.0,  // $50K mínimo
+        max_execution_duration_ms: 30000, // 30 segundos
+        max_dexs_involved: 3,
+    };
+    let mut triangular_engine = TriangularArbitrageEngine::new(Some(triangular_config));
+    info!("✅ Triangular Arbitrage Engine inicializado");
+    
+    // Integrate triangular engine with price feeds
+    if let Err(e) = triangular_engine.integrate_with_price_feeds(&real_price_feeds).await {
+        warn!("⚠️ Error integrando triangular engine con price feeds: {}", e);
+    }
+    
+    // Initialize Flash Loan Engine (migrated from working bot)
+    let flash_loan_config = EnterpriseFlashLoanConfig {
+        enabled: true,
+        max_loan_amount_sol: 1000.0,     // Nivel empresarial: 1000 SOL
+        fee_tier_bps: 5,                 // 0.05% flash loan fee
+        min_profit_threshold_bps: 50,    // 0.5% profit mínimo
+        max_execution_time_ms: 15000,    // 15 segundos máximo
+        risk_management_enabled: true,
+        auto_sizing_enabled: true,
+    };
+    let mut flash_loan_engine = EnterpriseFlashLoanEngine::new(Some(flash_loan_config), simple_config.clone());
+    info!("✅ Enterprise Flash Loan Engine inicializado");
     
     // Initialize Arbitrage Engine with migrated functionality
     // Note: For now we'll simulate the price feed manager
@@ -113,7 +145,7 @@ async fn main() -> Result<()> {
                 
                 // Display performance stats every 10 cycles
                 if cycle_count % 10 == 0 {
-                    display_performance_dashboard(&ml_engine, cycle_count, discovery_time);
+                    display_comprehensive_dashboard(&ml_engine, &triangular_engine, &flash_loan_engine, cycle_count, discovery_time);
                 }
             }
             Err(e) => {
@@ -122,34 +154,161 @@ async fn main() -> Result<()> {
             }
         }
         
+        // Search for triangular arbitrage opportunities (migrated functionality)
+        if cycle_count % 5 == 0 { // Check triangular opportunities every 5 cycles
+            info!("🔺 Buscando oportunidades de arbitraje triangular...");
+            
+            match triangular_engine.find_triangular_opportunities().await {
+                Ok(triangular_opportunities) => {
+                    if triangular_opportunities.is_empty() {
+                        info!("⏳ Sin oportunidades triangulares detectadas");
+                    } else {
+                        info!("🎯 Encontradas {} oportunidades triangulares", triangular_opportunities.len());
+                        
+                        for tri_opp in &triangular_opportunities {
+                            info!("🔺 TRIANGULAR: {} - Profit: {:.4}%, Risk: {:.2}, Liquidez: ${:.0}K", 
+                                  tri_opp.id, 
+                                  tri_opp.estimated_net_profit * 100.0,
+                                  tri_opp.execution_risk_score,
+                                  tri_opp.liquidity_constraint / 1000.0);
+                                  
+                            // Log the path for transparency
+                            let path_str = tri_opp.path.iter()
+                                .map(|hop| format!("{}->{}", hop.from_token, hop.to_token))
+                                .collect::<Vec<_>>()
+                                .join(" -> ");
+                            info!("   Path: {}", path_str);
+                            
+                            // If highly profitable and low risk, consider execution
+                            if tri_opp.estimated_net_profit > 0.01 && tri_opp.execution_risk_score < 0.5 {
+                                info!("✅ EXCELENTE OPORTUNIDAD TRIANGULAR: Ejecutando simulación...");
+                                
+                                // In real implementation, execute triangular arbitrage
+                                info!("🚀 Simulando ejecución triangular...");
+                            }
+                        }
+                    }
+                    
+                    // Display triangular engine statistics
+                    let tri_stats = triangular_engine.get_statistics();
+                    info!("📊 Triangular Stats - Paths analizados: {}, Cache: {}, Detectados sospechosos: {}", 
+                          tri_stats.total_paths_analyzed, 
+                          tri_stats.cached_prices,
+                          tri_stats.suspicious_patterns);
+                }
+                Err(e) => {
+                    error!("❌ Error en triangular discovery: {}", e);
+                }
+            }
+        }
+        
+        // Search for flash loan opportunities (migrated functionality)
+        if cycle_count % 8 == 0 { // Check flash loan opportunities every 8 cycles
+            info!("🏦 Buscando oportunidades de flash loan empresarial...");
+            
+            match flash_loan_engine.scan_flash_loan_opportunities().await {
+                Ok(flash_loan_opportunities) => {
+                    if flash_loan_opportunities.is_empty() {
+                        info!("⏳ Sin oportunidades de flash loan detectadas");
+                    } else {
+                        info!("💰 Encontradas {} oportunidades de flash loan", flash_loan_opportunities.len());
+                        
+                        for fl_opp in &flash_loan_opportunities {
+                            info!("🏦 FLASH LOAN: {} - Préstamo: {} SOL, Profit neto: {:.6} SOL ({:.2}%)", 
+                                  fl_opp.id, 
+                                  fl_opp.loan_amount_sol,
+                                  fl_opp.net_profit_sol,
+                                  fl_opp.estimated_profit_percentage);
+                                  
+                            info!("   Provider: {}, Risk: {:.2}, Confidence: {:.2}", 
+                                  fl_opp.flash_loan_provider,
+                                  fl_opp.risk_score,
+                                  fl_opp.confidence_score);
+                            
+                            // If highly profitable and low risk, consider execution
+                            if fl_opp.net_profit_sol > 2.0 && fl_opp.risk_score < 0.4 && fl_opp.confidence_score > 0.8 {
+                                info!("✅ EXCELENTE OPORTUNIDAD FLASH LOAN: Ejecutando simulación...");
+                                
+                                // Execute flash loan in simulation mode
+                                match flash_loan_engine.execute_flash_loan(fl_opp, true).await {
+                                    Ok(success) => {
+                                        if success {
+                                            info!("🚀 Flash loan simulación EXITOSA!");
+                                        } else {
+                                            warn!("❌ Flash loan simulación FALLIDA");
+                                        }
+                                    }
+                                    Err(e) => {
+                                        error!("❌ Error ejecutando flash loan: {}", e);
+                                    }
+                                }
+                            } else {
+                                info!("⚠️ Flash loan opportunity marginal - saltando ejecución");
+                            }
+                        }
+                    }
+                    
+                    // Display flash loan engine statistics
+                    let fl_stats = flash_loan_engine.get_statistics();
+                    info!("📊 Flash Loan Stats - Intentados: {}, Exitosos: {}, Tasa éxito: {:.1}%", 
+                          fl_stats.total_flash_loans_attempted, 
+                          fl_stats.successful_flash_loans,
+                          fl_stats.flash_loan_success_rate * 100.0);
+                    
+                    if fl_stats.total_flash_loan_profit_sol > 0.0 {
+                        info!("💰 Total profit flash loans: {:.6} SOL, Mejor trade: {:.6} SOL", 
+                              fl_stats.total_flash_loan_profit_sol,
+                              fl_stats.best_flash_loan_profit_sol);
+                    }
+                }
+                Err(e) => {
+                    error!("❌ Error en flash loan discovery: {}", e);
+                }
+            }
+        }
+        
         // Wait before next cycle
         sleep(Duration::from_secs(10)).await;
     }
 }
 
-/// Display performance dashboard (migrated from working bot)
-fn display_performance_dashboard(
+/// Display comprehensive dashboard (migrated from working bot)
+fn display_comprehensive_dashboard(
     ml_engine: &PatternRecognitionEngine, 
+    triangular_engine: &TriangularArbitrageEngine,
+    flash_loan_engine: &EnterpriseFlashLoanEngine,
     cycle_count: u32, 
     last_discovery_time: u64
 ) {
     let ml_stats = ml_engine.get_performance_stats();
+    let tri_stats = triangular_engine.get_statistics();
+    let fl_stats = flash_loan_engine.get_statistics();
     
     info!("╔══════════════════════════════════════════════════════════════╗");
-    info!("║                    ARBITRAGE BOT DASHBOARD                   ║");
-    info!("║                  (SniperForge Core Library)                  ║");
+    info!("║                   COMPREHENSIVE ARBITRAGE DASHBOARD          ║");
+    info!("║                     (SniperForge Core Library)               ║");
     info!("╠══════════════════════════════════════════════════════════════╣");
     info!("║ 🔄 Cycles Completed: {}                                ║", cycle_count);
     info!("║ ⚡ Last Discovery Time: {}ms                          ║", last_discovery_time);
-    info!("║ 🧠 ML Predictions: {:.0}                                ║", 
+    info!("╠══════════════════════════════════════════════════════════════╣");
+    info!("║                      🧠 ML ENGINE STATS                      ║");
+    info!("║ 🎯 ML Predictions: {:.0}                                ║", 
           ml_stats.get("predictions_made").unwrap_or(&0.0));
     info!("║ 🎯 ML Accuracy: {:.1}%                                  ║", 
           ml_stats.get("accuracy").unwrap_or(&0.0) * 100.0);
     info!("║ 📊 Data Points: {:.0}                                   ║", 
           ml_stats.get("data_points").unwrap_or(&0.0));
-    info!("║ ⚖️ Profit Weight: {:.3}                                 ║", 
-          ml_stats.get("profit_weight").unwrap_or(&0.0));
-    info!("║ ⏰ Timing Weight: {:.3}                                 ║", 
-          ml_stats.get("timing_weight").unwrap_or(&0.0));
+    info!("╠══════════════════════════════════════════════════════════════╣");
+    info!("║                   🔺 TRIANGULAR ENGINE STATS                 ║");
+    info!("║ 🔄 Paths Analyzed: {}                                 ║", tri_stats.total_paths_analyzed);
+    info!("║ 💾 Price Cache: {}                                    ║", tri_stats.cached_prices);
+    info!("║ ⚠️ Suspicious Patterns: {}                            ║", tri_stats.suspicious_patterns);
+    info!("╠══════════════════════════════════════════════════════════════╣");
+    info!("║                    🏦 FLASH LOAN ENGINE STATS                ║");
+    info!("║ 💰 FL Attempted: {}                                   ║", fl_stats.total_flash_loans_attempted);
+    info!("║ ✅ FL Successful: {}                                  ║", fl_stats.successful_flash_loans);
+    info!("║ 📈 FL Success Rate: {:.1}%                            ║", fl_stats.flash_loan_success_rate * 100.0);
+    info!("║ 💎 Total FL Profit: {:.6} SOL                         ║", fl_stats.total_flash_loan_profit_sol);
+    info!("║ 🏆 Best FL Trade: {:.6} SOL                           ║", fl_stats.best_flash_loan_profit_sol);
     info!("╚══════════════════════════════════════════════════════════════╝");
 }

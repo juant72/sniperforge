@@ -266,7 +266,7 @@ impl ArbitrageEngine {
         let wallet_bytes: Vec<u8> = serde_json::from_str(&wallet_data)
             .map_err(|e| format!("Failed to parse wallet JSON: {}", e))?;
             
-        Keypair::try_from(&wallet_bytes[..])
+        Keypair::from_bytes(&wallet_bytes)
             .map_err(|e| format!("Failed to create keypair: {}", e))
     }
     

@@ -640,6 +640,9 @@ name = "sniperforge"
 path = "src/lib.rs"
 
 [dependencies]
+# SniperForge Core Library
+sniperforge-core = { path = "sniperforge-suite/core" }
+
 # Async runtime - features mínimas pero funcionales
 tokio = { version = "1.0", default-features = false, features = ["rt-multi-thread", "macros", "net", "time", "io-util"] }
 tokio-tungstenite = { version = "0.27.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }

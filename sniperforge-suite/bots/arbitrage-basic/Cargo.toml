@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 description = "Basic arbitrage bot using SniperForge Core library"
 
+[[bin]]
+name = "arbitrage-basic"
+path = "src/main.rs"
+
 [dependencies]
 # Core library dependency
 sniperforge-core = { path = "../../core" }
