@@ -2,14 +2,14 @@
   "trading": {
     "mode": "real",
     "force_real_transactions": true,
-    "max_trade_sol": 0.025,
-    "min_profit_threshold_sol": 0.0001,
-    "min_confidence_threshold": 0.15,
+    "max_trade_sol": 0.08,
+    "min_profit_threshold_sol": 0.004,
+    "min_confidence_threshold": 0.7,
     "max_concurrent_trades": 1,
     "trade_timeout_seconds": 45,
     "min_trade_size_sol": 0.005,
     "max_trade_size_sol": 0.03,
-    "max_slippage_bps": 50,
+    "max_slippage_bps": 30,
     "military_min_profit_bps": 1,
     "base_profit_percentage": 0.0005,
     "max_profit_percentage": 0.008,
@@ -41,7 +41,7 @@
   },
   "apis": {
     "dexscreener": {
-      "enabled": false,
+      "enabled": true,
       "timeout_seconds": 4,
       "max_retries": 1,
       "batch_requests": false,
@@ -74,11 +74,11 @@
     "circular_detection_enabled": false
   },
   "ml_analysis": {
-    "enabled": false,
-    "min_score_threshold": 0.2,
-    "pattern_recognition_enabled": false,
-    "adaptive_parameters_enabled": false,
-    "ml_confidence_threshold": 0.4
+    "enabled": true,
+    "min_score_threshold": 0.6,
+    "pattern_recognition_enabled": true,
+    "adaptive_parameters_enabled": true,
+    "ml_confidence_threshold": 0.7
   },
   "performance": {
     "max_concurrent_discoveries": 1,
@@ -93,17 +93,17 @@
     "request_timeout_ms": 5000
   },
   "triangular_arbitrage": {
-    "enabled": false,
-    "max_hops": 2,
-    "min_net_profit_bps": 8,
-    "circular_detection_enabled": false,
+    "enabled": true,
+    "max_hops": 3,
+    "min_net_profit_bps": 50,
+    "circular_detection_enabled": true,
     "max_same_token_repeats": 1
   },
   "mev_protection": {
-    "enabled": false,
+    "enabled": true,
     "jito_rpc_url": "",
-    "jito_tip_lamports": 0,
-    "sandwich_detection": false
+    "jito_tip_lamports": 100000,
+    "sandwich_detection": true
   },
   "logging": {
     "level": "info",
