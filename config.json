@@ -1,0 +1,63 @@
+{
+  "api_credentials": {
+    "helius": {
+      "api_key": "062bf3dd-23d4-4ffd-99fd-6e397ee59d6c",
+      "mainnet_url": "https://mainnet.helius-rpc.com",
+      "websocket_url": "wss://mainnet.helius-rpc.com",
+      "eclipse_url": "https://eclipse.helius-rpc.com"
+    },
+    "jupiter": {
+      "api_url": "https://quote-api.jup.ag/v6"
+    },
+    "dexscreener": {
+      "api_url": "https://api.dexscreener.com/latest"
+    },
+    "pyth": {
+      "api_url": "https://hermes.pyth.network/api"
+    }
+  },
+  "rate_limits": {
+    "helius": 150,
+    "jupiter": 1100,
+    "dexscreener": 600,
+    "pyth": 400
+  },
+  "timeouts": {
+    "helius": 20,
+    "jupiter": 15,
+    "dexscreener": 15,
+    "pyth": 12
+  },
+  "fallback_prices": {
+    "SOL": 160.0,
+    "ETH": 2900.0,
+    "USDC": 1.0,
+    "USDT": 1.0,
+    "WBTC": 62000.0,
+    "WETH": 2900.0,
+    "MATIC": 0.85,
+    "AVAX": 28.0,
+    "ARB": 1.15,
+    "OP": 2.40,
+    "RAY": 3.2,
+    "SRM": 0.48,
+    "UNI": 7.5,
+    "JUP": 1.1,
+    "BONK": 0.000028,
+    "WIF": 2.6,
+    "PYTH": 0.42
+  },
+  "websocket": {
+    "reconnect_interval_ms": 5000,
+    "max_reconnect_attempts": 10,
+    "message_buffer_size": 1000
+  },
+  "trading": {
+    "max_history_size": 1000,
+    "bridge_fee_percentage": 0.003,
+    "min_confidence_score": 0.6,
+    "max_risk_score": 0.8,
+    "optimal_trade_percentage": 0.25,
+    "base_market_volatility": 0.15
+  }
+}

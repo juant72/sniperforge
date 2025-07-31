@@ -220,9 +220,6 @@ impl CrossChainPriceMonitor {
                 debug!("📊 {} en {}: ${:.2} (fallback)", token, chain, fallback_price);
             }
         }
-                chain_price_map.insert(token.clone(), real_price);
-            }
-        }
         
         let chain_price_count = chain_price_map.len();
         self.chain_prices.insert(chain.to_string(), chain_price_map);
@@ -348,28 +345,10 @@ impl CrossChainPriceMonitor {
         }
     }
     
-    /// Precio de fallback si fallan las APIs con tokens nativos por blockchain
+    /// Precio de fallback desde configuración JSON si fallan las APIs con tokens nativos por blockchain
     fn get_fallback_price(&self, token: &str) -> f64 {
-        match token {
-            // Tokens principales
-            "SOL" => SimpleConfig::get_config_value("FALLBACK_SOL_PRICE", "160.0").parse().unwrap_or(160.0),
-            "ETH" | "WETH" => SimpleConfig::get_config_value("FALLBACK_ETH_PRICE", "2500.0").parse().unwrap_or(2500.0),
-            "USDC" | "USDT" => SimpleConfig::get_config_value("FALLBACK_USDC_PRICE", "1.0").parse().unwrap_or(1.0),
-            "WBTC" => SimpleConfig::get_config_value("FALLBACK_WBTC_PRICE", "45000.0").parse().unwrap_or(45000.0),
-            
-            // Tokens nativos de chains específicas
-            "MATIC" => SimpleConfig::get_config_value("FALLBACK_MATIC_PRICE", "0.80").parse().unwrap_or(0.80),
-            "AVAX" => SimpleConfig::get_config_value("FALLBACK_AVAX_PRICE", "30.0").parse().unwrap_or(30.0),
-            "ARB" => SimpleConfig::get_config_value("FALLBACK_ARB_PRICE", "1.20").parse().unwrap_or(1.20),
-            "OP" => SimpleConfig::get_config_value("FALLBACK_OP_PRICE", "2.50").parse().unwrap_or(2.50),
-            
-            // Tokens Solana específicos
-            "RAY" => SimpleConfig::get_config_value("FALLBACK_RAY_PRICE", "1.5").parse().unwrap_or(1.5),
-            "SRM" => SimpleConfig::get_config_value("FALLBACK_SRM_PRICE", "0.5").parse().unwrap_or(0.5),
-            "UNI" => SimpleConfig::get_config_value("FALLBACK_UNI_PRICE", "8.0").parse().unwrap_or(8.0),
-            
-            _ => 1.0, // Precio por defecto
-        }
+        // Usar precios desde configuración en lugar de hardcoding
+        self.multi_price_feeds.get_fallback_price(token)
     }
     
     /// Obtener diferencia de precio entre chains para un token
@@ -544,9 +523,7 @@ impl EnterpriseCrossChainEngine {
                     let target_price = self.price_monitor.get_chain_price(token, target_chain)?;
                     
                     let trade_amount_usd = self.calculate_optimal_trade_amount();
-                    let bridge_fee_pct = SimpleConfig::get_config_value("BRIDGE_FEE_PERCENTAGE", "0.003")
-                        .parse()
-                        .unwrap_or(0.003);
+                    let bridge_fee_pct = self.price_monitor.multi_price_feeds.get_trading_config().bridge_fee_percentage;
                     let bridge_fee_usd = trade_amount_usd * bridge_fee_pct;
                     let gas_cost_usd = 50.0; // $50 gas cost estimado
                     let estimated_profit_usd = trade_amount_usd * (price_diff_pct.abs() / 100.0);
@@ -586,7 +563,7 @@ impl EnterpriseCrossChainEngine {
         None
     }
     
-    /// Ejecutar arbitraje cross-chain
+    /// Ejecutar arbitraje cross-chain usando configuración para thresholds
     pub async fn execute_cross_chain_trade(&mut self, opportunity: &CrossChainOpportunity, simulate: bool) -> Result<bool> {
         if simulate {
             info!("🌐 SIMULANDO arbitraje cross-chain - {} → {}, {} USD trade, {:.2} USD profit neto", 
@@ -595,12 +572,9 @@ impl EnterpriseCrossChainEngine {
             
             self.stats.total_cross_chain_attempts += 1;
             
-            let min_confidence = SimpleConfig::get_config_value("MIN_CONFIDENCE_SCORE", "0.6")
-                .parse()
-                .unwrap_or(0.6);
-            let min_risk_threshold = SimpleConfig::get_config_value("MAX_RISK_SCORE", "0.8")
-                .parse()
-                .unwrap_or(0.8);
+            let trading_config = self.price_monitor.multi_price_feeds.get_trading_config();
+            let min_confidence = trading_config.min_confidence_score;
+            let min_risk_threshold = trading_config.max_risk_score;
                 
             if opportunity.risk_score < min_risk_threshold && opportunity.confidence_score > min_confidence {
                 self.stats.successful_cross_chain_trades += 1;
@@ -630,14 +604,12 @@ impl EnterpriseCrossChainEngine {
         }
     }
     
-    /// Calcular cantidad óptima de trade
+    /// Calcular cantidad óptima de trade usando configuración
     fn calculate_optimal_trade_amount(&self) -> f64 {
-        let sol_price = SimpleConfig::get_config_value("FALLBACK_SOL_PRICE", "150.0")
-            .parse()
-            .unwrap_or(150.0);
+        let sol_price = self.price_monitor.multi_price_feeds.get_fallback_price("SOL");
         let max_amount_usd = self.config.max_bridge_amount_sol * sol_price;
-        // Cantidad óptima basada en liquidez del mercado actual
-        let optimal_percentage = self.get_current_market_liquidity_percentage();
+        // Cantidad óptima basada en configuración
+        let optimal_percentage = self.price_monitor.multi_price_feeds.get_trading_config().optimal_trade_percentage;
         max_amount_usd * optimal_percentage
     }
     
@@ -718,13 +690,10 @@ impl EnterpriseCrossChainEngine {
         base_risk + (market_volatility * 0.1) // Máximo 10% adicional por volatilidad
     }
     
-    /// Obtener volatilidad actual del mercado
+    /// Obtener volatilidad actual del mercado desde configuración
     fn get_current_market_volatility(&self) -> f64 {
-        // Por ahora usar volatilidad conservadora
-        // En producción consultaría APIs de volatilidad real
-        SimpleConfig::get_config_value("BASE_MARKET_VOLATILITY", "0.15")
-            .parse()
-            .unwrap_or(0.15)
+        // Usar configuración en lugar de hardcoding
+        self.price_monitor.multi_price_feeds.get_trading_config().base_market_volatility
     }
     
     /// Calcular confianza real basada en datos del mercado
