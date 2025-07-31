@@ -50,6 +50,25 @@ chrono = { version = "0.4", features = ["serde"] }
 rand = "0.8"
 dashmap = "6.1"
 
+# Security and cryptography dependencies
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+jsonwebtoken = "9.3"
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = "0.12"
+zeroize = { version = "1.8", features = ["derive"] }
+base64 = "0.22"
+uuid = { version = "1.10", features = ["v4", "serde"] }
+regex = "1.10"
+url = "2.5"
+getrandom = "0.2"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+bip39 = "2.0"
+tempfile = "3.8"
+log = "0.4"
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tokio-test = "0.4"
