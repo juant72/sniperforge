@@ -12,7 +12,6 @@ use sniperforge::{
     },
     apis::{RealPriceFeeds, PriceFeedManager},
     config::SimpleConfig,
-    security::RiskManagementConfig,
     trading::{
         arbitrage::ArbitrageEngine,
         triangular::TriangularArbitrageEngine,

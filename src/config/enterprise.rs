@@ -216,7 +216,6 @@ impl EnterpriseConfig {
 }
 
 /// Helper functions for parsing environment variables
-
 fn parse_env_f64(key: &str, default: f64) -> SniperResult<f64> {
     env::var(key)
         .map(|v| v.parse::<f64>()

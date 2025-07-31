@@ -10,8 +10,8 @@ use crate::config::enterprise::EnterpriseConfig;
 
 /// Enterprise logging system for SniperForge
 /// Provides structured logging with multiple outputs and enterprise features
-
 pub struct EnterpriseLogger {
+    #[allow(dead_code)] // Configuration for future enhancements
     config: EnterpriseConfig,
 }
 
@@ -292,7 +292,6 @@ impl LogLevel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
 
     #[test]
     fn test_log_level_conversion() {

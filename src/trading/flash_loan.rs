@@ -167,7 +167,7 @@ impl EnterpriseFlashLoanEngine {
                     execution_path: execution_path.clone(),
                     estimated_gas_cost: SimpleConfig::get_config_value("ESTIMATED_GAS_COST", "200000")
                         .parse()
-                        .unwrap_or(200000),
+                        .unwrap_or(200_000),
                     risk_score: self.calculate_real_risk_score(&estimated_profit, profit_pct),
                     confidence_score: self.calculate_real_confidence_score(profit_pct, &execution_path),
                     flash_loan_provider: self.select_best_provider(),
@@ -210,16 +210,14 @@ impl EnterpriseFlashLoanEngine {
                 info!("✅ Flash loan simulación EXITOSA - Profit neto: {:.6} SOL", opportunity.net_profit_sol);
                 self.update_stats();
                 return Ok(true);
-            } else {
-                self.stats.failed_flash_loans += 1;
-                warn!("❌ Flash loan simulación FALLIDA - Alto riesgo o baja confianza");
-                self.update_stats();
-                return Ok(false);
             }
-        } else {
-            warn!("🚧 Ejecución real de flash loan no implementada - usar modo simulación");
+            self.stats.failed_flash_loans += 1;
+            warn!("❌ Flash loan simulación FALLIDA - Alto riesgo o baja confianza");
+            self.update_stats();
             return Ok(false);
         }
+        warn!("🚧 Ejecución real de flash loan no implementada - usar modo simulación");
+        Ok(false)
     }
     
     /// Determinar si debería encontrar una oportunidad basado en condiciones reales del mercado
@@ -311,7 +309,7 @@ impl EnterpriseFlashLoanEngine {
     }
     
     /// Calcular score de riesgo real
-    fn calculate_real_risk_score(&self, estimated_profit: &f64, profit_percentage: f64) -> f64 {
+    fn calculate_real_risk_score(&self, _estimated_profit: &f64, profit_percentage: f64) -> f64 {
         let mut risk: f64 = 0.1; // Riesgo base bajo
         
         // Aumentar riesgo si el profit es muy alto (potencial red flag)

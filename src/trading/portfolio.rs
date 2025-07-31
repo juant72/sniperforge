@@ -108,7 +108,6 @@ impl PortfolioManager {
         let positions = self.positions.read().await;
         let mut total_value = 0.0;
         let mut max_single_position: f64 = 0.0;
-        let mut diversification_score = 0.0;
         
         for (symbol, position) in positions.iter() {
             if let Some(current_price) = current_prices.get(symbol) {
@@ -126,7 +125,7 @@ impl PortfolioManager {
         };
         
         // Simple diversification score (number of positions)
-        diversification_score = positions.len() as f64;
+        let diversification_score = positions.len() as f64;
         
         RiskMetrics {
             total_value,

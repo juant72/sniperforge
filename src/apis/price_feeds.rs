@@ -67,8 +67,8 @@ impl PriceFeedManager {
         
         // Update USDC price (usually stable at $1)
         market_data.set_price("USDC".to_string(), 1.0);
-        market_data.set_volume("USDC".to_string(), 1000000.0); // Mock volume
-        market_data.set_liquidity("USDC".to_string(), 10000000.0); // Mock liquidity
+        market_data.set_volume("USDC".to_string(), 1_000_000.0); // Mock volume
+        market_data.set_liquidity("USDC".to_string(), 10_000_000.0); // Mock liquidity
         
         // Add more tokens as needed
         

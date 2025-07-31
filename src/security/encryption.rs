@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm, Nonce, Key
+    Aes256Gcm, Key
 };
-use chacha20poly1305::{ChaCha20Poly1305, KeyInit as ChaChaKeyInit};
-use argon2::{Argon2, password_hash::{rand_core::OsRng as ArgonRng, SaltString, PasswordHasher}};
+use chacha20poly1305::ChaCha20Poly1305;
+use argon2::password_hash::{rand_core::OsRng as ArgonRng, SaltString};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 use sha2::{Sha256, Digest};
-use hmac::{Hmac, Mac};
+use hmac::Hmac;
 use base64::{Engine as _, engine::general_purpose};
 use chrono::{DateTime, Utc};
 use std::mem;
@@ -89,10 +89,13 @@ struct MasterKey {
     /// The actual key bytes
     key_bytes: Vec<u8>,
     /// Algorithm this key is for
+    #[allow(dead_code)] // Used in key rotation
     algorithm: EncryptionAlgorithm,
     /// Key creation timestamp
+    #[allow(dead_code)] // Used in audit logs
     created_at: DateTime<Utc>,
     /// Key version for rotation
+    #[allow(dead_code)] // Used in version management
     version: u32,
 }
 
@@ -102,8 +105,10 @@ struct DataEncryptionKey {
     /// The actual key bytes
     key_bytes: Vec<u8>,
     /// Algorithm for this key
+    #[allow(dead_code)] // Used in encryption selection
     algorithm: EncryptionAlgorithm,
     /// Key derivation context
+    #[allow(dead_code)] // Used in key derivation
     context: String,
     /// Creation timestamp
     created_at: DateTime<Utc>,
@@ -128,6 +133,7 @@ struct KdfParams {
 #[derive(Debug)]
 struct MemoryProtector {
     /// Whether secure memory is enabled
+    #[allow(dead_code)] // Feature flag for future enhancement
     enabled: bool,
     /// Statistics about protected memory
     stats: MemoryStats,
@@ -135,7 +141,7 @@ struct MemoryProtector {
 
 /// Memory protection statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct MemoryStats {
+pub struct MemoryStats {
     /// Number of secure allocations
     secure_allocations: u64,
     /// Total bytes protected
@@ -585,7 +591,7 @@ impl KeyManager {
         })
     }
 
-    async fn derive_master_keys(&mut self, password: &str, config: &EncryptionConfig) -> Result<()> {
+    async fn derive_master_keys(&mut self, password: &str, _config: &EncryptionConfig) -> Result<()> {
         let salt = general_purpose::STANDARD.decode(&self.kdf_params.salt)?;
         
         // Derive keys for each supported algorithm
@@ -598,7 +604,7 @@ impl KeyManager {
             let mut key_bytes = vec![0u8; key_size];
             
             // Use PBKDF2 for key derivation
-            pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha256>>(
+            let _ = pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha256>>(
                 password.as_bytes(),
                 &salt,
                 self.kdf_params.iterations,
@@ -757,7 +763,7 @@ mod tests {
         encryption_system.initialize("test_password_original").await.unwrap();
         
         let test_data = b"Data encrypted with original key";
-        let encrypted_original = encryption_system.encrypt(test_data, None).await.unwrap();
+        let _encrypted_original = encryption_system.encrypt(test_data, None).await.unwrap();
         
         // Rotate keys
         encryption_system.rotate_keys("test_password_new").await.unwrap();

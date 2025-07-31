@@ -231,6 +231,7 @@ impl CrossChainPriceMonitor {
     
     /// Obtener precio real de token desde APIs optimizadas (SIN CoinGecko)
     /// Método legacy para chains no-Solana (renombrado para evitar conflictos)
+    #[allow(dead_code)] // Legacy method - kept for potential future use
     async fn fetch_real_token_price_legacy(&self, token: &str, chain: &str) -> Result<f64> {
         // Para todas las chains, usar nuestro sistema MultiPriceFeeds
         // que incluye múltiples proveedores (Helius, DexScreener, Pyth, Jupiter)
@@ -265,15 +266,13 @@ impl CrossChainPriceMonitor {
     
     /// Método eliminado - ya no usamos CoinGecko para evitar rate limiting
     /// Reemplazado por MultiPriceFeeds system
-    
     /// Método eliminado - ya no usamos CoinGecko batch para evitar rate limiting
     /// Reemplazado por MultiPriceFeeds system
-    
     /// Método eliminado - reemplazado por MultiPriceFeeds system para evitar rate limiting
-    
     /// Método eliminado - reemplazado por MultiPriceFeeds system para evitar rate limiting
     
     /// Obtener dirección de token para una chain específica con mapeo nativo correcto
+    #[allow(dead_code)] // Utility method for future multi-chain support
     fn get_token_address(&self, token: &str, chain: &str) -> Result<String> {
         // Direcciones reales de tokens nativos en cada mainnet
         match (token, chain) {
@@ -370,6 +369,7 @@ impl CrossChainPriceMonitor {
     }
 
     /// Nuevo método que usa MultiPriceFeeds para mayor confiabilidad
+    #[allow(dead_code)] // Main price fetching method for cross-chain
     async fn fetch_real_token_price(&self, token: &str, chain: &str) -> Result<f64> {
         let cache_key = format!("{}_{}", token, chain);
         
@@ -591,16 +591,14 @@ impl EnterpriseCrossChainEngine {
                 info!("✅ Cross-chain simulación EXITOSA - Profit neto: {:.2} USD", opportunity.net_profit_usd);
                 self.update_stats();
                 return Ok(true);
-            } else {
-                self.stats.failed_cross_chain_trades += 1;
-                warn!("❌ Cross-chain simulación FALLIDA - Alto riesgo o baja confianza");
-                self.update_stats();
-                return Ok(false);
             }
-        } else {
-            warn!("🚧 Ejecución real cross-chain no implementada - usar modo simulación");
+            self.stats.failed_cross_chain_trades += 1;
+            warn!("❌ Cross-chain simulación FALLIDA - Alto riesgo o baja confianza");
+            self.update_stats();
             return Ok(false);
         }
+        warn!("🚧 Ejecución real cross-chain no implementada - usar modo simulación");
+        Ok(false)
     }
     
     /// Calcular cantidad óptima de trade usando configuración
@@ -613,6 +611,7 @@ impl EnterpriseCrossChainEngine {
     }
     
     /// Obtener porcentaje óptimo basado en liquidez actual del mercado
+    #[allow(dead_code)] // Market analysis utility method
     fn get_current_market_liquidity_percentage(&self) -> f64 {
         // Análisis de liquidez real del mercado
         SimpleConfig::get_config_value("OPTIMAL_TRADE_PERCENTAGE", "0.25")
@@ -726,6 +725,7 @@ impl EnterpriseCrossChainEngine {
     }
     
     /// Estimar factor de liquidez
+    #[allow(dead_code)] // Liquidity estimation for cross-chain trades
     fn estimate_liquidity_factor(&self, source_chain: &str, target_chain: &str) -> f64 {
         let base_factor = SimpleConfig::get_config_value("BASE_LIQUIDITY_FACTOR", "0.75")
             .parse()
@@ -740,6 +740,7 @@ impl EnterpriseCrossChainEngine {
     }
     
     /// Estimar impacto de slippage
+    #[allow(dead_code)] // Slippage calculation for large trades
     fn estimate_slippage_impact(&self, amount_usd: f64, token: &str) -> f64 {
         let base_slippage = match token {
             "SOL" => SimpleConfig::get_config_value("SLIPPAGE_BASE_SOL", "0.001").parse().unwrap_or(0.001),
@@ -750,7 +751,7 @@ impl EnterpriseCrossChainEngine {
         };
         
         // Slippage aumenta con el tamaño de la orden
-        let size_multiplier = if amount_usd > 100000.0 { 2.0 } 
+        let size_multiplier = if amount_usd > 100_000.0 { 2.0 } 
                             else if amount_usd > 50000.0 { 1.5 }
                             else { 1.0 };
         

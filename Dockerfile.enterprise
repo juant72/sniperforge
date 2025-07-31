@@ -1,0 +1,81 @@
+# Multi-stage build for optimal performance and security
+FROM rust:1.75-slim as builder
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1001 sniperforge
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files
+COPY Cargo.toml Cargo.lock ./
+
+# Create dummy main.rs to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Build dependencies (this layer will be cached)
+RUN cargo build --release
+RUN rm src/main.rs
+
+# Copy source code
+COPY src/ src/
+COPY config/ config/
+
+# Build the application
+RUN cargo build --release --bin sniperforge
+
+# Production stage
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1001 sniperforge
+
+# Create necessary directories
+RUN mkdir -p /app/config /app/logs /app/data /app/static \
+    && chown -R sniperforge:sniperforge /app
+
+# Copy the binary from builder stage
+COPY --from=builder --chown=sniperforge:sniperforge /app/target/release/sniperforge /app/sniperforge
+
+# Copy configuration files
+COPY --chown=sniperforge:sniperforge config/ /app/config/
+
+# Copy static files for web UI
+COPY --chown=sniperforge:sniperforge static/ /app/static/
+
+# Switch to app user
+USER sniperforge
+
+# Set working directory
+WORKDIR /app
+
+# Environment variables
+ENV RUST_LOG=info
+ENV SNIPERFORGE_ENV=production
+ENV SNIPERFORGE_MODE=enterprise
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8081/health || exit 1
+
+# Expose ports
+EXPOSE 8080 8081 9090
+
+# Run the application
+CMD ["./sniperforge"]

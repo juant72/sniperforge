@@ -30,6 +30,7 @@ struct CachedPrice {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct HeliusTokenPrice {
     #[serde(rename = "tokenMint")]
     token_mint: String,
@@ -44,6 +45,7 @@ struct DexScreenerTokenResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization  
 struct DexScreenerPair {
     #[serde(rename = "baseToken")]
     base_token: DexScreenerToken,
@@ -55,6 +57,7 @@ struct DexScreenerPair {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct DexScreenerToken {
     address: String,
     name: String,
@@ -62,11 +65,13 @@ struct DexScreenerToken {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct DexScreenerLiquidity {
     usd: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct PythPriceData {
     id: String,
     price: PythPrice,
@@ -74,6 +79,7 @@ struct PythPriceData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct PythPrice {
     price: String,
     conf: String,
@@ -250,14 +256,12 @@ impl MultiPriceFeeds {
             if json_response["result"].is_object() {
                 info!("✅ Helius confirmó asset {}, obteniendo precio via Jupiter", token_symbol);
                 return self.fetch_price_from_jupiter(token_symbol).await;
-            } else {
-                // Fallback a precio simulado si no hay datos del asset
-                warn!("⚠️ Asset {} no encontrado en Helius, usando precio fallback", token_symbol);
-                return Ok(self.simulate_helius_price(token_symbol)?);
             }
-        } else {
-            Err(anyhow!("Helius API error: {}", response.status()))
+            // Fallback a precio simulado si no hay datos del asset
+            warn!("⚠️ Asset {} no encontrado en Helius, usando precio fallback", token_symbol);
+            return Ok(self.simulate_helius_price(token_symbol)?);
         }
+        Err(anyhow!("Helius API error: {}", response.status()))
     }
 
     /// Obtener precio desde Jupiter (para Solana) con rate limiting optimizado
@@ -407,7 +411,7 @@ impl MultiPriceFeeds {
         let mut prices = HashMap::new();
         
         // Usar configuración centralizada de credenciales
-        let url = self.api_credentials.get_helius_url();
+        let _url = self.api_credentials.get_helius_url();
         
         // Verificar tokens válidos primero
         let mut valid_tokens = Vec::new();
@@ -512,6 +516,7 @@ impl MultiPriceFeeds {
     }
 
     /// Cachear precio con timestamp
+    #[allow(dead_code)] // Price caching utility method
     fn cache_price(&mut self, token: &str, price: f64, source: &str) {
         self.price_cache.insert(token.to_string(), CachedPrice {
             price,

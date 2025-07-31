@@ -4,7 +4,7 @@ use sniperforge::security::SecurityFramework;
 #[tokio::test]
 async fn test_simple_security_initialization() -> Result<()> {
     // Test básico de inicialización
-    let framework = SecurityFramework::new().await?;
+    let _framework = SecurityFramework::new().await?;
     println!("✅ Security Framework inicializado exitosamente!");
     
     // Test que el framework esté correctamente estructurado

@@ -12,6 +12,7 @@ use bip39::Mnemonic;
 use sha2::{Sha256, Digest};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 use chrono::{DateTime, Utc};
+use base64::{Engine as _, engine::general_purpose};
 
 /// Enterprise-grade encrypted keystore for managing private keys
 /// Simulates Hardware Security Module (HSM) functionality in software
@@ -149,7 +150,7 @@ struct KeystoreContainer {
 
 /// Audit log entry for security tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct AuditEntry {
+pub struct AuditEntry {
     /// Timestamp of the event
     timestamp: DateTime<Utc>,
     /// Type of event (unlock, key_access, key_created, etc.)
@@ -216,7 +217,7 @@ impl SecureKeystore {
         }
 
         // Clear key cache
-        for (_, cached_key) in self.key_cache.drain() {
+        for (_, _cached_key) in self.key_cache.drain() {
             // cached_key.zeroize(); // Remove zeroize call
         }
 
@@ -274,10 +275,9 @@ impl SecureKeystore {
                 
                 self.log_audit_event("key_accessed", Some(key_id), "Key accessed from cache").await?;
                 return Ok(Some(key_data));
-            } else {
-                // Remove expired entry
-                self.key_cache.remove(key_id);
             }
+            // Remove expired entry
+            self.key_cache.remove(key_id);
         }
 
         // Load from encrypted storage
@@ -331,7 +331,7 @@ impl SecureKeystore {
             network: network.to_string(),
             is_primary: false,
             usage_restrictions: vec!["signing".to_string()],
-            public_key: Some(base64::encode(verifying_key.as_bytes())),
+            public_key: Some(general_purpose::STANDARD.encode(verifying_key.as_bytes())),
             last_used: None,
             usage_count: 0,
         };
@@ -454,7 +454,7 @@ impl SecureKeystore {
 
     /// Clear the key cache
     pub fn clear_cache(&mut self) {
-        for (_, cached_key) in self.key_cache.drain() {
+        for (_, _cached_key) in self.key_cache.drain() {
             // cached_key.zeroize(); // Remove zeroize call
         }
         log::info!("Key cache cleared");
@@ -471,11 +471,11 @@ impl SecureKeystore {
 
     async fn derive_master_key(&self, password: &str) -> Result<Key<Aes256Gcm>> {
         let container = self.load_keystore_container_raw().await?;
-        let salt = base64::decode(&container.salt)
+        let salt = general_purpose::STANDARD.decode(&container.salt)
             .context("Invalid salt in keystore")?;
 
         let mut key_bytes = [0u8; 32];
-        pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha256>>(
+        let _ = pbkdf2::pbkdf2::<hmac::Hmac<sha2::Sha256>>(
             password.as_bytes(),
             &salt,
             self.config.key_derivation_iterations,
@@ -539,8 +539,8 @@ impl SecureKeystore {
 
         Ok(EncryptedKeyEntry {
             key_id: key_id.to_string(),
-            encrypted_data: base64::encode(&encrypted_data),
-            nonce: base64::encode(&nonce),
+            encrypted_data: general_purpose::STANDARD.encode(&encrypted_data),
+            nonce: general_purpose::STANDARD.encode(&nonce),
             key_type: key_type.to_string(),
             metadata: metadata.clone(),
             created_at: Utc::now(),
@@ -554,9 +554,9 @@ impl SecureKeystore {
 
         let cipher = Aes256Gcm::new(master_key);
         
-        let encrypted_data = base64::decode(&entry.encrypted_data)
+        let encrypted_data = general_purpose::STANDARD.decode(&entry.encrypted_data)
             .context("Invalid base64 in encrypted data")?;
-        let nonce_bytes = base64::decode(&entry.nonce)
+        let nonce_bytes = general_purpose::STANDARD.decode(&entry.nonce)
             .context("Invalid base64 in nonce")?;
         
         let nonce = Nonce::from_slice(&nonce_bytes);
@@ -589,7 +589,7 @@ impl SecureKeystore {
         Ok(())
     }
 
-    async fn create_new_keystore(&self, password: &str) -> Result<()> {
+    async fn create_new_keystore(&self, _password: &str) -> Result<()> {
         // Generate random salt
         let mut salt_bytes = [0u8; 32];
         getrandom::getrandom(&mut salt_bytes)
@@ -598,7 +598,7 @@ impl SecureKeystore {
         let container = KeystoreContainer {
             version: "1.0".to_string(),
             keys: HashMap::new(),
-            salt: base64::encode(&salt_bytes),
+            salt: general_purpose::STANDARD.encode(&salt_bytes),
             audit_log: vec![],
             failed_attempts: 0,
             last_failed_attempt: None,
@@ -612,7 +612,7 @@ impl SecureKeystore {
 
     async fn log_audit_event(&self, event_type: &str, key_id: Option<&str>, details: &str) -> Result<()> {
         // In a production system, this might write to a separate audit log
-        let entry = AuditEntry {
+        let _entry = AuditEntry {
             timestamp: Utc::now(),
             event_type: event_type.to_string(),
             key_id: key_id.map(|s| s.to_string()),
@@ -691,7 +691,7 @@ mod tests {
         keystore.unlock("test_password_123").await.unwrap();
         
         // Generate a Solana keypair
-        let public_key = keystore.generate_solana_keypair(
+        let _public_key = keystore.generate_solana_keypair(
             "test_key",
             "Test Keypair",
             "devnet"

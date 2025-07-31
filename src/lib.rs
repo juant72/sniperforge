@@ -25,10 +25,14 @@ pub mod analytics;
 pub mod utils;
 pub mod types;
 pub mod errors;
+pub mod monitoring;
+pub mod intelligence;
 
 // Re-export commonly used types
-pub use config::*;
-pub use trading::*;
+pub use config::{SimpleConfig, EnterpriseConfig};
+pub use trading::{ArbitrageEngine, PortfolioManager, Position, TradeSide, RiskMetrics, PortfolioSummary, HftEngine};
+pub use monitoring::{EnterpriseMonitor, SystemStatus, TradingMetrics, SystemMetrics};
+pub use intelligence::{AdvancedAiEngine, IntelligenceSystem, AutonomousTrader, IntelligenceConfig, MarketIntelligence, TradingAction};
 pub use types::*;
 pub use errors::{SniperForgeError, SniperResult, ErrorExt};
 

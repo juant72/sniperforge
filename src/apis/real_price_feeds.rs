@@ -15,9 +15,11 @@ use chrono::{DateTime, Utc};
 pub struct RealPriceFeeds {
     dexscreener_enabled: bool,
     jupiter_enabled: bool,
+    #[allow(dead_code)] // Reserved for future enhancement
     birdeye_enabled: bool,
     http_client: reqwest::Client,
     // Rate limiting para CoinGecko
+    #[allow(dead_code)] // Rate limiting infrastructure
     last_coingecko_request: Arc<Mutex<std::time::Instant>>,
 }
 

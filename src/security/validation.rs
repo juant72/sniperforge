@@ -67,16 +67,20 @@ struct CompiledPatterns {
     /// Solana address pattern (base58, 32-44 chars)
     solana_address: Regex,
     /// Ethereum address pattern (0x + 40 hex chars)
+    #[allow(dead_code)] // Reserved for multi-chain support
     ethereum_address: Regex,
     /// API key pattern (alphanumeric + special chars)
+    #[allow(dead_code)] // Used in validation pipeline
     api_key: Regex,
     /// URL pattern (valid HTTP/HTTPS URLs)
+    #[allow(dead_code)] // Used in configuration validation
     url_pattern: Regex,
     /// Price string pattern (numbers with optional decimal)
     price_pattern: Regex,
     /// Token symbol pattern (3-10 uppercase letters)
     token_symbol: Regex,
     /// JSON RPC method pattern
+    #[allow(dead_code)] // Used in RPC call validation
     rpc_method: Regex,
 }
 
@@ -625,7 +629,7 @@ impl InputValidator {
             }
             "dexscreener" => {
                 // DexScreener prices vary by pair
-                if price < 0.000001 {
+                if price < 0.000_001 {
                     errors.push(ValidationError {
                         code: "DEXSCREENER_PRICE_LOW".to_string(),
                         message: "Price unusually low for DexScreener".to_string(),
@@ -636,7 +640,7 @@ impl InputValidator {
             }
             _ => {
                 // Unknown source - apply general checks
-                if price > 10_000.0 && price < 0.000001 {
+                if price > 10_000.0 && price < 0.000_001 {
                     errors.push(ValidationError {
                         code: "UNKNOWN_SOURCE_PRICE".to_string(),
                         message: "Price from unknown source has suspicious value".to_string(),
@@ -821,7 +825,7 @@ mod tests {
         let mut validator = InputValidator::new().unwrap();
         
         // Valid amount
-        let result = validator.validate_trading_amount(1000000, "SOL").await.unwrap();
+        let result = validator.validate_trading_amount(1_000_000, "SOL").await.unwrap();
         assert!(result.is_valid);
         
         // Zero amount

@@ -9,12 +9,14 @@ pub mod triangular;
 pub mod flash_loan;
 pub mod cross_chain;
 pub mod enhanced_system;
+pub mod hft_engine;
 // pub mod strategies;
 
-pub use arbitrage::*;
+pub use arbitrage::{ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult, PerformanceMetrics};
+pub use hft_engine::{HftEngine, HftOrder, HftMetrics, OrderSide, OrderType};
 // pub use engine::*;
 // pub use executor::*;
 pub use risk::*;
-pub use portfolio::*;
+pub use portfolio::{PortfolioManager, Position, TradeRecord, TradeSide, RiskMetrics, PortfolioSummary, PerformanceMetrics as PortfolioPerformanceMetrics};
 pub use triangular::*;
 pub use flash_loan::*;

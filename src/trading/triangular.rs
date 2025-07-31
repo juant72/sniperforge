@@ -433,10 +433,10 @@ impl TriangularArbitrageEngine {
             (("JUP", "SOL"), 0.0055),   // Estimación: 1 JUP = 0.0055 SOL
             (("USDC", "JUP"), 0.85),    // Estimación: 1 USDC = 0.85 JUP
             (("JUP", "USDC"), 1.18),    // Estimación: 1 JUP = 1.18 USDC
-            (("SOL", "BONK"), 2500000.0), // Estimación: 1 SOL = 2.5M BONK
-            (("BONK", "SOL"), 0.0000004), // Estimación: 1 BONK = 0.0000004 SOL
+            (("SOL", "BONK"), 2_500_000.0), // Estimación: 1 SOL = 2.5M BONK
+            (("BONK", "SOL"), 0.000_000_4), // Estimación: 1 BONK = 0.0000004 SOL
             (("USDC", "BONK"), 12000.0),  // Estimación: 1 USDC = 12K BONK
-            (("BONK", "USDC"), 0.000083), // Estimación: 1 BONK = 0.000083 USDC
+            (("BONK", "USDC"), 0.000_083), // Estimación: 1 BONK = 0.000083 USDC
         ];
         
         for ((from, to), rate) in estimated_prices {
@@ -511,14 +511,14 @@ impl TriangularArbitrageEngine {
     /// Estimar liquidez del par
     fn estimate_pair_liquidity(&self, from: &str, to: &str) -> f64 {
         match (from, to) {
-            ("SOL", "USDC") | ("USDC", "SOL") => 5000000.0,   // $5M liquidez
-            ("SOL", "RAY") | ("RAY", "SOL") => 2000000.0,     // $2M liquidez
-            ("USDC", "RAY") | ("RAY", "USDC") => 1500000.0,   // $1.5M liquidez
-            ("SOL", "JUP") | ("JUP", "SOL") => 1000000.0,     // $1M liquidez
-            ("USDC", "JUP") | ("JUP", "USDC") => 800000.0,    // $800K liquidez
-            ("SOL", "BONK") | ("BONK", "SOL") => 500000.0,    // $500K liquidez
-            ("USDC", "BONK") | ("BONK", "USDC") => 300000.0,  // $300K liquidez
-            _ => 100000.0, // Liquidez mínima por defecto
+            ("SOL", "USDC") | ("USDC", "SOL") => 5_000_000.0,   // $5M liquidez
+            ("SOL", "RAY") | ("RAY", "SOL") => 2_000_000.0,     // $2M liquidez
+            ("USDC", "RAY") | ("RAY", "USDC") => 1_500_000.0,   // $1.5M liquidez
+            ("SOL", "JUP") | ("JUP", "SOL") => 1_000_000.0,     // $1M liquidez
+            ("USDC", "JUP") | ("JUP", "USDC") => 800_000.0,    // $800K liquidez
+            ("SOL", "BONK") | ("BONK", "SOL") => 500_000.0,    // $500K liquidez
+            ("USDC", "BONK") | ("BONK", "USDC") => 300_000.0,  // $300K liquidez
+            _ => 100_000.0, // Liquidez mínima por defecto
         }
     }
 

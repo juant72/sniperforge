@@ -400,6 +400,7 @@ struct DexScreenerPairResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct DexScreenerPair {
     #[serde(rename = "chainId")]
     chain_id: String,
@@ -432,11 +433,13 @@ struct DexScreenerToken {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct DexScreenerTxns {
     h24: DexScreenerTxnCount,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // Struct fields used for deserialization
 struct DexScreenerTxnCount {
     buys: u64,
     sells: u64,
