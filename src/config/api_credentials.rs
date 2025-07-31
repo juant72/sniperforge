@@ -253,7 +253,7 @@ impl Default for WebSocketConfig {
         
         Self {
             helius_ws_url: credentials.get_helius_websocket_url(),
-            reconnect_interval_ms: credentials.trading_config.base_market_volatility as u64 * 1000.0 as u64,
+            reconnect_interval_ms: 5000, // 5 segundos por defecto
             max_reconnect_attempts: 10,
             message_buffer_size: 1000,
         }
