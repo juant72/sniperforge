@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error};
-use sniperforge_core::{
+use sniperforge::{
     config::{SniperForgeConfig, SimpleConfig},
     trading::ArbitrageEngine,
     apis::price_feeds::PriceFeedManager,
@@ -16,7 +16,7 @@ use sniperforge_core::{
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
-    tracing_subscriber::init();
+    tracing_subscriber::fmt::init();
     
     info!("🚀 Starting SniperForge Enhanced Arbitrage Bot Example");
     info!("🔄 Using migrated functionality from working arbitrage_phase45_clean");
@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("💼 Wallet file found at: {}", simple_config.private_key_path);
     
     // Initialize price feed manager
-    let price_feed_manager = Arc::new(PriceFeedManager::new(simple_config.clone()).await?);
+    let price_feed_manager = Arc::new(PriceFeedManager::new(&simple_config));
     info!("📊 Price feed manager initialized");
     
     // Initialize enhanced arbitrage engine with migrated functionality
@@ -75,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let cycle_start = std::time::Instant::now();
         
         // Scan for opportunities using enhanced engine
-        match arbitrage_engine.scan_opportunities().await {
+        match arbitrage_engine.scan_for_opportunities().await {
             Ok(opportunities) => {
                 info!("🔍 Found {} arbitrage opportunities", opportunities.len());
                 

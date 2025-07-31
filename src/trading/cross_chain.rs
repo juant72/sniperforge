@@ -8,9 +8,8 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tracing::{debug, info, warn};
-use rand;
 
 /// Configuración para arbitraje cross-chain empresarial
 #[derive(Debug, Clone, Serialize, Deserialize)]

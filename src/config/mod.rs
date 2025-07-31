@@ -3,7 +3,7 @@
 pub mod api_credentials;
 
 use serde::{Deserialize, Serialize};
-use std::{env, path::Path, collections::HashMap};
+use std::{path::Path, collections::HashMap};
 use crate::types::Result;
 pub use api_credentials::{ApiCredentials, WebSocketConfig};
 

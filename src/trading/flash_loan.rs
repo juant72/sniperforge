@@ -8,7 +8,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use tracing::{debug, info, warn};
-use rand;
 
 /// Configuración específica para flash loans empresariales
 #[derive(Debug, Clone, Serialize, Deserialize)]

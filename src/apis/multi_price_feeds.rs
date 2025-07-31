@@ -3,7 +3,7 @@
 
 use anyhow::{anyhow, Result};
 use tracing::{debug, info, warn};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
@@ -270,53 +270,61 @@ impl MultiPriceFeeds {
         }
         // TODO: self.last_jupiter_request = Instant::now();
 
-        let input_mint = self.get_token_mint(token_symbol)?;
-        let output_mint = self.get_token_mint("USDC")?; // Usar USDC como referencia
-        
-        // Usar decimales correctos basados en token
-        let amount = match token_symbol {
-            "SOL" | "RAY" | "JUP" | "SRM" | "WIF" | "PYTH" => 1_000_000_000, // 9 decimales
-            "USDC" | "USDT" => 1_000_000, // 6 decimales
-            "WBTC" | "ETH" | "WETH" => 100_000_000, // 8 decimales
-            "BONK" => 100_000, // 5 decimales para BONK
-            _ => 1_000_000, // Default 6 decimales
-        };
-
-        let url = format!(
-            "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
-            self.api_credentials.jupiter_api_url, input_mint, output_mint, amount
-        );
-
-        let timeout_duration = Duration::from_secs(self.api_credentials.get_timeout("jupiter"));
-        let response = self.http_client
-            .get(&url)
-            .timeout(timeout_duration)
-            .send()
-            .await?;
-
-        match response.status() {
-            reqwest::StatusCode::OK => {
-                let text_response = response.text().await?;
+        // Para stablecoins, usar precio fijo para evitar arbitraje circular
+        match token_symbol {
+            "USDC" | "USDT" => {
+                return Ok(1.0); // Stablecoins son $1.00 por definición
+            },
+            _ => {
+                // Para otros tokens, usar USDC como referencia
+                let input_mint = self.get_token_mint(token_symbol)?;
+                let output_mint = self.get_token_mint("USDC")?;
                 
-                // Parsear respuesta de Jupiter
-                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text_response) {
-                    if let Some(out_amount_str) = json["outAmount"].as_str() {
-                        if let Ok(out_amount) = out_amount_str.parse::<u64>() {
-                            let price = out_amount as f64 / 1_000_000.0; // USDC tiene 6 decimales
-                            return Ok(price);
+                // Usar decimales correctos basados en token
+                let amount = match token_symbol {
+                    "SOL" | "RAY" | "JUP" | "SRM" | "WIF" | "PYTH" => 1_000_000_000, // 9 decimales
+                    "WBTC" | "ETH" | "WETH" => 100_000_000, // 8 decimales
+                    "BONK" => 100_000, // 5 decimales para BONK
+                    _ => 1_000_000, // Default 6 decimales
+                };
+
+                let url = format!(
+                    "{}/quote?inputMint={}&outputMint={}&amount={}&slippageBps=50",
+                    self.api_credentials.jupiter_api_url, input_mint, output_mint, amount
+                );
+
+                let timeout_duration = Duration::from_secs(self.api_credentials.get_timeout("jupiter"));
+                let response = self.http_client
+                    .get(&url)
+                    .timeout(timeout_duration)
+                    .send()
+                    .await?;
+
+                match response.status() {
+                    reqwest::StatusCode::OK => {
+                        let text_response = response.text().await?;
+                        
+                        // Parsear respuesta de Jupiter
+                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text_response) {
+                            if let Some(out_amount_str) = json["outAmount"].as_str() {
+                                if let Ok(out_amount) = out_amount_str.parse::<u64>() {
+                                    let price = out_amount as f64 / 1_000_000.0; // USDC tiene 6 decimales
+                                    return Ok(price);
+                                }
+                            }
                         }
+                        Err(anyhow!("Jupiter price fetch failed: Invalid response format"))
+                    },
+                    reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                        warn!("⚠️ Jupiter API rate limit reached, will use fallback pricing");
+                        Err(anyhow!("Jupiter rate limit exceeded"))
+                    },
+                    status => {
+                        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                        warn!("⚠️ Jupiter API error {}: {}", status, error_text);
+                        Err(anyhow!("Jupiter API error {}: {}", status, error_text))
                     }
                 }
-                Err(anyhow!("Jupiter price fetch failed: Invalid response format"))
-            },
-            reqwest::StatusCode::TOO_MANY_REQUESTS => {
-                warn!("⚠️ Jupiter API rate limit reached, will use fallback pricing");
-                Err(anyhow!("Jupiter rate limit exceeded"))
-            },
-            status => {
-                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                warn!("⚠️ Jupiter API error {}: {}", status, error_text);
-                Err(anyhow!("Jupiter API error {}: {}", status, error_text))
             }
         }
     }

@@ -177,6 +177,7 @@ mod tests {
             dexscreener_base_url: "https://api.dexscreener.com".to_string(),
             max_requests_per_second: 10,
             cooldown_period_ms: 100,
+            max_history_size: 1000,
         }
     }
     

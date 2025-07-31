@@ -50,6 +50,13 @@ dotenv = "0.15"
 rand = "0.8"
 dashmap = "6.1"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "performance"
+harness = false
+
 [profile.dev]
 debug = 2
 opt-level = 0
