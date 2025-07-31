@@ -24,11 +24,13 @@ pub mod security;
 pub mod analytics;
 pub mod utils;
 pub mod types;
+pub mod errors;
 
 // Re-export commonly used types
 pub use config::*;
 pub use trading::*;
 pub use types::*;
+pub use errors::{SniperForgeError, SniperResult, ErrorExt};
 
 /// Current version of the SniperForge Core library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

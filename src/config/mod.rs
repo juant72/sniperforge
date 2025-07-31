@@ -1,11 +1,14 @@
 //! Configuration management for SniperForge
 
 pub mod api_credentials;
+pub mod enterprise;
 
 use serde::{Deserialize, Serialize};
 use std::{path::Path, collections::HashMap};
 use crate::types::Result;
 pub use api_credentials::{ApiCredentials, WebSocketConfig};
+pub use enterprise::{EnterpriseConfig, SolanaConfig as EnterpriseSolanaConfig, 
+                    ApiConfig as EnterpriseApiConfig, TradingConfig as EnterpriseTradingConfig};
 
 /// Simple configuration alias for backward compatibility
 pub type Config = SniperForgeConfig;

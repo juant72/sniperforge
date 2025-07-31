@@ -703,7 +703,9 @@ pub struct EngineStatistics {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::config::SimpleConfig;
+    use crate::apis::price_feeds::PriceFeedManager;
+    use std::sync::Arc;
     
     #[tokio::test]
     async fn test_engine_creation() {

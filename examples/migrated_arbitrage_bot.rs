@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error};
 use sniperforge::{
-    config::{SniperForgeConfig, SimpleConfig},
+    config::SniperForgeConfig,
     trading::ArbitrageEngine,
     apis::price_feeds::PriceFeedManager,
 };

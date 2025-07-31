@@ -23,8 +23,11 @@ fn benchmark_opportunity_scanning(c: &mut Criterion) {
     });
     
     c.bench_function("opportunity_scanning", |b| {
-        b.to_async(&rt).iter(|| async {
-            black_box(engine.scan_opportunities().await.unwrap())
+        b.iter(|| {
+            rt.block_on(async {
+                let opportunities = engine.scan_for_opportunities().await.unwrap();
+                black_box(opportunities)
+            })
         })
     });
 }
