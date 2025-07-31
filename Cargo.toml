@@ -73,6 +73,10 @@ hf-hub = "0.4"
 # Statistical analysis
 statrs = "0.16"
 
+# Social Media and News APIs for Real Sentiment Analysis
+scraper = "0.18"  # Web scraping for news
+html2text = "0.12"  # HTML to text conversion
+
 # Security and cryptography dependencies
 aes-gcm = "0.10"
 chacha20poly1305 = "0.10"

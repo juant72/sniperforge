@@ -12,6 +12,11 @@ use sniperforge::{
     },
     apis::{RealPriceFeeds, PriceFeedManager},
     config::SimpleConfig,
+    intelligence::{
+        initialize_intelligence_system, IntelligenceConfig,
+        AdvancedAiEngine, IntelligenceSystem, AutonomousTrader,
+    },
+    monitoring::EnterpriseMonitor,
     trading::{
         arbitrage::ArbitrageEngine,
         triangular::TriangularArbitrageEngine,

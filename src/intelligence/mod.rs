@@ -11,10 +11,15 @@
 pub mod ml_engine;
 pub mod market_analysis;
 pub mod auto_trader;
+pub mod sentiment; // Add sentiment module
 
 // Re-export main components for convenience
 pub use ml_engine::{AdvancedAiEngine, AiConfig, PricePredictionModel, MarketRegime, RiskAssessment, LearningMetrics};
-pub use market_analysis::{IntelligenceSystem, SentimentAnalyzer, StrategicAnalyzer, BehavioralPredictor, SentimentAnalysis, ComprehensiveAnalysis};
+pub use market_analysis::{
+    IntelligenceSystem, SentimentAnalyzer, StrategicAnalyzer, BehavioralPredictor, 
+    SentimentAnalysis, ComprehensiveAnalysis, SentimentEngine, SentimentConfig,
+    AggregatedSentiment, SentimentTrend
+};
 pub use auto_trader::{AutonomousTrader, AutonomousConfig, StrategySelector, PositionManager, RiskManager, PerformanceMetrics};
 
 /// Intelligence system configuration
@@ -104,7 +109,7 @@ pub struct IntelligenceSystemSuite {
 
 impl IntelligenceSystemSuite {
     /// Get comprehensive market analysis
-    pub async fn analyze_market(&self, symbol: &str) -> Result<MarketIntelligence, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn analyze_market(&mut self, symbol: &str) -> Result<MarketIntelligence, Box<dyn std::error::Error + Send + Sync>> {
         let price_prediction = self.ai_engine.predict_price(symbol, 24).await?;
         let market_analysis = self.market_intelligence.analyze_comprehensive(symbol).await?;
         let sentiment = self.market_intelligence.analyze_sentiment(symbol).await?;

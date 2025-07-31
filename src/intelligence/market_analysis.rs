@@ -7,6 +7,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use crate::intelligence::ml_engine::MarketRegime;
 
+// Import the new real sentiment analysis modules
+use crate::intelligence::sentiment::{
+    SentimentEngine, SentimentConfig, AggregatedSentiment, SentimentTrend, SentimentError,
+    TwitterSentimentSource, RedditSentimentSource, NewsSentimentSource
+};
+
 /// Configuration for intelligence system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntelligenceConfig {
@@ -28,7 +34,7 @@ impl Default for IntelligenceConfig {
 }
 
 /// Intelligence System for comprehensive market analysis
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct IntelligenceSystem {
     config: IntelligenceConfig,
     sentiment_analyzer: SentimentAnalyzer,
@@ -36,11 +42,10 @@ pub struct IntelligenceSystem {
     behavioral_predictor: BehavioralPredictor,
 }
 
-/// Sentiment analysis component
-#[derive(Debug, Clone)]
+/// Sentiment analysis component with REAL data sources
+#[derive(Debug)]
 pub struct SentimentAnalyzer {
-    current_sentiment: HashMap<String, f64>,
-    sentiment_history: Vec<SentimentRecord>,
+    sentiment_engine: SentimentEngine,
 }
 
 /// Strategic analysis component
@@ -141,17 +146,9 @@ impl IntelligenceSystem {
         })
     }
 
-    /// Analyze market sentiment
-    pub async fn analyze_sentiment(&self, symbol: &str) -> Result<SentimentAnalysis, Box<dyn std::error::Error + Send + Sync>> {
-        let sentiment_score = self.sentiment_analyzer.calculate_sentiment_score(symbol).await?;
-        
-        Ok(SentimentAnalysis {
-            overall_score: sentiment_score,
-            bullish_signals: if sentiment_score > 0.0 { 15 + fastrand::u32(..10) } else { fastrand::u32(..5) },
-            bearish_signals: if sentiment_score < 0.0 { 12 + fastrand::u32(..8) } else { fastrand::u32(..3) },
-            neutral_signals: 8 + fastrand::u32(..5),
-            confidence: 0.7 + fastrand::f64() * 0.25,
-        })
+    /// Analyze market sentiment with REAL data
+    pub async fn analyze_sentiment(&mut self, symbol: &str) -> Result<SentimentAnalysis, Box<dyn std::error::Error + Send + Sync>> {
+        self.sentiment_analyzer.get_detailed_sentiment(symbol).await
     }
 
     /// Classify market regime for symbol
@@ -182,15 +179,103 @@ impl IntelligenceSystem {
 
 impl SentimentAnalyzer {
     fn new() -> Self {
+        let config = SentimentConfig::default();
+        let mut sentiment_engine = SentimentEngine::new(config);
+        
+        // Add real data sources
+        // Note: These would need API keys in production
+        let twitter_source = TwitterSentimentSource::new("TWITTER_BEARER_TOKEN".to_string());
+        let reddit_source = RedditSentimentSource::new();
+        let news_source = NewsSentimentSource::new(None); // Pass Some(api_key) for NewsAPI
+        
+        sentiment_engine.add_source(Box::new(twitter_source));
+        sentiment_engine.add_source(Box::new(reddit_source));
+        sentiment_engine.add_source(Box::new(news_source));
+        
         Self {
-            current_sentiment: HashMap::new(),
-            sentiment_history: Vec::new(),
+            sentiment_engine,
         }
     }
 
-    async fn calculate_sentiment_score(&self, _symbol: &str) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
-        // Simulate sentiment calculation
-        Ok((fastrand::f64() - 0.5) * 2.0) // Range -1.0 to 1.0
+    /// Calculate REAL sentiment score from multiple data sources
+    async fn calculate_sentiment_score(&mut self, symbol: &str) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
+        match self.sentiment_engine.get_sentiment(symbol).await {
+            Ok(aggregated_sentiment) => {
+                // Log the real sentiment analysis
+                println!("🧠 REAL Sentiment Analysis for {}:", symbol);
+                println!("   Overall Sentiment: {:.3}", aggregated_sentiment.overall_sentiment);
+                println!("   Confidence: {:.3}", aggregated_sentiment.confidence);
+                println!("   Total Mentions: {}", aggregated_sentiment.total_mentions);
+                println!("   Sources: {}", aggregated_sentiment.source_breakdown.len());
+                
+                Ok(aggregated_sentiment.overall_sentiment)
+            },
+            Err(e) => {
+                eprintln!("⚠️  Real sentiment analysis failed: {}", e);
+                eprintln!("   Falling back to neutral sentiment");
+                Ok(0.0) // Neutral fallback
+            }
+        }
+    }
+    
+    /// Get detailed sentiment analysis with source breakdown
+    async fn get_detailed_sentiment(&mut self, symbol: &str) -> Result<SentimentAnalysis, Box<dyn std::error::Error + Send + Sync>> {
+        match self.sentiment_engine.get_sentiment(symbol).await {
+            Ok(aggregated_sentiment) => {
+                let trend = self.sentiment_engine.get_sentiment_trend(symbol).await.ok();
+                
+                // Convert source breakdown to f64 HashMap
+                let source_breakdown: HashMap<String, f64> = aggregated_sentiment
+                    .source_breakdown
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.sentiment))
+                    .collect();
+                
+                // Calculate signal counts based on sentiment scores
+                let (bullish, bearish, neutral) = self.calculate_signal_counts(&aggregated_sentiment);
+                
+                Ok(SentimentAnalysis {
+                    overall_score: aggregated_sentiment.overall_sentiment,
+                    bullish_signals: bullish,
+                    bearish_signals: bearish,
+                    neutral_signals: neutral,
+                    confidence: aggregated_sentiment.confidence,
+                    source_breakdown,
+                    trend,
+                })
+            },
+            Err(e) => {
+                eprintln!("⚠️  Detailed sentiment analysis failed: {}", e);
+                // Return neutral analysis as fallback
+                Ok(SentimentAnalysis {
+                    overall_score: 0.0,
+                    bullish_signals: 0,
+                    bearish_signals: 0,
+                    neutral_signals: 1,
+                    confidence: 0.1,
+                    source_breakdown: HashMap::new(),
+                    trend: None,
+                })
+            }
+        }
+    }
+    
+    fn calculate_signal_counts(&self, sentiment: &AggregatedSentiment) -> (u32, u32, u32) {
+        let mut bullish = 0u32;
+        let mut bearish = 0u32;
+        let mut neutral = 0u32;
+        
+        for (_, score) in &sentiment.source_breakdown {
+            if score.sentiment > 0.2 {
+                bullish += score.mentions_count;
+            } else if score.sentiment < -0.2 {
+                bearish += score.mentions_count;
+            } else {
+                neutral += score.mentions_count;
+            }
+        }
+        
+        (bullish, bearish, neutral)
     }
 }
 
