@@ -1,12 +1,20 @@
-//! Trading Engine Module
-//!
-//! This module contains the advanced trading systems and execution optimization
-//! developed as part of DEV2 workstream.
+//! Trading engine and execution
 
-pub mod execution_optimizer;
-pub mod order_manager;
-pub mod strategy_executor;
+pub mod arbitrage;
+// pub mod engine;
+// pub mod executor;
+pub mod risk;
+pub mod portfolio;
+pub mod triangular;
+pub mod flash_loan;
+pub mod cross_chain;
+pub mod enhanced_system;
+// pub mod strategies;
 
-pub use execution_optimizer::*;
-pub use order_manager::*;
-pub use strategy_executor::*;
+pub use arbitrage::*;
+// pub use engine::*;
+// pub use executor::*;
+pub use risk::*;
+pub use portfolio::*;
+pub use triangular::*;
+pub use flash_loan::*;

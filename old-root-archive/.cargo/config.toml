@@ -1,0 +1,80 @@
+# 🚀 SniperForge - Configuración optimizada para builds ultrarrápidos
+[env]
+# OpenSSL precompilado - rutas hardcoded para mayor confiabilidad
+OPENSSL_STATIC = "1"
+OPENSSL_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static", force = true }
+OPENSSL_LIB_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static\\lib", force = true }
+OPENSSL_INCLUDE_DIR = { value = "C:\\tools\\vcpkg\\installed\\x64-windows-static\\include", force = true }
+VCPKG_ROOT = { value = "C:\\tools\\vcpkg", force = true }
+VCPKGRS_DYNAMIC = "1"
+
+# sccache configuration
+RUSTC_WRAPPER = { value = "sccache", force = true }
+
+# Optimizaciones de red
+CARGO_NET_GIT_FETCH_WITH_CLI = "true"
+
+# Paralelismo máximo en el sistema
+CARGO_BUILD_JOBS = "16"
+CARGO_BUILD_PIPELINING = "true"
+
+[build]
+# Compilación para desarrollo rápido sin conflictos con sccache
+incremental = false  # Deshabilitado para compatibilidad con sccache
+# Usar todos los núcleos disponibles agresivamente  
+jobs = 16
+
+[target.x86_64-pc-windows-msvc]
+# Usar el enlazador más rápido disponible
+linker = "rust-lld"
+# Optimizaciones del compilador para velocidad máxima (stable only)
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+    "-C", "target-cpu=native",
+    "-C", "opt-level=0",          # Sin optimizaciones para speed
+    "-C", "debuginfo=0",          # Sin debug info en rustflags
+    "-C", "codegen-units=256"     # Máxima paralelización
+]
+
+# Registro sparse para descargas más rápidas
+[registries.crates-io]
+index = "sparse+https://index.crates.io/"
+
+# Configuración de terminal
+[term]
+verbose = false
+color = "auto"
+
+# Optimizar dependencias externas para compilación ultrarrápida
+[profile.dev.package."*"]
+opt-level = 0        # Sin optimizaciones en dependencias
+debug = false        # Sin debug en dependencias
+incremental = false  # No incremental en deps (ya compiladas)
+
+# Perfil de desarrollo optimizado para speed máxima
+[profile.dev]
+opt-level = 0        # Sin optimizaciones para compilación más rápida
+debug = 1            # Debug info mínimo
+incremental = false  # Deshabilitado para sccache
+codegen-units = 256  # Máxima paralelización posible
+overflow-checks = false  # Sin checks de overflow para speed
+panic = "abort"      # Menos overhead en panics
+rpath = false        # Sin rpath para builds más rápidos
+
+# Perfil ultrarrápido para iteración instantánea
+[profile.ultrafast]
+inherits = "dev"
+opt-level = 0
+debug = 0
+incremental = true
+codegen-units = 512
+overflow-checks = false
+panic = "abort"
+lto = false
+rpath = false
+
+# Dependencias ultrarrápidas
+[profile.ultrafast.package."*"]
+opt-level = 0
+debug = false
+incremental = false

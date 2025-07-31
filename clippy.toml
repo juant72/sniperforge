@@ -1,0 +1,17 @@
+# SniperForge Clippy Configuration
+cognitive-complexity-threshold = 30
+type-complexity-threshold = 250
+too-many-arguments-threshold = 8
+trivial-copy-size-limit = 64
+pass-by-value-size-limit = 256
+semicolon-if-nothing-returned = true
+doc-markdown = true
+manual-let-else = true
+manual-ok-or = true
+manual-string-new = true
+redundant-clone = true
+redundant-closure-for-method-calls = true
+single-match-else = true
+unnecessary-wraps = true
+used-underscore-binding = true
+wildcard-imports = true

@@ -1,0 +1,26 @@
+[package]
+name = "arbitrage-basic"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Basic arbitrage bot using SniperForge Core library"
+default-run = "arbitrage-basic"
+
+[[bin]]
+name = "arbitrage-basic"
+path = "src/main.rs"
+
+[dependencies]
+# Core library dependency
+sniperforge-core = { path = "../../core" }
+
+# External dependencies
+tokio.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
