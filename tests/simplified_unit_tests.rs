@@ -172,9 +172,10 @@ fn test_token_address_validation() {
     ];
     
     for address in valid_addresses {
-        assert_eq!(address.len(), 44); // Solana address length
+        // Valid Solana addresses can be 43 or 44 characters
+        assert!(address.len() >= 43 && address.len() <= 44);
         assert!(address.chars().all(|c| c.is_alphanumeric()));
-        println!("✅ TokenAddress: {} validated", address);
+        println!("✅ TokenAddress: {} validated (length: {})", address, address.len());
     }
     
     // Test invalid addresses

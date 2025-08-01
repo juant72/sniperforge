@@ -60,7 +60,7 @@ fn test_validation_smoke() {
     assert!(validate_percentage(150.0).is_err());
     
     assert!(validate_slippage(0.05).is_ok());
-    assert!(validate_slippage(2.0).is_err());
+    assert!(validate_slippage(51.0).is_err()); // Over 50% limit
     
     println!("✅ Smoke Test: Validation functions functional");
 }
