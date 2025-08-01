@@ -30,7 +30,7 @@ pub mod intelligence;
 
 // Re-export commonly used types
 pub use config::{SimpleConfig, EnterpriseConfig};
-pub use trading::{ArbitrageEngine, PortfolioManager, Position, TradeSide, RiskMetrics, PortfolioSummary, HftEngine};
+pub use trading::{ArbitrageEngine, PortfolioManager, Position, TradeSide, RiskMetrics, PortfolioSummary, HftEngine, TradeExecutor, TradeRequest, ExecutionStats};
 pub use monitoring::{EnterpriseMonitor, SystemStatus, TradingMetrics, SystemMetrics};
 pub use intelligence::{AdvancedAiEngine, IntelligenceSystem, AutonomousTrader, IntelligenceConfig, MarketIntelligence, TradingAction};
 pub use types::*;

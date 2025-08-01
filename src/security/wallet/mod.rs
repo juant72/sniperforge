@@ -354,13 +354,7 @@ impl WalletManager {
         let emergency_stop = *self.emergency_stop.read().await;
         
         if emergency_stop {
-            return Ok(ComponentHealthStatus {
-                is_healthy: false,
-                component: "wallet_manager".to_string(),
-                message: Some("Emergency stop activated".to_string()),
-                checked_at: chrono::Utc::now(),
-                metrics: HashMap::new(),
-            });
+            return Ok(ComponentHealthStatus::Unhealthy("Emergency stop activated".to_string()));
         }
 
         let locked_wallets: Vec<_> = wallets
@@ -370,29 +364,12 @@ impl WalletManager {
             .collect();
             
         if locked_wallets.len() == wallets.len() && !wallets.is_empty() {
-            Ok(ComponentHealthStatus {
-                is_healthy: false,
-                component: "wallet_manager".to_string(),
-                message: Some("All wallets are locked".to_string()),
-                checked_at: chrono::Utc::now(),
-                metrics: HashMap::new(),
-            })
+            Ok(ComponentHealthStatus::Unhealthy("All wallets are locked".to_string()))
         } else if !locked_wallets.is_empty() {
-            Ok(ComponentHealthStatus {
-                is_healthy: true,
-                component: "wallet_manager".to_string(),
-                message: Some(format!("Some wallets locked: {:?}", locked_wallets)),
-                checked_at: chrono::Utc::now(),
-                metrics: HashMap::new(),
-            })
+            let issues = vec![format!("Some wallets locked: {:?}", locked_wallets)];
+            Ok(ComponentHealthStatus::Degraded(issues))
         } else {
-            Ok(ComponentHealthStatus {
-                is_healthy: true,
-                component: "wallet_manager".to_string(),
-                message: None,
-                checked_at: chrono::Utc::now(),
-                metrics: HashMap::new(),
-            })
+            Ok(ComponentHealthStatus::Healthy)
         }
     }
 

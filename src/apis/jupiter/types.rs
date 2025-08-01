@@ -96,7 +96,7 @@ impl QuoteRequest {
 }
 
 /// Jupiter V6 Quote Response - ENHANCED VERSION
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct JupiterQuoteResponse {
     #[serde(rename = "inputMint")]
     pub input_mint: String,
@@ -125,7 +125,7 @@ pub struct JupiterQuoteResponse {
 }
 
 /// Platform fee information
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct PlatformFee {
     pub amount: String,
     #[serde(rename = "feeBps")]
@@ -133,7 +133,7 @@ pub struct PlatformFee {
 }
 
 /// Route plan for the swap
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct RoutePlan {
     #[serde(rename = "swapInfo")]
     pub swap_info: SwapInfo,
@@ -141,7 +141,7 @@ pub struct RoutePlan {
 }
 
 /// Swap information
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SwapInfo {
     #[serde(rename = "ammKey")]
     pub amm_key: String,
