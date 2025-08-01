@@ -1,11 +1,10 @@
 //! Performance Tests - Performance, Load, and Stress Testing
 //! Tests system performance under various load conditions
 
-use anyhow::Result;
 use sniperforge::{
     apis::PriceFeedManager,
     config::SimpleConfig,
-    types::{ArbitrageOpportunity, ArbitragePair, Token},
+    types::{ArbitrageOpportunity, ArbitragePair},
     ArbitrageEngine,
     MarketData,
 };

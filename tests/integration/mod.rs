@@ -4,13 +4,14 @@
 use sniperforge::{
     apis::PriceFeedManager,
     config::SimpleConfig,
-    types::{ArbitragePair, PriceInfo, ArbitrageOpportunity, Token, TradingPair, SystemHealth},
+    types::{PriceInfo, ArbitrageOpportunity, TradingPair, SystemHealth, ConnectionStatus},
     utils::{validate_slippage, validate_api_url},
     ArbitrageEngine,
     MarketData,
 };
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 use crate::helpers::constants::{SOL_MINT, USDC_MINT};
 
 /// System initialization integration tests
@@ -20,10 +21,10 @@ mod system_integration {
     #[tokio::test]
     async fn test_arbitrage_engine_initialization() {
         let config = SimpleConfig::default();
-        let price_feed_manager = Arc::new(PriceFeedManager::new(&config));
+        let _price_feed_manager = Arc::new(PriceFeedManager::new(&config));
         
         // Test engine creation
-        match ArbitrageEngine::new(config, price_feed_manager).await {
+        match ArbitrageEngine::new(config, _price_feed_manager).await {
             Ok(_engine) => {
                 println!("✅ Integration: ArbitrageEngine initialization successful");
             }
@@ -41,7 +42,7 @@ mod system_integration {
     #[tokio::test]
     async fn test_price_feed_connectivity() {
         let config = SimpleConfig::default();
-        let price_feed_manager = PriceFeedManager::new(&config);
+        let _price_feed_manager = PriceFeedManager::new(&config);
         
         // Test basic functionality
         assert!(!config.dexscreener_base_url.is_empty());
@@ -51,25 +52,24 @@ mod system_integration {
 
     #[tokio::test]
     async fn test_system_health_monitoring() {
+        let mut api_status = HashMap::new();
+        api_status.insert("jupiter".to_string(), ConnectionStatus::Connected);
+        
         let system_health = SystemHealth {
-            uptime: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
+            rpc_status: ConnectionStatus::Connected,
+            websocket_status: ConnectionStatus::Connected,
+            api_status,
+            last_trade: Some(chrono::Utc::now()),
+            uptime: Duration::from_secs(3600), // 1 hour
             memory_usage: 45.5,
             cpu_usage: 23.2,
-            network_latency: 12.5,
-            error_count: 0,
-            active_connections: 8,
         };
         
         // Validate health metrics
-        assert!(system_health.uptime > 0);
+        assert!(system_health.uptime.as_secs() > 0);
         assert!(system_health.memory_usage >= 0.0 && system_health.memory_usage <= 100.0);
         assert!(system_health.cpu_usage >= 0.0 && system_health.cpu_usage <= 100.0);
-        assert!(system_health.network_latency >= 0.0);
-        assert!(system_health.error_count >= 0);
-        assert!(system_health.active_connections >= 0);
+        assert!(system_health.last_trade.is_some());
         
         println!("✅ Integration: SystemHealth monitoring verified");
     }
@@ -116,10 +116,10 @@ mod trading_integration {
     #[tokio::test]
     async fn test_opportunity_detection() {
         let config = SimpleConfig::default();
-        let price_feed_manager = Arc::new(PriceFeedManager::new(&config));
+        let _price_feed_manager = Arc::new(PriceFeedManager::new(&config));
         
         // Test opportunity detection flow
-        match ArbitrageEngine::new(config, price_feed_manager).await {
+        match ArbitrageEngine::new(config, _price_feed_manager).await {
             Ok(engine) => {
                 match engine.scan_for_opportunities().await {
                     Ok(opportunities) => {
@@ -183,7 +183,6 @@ mod validation_integration {
 
 /// Error handling integration tests
 mod error_integration {
-    use super::*;
     use sniperforge::types::SniperForgeError;
 
     #[tokio::test]
@@ -292,7 +291,7 @@ mod performance_integration {
         let config = SimpleConfig::default();
         
         // End-to-end simulation test
-        let price_feed_manager = Arc::new(PriceFeedManager::new(&config));
+        let _price_feed_manager = Arc::new(PriceFeedManager::new(&config));
         
         // Test system components integration
         println!("✅ Integration: Core component initialization");

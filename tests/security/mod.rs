@@ -1,7 +1,6 @@
 //! Security Tests - Security and Risk Management Testing
 //! Tests security features, validation, and risk management
 
-use anyhow::Result;
 use sniperforge::{
     config::SimpleConfig,
     types::SniperForgeError,
@@ -114,7 +113,7 @@ mod risk_management_tests {
     async fn test_risk_manager_creation() {
         let config = RiskManagementConfig::default();
         
-        let risk_manager = AdvancedRiskManager::new(Some(config));
+        let _risk_manager = AdvancedRiskManager::new(Some(config));
         
         // Verify the risk manager was created successfully
         println!("✅ Security: RiskManager creation successful");

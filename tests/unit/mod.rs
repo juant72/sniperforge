@@ -10,7 +10,6 @@ use crate::helpers::constants::{SOL_MINT, USDC_MINT, USDT_MINT, HFT_SPEED_REQUIR
 use crate::helpers::{is_valid_solana_address};
 use chrono::Utc;
 use rust_decimal::Decimal;
-use std::str::FromStr;
 use std::time::Duration;
 
 /// Configuration tests
