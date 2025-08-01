@@ -6,6 +6,8 @@ use sniperforge::{
     types::{ArbitragePair, ArbitrageOpportunity, PriceInfo, Token, SniperForgeError},
     utils::logging::{LogLevel, LogEntry},
 };
+use crate::helpers::constants::{SOL_MINT, USDC_MINT, USDT_MINT, HFT_SPEED_REQUIREMENT_MS};
+use crate::helpers::{is_valid_solana_address};
 use chrono::Utc;
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -144,7 +146,12 @@ mod types_tests {
 
     #[test]
     fn test_price_info_functionality() {
-        let price_info = create_test_price_info(SOL_MINT, "100.50");
+        let price_info = PriceInfo {
+            mint: "So11111111111111111111111111111111111111112".to_string(),
+            usd: rust_decimal::Decimal::new(10050, 2), // $100.50
+            timestamp: Utc::now(),
+            source: "Test".to_string(),
+        };
         
         // Validate price info
         assert_eq!(price_info.mint, SOL_MINT);
@@ -158,7 +165,6 @@ mod types_tests {
 /// Validation tests
 mod validation_tests {
     use super::*;
-    use crate::helpers::is_valid_solana_address;
 
     #[test]
     fn test_solana_address_validation() {
@@ -190,7 +196,7 @@ mod validation_tests {
 
     #[test]
     fn test_profit_threshold_validation() {
-        let config = create_test_config();
+        let config = SimpleConfig::default();
         
         // Test profit calculations
         let test_profit = 0.02; // 2%
@@ -204,7 +210,7 @@ mod validation_tests {
 
     #[test]
     fn test_slippage_validation() {
-        let config = create_test_config();
+        let config = SimpleConfig::default();
         
         // Test slippage bounds
         let acceptable_slippage = 0.03; // 3%
@@ -331,8 +337,13 @@ mod performance_tests {
         let start = std::time::Instant::now();
         
         // Simulate HFT operation
-        let _pair = create_test_sol_usdc_pair();
-        let _price = create_test_price_info(SOL_MINT, "100.0");
+        let _pair = ArbitragePair::default();
+        let _price = PriceInfo {
+            mint: "So11111111111111111111111111111111111111112".to_string(),
+            usd: rust_decimal::Decimal::new(10000, 2), // $100.00
+            timestamp: Utc::now(),
+            source: "Test".to_string(),
+        };
         
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < HFT_SPEED_REQUIREMENT_MS as u128);

@@ -11,15 +11,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use tokio::time::Instant;
 
-fn create_test_config() -> SimpleConfig {
-    SimpleConfig {
-        solana_rpc_url: "https://api.devnet.solana.com".to_string(),
-        min_profit_threshold: 0.01,
-        max_slippage: 0.05,
-        ..Default::default()
-    }
-}
-
 #[test]
 fn test_arbitrage_pair_creation_and_validation() {
     // Test ArbitragePair struct functionality - using real Token structs

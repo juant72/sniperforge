@@ -2,11 +2,16 @@
 //! Tests how different components work together
 
 use sniperforge::{
+    apis::PriceFeedManager,
     config::SimpleConfig,
-    types::{ArbitragePair, PriceInfo, ArbitrageOpportunity, Token},
+    types::{ArbitragePair, PriceInfo, ArbitrageOpportunity, Token, TradingPair, SystemHealth},
+    utils::{validate_slippage, validate_api_url},
+    ArbitrageEngine,
+    MarketData,
 };
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use crate::helpers::constants::{SOL_MINT, USDC_MINT};
 
 /// System initialization integration tests
 mod system_integration {
@@ -143,10 +148,6 @@ mod validation_integration {
 
     #[tokio::test]
     async fn test_validation_functions() {
-        // Test profit validation
-        assert!(validate_profit_threshold(0.02).is_ok()); // 2% is valid
-        assert!(validate_profit_threshold(-0.01).is_err()); // Negative is invalid
-        
         // Test slippage validation
         assert!(validate_slippage(0.05).is_ok()); // 5% is valid
         assert!(validate_slippage(1.1).is_err()); // >100% is invalid

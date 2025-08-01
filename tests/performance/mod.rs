@@ -3,12 +3,15 @@
 
 use anyhow::Result;
 use sniperforge::{
+    apis::PriceFeedManager,
     config::SimpleConfig,
     types::{ArbitrageOpportunity, ArbitragePair, Token},
+    ArbitrageEngine,
+    MarketData,
 };
-use crate::helpers::{create_test_config, create_test_sol_usdc_pair};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use crate::helpers::constants::HFT_SPEED_REQUIREMENT_MS;
 
 /// Basic performance benchmarks
 mod performance_benchmarks {
@@ -52,7 +55,7 @@ mod performance_benchmarks {
         let mut opportunities = Vec::with_capacity(1000);
         for i in 0..1000 {
             opportunities.push(ArbitrageOpportunity {
-                pair: create_test_sol_usdc_pair(),
+                pair: ArbitragePair::default(),
                 buy_exchange: format!("Exchange{}", i),
                 sell_exchange: format!("Exchange{}", i + 1),
                 buy_price: 100.0 + i as f64,
@@ -80,12 +83,12 @@ mod hft_performance_tests {
 
     #[tokio::test]
     async fn test_hft_latency_requirements() {
-        let config = create_test_config();
+        let config = SimpleConfig::default();
         let start = Instant::now();
         
         // Simulate HFT operations
         let _price_feed = PriceFeedManager::new(&config);
-        let _pair = create_test_sol_usdc_pair();
+        let _pair = ArbitragePair::default();
         
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < HFT_SPEED_REQUIREMENT_MS as u128);
@@ -100,7 +103,7 @@ mod hft_performance_tests {
         // Process opportunities rapidly
         for i in 0..100 {
             let opportunity = ArbitrageOpportunity {
-                pair: create_test_sol_usdc_pair(),
+                pair: ArbitragePair::default(),
                 buy_exchange: "Jupiter".to_string(),
                 sell_exchange: "Orca".to_string(),
                 buy_price: 100.0 + (i as f64 * 0.1),
@@ -156,7 +159,7 @@ mod load_tests {
 
     #[tokio::test]
     async fn test_high_volume_operations() {
-        let config = create_test_config();
+        let config = SimpleConfig::default();
         let start = Instant::now();
         
         // Simulate high volume of operations
@@ -166,7 +169,7 @@ mod load_tests {
             let manager = Arc::clone(&price_feed_manager);
             tokio::spawn(async move {
                 // Simulate price feed operations
-                let _config = create_test_config();
+                let _config = SimpleConfig::default();
                 tokio::time::sleep(Duration::from_millis(1)).await;
                 manager
             })
@@ -190,7 +193,7 @@ mod load_tests {
         
         // Run sustained load for a short period
         while start.elapsed() < Duration::from_millis(100) {
-            let _pair = create_test_sol_usdc_pair();
+            let _pair = ArbitragePair::default();
             operations_count += 1;
         }
         
@@ -208,7 +211,7 @@ mod load_tests {
         let mut objects = Vec::new();
         for i in 0..1000 {
             objects.push(ArbitrageOpportunity {
-                pair: create_test_sol_usdc_pair(),
+                pair: ArbitragePair::default(),
                 buy_exchange: format!("DEX{}", i % 10),
                 sell_exchange: format!("DEX{}", (i + 1) % 10),
                 buy_price: 100.0,
@@ -241,7 +244,7 @@ mod stress_tests {
         // Create extreme number of concurrent tasks
         let handles: Vec<_> = (0..100).map(|i| {
             tokio::spawn(async move {
-                let config = create_test_config();
+                let config = SimpleConfig::default();
                 let _price_feed = PriceFeedManager::new(&config);
                 
                 // Simulate work
@@ -269,7 +272,7 @@ mod stress_tests {
         
         // Rapidly create and modify configurations
         for _ in 0..1000 {
-            let mut config = create_test_config();
+            let mut config = SimpleConfig::default();
             config.min_profit_threshold = 0.02;
             config.max_slippage = 0.03;
             config.max_position_size = 2.0;
@@ -310,7 +313,7 @@ mod system_performance_tests {
     #[tokio::test]
     async fn test_end_to_end_performance() {
         let start_time = Instant::now();
-        let config = create_test_config();
+        let config = SimpleConfig::default();
         
         // End-to-end performance test
         let price_feed_manager = Arc::new(PriceFeedManager::new(&config));
@@ -350,8 +353,8 @@ mod system_performance_tests {
         
         // Measure throughput for basic operations
         while start.elapsed() < Duration::from_millis(100) {
-            let _pair = create_test_sol_usdc_pair();
-            let _config = create_test_config();
+            let _pair = ArbitragePair::default();
+            let _config = SimpleConfig::default();
             operations += 1;
         }
         
