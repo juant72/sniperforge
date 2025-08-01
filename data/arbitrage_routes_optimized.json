@@ -1,0 +1,188 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-01-31T00:00:00Z",
+  "solana_arbitrage_routes": {
+    "high_liquidity_routes": [
+      {
+        "route": ["SOL", "USDC", "ETH", "SOL"],
+        "dex_path": ["Raydium", "Jupiter", "Orca", "Raydium"],
+        "avg_profit_bps": 87,
+        "frequency": "high",
+        "min_volume_required": 1000,
+        "execution_time_ms": 3500,
+        "success_rate": 0.78,
+        "last_profitable": "2025-01-30T22:15:00Z"
+      },
+      {
+        "route": ["SOL", "RAY", "USDC", "SOL"],
+        "dex_path": ["Raydium", "Raydium", "Jupiter", "Raydium"],
+        "avg_profit_bps": 54,
+        "frequency": "medium",
+        "min_volume_required": 500,
+        "execution_time_ms": 2800,
+        "success_rate": 0.82,
+        "last_profitable": "2025-01-30T21:45:00Z"
+      },
+      {
+        "route": ["USDC", "SOL", "mSOL", "USDC"],
+        "dex_path": ["Jupiter", "Marinade", "Orca", "Jupiter"],
+        "avg_profit_bps": 125,
+        "frequency": "low",
+        "min_volume_required": 2000,
+        "execution_time_ms": 4200,
+        "success_rate": 0.65,
+        "last_profitable": "2025-01-30T20:30:00Z"
+      }
+    ],
+    "dex_specific_routes": {
+      "jupiter_focused": [
+        {
+          "route": ["SOL", "USDC", "USDT", "SOL"],
+          "avg_profit_bps": 32,
+          "volume_24h": 15000000,
+          "slippage_tolerance": 0.5
+        },
+        {
+          "route": ["SOL", "BONK", "RAY", "SOL"],
+          "avg_profit_bps": 156,
+          "volume_24h": 2500000,
+          "slippage_tolerance": 1.2
+        }
+      ],
+      "raydium_focused": [
+        {
+          "route": ["RAY", "SOL", "USDC", "RAY"],
+          "avg_profit_bps": 78,
+          "volume_24h": 8500000,
+          "slippage_tolerance": 0.3
+        },
+        {
+          "route": ["RAY", "mSOL", "SOL", "RAY"],
+          "avg_profit_bps": 203,
+          "volume_24h": 1200000,
+          "slippage_tolerance": 2.1
+        }
+      ],
+      "orca_focused": [
+        {
+          "route": ["SOL", "ORCA", "USDC", "SOL"],
+          "avg_profit_bps": 67,
+          "volume_24h": 3400000,
+          "slippage_tolerance": 0.8
+        }
+      ]
+    },
+    "stablecoin_routes": [
+      {
+        "route": ["USDC", "USDT", "USDC"],
+        "dex_path": ["Orca", "Jupiter"],
+        "avg_profit_bps": 15,
+        "frequency": "very_high",
+        "min_volume_required": 10000,
+        "risk_level": "low",
+        "execution_time_ms": 1500
+      },
+      {
+        "route": ["USDT", "BUSD", "USDC", "USDT"],
+        "dex_path": ["Jupiter", "Orca", "Raydium"],
+        "avg_profit_bps": 28,
+        "frequency": "medium",
+        "min_volume_required": 5000,
+        "risk_level": "low",
+        "execution_time_ms": 2100
+      }
+    ],
+    "flash_loan_routes": [
+      {
+        "route": ["SOL", "USDC", "ETH", "BTC", "SOL"],
+        "loan_amount": 5000,
+        "expected_profit": 245.50,
+        "loan_fee": 1.50,
+        "net_profit": 244.00,
+        "execution_complexity": "high",
+        "protocols": ["Solend", "Jupiter", "Orca", "Raydium"]
+      },
+      {
+        "route": ["USDC", "SOL", "RAY", "mSOL", "USDC"],
+        "loan_amount": 10000,
+        "expected_profit": 187.30,
+        "loan_fee": 3.00,
+        "net_profit": 184.30,
+        "execution_complexity": "medium",
+        "protocols": ["Mango", "Raydium", "Marinade", "Jupiter"]
+      }
+    ]
+  },
+  "cross_chain_routes": [
+    {
+      "source_chain": "Solana",
+      "target_chain": "Ethereum",
+      "route": ["SOL", "USDC", "ETH"],
+      "bridge": "Wormhole",
+      "avg_profit_bps": 235,
+      "bridge_time_minutes": 15,
+      "bridge_fee_usd": 25.50,
+      "minimum_volume": 5000
+    },
+    {
+      "source_chain": "Solana",
+      "target_chain": "Polygon",
+      "route": ["SOL", "USDC", "MATIC"],
+      "bridge": "LayerZero",
+      "avg_profit_bps": 156,
+      "bridge_time_minutes": 8,
+      "bridge_fee_usd": 12.30,
+      "minimum_volume": 2000
+    }
+  ],
+  "risk_parameters": {
+    "max_slippage_tolerance": 2.5,
+    "max_execution_time_ms": 5000,
+    "min_success_rate": 0.6,
+    "max_gas_fee_percentage": 0.5,
+    "emergency_stop_loss": -100.0
+  },
+  "market_conditions": {
+    "high_volatility": {
+      "profit_multiplier": 1.8,
+      "risk_multiplier": 2.3,
+      "recommended_routes": ["high_liquidity_routes"]
+    },
+    "low_volatility": {
+      "profit_multiplier": 0.6,
+      "risk_multiplier": 0.4,
+      "recommended_routes": ["stablecoin_routes"]
+    },
+    "bull_market": {
+      "profit_multiplier": 1.4,
+      "risk_multiplier": 1.1,
+      "recommended_routes": ["jupiter_focused", "flash_loan_routes"]
+    },
+    "bear_market": {
+      "profit_multiplier": 0.8,
+      "risk_multiplier": 1.6,
+      "recommended_routes": ["stablecoin_routes", "orca_focused"]
+    }
+  },
+  "performance_metrics": {
+    "total_routes": 15,
+    "avg_success_rate": 0.74,
+    "total_profit_24h": 2847.65,
+    "most_profitable_route": {
+      "route": ["USDC", "SOL", "mSOL", "USDC"],
+      "profit_24h": 456.80
+    },
+    "fastest_route": {
+      "route": ["USDC", "USDT", "USDC"],
+      "avg_execution_ms": 1500
+    }
+  },
+  "optimization_settings": {
+    "route_refresh_interval_minutes": 15,
+    "profit_threshold_bps": 25,
+    "max_concurrent_routes": 3,
+    "auto_route_discovery": true,
+    "ml_route_optimization": true,
+    "sentiment_based_routing": true
+  }
+}

@@ -10,6 +10,7 @@ pub mod flash_loan;
 pub mod cross_chain;
 pub mod enhanced_system;
 pub mod hft_engine;
+pub mod route_optimizer;  // ✅ AGREGADO: Route optimization engine
 // pub mod strategies;
 
 pub use arbitrage::{ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult, PerformanceMetrics};

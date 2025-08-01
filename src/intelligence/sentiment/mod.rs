@@ -1,12 +1,8 @@
-pub mod types;
-pub mod twitter_source;
-pub mod reddit_source;
-pub mod news_source;
+pub mod real_analyzer;
 
-pub use types::{
-    SentimentDataSource, SentimentScore, Mention, AggregatedSentiment, 
-    SentimentTrend, SentimentConfig, SentimentError, SentimentEngine
-};
-pub use twitter_source::TwitterSentimentSource;
-pub use reddit_source::RedditSentimentSource;
-pub use news_source::NewsSentimentSource;
+/// Real Sentiment Analysis Module
+/// Provides comprehensive sentiment analysis with REAL data sources
+pub mod twitter_client; // ✅ NEW: Twitter API integration
+
+pub use real_analyzer::*;
+pub use twitter_client::*; // ✅ Export Twitter client

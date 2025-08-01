@@ -73,9 +73,13 @@ hf-hub = "0.4"
 # Statistical analysis
 statrs = "0.16"
 
+# Async trait support
+async-trait = "0.1"
+
 # Social Media and News APIs for Real Sentiment Analysis
 scraper = "0.18"  # Web scraping for news
 html2text = "0.12"  # HTML to text conversion
+urlencoding = "2.1"  # URL encoding for search queries
 
 # Security and cryptography dependencies
 aes-gcm = "0.10"
@@ -99,10 +103,6 @@ log = "0.4"
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tokio-test = "0.4"
-
-[[bench]]
-name = "performance"
-harness = false
 
 [profile.dev]
 debug = 2

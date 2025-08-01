@@ -1,0 +1,51 @@
+{
+  "twitter_credentials": {
+    "api_key": "jAR6qZWvaQKFFqKlDiUHK2942",
+    "api_secret": "HpB8Z22PQMjqrWzPM9AeyVNgGQGbi7z76y9iwAPUaDe28yQmoF",
+    "bearer_token": "AAAAAAAAAAAAAAAAAAAAAN9h3QEAAAAAAN2Di5DqBGqUlpjN6qxvcDWE0N0%3DPJEAxzuwnGviAWgWfM8mQbWuu2wpNWxpRRGef1MZvEIPKm5Ob9",
+    "access_token": "17077775-lsnyNnAZHIduN5fi9DD0hK7mJKEQDlKzXNTWIRaYA",
+    "access_token_secret": "bis2HvltfS2K6HpuwL2l9AXePaZQZNYQRPr6l2DTqviwg"
+  },
+  "sentiment_settings": {
+    "max_tweets_per_search": 100,
+    "search_interval_minutes": 15,
+    "sentiment_cache_duration_minutes": 5,
+    "min_engagement_threshold": 5,
+    "enable_real_time_analysis": true,
+    "influencer_accounts": [
+      "elonmusk",
+      "VitalikButerin", 
+      "aantonop",
+      "cz_binance",
+      "brian_armstrong",
+      "justinsuntron",
+      "SBF_FTX",
+      "balajis"
+    ]
+  },
+  "rate_limits": {
+    "tweets_per_15_min": 300,
+    "user_lookups_per_15_min": 300,
+    "searches_per_15_min": 300,
+    "respect_rate_limits": true
+  },
+  "monitoring_symbols": [
+    "BTC",
+    "ETH", 
+    "SOL",
+    "ADA",
+    "MATIC",
+    "LINK",
+    "DOT",
+    "AVAX",
+    "RAY",
+    "BONK"
+  ],
+  "trading_integration": {
+    "sentiment_weight_in_decisions": 0.3,
+    "min_sentiment_confidence": 0.7,
+    "bullish_threshold": 0.2,
+    "bearish_threshold": -0.2,
+    "enable_sentiment_alerts": true
+  }
+}

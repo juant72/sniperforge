@@ -1,0 +1,176 @@
+{
+  "routes": [
+    {
+      "id": "SOL-USDC-1-RAYDIUM",
+      "tokens": ["SOL", "USDC"],
+      "path": [
+        {
+          "protocol": "Raydium",
+          "market": "SOL/USDC",
+          "pool_address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "tvl_usd": 45230000,
+          "volume_24h_usd": 8920000
+        }
+      ],
+      "estimated_output": "163.847291 USDC",
+      "liquidity_score": 0.94,
+      "latency_ms": 25,
+      "priority": 1,
+      "success_rate": 0.89,
+      "avg_profit_bps": 12,
+      "last_executed": "2025-01-31T12:34:56Z"
+    },
+    {
+      "id": "SOL-USDT-USDC-MULTI",
+      "tokens": ["SOL", "USDT", "USDC"],
+      "path": [
+        {
+          "protocol": "Jupiter",
+          "market": "SOL/USDT",
+          "pool_address": "A1bC3dE5fG7hI9jK2lM4nO6pQ8rS0tU1vW3xY5zA7bC9",
+          "fee": 0.0015,
+          "type": "hybrid",
+          "tvl_usd": 32100000,
+          "volume_24h_usd": 12400000
+        },
+        {
+          "protocol": "Orca",
+          "market": "USDT/USDC",
+          "pool_address": "D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4y5",
+          "fee": 0.0003,
+          "type": "stable_swap",
+          "tvl_usd": 67800000,
+          "volume_24h_usd": 45600000
+        }
+      ],
+      "estimated_output": "162.934521 USDC", 
+      "liquidity_score": 0.92,
+      "latency_ms": 38,
+      "priority": 2,
+      "success_rate": 0.84,
+      "avg_profit_bps": 15,
+      "last_executed": "2025-01-31T12:33:12Z"
+    },
+    {
+      "id": "USDC-USDT-ARBITRAGE",
+      "tokens": ["USDC", "USDT"],
+      "path": [
+        {
+          "protocol": "Orca",
+          "market": "USDC/USDT",
+          "pool_address": "F8g9H0i1J2k3L4m5N6o7P8q9R0s1T2u3V4w5X6y7Z8a9",
+          "fee": 0.0001,
+          "type": "stable_swap",
+          "tvl_usd": 89200000,
+          "volume_24h_usd": 78400000
+        }
+      ],
+      "estimated_output": "10003.45 USDT",
+      "liquidity_score": 0.98,
+      "latency_ms": 15,
+      "priority": 1,
+      "success_rate": 0.95,
+      "avg_profit_bps": 3.5,
+      "last_executed": "2025-01-31T12:35:23Z",
+      "stablecoin_arbitrage": true,
+      "depegging_opportunity": false
+    },
+    {
+      "id": "SOL-RAY-USDC-TRIANGULAR",
+      "tokens": ["SOL", "RAY", "USDC"],
+      "path": [
+        {
+          "protocol": "Raydium", 
+          "market": "SOL/RAY",
+          "pool_address": "B2c4D5e6F7g8H9i0J1k2L3m4N5o6P7q8R9s0T1u2V3w4",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "tvl_usd": 18900000,
+          "volume_24h_usd": 5600000
+        },
+        {
+          "protocol": "Raydium",
+          "market": "RAY/USDC", 
+          "pool_address": "X5y6Z7a8B9c0D1e2F3g4H5i6J7k8L9m0N1o2P3q4R5s6",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "tvl_usd": 24100000,
+          "volume_24h_usd": 7800000
+        }
+      ],
+      "estimated_output": "161.234567 USDC",
+      "liquidity_score": 0.87,
+      "latency_ms": 42,
+      "priority": 3,
+      "success_rate": 0.78,
+      "avg_profit_bps": 23,
+      "last_executed": "2025-01-31T12:31:45Z"
+    },
+    {
+      "id": "SOL-BONK-RAY-MEME",
+      "tokens": ["SOL", "BONK", "RAY"],
+      "path": [
+        {
+          "protocol": "Jupiter",
+          "market": "SOL/BONK",
+          "pool_address": "M6n7O8p9Q0r1S2t3U4v5W6x7Y8z9A0b1C2d3E4f5G6h7",
+          "fee": 0.005,
+          "type": "dynamic",
+          "tvl_usd": 8400000,
+          "volume_24h_usd": 15600000
+        },
+        {
+          "protocol": "Raydium",
+          "market": "BONK/RAY",
+          "pool_address": "I8j9K0l1M2n3O4p5Q6r7S8t9U0v1W2x3Y4z5A6b7C8d9",
+          "fee": 0.0025,
+          "type": "constant_product", 
+          "tvl_usd": 3200000,
+          "volume_24h_usd": 4700000
+        }
+      ],
+      "estimated_output": "1847.293 RAY",
+      "liquidity_score": 0.73,
+      "latency_ms": 67,
+      "priority": 5,
+      "success_rate": 0.62,
+      "avg_profit_bps": 156,
+      "last_executed": "2025-01-31T12:28:34Z",
+      "high_volatility_route": true,
+      "meme_coin_exposure": true
+    }
+  ],
+  "execution_parameters": {
+    "refresh_rate_ms": 350,
+    "max_slippage_tolerance": 0.015,
+    "max_execution_time_ms": 4500,
+    "min_liquidity_threshold": 50000,
+    "priority_rebalance_interval": 30000
+  },
+  "real_time_data": {
+    "best_route_index": 0,
+    "timestamp": 1722182453000,
+    "market_condition": "normal_volatility",
+    "total_routes_active": 5,
+    "avg_latency_ms": 37.4,
+    "system_load": 0.68
+  },
+  "risk_management": {
+    "max_concurrent_routes": 3,
+    "emergency_stop_conditions": [
+      "slippage > 2%",
+      "latency > 5000ms", 
+      "liquidity_score < 0.5"
+    ],
+    "auto_pause_on_failure_rate": 0.3
+  },
+  "optimization_flags": {
+    "sentiment_routing_enabled": true,
+    "flash_loan_integration": true,
+    "cross_dex_optimization": true,
+    "stablecoin_monitoring": true,
+    "mev_protection": true
+  }
+}

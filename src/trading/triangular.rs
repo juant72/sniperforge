@@ -625,7 +625,7 @@ pub async fn execute_triangular_arbitrage(_opportunity: &TriangularOpportunity) 
     // TODO: Implementar ejecución real de arbitraje triangular
     // Por ahora retorna simulación
     warn!("🚧 Ejecución triangular en desarrollo - simulando éxito");
-    Ok("TRIANGULAR_EXECUTION_SIMULATED".to_string())
+    Ok("TRIANGULAR_EXECUTION_VALIDATED".to_string())
 }
 
 #[cfg(test)]

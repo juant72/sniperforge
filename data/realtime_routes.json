@@ -1,0 +1,343 @@
+{
+  "version": "2.0",
+  "timestamp": 1722182453000,
+  "last_update": "2025-01-31T12:34:56.789Z",
+  "refresh_rate_ms": 500,
+  "best_route_index": 0,
+  "total_routes": 25,
+  "routes": [
+    {
+      "id": "SOL-USDC-DIRECT-1",
+      "tokens": ["SOL", "USDC"],
+      "input_amount": "100 SOL",
+      "estimated_output": "16234.567890 USDC",
+      "path": [
+        {
+          "protocol": "Raydium",
+          "market": "SOL/USDC",
+          "pool_address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "1234567.890123 SOL",
+            "token_b": "200345678.123456 USDC"
+          },
+          "price_impact": 0.0012,
+          "liquidity_usd": 325670890.45
+        }
+      ],
+      "total_fee": 0.0025,
+      "price_impact": 0.0012,
+      "liquidity_score": 0.96,
+      "latency_ms": 28,
+      "priority": 1,
+      "profitability_score": 0.94,
+      "risk_score": 0.15,
+      "execution_probability": 0.98,
+      "gas_estimate": "0.000892 SOL",
+      "slippage_tolerance": 0.005,
+      "min_received": "16153.242756 USDC"
+    },
+    {
+      "id": "SOL-USDT-USDC-2",
+      "tokens": ["SOL", "USDT", "USDC"],
+      "input_amount": "100 SOL",
+      "estimated_output": "16189.234567 USDC",
+      "path": [
+        {
+          "protocol": "Orca",
+          "market": "SOL/USDT",
+          "pool_address": "EGZ7tiLeH62TPV1gL8WwbXGzEPa9zmcpVnnkPKKnrE2U",
+          "fee": 0.003,
+          "type": "concentrated_liquidity",
+          "reserves": {
+            "token_a": "876543.210987 SOL",
+            "token_b": "142345678.987654 USDT"
+          },
+          "price_impact": 0.0008,
+          "liquidity_usd": 231567890.12,
+          "tick_spacing": 64
+        },
+        {
+          "protocol": "Jupiter",
+          "market": "USDT/USDC",
+          "pool_address": "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX",
+          "fee": 0.0001,
+          "type": "stable_swap",
+          "reserves": {
+            "token_a": "89234567.890123 USDT",
+            "token_b": "89456789.123456 USDC"
+          },
+          "price_impact": 0.0002,
+          "liquidity_usd": 178901234.56,
+          "amplification": 2000
+        }
+      ],
+      "total_fee": 0.0031,
+      "price_impact": 0.001,
+      "liquidity_score": 0.89,
+      "latency_ms": 45,
+      "priority": 2,
+      "profitability_score": 0.91,
+      "risk_score": 0.22,
+      "execution_probability": 0.95,
+      "gas_estimate": "0.001234 SOL",
+      "slippage_tolerance": 0.007,
+      "min_received": "16075.862302 USDC"
+    },
+    {
+      "id": "SOL-RAY-USDC-3",
+      "tokens": ["SOL", "RAY", "USDC"],
+      "input_amount": "100 SOL",
+      "estimated_output": "16156.789012 USDC",
+      "path": [
+        {
+          "protocol": "Raydium",
+          "market": "SOL/RAY",
+          "pool_address": "AVs9TA4nWDzfPJE9gGVNJMVhcQy3V9PGazuz33BfG2RA",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "567890.123456 SOL",
+            "token_b": "12345678.901234 RAY"
+          },
+          "price_impact": 0.0015,
+          "liquidity_usd": 156789012.34
+        },
+        {
+          "protocol": "Raydium",
+          "market": "RAY/USDC",
+          "pool_address": "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "23456789.012345 RAY",
+            "token_b": "67890123.456789 USDC"
+          },
+          "price_impact": 0.0009,
+          "liquidity_usd": 91234567.89
+        }
+      ],
+      "total_fee": 0.005,
+      "price_impact": 0.0024,
+      "liquidity_score": 0.82,
+      "latency_ms": 52,
+      "priority": 3,
+      "profitability_score": 0.87,
+      "risk_score": 0.28,
+      "execution_probability": 0.92,
+      "gas_estimate": "0.001456 SOL",
+      "slippage_tolerance": 0.008,
+      "min_received": "16027.261270 USDC"
+    },
+    {
+      "id": "USDC-USDT-ARBITRAGE-4",
+      "tokens": ["USDC", "USDT"],
+      "input_amount": "10000 USDC",
+      "estimated_output": "10012.345678 USDT",
+      "path": [
+        {
+          "protocol": "Orca",
+          "market": "USDC/USDT",
+          "pool_address": "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4",
+          "fee": 0.0003,
+          "type": "stable_swap",
+          "reserves": {
+            "token_a": "45678901.234567 USDC",
+            "token_b": "45789012.345678 USDT"
+          },
+          "price_impact": 0.00005,
+          "liquidity_usd": 91467913.58,
+          "amplification": 5000
+        }
+      ],
+      "total_fee": 0.0003,
+      "price_impact": 0.00005,
+      "liquidity_score": 0.98,
+      "latency_ms": 18,
+      "priority": 4,
+      "profitability_score": 0.76,
+      "risk_score": 0.08,
+      "execution_probability": 0.99,
+      "gas_estimate": "0.000567 SOL",
+      "slippage_tolerance": 0.001,
+      "min_received": "10002.333346 USDT"
+    },
+    {
+      "id": "SOL-BONK-RAY-USDC-5",
+      "tokens": ["SOL", "BONK", "RAY", "USDC"],
+      "input_amount": "100 SOL",
+      "estimated_output": "16089.123456 USDC",
+      "path": [
+        {
+          "protocol": "Jupiter",
+          "market": "SOL/BONK",
+          "pool_address": "8sLbNZoA1cfnvMJLPfp98ZLAnFSYCFApfJKMbiXNLwxj",
+          "fee": 0.005,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "234567.890123 SOL",
+            "token_b": "123456789012345 BONK"
+          },
+          "price_impact": 0.0025,
+          "liquidity_usd": 89012345.67
+        },
+        {
+          "protocol": "Orca",
+          "market": "BONK/RAY",
+          "pool_address": "9n4nbM75f5Ui33ZbPYXn59EwSgE8CGsHtAeTH5YFeJ9E",
+          "fee": 0.01,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "234567890123456 BONK",
+            "token_b": "8901234.567890 RAY"
+          },
+          "price_impact": 0.0045,
+          "liquidity_usd": 34567890.12
+        },
+        {
+          "protocol": "Raydium",
+          "market": "RAY/USDC",
+          "pool_address": "6UmmUiYoBjSrhakAobJw8BvkmJtDVxaeBtbt7rxWo1mg",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "23456789.012345 RAY",
+            "token_b": "67890123.456789 USDC"
+          },
+          "price_impact": 0.0012,
+          "liquidity_usd": 91234567.89
+        }
+      ],
+      "total_fee": 0.0175,
+      "price_impact": 0.0082,
+      "liquidity_score": 0.65,
+      "latency_ms": 78,
+      "priority": 5,
+      "profitability_score": 0.72,
+      "risk_score": 0.45,
+      "execution_probability": 0.85,
+      "gas_estimate": "0.002345 SOL",
+      "slippage_tolerance": 0.015,
+      "min_received": "15847.616945 USDC"
+    },
+    {
+      "id": "mSOL-SOL-USDC-6",
+      "tokens": ["mSOL", "SOL", "USDC"],
+      "input_amount": "100 mSOL",
+      "estimated_output": "17456.789123 USDC",
+      "path": [
+        {
+          "protocol": "Marinade",
+          "market": "mSOL/SOL",
+          "pool_address": "8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC",
+          "fee": 0.0003,
+          "type": "liquid_staking",
+          "reserves": {
+            "token_a": "567890.123456 mSOL",
+            "token_b": "612345.678901 SOL"
+          },
+          "price_impact": 0.0008,
+          "liquidity_usd": 198765432.10,
+          "exchange_rate": 1.0789
+        },
+        {
+          "protocol": "Raydium",
+          "market": "SOL/USDC",
+          "pool_address": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+          "fee": 0.0025,
+          "type": "constant_product",
+          "reserves": {
+            "token_a": "1234567.890123 SOL",
+            "token_b": "200345678.123456 USDC"
+          },
+          "price_impact": 0.0013,
+          "liquidity_usd": 325670890.45
+        }
+      ],
+      "total_fee": 0.0028,
+      "price_impact": 0.0021,
+      "liquidity_score": 0.93,
+      "latency_ms": 42,
+      "priority": 6,
+      "profitability_score": 0.89,
+      "risk_score": 0.19,
+      "execution_probability": 0.96,
+      "gas_estimate": "0.001123 SOL",
+      "slippage_tolerance": 0.006,
+      "min_received": "17352.097582 USDC"
+    }
+  ],
+  "market_conditions": {
+    "overall_sentiment": 0.234,
+    "volatility_index": 0.67,
+    "liquidity_index": 0.89,
+    "gas_price_gwei": 15.23,
+    "network_congestion": 0.34,
+    "arbitrage_competition": 0.56
+  },
+  "dex_status": {
+    "raydium": {
+      "status": "online",
+      "latency_ms": 28,
+      "success_rate": 0.98,
+      "total_pools": 1247
+    },
+    "orca": {
+      "status": "online",
+      "latency_ms": 32,
+      "success_rate": 0.97,
+      "total_pools": 892
+    },
+    "jupiter": {
+      "status": "online",
+      "latency_ms": 25,
+      "success_rate": 0.99,
+      "total_pools": 2156
+    },
+    "marinade": {
+      "status": "online",
+      "latency_ms": 45,
+      "success_rate": 0.95,
+      "total_pools": 12
+    }
+  },
+  "execution_params": {
+    "max_slippage": 0.02,
+    "max_price_impact": 0.05,
+    "min_liquidity_usd": 10000,
+    "max_latency_ms": 100,
+    "min_execution_probability": 0.8,
+    "gas_limit_multiplier": 1.2
+  },
+  "analytics": {
+    "avg_profit_per_route": 0.0087,
+    "best_performing_dex": "Raydium",
+    "most_liquid_pair": "SOL/USDC",
+    "fastest_route_id": "USDC-USDT-ARBITRAGE-4",
+    "highest_yield_route_id": "mSOL-SOL-USDC-6",
+    "total_tvl_monitored": "1,234,567,890.45 USD"
+  },
+  "alerts": [
+    {
+      "type": "high_opportunity",
+      "route_id": "mSOL-SOL-USDC-6",
+      "profit_percentage": 7.45,
+      "timestamp": 1722182450000,
+      "expires_at": 1722182465000
+    },
+    {
+      "type": "low_liquidity",
+      "route_id": "SOL-BONK-RAY-USDC-5",
+      "liquidity_drop": 0.23,
+      "timestamp": 1722182448000
+    }
+  ],
+  "metadata": {
+    "data_sources": ["Jupiter API", "Raydium API", "Orca API", "Marinade API"],
+    "calculation_time_ms": 47,
+    "cache_hit_ratio": 0.78,
+    "api_calls_per_update": 12,
+    "next_refresh": 1722182453500
+  }
+}

@@ -17,8 +17,7 @@ pub mod sentiment; // Add sentiment module
 pub use ml_engine::{AdvancedAiEngine, AiConfig, PricePredictionModel, MarketRegime, RiskAssessment, LearningMetrics};
 pub use market_analysis::{
     IntelligenceSystem, SentimentAnalyzer, StrategicAnalyzer, BehavioralPredictor, 
-    SentimentAnalysis, ComprehensiveAnalysis, SentimentEngine, SentimentConfig,
-    AggregatedSentiment, SentimentTrend
+    SentimentAnalysis, ComprehensiveAnalysis
 };
 pub use auto_trader::{AutonomousTrader, AutonomousConfig, StrategySelector, PositionManager, RiskManager, PerformanceMetrics};
 
@@ -60,6 +59,8 @@ pub async fn initialize_intelligence_system(config: IntelligenceConfig) -> Resul
         sequence_length: 120,
         epochs: 100,
         validation_split: 0.2,
+        prediction_accuracy_threshold: 0.85,
+        max_prediction_horizon_hours: 24,
     };
 
     let ai_engine = AdvancedAiEngine::new(ai_config);

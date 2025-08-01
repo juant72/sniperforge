@@ -1,0 +1,40 @@
+{
+  "twitter_credentials": {
+    "api_key": "TU_API_KEY_AQUI",
+    "api_secret": "TU_API_SECRET_AQUI", 
+    "bearer_token": "TU_BEARER_TOKEN_AQUI",
+    "access_token": "TU_ACCESS_TOKEN_AQUI",
+    "access_token_secret": "TU_ACCESS_TOKEN_SECRET_AQUI"
+  },
+  "sentiment_settings": {
+    "max_tweets_per_search": 100,
+    "search_interval_minutes": 15,
+    "sentiment_cache_duration_minutes": 5,
+    "min_engagement_threshold": 5,
+    "influencer_accounts": [
+      "elonmusk",
+      "VitalikButerin", 
+      "aantonop",
+      "satoshi_nakamoto",
+      "cz_binance",
+      "brian_armstrong",
+      "SBF_FTX",
+      "justinsuntron"
+    ]
+  },
+  "rate_limits": {
+    "tweets_per_15_min": 300,
+    "user_lookups_per_15_min": 300,
+    "searches_per_15_min": 300
+  },
+  "monitoring_symbols": [
+    "BTC",
+    "ETH", 
+    "SOL",
+    "ADA",
+    "MATIC",
+    "LINK",
+    "DOT",
+    "AVAX"
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "unified_routing_config": {
+    "name": "SniperForge Unified Routing System",
+    "version": "1.0.0",
+    "description": "Coordinates strategic route optimization with real-time execution monitoring",
+    "last_updated": "2024-12-19T17:30:00Z",
+    
+    "architecture": {
+      "strategic_file": "data/strategic_routes.json",
+      "realtime_file": "data/realtime_routes.json",
+      "coordination_mode": "hybrid",
+      "failover_strategy": "strategic_fallback"
+    },
+    
+    "update_frequencies": {
+      "strategic_routes_minutes": 30,
+      "realtime_routes_milliseconds": 500,
+      "market_conditions_seconds": 10,
+      "sentiment_analysis_minutes": 5,
+      "performance_tracking_seconds": 30
+    },
+    
+    "scoring_weights": {
+      "strategic_score_weight": 0.6,
+      "realtime_score_weight": 0.4,
+      "sentiment_multiplier": 0.2,
+      "risk_penalty_factor": 0.5,
+      "execution_confidence_boost": 0.3,
+      "latency_penalty_threshold_ms": 100
+    },
+    
+    "execution_parameters": {
+      "min_profit_threshold_bps": 25,
+      "max_risk_tolerance": 0.15,
+      "execution_window_base_seconds": 30,
+      "urgency_multiplier_max": 3.0,
+      "cache_ttl_seconds": 300,
+      "decision_timeout_ms": 2000
+    },
+    
+    "route_matching": {
+      "exact_token_match_required": true,
+      "allow_partial_route_overlap": false,
+      "min_route_length": 2,
+      "max_route_length": 4,
+      "preferred_dexes": ["Jupiter", "Raydium", "Orca", "Meteora"]
+    },
+    
+    "performance_optimization": {
+      "enable_route_caching": true,
+      "enable_decision_caching": true,
+      "cache_size_limit": 1000,
+      "parallel_route_analysis": true,
+      "async_market_updates": true,
+      "batch_sentiment_requests": true
+    },
+    
+    "monitoring_settings": {
+      "track_execution_success": true,
+      "log_decision_reasons": true,
+      "alert_on_low_performance": true,
+      "dashboard_refresh_seconds": 5,
+      "metrics_retention_hours": 24,
+      "debug_mode": false
+    },
+    
+    "risk_management": {
+      "max_concurrent_executions": 3,
+      "position_size_limits": {
+        "conservative": 0.1,
+        "moderate": 0.25,
+        "aggressive": 0.5
+      },
+      "stop_loss_trigger_pct": 2.0,
+      "circuit_breaker_loss_pct": 5.0,
+      "cooldown_after_loss_minutes": 30
+    },
+    
+    "market_conditions": {
+      "bull_market_threshold": 0.2,
+      "bear_market_threshold": -0.2,
+      "high_volatility_threshold": 0.3,
+      "low_liquidity_threshold": 10000,
+      "sentiment_confidence_min": 0.7,
+      "twitter_sentiment_weight": 0.4
+    },
+    
+    "integration_apis": {
+      "jupiter_api": {
+        "enabled": true,
+        "rate_limit_per_second": 10,
+        "timeout_ms": 1000
+      },
+      "twitter_api": {
+        "enabled": true,
+        "rate_limit_per_hour": 300,
+        "sentiment_refresh_minutes": 5
+      },
+      "dex_apis": {
+        "raydium": { "enabled": true, "priority": 1 },
+        "orca": { "enabled": true, "priority": 2 },
+        "meteora": { "enabled": true, "priority": 3 },
+        "marinade": { "enabled": true, "priority": 4 }
+      }
+    },
+    
+    "fallback_strategies": {
+      "no_realtime_data": "use_strategic_only",
+      "api_failure": "cached_routes",
+      "high_latency": "simple_routes",
+      "market_closure": "hold_positions",
+      "network_congestion": "delay_execution"
+    },
+    
+    "optimization_targets": {
+      "primary": "profit_maximization",
+      "secondary": "risk_minimization",
+      "constraints": {
+        "max_execution_time_ms": 5000,
+        "min_success_probability": 0.8,
+        "max_slippage_bps": 50
+      }
+    }
+  },
+  
+  "system_status": {
+    "operational": true,
+    "last_health_check": "2024-12-19T17:30:00Z",
+    "active_routes": 0,
+    "cached_decisions": 0,
+    "system_uptime_hours": 0,
+    "last_successful_execution": null,
+    "error_count_24h": 0
+  },
+  
+  "alerts": {
+    "enabled": true,
+    "channels": ["console", "log"],
+    "thresholds": {
+      "low_success_rate_pct": 70,
+      "high_latency_ms": 1000,
+      "api_error_rate_pct": 10,
+      "profit_decline_pct": 20
+    }
+  }
+}

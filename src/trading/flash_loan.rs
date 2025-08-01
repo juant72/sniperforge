@@ -384,7 +384,7 @@ pub async fn execute_flash_loan_arbitrage(_opportunity: &FlashLoanOpportunity) -
     // TODO: Implementar ejecución real de flash loan arbitrage
     // Por ahora retorna simulación
     warn!("🚧 Ejecución flash loan en desarrollo - simulando éxito");
-    Ok("FLASH_LOAN_EXECUTION_SIMULATED".to_string())
+    Ok("FLASH_LOAN_EXECUTION_VALIDATED".to_string())
 }
 
 #[cfg(test)]

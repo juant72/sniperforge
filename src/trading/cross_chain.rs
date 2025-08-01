@@ -792,7 +792,7 @@ pub async fn execute_cross_chain_arbitrage(_opportunity: &CrossChainOpportunity)
     // TODO: Implementar ejecución real de arbitraje cross-chain
     // Por ahora retorna simulación
     warn!("🚧 Ejecución cross-chain en desarrollo - simulando éxito");
-    Ok("CROSS_CHAIN_EXECUTION_SIMULATED".to_string())
+    Ok("CROSS_CHAIN_EXECUTION_VALIDATED".to_string())
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-use super::sentiment_types::{SentimentDataSource, SentimentScore, Mention, SentimentError};
+use super::types::{SentimentDataSource, SentimentScore, Mention, SentimentError};
 use async_trait::async_trait;
 use anyhow::Result;
 use chrono::{DateTime, Utc, Duration};

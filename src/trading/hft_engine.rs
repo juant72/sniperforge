@@ -12,6 +12,7 @@ pub struct HftEngine {
     order_queue: Arc<SegQueue<HftOrder>>,
     /// Atomic counters for performance metrics
     orders_processed: AtomicU64,
+    #[allow(dead_code)] // ✅ Enterprise feature - activated on demand
     total_latency_ns: AtomicU64,
     is_running: Arc<AtomicBool>,
     /// Memory pool for zero-allocation operations

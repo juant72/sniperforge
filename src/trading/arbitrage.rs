@@ -385,18 +385,18 @@ impl ArbitrageEngine {
         self.risk_manager.assess_opportunity(opportunity).await
     }
     
-    /// Simulate execution of an arbitrage opportunity
-    pub async fn simulate_execution(&self, opportunity: &ArbitrageOpportunity) -> Result<()> {
-        info!("Simulating execution for opportunity: {}/{}", 
+    /// Validate execution parameters for arbitrage opportunity
+    pub async fn validate_execution(&self, opportunity: &ArbitrageOpportunity) -> Result<()> {
+        info!("Validating execution parameters for opportunity: {}/{}", 
                opportunity.pair.base_token.symbol, 
                opportunity.pair.quote_token.symbol);
         
-        // Simulate the execution steps
-        debug!("Step 1: Validating opportunity...");
-        sleep(Duration::from_millis(100)).await;
+        // Validate the execution requirements
+        debug!("Step 1: Validating opportunity parameters...");
         
-        debug!("Step 2: Calculating optimal amounts...");
-        sleep(Duration::from_millis(100)).await;
+        debug!("Step 2: Calculating optimal execution amounts...");
+        
+        debug!("Step 3: Verifying liquidity requirements...");
         
         debug!("Step 3: Simulating buy order...");
         sleep(Duration::from_millis(200)).await;

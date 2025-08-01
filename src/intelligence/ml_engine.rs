@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 /// Configuration for the AI engine
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +15,8 @@ pub struct AiConfig {
     pub sequence_length: usize,
     pub epochs: usize,
     pub validation_split: f64,
+    pub prediction_accuracy_threshold: f64,
+    pub max_prediction_horizon_hours: u32,
 }
 
 impl Default for AiConfig {
@@ -24,6 +27,8 @@ impl Default for AiConfig {
             sequence_length: 120,
             epochs: 100,
             validation_split: 0.2,
+            prediction_accuracy_threshold: 0.85,
+            max_prediction_horizon_hours: 24,
         }
     }
 }
@@ -117,6 +122,14 @@ impl AdvancedAiEngine {
 
     /// Predict price for a symbol
     pub async fn predict_price(&self, symbol: &str, hours_ahead: u32) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
+        // Use config for prediction parameters
+        let prediction_accuracy = self.config.prediction_accuracy_threshold;
+        let max_horizon = self.config.max_prediction_horizon_hours;
+        
+        if hours_ahead > max_horizon {
+            return Err(format!("Prediction horizon {} exceeds max {}", hours_ahead, max_horizon).into());
+        }
+        
         // Simulate AI prediction based on symbol and time horizon
         let base_price = match symbol {
             "SOL/USDC" => 95.0,
@@ -126,8 +139,8 @@ impl AdvancedAiEngine {
             _ => 100.0,
         };
 
-        // Add some simulated prediction variance
-        let variance = (hours_ahead as f64 * 0.001).min(0.1);
+        // Add some simulated prediction variance adjusted by config
+        let variance = (hours_ahead as f64 * 0.001 * (1.0 - prediction_accuracy)).min(0.1);
         let prediction = base_price * (1.0 + (fastrand::f64() - 0.5) * variance);
 
         Ok(prediction)
@@ -152,13 +165,15 @@ impl AdvancedAiEngine {
     }
 
     /// Classify market regime
-    pub async fn classify_market_regime(&self, symbol: &str) -> Result<MarketRegime, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn classify_market_regime(&self, _symbol: &str) -> Result<MarketRegime, Box<dyn std::error::Error + Send + Sync>> {
         // Simulate market regime classification
         let regimes = [
             MarketRegime::Bullish,
             MarketRegime::Bearish,
             MarketRegime::Sideways,
             MarketRegime::Volatile,
+            MarketRegime::Accumulation,
+            MarketRegime::Distribution,
         ];
 
         let index = fastrand::usize(..regimes.len());
@@ -179,6 +194,15 @@ impl AdvancedAiEngine {
     pub async fn initialize(&mut self, _config: &AiConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Simulate initialization
         self.learning_metrics.epochs_completed = 0;
+        Ok(())
+    }
+
+    /// Process autonomous trading decision with AI optimization
+    pub async fn process_autonomous_decision(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Simulate AI processing of autonomous decision
+        info!("🤖 AI Engine processing autonomous trading decision...");
+        info!("📊 Using models: {} active", self.models.len());
+        info!("🎯 Current accuracy: {:.2}%", self.performance_tracker.accuracy * 100.0);
         Ok(())
     }
 }
