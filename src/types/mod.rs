@@ -308,3 +308,33 @@ pub enum ConnectionStatus {
     Error(String),
     Unknown,
 }
+
+/// Platform-specific error types for wallet management
+#[derive(Debug, thiserror::Error)]
+pub enum PlatformError {
+    /// Wallet management error
+    #[error("Wallet management error: {0}")]
+    WalletManagement(String),
+    
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+    
+    /// Network connectivity error
+    #[error("Network error: {0}")]
+    Network(String),
+    
+    /// Trading execution error
+    #[error("Trading error: {0}")]
+    Trading(String),
+}
+
+/// Detailed health status for individual components
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComponentHealthStatus {
+    pub is_healthy: bool,
+    pub component: String,
+    pub message: Option<String>,
+    pub checked_at: chrono::DateTime<chrono::Utc>,
+    pub metrics: HashMap<String, String>,
+}

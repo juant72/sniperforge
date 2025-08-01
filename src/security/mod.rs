@@ -30,6 +30,7 @@ pub mod validation;
 pub mod auth;
 pub mod encryption;
 pub mod risk_manager;
+pub mod wallet;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -46,6 +47,7 @@ pub use encryption::{
     EncryptionMetrics, SecureData
 };
 pub use risk_manager::*;
+pub use wallet::{WalletManager, WalletConfig, WalletType, WalletInfo, ManagedWallet, RiskManagement};
 
 /// Enterprise Security Framework
 /// 

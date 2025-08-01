@@ -48,6 +48,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Utilities
 rand = "0.8"
+bs58 = "0.5"
 dashmap = "6.1"
 fastrand = "2.0"
 
