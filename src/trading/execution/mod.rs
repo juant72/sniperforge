@@ -12,15 +12,25 @@
 //! - Risk management and safety controls
 //! - Real-time balance monitoring and validation
 //! - Secure transaction execution with timeout handling
+//! - **NEW**: Real trade execution engine for blockchain trading
 //!
 //! ## Usage
 //! ```rust
-//! use crate::trading::execution::TradeExecutor;
+//! use crate::trading::execution::{TradeExecutor, RealTradeExecutor};
 //! use crate::types::TradingMode;
 //!
+//! // Basic trade executor
 //! let executor = TradeExecutor::new(config, TradingMode::DevNet).await?;
 //! let result = executor.execute_trade(trade_request).await?;
+//!
+//! // Real trade executor for blockchain execution
+//! let real_executor = RealTradeExecutor::new(config, TradingMode::DevNet).await?;
+//! let real_result = real_executor.execute_real_trade(real_trade_request).await?;
 //! ```
+
+pub mod real_executor;
+
+pub use real_executor::{RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats, RealTradingMode};
 
 use std::time::Instant;
 use tracing::{error, info, warn};
