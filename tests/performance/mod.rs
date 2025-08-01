@@ -309,7 +309,7 @@ mod stress_tests {
 mod system_performance_tests {
     use super::*;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_end_to_end_performance() {
         let start_time = Instant::now();
         let config = SimpleConfig::default();

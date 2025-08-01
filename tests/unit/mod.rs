@@ -94,7 +94,7 @@ mod types_tests {
         };
         
         // Validate token fields
-        assert_eq!(token.mint.len(), 44); // Solana address length
+        assert_eq!(token.mint.len(), 43); // SOL mint address length
         assert!(token.decimals > 0);
         assert!(!token.symbol.is_empty());
         
@@ -197,11 +197,11 @@ mod validation_tests {
     fn test_profit_threshold_validation() {
         let config = SimpleConfig::default();
         
-        // Test profit calculations
-        let test_profit = 0.02; // 2%
+        // Test profit calculations (min_profit_threshold default is 0.001 = 0.1%)
+        let test_profit = 0.002; // 0.2%
         assert!(test_profit > config.min_profit_threshold);
         
-        let small_profit = 0.005; // 0.5%
+        let small_profit = 0.0005; // 0.05%
         assert!(small_profit < config.min_profit_threshold);
         
         println!("✅ Validation: Profit threshold validation passed");
@@ -211,11 +211,11 @@ mod validation_tests {
     fn test_slippage_validation() {
         let config = SimpleConfig::default();
         
-        // Test slippage bounds
-        let acceptable_slippage = 0.03; // 3%
+        // Test slippage bounds (max_slippage default is 0.005 = 0.5%)
+        let acceptable_slippage = 0.003; // 0.3%
         assert!(acceptable_slippage < config.max_slippage);
         
-        let excessive_slippage = 0.1; // 10%
+        let excessive_slippage = 0.01; // 1%
         assert!(excessive_slippage > config.max_slippage);
         
         println!("✅ Validation: Slippage validation passed");

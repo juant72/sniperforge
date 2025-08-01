@@ -64,7 +64,7 @@ pub mod helpers {
 
     /// Validate Solana token address format
     pub fn is_valid_solana_address(address: &str) -> bool {
-        address.len() == 44 && 
+        (address.len() == 43 || address.len() == 44) && 
         address.chars().all(|c| "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".contains(c))
     }
 
