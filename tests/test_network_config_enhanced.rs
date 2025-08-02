@@ -1,10 +1,10 @@
 #[cfg(test)]
 mod tests {
     use sniperforge::config::network::{
-        NetworkConfig, NetworkConfigBuilder, TokenInfo, ProgramIds,
-        DexConfiguration, ValidationRules
+        NetworkConfig, TokenInfo, ProgramIds,
     };
-    use std::fs;
+    use std::str::FromStr;
+    use solana_sdk::pubkey::Pubkey;
 
     #[test]
     fn test_network_config_from_config_devnet() {
@@ -100,10 +100,10 @@ mod tests {
     #[test]
     fn test_builder_pattern() {
         let program_ids = ProgramIds {
-            system_program: solana_sdk::pubkey::Pubkey::from_str("11111111111111111111111111111111").unwrap(),
-            token_program: solana_sdk::pubkey::Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
-            associated_token_program: solana_sdk::pubkey::Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
-            compute_budget_program: solana_sdk::pubkey::Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
+            system_program: Pubkey::from_str("11111111111111111111111111111111").unwrap(),
+            token_program: Pubkey::from_str("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA").unwrap(),
+            associated_token_program: Pubkey::from_str("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL").unwrap(),
+            compute_budget_program: Pubkey::from_str("ComputeBudget111111111111111111111111111111").unwrap(),
             jupiter_program: None,
             orca_whirlpool_program: None,
             raydium_amm_program: None,

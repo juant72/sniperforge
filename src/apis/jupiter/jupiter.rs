@@ -503,6 +503,31 @@ impl Jupiter {
         &self.metrics
     }
 
+    /// Get network name - ENTERPRISE ACCESSOR
+    pub fn get_network_name(&self) -> &str {
+        &self.network_name
+    }
+
+    /// Get network configuration - ENTERPRISE ACCESSOR
+    pub fn get_network_configuration(&self) -> &NetworkConfig {
+        &self.network_config
+    }
+
+    /// Load Jupiter configuration from file - ENTERPRISE ACCESSOR
+    pub fn load_jupiter_config() -> Result<JupiterConfigFile> {
+        Self::load_config()
+    }
+
+    /// Update performance metrics - ENTERPRISE ACCESSOR
+    pub fn update_performance_metrics(&mut self, success: bool, response_time: Duration) {
+        self.update_metrics(success, response_time);
+    }
+
+    /// Get configuration - ENTERPRISE ACCESSOR
+    pub fn get_configuration(&self) -> &JupiterConfigFile {
+        &self.config
+    }
+
     /// Check if Jupiter is healthy (simplified version)
     pub async fn health_check(&mut self) -> Result<bool> {
         // Simple health check - just verify config is loaded

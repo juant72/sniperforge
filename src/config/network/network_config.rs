@@ -283,6 +283,94 @@ impl NetworkConfig {
         Ok(true)
     }
 
+    /// Enhanced DEX Detection Methods - ENTERPRISE ENHANCEMENTS from old-root-archive
+
+    /// Check if Jupiter DEX is available (from old-root-archive)
+    pub fn has_jupiter(&self) -> bool {
+        self.program_ids.jupiter_program.is_some()
+    }
+
+    /// Check if Orca DEX is available (from old-root-archive)
+    pub fn has_orca(&self) -> bool {
+        self.program_ids.orca_whirlpool_program.is_some()
+    }
+
+    /// Check if Raydium DEX is available (from old-root-archive)
+    pub fn has_raydium(&self) -> bool {
+        self.program_ids.raydium_amm_program.is_some()
+    }
+
+    /// Get list of available DEXes (from old-root-archive)
+    pub fn available_dexes(&self) -> Vec<String> {
+        let mut dexes = Vec::new();
+        
+        if self.has_jupiter() {
+            dexes.push("jupiter".to_string());
+        }
+        if self.has_orca() {
+            dexes.push("orca".to_string());
+        }
+        if self.has_raydium() {
+            dexes.push("raydium".to_string());
+        }
+        
+        dexes
+    }
+
+    /// Validation & Test Helpers - ENTERPRISE ENHANCEMENTS from old-root-archive
+
+    /// Validate network configuration (from old-root-archive)
+    pub fn validate(&self) -> Result<(), String> {
+        // Check RPC endpoint format
+        if !self.rpc_endpoint.starts_with("http") {
+            return Err("RPC endpoint must be a valid HTTP URL".to_string());
+        }
+
+        // Check that at least one DEX is available
+        if self.available_dexes().is_empty() {
+            return Err("At least one DEX must be configured".to_string());
+        }
+
+        // Validate token addresses
+        for (symbol, token) in &self.token_addresses {
+            if token.symbol != *symbol {
+                return Err(format!("Token symbol mismatch for {}", symbol));
+            }
+            
+            if token.address.len() != 44 {
+                return Err(format!("Invalid token address length for {}", symbol));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get test token pair for testing (from old-root-archive)
+    pub fn get_test_token_pair(&self) -> (Pubkey, Option<Pubkey>) {
+        // Default to SOL as base token
+        let sol_pubkey = match Pubkey::from_str("So11111111111111111111111111111111111111112") {
+            Ok(pk) => pk,
+            Err(_) => self.program_ids.system_program, // Fallback
+        };
+
+        // Try to find USDC as quote token
+        let usdc_pubkey = self.token_addresses
+            .get("USDC")
+            .and_then(|token| Pubkey::from_str(&token.address).ok());
+
+        (sol_pubkey, usdc_pubkey)
+    }
+
+    /// Create NetworkConfig by name (from old-root-archive)
+    pub fn by_name(network: &str) -> Result<Self, String> {
+        match network.to_lowercase().as_str() {
+            "devnet" | "dev" => Self::devnet().map_err(|e| e.to_string()),
+            "mainnet" | "main" | "mainnet-beta" => Self::mainnet().map_err(|e| e.to_string()),
+            "testnet" | "test" => Self::testnet().map_err(|e| e.to_string()),
+            _ => Err(format!("Unknown network: {}", network)),
+        }
+    }
+
     /// Get token info by symbol
     pub fn get_token_info(&self, symbol: &str) -> Option<&TokenInfo> {
         self.token_addresses.get(symbol)

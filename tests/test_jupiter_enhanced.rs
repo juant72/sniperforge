@@ -1,12 +1,10 @@
 #[cfg(test)]
 mod tests {
     use sniperforge::apis::jupiter::{
-        Jupiter, JupiterBuilder, JupiterConfigFile, JupiterApiConfig,
-        NetworkJupiterConfig, QuoteRequest
+        Jupiter, JupiterBuilder, JupiterApiConfig,
+        QuoteRequest, JupiterClient, JupiterMetrics
     };
     use sniperforge::config::network::NetworkConfig;
-    use solana_sdk::signature::Keypair;
-    use std::str::FromStr;
     use std::time::Duration;
 
     #[tokio::test]
@@ -19,8 +17,8 @@ mod tests {
         assert!(result.is_ok(), "Failed to create Jupiter from config: {:?}", result.err());
         
         let jupiter = result.unwrap();
-        assert_eq!(jupiter.network_name, "devnet");
-        assert_eq!(jupiter.network_config.network, "DevNet");
+        assert_eq!(jupiter.get_network_name(), "devnet");
+        assert_eq!(jupiter.get_network_configuration().network, "DevNet");
     }
 
     #[tokio::test]
@@ -29,13 +27,13 @@ mod tests {
         assert!(result.is_ok(), "Failed to create Jupiter from config: {:?}", result.err());
         
         let jupiter = result.unwrap();
-        assert_eq!(jupiter.network_name, "mainnet");
-        assert_eq!(jupiter.network_config.network, "MainNet");
+        assert_eq!(jupiter.get_network_name(), "mainnet");
+        assert_eq!(jupiter.get_network_configuration().network, "MainNet");
     }
 
     #[test]
     fn test_jupiter_load_config() {
-        let result = Jupiter::load_config();
+        let result = Jupiter::load_jupiter_config();
         assert!(result.is_ok(), "Failed to load Jupiter config: {:?}", result.err());
         
         let config = result.unwrap();
@@ -54,7 +52,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_jupiter_builder_pattern() {
-        let config = Jupiter::load_config().expect("Failed to load config");
+        let config = Jupiter::load_jupiter_config().expect("Failed to load config");
         let network_config = NetworkConfig::from_config("devnet").expect("Failed to load network config");
         
         let result = JupiterBuilder::new()
@@ -67,7 +65,7 @@ mod tests {
         assert!(result.is_ok(), "Builder should succeed: {:?}", result.err());
         
         let jupiter = result.unwrap();
-        assert_eq!(jupiter.network_name, "devnet");
+        assert_eq!(jupiter.get_network_name(), "devnet");
     }
 
     #[tokio::test]
@@ -98,7 +96,7 @@ mod tests {
         // We don't assert success since we're not connected to real Jupiter API
         
         // Check that metrics were updated
-        assert_eq!(jupiter.metrics.total_requests, 1);
+        assert_eq!(jupiter.get_metrics().total_requests, 1);
     }
 
     #[test]
@@ -108,7 +106,7 @@ mod tests {
         // Simulate updating metrics manually
         let mut jupiter = Jupiter {
             client: JupiterClient::new(&JupiterApiConfig::default()).unwrap(),
-            config: Jupiter::load_config().unwrap(),
+            config: Jupiter::load_jupiter_config().unwrap(),
             network_config: NetworkConfig::from_config("devnet").unwrap(),
             network_name: "devnet".to_string(),
             metrics: jupiter_metrics,
@@ -116,17 +114,17 @@ mod tests {
         };
 
         // Test metrics update
-        jupiter.update_metrics(true, Duration::from_millis(100));
-        assert_eq!(jupiter.metrics.total_requests, 1);
-        assert_eq!(jupiter.metrics.successful_requests, 1);
-        assert_eq!(jupiter.metrics.failed_requests, 0);
-        assert_eq!(jupiter.metrics.error_rate, 0.0);
+        jupiter.update_performance_metrics(true, Duration::from_millis(100));
+        assert_eq!(jupiter.get_metrics().total_requests, 1);
+        assert_eq!(jupiter.get_metrics().successful_requests, 1);
+        assert_eq!(jupiter.get_metrics().failed_requests, 0);
+        assert_eq!(jupiter.get_metrics().error_rate, 0.0);
 
-        jupiter.update_metrics(false, Duration::from_millis(200));
-        assert_eq!(jupiter.metrics.total_requests, 2);
-        assert_eq!(jupiter.metrics.successful_requests, 1);
-        assert_eq!(jupiter.metrics.failed_requests, 1);
-        assert_eq!(jupiter.metrics.error_rate, 0.5);
+        jupiter.update_performance_metrics(false, Duration::from_millis(200));
+        assert_eq!(jupiter.get_metrics().total_requests, 2);
+        assert_eq!(jupiter.get_metrics().successful_requests, 1);
+        assert_eq!(jupiter.get_metrics().failed_requests, 1);
+        assert_eq!(jupiter.get_metrics().error_rate, 0.5);
     }
 
     #[tokio::test]
@@ -167,12 +165,12 @@ mod tests {
         // We don't assert the result since it depends on network connectivity
         
         // But we can check that metrics were updated
-        assert!(jupiter.metrics.total_requests > 0);
+        assert!(jupiter.get_metrics().total_requests > 0);
     }
 
     #[test]
     fn test_jupiter_config_file_structure() {
-        let config = Jupiter::load_config().expect("Failed to load config");
+        let config = Jupiter::load_jupiter_config().expect("Failed to load config");
         
         // Test required sections exist
         assert!(!config.jupiter_api.base_url.is_empty());
@@ -221,11 +219,11 @@ mod tests {
         let jupiter = Jupiter::from_config("devnet").await.expect("Failed to create Jupiter");
         
         // Test wallet integration settings
-        assert!(jupiter.config.wallet_integration.auto_wrap_sol);
-        assert!(jupiter.config.wallet_integration.auto_create_ata);
-        assert!(jupiter.config.wallet_integration.verify_balance_before_swap);
-        assert!(jupiter.config.wallet_integration.min_sol_balance_lamports > 0);
-        assert!(jupiter.config.wallet_integration.max_transaction_attempts > 0);
+        assert!(jupiter.get_configuration().wallet_integration.auto_wrap_sol);
+        assert!(jupiter.get_configuration().wallet_integration.auto_create_ata);
+        assert!(jupiter.get_configuration().wallet_integration.verify_balance_before_swap);
+        assert!(jupiter.get_configuration().wallet_integration.min_sol_balance_lamports > 0);
+        assert!(jupiter.get_configuration().wallet_integration.max_transaction_attempts > 0);
     }
 
     #[tokio::test]
@@ -233,10 +231,10 @@ mod tests {
         let jupiter = Jupiter::from_config("devnet").await.expect("Failed to create Jupiter");
         
         // Test fallback settings
-        assert!(jupiter.config.fallback_configuration.enable_fallback);
-        assert!(!jupiter.config.fallback_configuration.fallback_dexs.is_empty());
-        assert!(jupiter.config.fallback_configuration.fallback_delay_ms > 0);
-        assert!(jupiter.config.fallback_configuration.max_fallback_attempts > 0);
+        assert!(jupiter.get_configuration().fallback_configuration.enable_fallback);
+        assert!(!jupiter.get_configuration().fallback_configuration.fallback_dexs.is_empty());
+        assert!(jupiter.get_configuration().fallback_configuration.fallback_delay_ms > 0);
+        assert!(jupiter.get_configuration().fallback_configuration.max_fallback_attempts > 0);
     }
 
     #[tokio::test]
@@ -244,10 +242,10 @@ mod tests {
         let jupiter = Jupiter::from_config("devnet").await.expect("Failed to create Jupiter");
         
         // Test monitoring settings
-        assert!(jupiter.config.monitoring.log_requests);
-        assert!(jupiter.config.monitoring.enable_metrics);
-        assert!(jupiter.config.monitoring.max_error_rate > 0.0);
-        assert!(jupiter.config.monitoring.max_error_rate <= 1.0);
+        assert!(jupiter.get_configuration().monitoring.log_requests);
+        assert!(jupiter.get_configuration().monitoring.enable_metrics);
+        assert!(jupiter.get_configuration().monitoring.max_error_rate > 0.0);
+        assert!(jupiter.get_configuration().monitoring.max_error_rate <= 1.0);
     }
 
     #[tokio::test]
