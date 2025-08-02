@@ -1,0 +1,83 @@
+{
+  "jupiter_api": {
+    "base_url": "https://quote-api.jup.ag",
+    "v6_api_url": "https://quote-api.jup.ag/v6",
+    "v4_api_url": "https://quote-api.jup.ag/v4",
+    "price_api_url": "https://price.jup.ag/v4",
+    "tokens_api_url": "https://token.jup.ag/all",
+    "api_version": "v6",
+    "timeout_seconds": 30,
+    "max_retries": 3,
+    "retry_delay_ms": 1000
+  },
+  "network_mapping": {
+    "devnet": {
+      "enabled": true,
+      "jupiter_program_id": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "preferred_api_version": "v6",
+      "max_slippage_bps": 300,
+      "priority_fee_lamports": 5000,
+      "compute_unit_limit": 1400000
+    },
+    "mainnet": {
+      "enabled": true,
+      "jupiter_program_id": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+      "preferred_api_version": "v6",
+      "max_slippage_bps": 50,
+      "priority_fee_lamports": 10000,
+      "compute_unit_limit": 1400000
+    },
+    "testnet": {
+      "enabled": false,
+      "jupiter_program_id": null,
+      "preferred_api_version": "v6",
+      "max_slippage_bps": 500,
+      "priority_fee_lamports": 1000,
+      "compute_unit_limit": 1400000
+    }
+  },
+  "rate_limiting": {
+    "requests_per_second": 10,
+    "burst_allowance": 5,
+    "cooldown_period_ms": 100,
+    "backoff_multiplier": 1.5,
+    "max_backoff_ms": 5000
+  },
+  "trading_parameters": {
+    "default_slippage_bps": 50,
+    "max_slippage_bps": 300,
+    "min_output_amount_buffer": 0.95,
+    "price_impact_threshold": 0.03,
+    "enable_price_impact_warnings": true,
+    "require_exact_out": false
+  },
+  "wallet_integration": {
+    "auto_wrap_sol": true,
+    "auto_create_ata": true,
+    "verify_balance_before_swap": true,
+    "min_sol_balance_lamports": 50000000,
+    "max_transaction_attempts": 3
+  },
+  "monitoring": {
+    "log_requests": true,
+    "log_responses": false,
+    "track_performance": true,
+    "enable_metrics": true,
+    "alert_on_errors": true,
+    "max_error_rate": 0.1
+  },
+  "fallback_configuration": {
+    "enable_fallback": true,
+    "fallback_dexs": ["orca", "raydium"],
+    "fallback_delay_ms": 2000,
+    "max_fallback_attempts": 2
+  },
+  "advanced_features": {
+    "enable_versioned_transactions": true,
+    "enable_priority_fees": true,
+    "dynamic_slippage": true,
+    "smart_routing": true,
+    "multi_hop_optimization": true,
+    "jupiter_v6_features": true
+  }
+}

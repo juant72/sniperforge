@@ -60,8 +60,8 @@ impl JupiterClient {
         Self::new(JupiterApiConfig::mainnet())
     }
 
-    /// Get quote for token swap
-    pub async fn get_quote(&self, request: QuoteRequest) -> Result<JupiterQuoteResponse> {
+    /// Get quote for token swap with enhanced error handling
+    pub async fn get_quote(&self, request: &QuoteRequest) -> Result<JupiterQuoteResponse> {
         if !self.config.enabled {
             return Err(anyhow!("Jupiter integration is disabled"));
         }
@@ -73,7 +73,7 @@ impl JupiterClient {
 
         let mut attempt = 0;
         while attempt < self.config.max_retries {
-            match self.make_quote_request(&url, &request).await {
+            match self.make_quote_request(&url, request).await {
                 Ok(response) => {
                     debug!("✅ Jupiter quote successful on attempt {}", attempt + 1);
                     return Ok(response);
@@ -129,9 +129,9 @@ impl JupiterClient {
         Err(anyhow!("Price request failed after all retries"))
     }
 
-    /// Get quote in legacy format for backward compatibility
+    /// Get quote in legacy format for backward compatibility - ENHANCED
     pub async fn get_quote_legacy(&self, request: QuoteRequest) -> Result<JupiterQuote> {
-        let response = self.get_quote(request).await?;
+        let response = self.get_quote(&request).await?;
         Ok(JupiterQuote::from(response))
     }
 
@@ -247,5 +247,68 @@ impl JupiterClient {
             limiter.requests_this_second += 1;
             limiter.last_request = now;
         }
+    }
+
+    /// Get swap transaction from Jupiter API
+    pub async fn get_swap_transaction(&self, swap_request: &super::jupiter::SwapRequest) -> Result<String> {
+        if !self.config.enabled {
+            return Err(anyhow!("Jupiter integration is disabled"));
+        }
+
+        self.enforce_rate_limit().await;
+
+        let url = format!("{}/v6/swap", self.config.base_url);
+        debug!("🔄 Jupiter swap transaction request for user: {}", swap_request.user_public_key);
+
+        let mut attempt = 0;
+        while attempt < self.config.max_retries {
+            match self.make_swap_request(&url, swap_request).await {
+                Ok(response) => {
+                    debug!("✅ Jupiter swap transaction successful on attempt {}", attempt + 1);
+                    return Ok(response);
+                }
+                Err(e) => {
+                    attempt += 1;
+                    if attempt < self.config.max_retries {
+                        warn!("⚠️ Jupiter swap transaction attempt {} failed: {}. Retrying...", attempt, e);
+                        sleep(Duration::from_millis(1000 * attempt as u64)).await;
+                    } else {
+                        error!("❌ Jupiter swap transaction failed after {} attempts: {}", self.config.max_retries, e);
+                        return Err(e);
+                    }
+                }
+            }
+        }
+
+        Err(anyhow!("Swap transaction request failed after all retries"))
+    }
+
+    /// Make swap transaction request
+    async fn make_swap_request(&self, url: &str, swap_request: &super::jupiter::SwapRequest) -> Result<String> {
+        let response = self.client
+            .post(url)
+            .header("Content-Type", "application/json")
+            .json(swap_request)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Network error: {}", e))?;
+
+        if !response.status().is_success() {
+            return Err(anyhow!(
+                "Jupiter swap transaction API error: {} - {}",
+                response.status(),
+                response.text().await.unwrap_or_default()
+            ));
+        }
+
+        let swap_response: serde_json::Value = response.json().await
+            .map_err(|e| anyhow!("Failed to parse swap transaction response: {}", e))?;
+
+        // Extract the swap transaction (base64 encoded)
+        swap_response
+            .get("swapTransaction")
+            .and_then(|tx| tx.as_str())
+            .map(|tx| tx.to_string())
+            .ok_or_else(|| anyhow!("No swap transaction found in response"))
     }
 }

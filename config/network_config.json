@@ -1,0 +1,104 @@
+{
+  "networks": {
+    "devnet": {
+      "network": "DevNet",
+      "rpc_endpoint": "https://api.devnet.solana.com",
+      "program_ids": {
+        "system_program": "11111111111111111111111111111111",
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+        "jupiter_program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+        "orca_whirlpool_program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "raydium_amm_program": null,
+        "spl_token_swap_program": null
+      },
+      "dex_configuration": {
+        "preferred_dexs": ["jupiter", "orca"],
+        "dex_detection_enabled": true,
+        "priority_routing": true,
+        "fallback_strategy": "best_price"
+      },
+      "token_lists": [
+        "data/tokens/devnet_verified_tokens.json",
+        "data/tokens/devnet_tradeable_tokens.json"
+      ],
+      "validation_rules": {
+        "require_verified_tokens": false,
+        "min_liquidity_threshold": 1000,
+        "max_slippage_tolerance": 0.05,
+        "enable_price_impact_checks": true
+      }
+    },
+    "mainnet": {
+      "network": "MainNet",
+      "rpc_endpoint": "https://api.mainnet-beta.solana.com",
+      "program_ids": {
+        "system_program": "11111111111111111111111111111111",
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+        "jupiter_program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+        "orca_whirlpool_program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+        "raydium_amm_program": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+        "spl_token_swap_program": "SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8"
+      },
+      "dex_configuration": {
+        "preferred_dexs": ["jupiter", "raydium", "orca"],
+        "dex_detection_enabled": true,
+        "priority_routing": true,
+        "fallback_strategy": "best_execution"
+      },
+      "token_lists": [
+        "data/tokens/mainnet_verified_tokens.json",
+        "data/tokens/mainnet_tradeable_tokens.json",
+        "data/tokens/jupiter_token_list.json"
+      ],
+      "validation_rules": {
+        "require_verified_tokens": true,
+        "min_liquidity_threshold": 10000,
+        "max_slippage_tolerance": 0.03,
+        "enable_price_impact_checks": true
+      }
+    },
+    "testnet": {
+      "network": "TestNet",
+      "rpc_endpoint": "https://api.testnet.solana.com",
+      "program_ids": {
+        "system_program": "11111111111111111111111111111111",
+        "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "associated_token_program": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+        "compute_budget_program": "ComputeBudget111111111111111111111111111111",
+        "jupiter_program": null,
+        "orca_whirlpool_program": null,
+        "raydium_amm_program": null,
+        "spl_token_swap_program": null
+      },
+      "dex_configuration": {
+        "preferred_dexs": [],
+        "dex_detection_enabled": false,
+        "priority_routing": false,
+        "fallback_strategy": "basic"
+      },
+      "token_lists": [
+        "data/tokens/testnet_basic_tokens.json"
+      ],
+      "validation_rules": {
+        "require_verified_tokens": false,
+        "min_liquidity_threshold": 100,
+        "max_slippage_tolerance": 0.10,
+        "enable_price_impact_checks": false
+      }
+    }
+  },
+  "global_settings": {
+    "default_network": "devnet",
+    "config_refresh_interval": 300,
+    "cache_token_lists": true,
+    "enable_network_switching": true,
+    "rate_limiting": {
+      "rpc_calls_per_second": 10,
+      "burst_allowance": 5
+    }
+  }
+}

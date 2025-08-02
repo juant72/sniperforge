@@ -1,0 +1,22 @@
+[
+  {
+    "address": "So11111111111111111111111111111111111111112",
+    "symbol": "SOL",
+    "name": "Wrapped SOL",
+    "decimals": 9,
+    "verified": false,
+    "tradeable": true,
+    "liquidity_pools": [],
+    "price_sources": []
+  },
+  {
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "symbol": "USDC",
+    "name": "USD Coin",
+    "decimals": 6,
+    "verified": false,
+    "tradeable": true,
+    "liquidity_pools": [],
+    "price_sources": []
+  }
+]

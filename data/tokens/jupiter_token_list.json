@@ -1,0 +1,62 @@
+[
+  {
+    "address": "So11111111111111111111111111111111111111112",
+    "symbol": "SOL",
+    "name": "Wrapped SOL",
+    "decimals": 9,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  },
+  {
+    "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "symbol": "RAY",
+    "name": "Raydium",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  },
+  {
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "symbol": "USDC",
+    "name": "USD Coin",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  },
+  {
+    "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "symbol": "USDT",
+    "name": "Tether USD",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  },
+  {
+    "address": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+    "symbol": "PYTH",
+    "name": "Pyth Network",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  },
+  {
+    "address": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "symbol": "BONK",
+    "name": "Bonk",
+    "decimals": 5,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter"],
+    "price_sources": ["jupiter"]
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "address": "So11111111111111111111111111111111111111112",
+    "symbol": "SOL",
+    "name": "Wrapped SOL",
+    "decimals": 9,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca"],
+    "price_sources": ["jupiter", "coingecko"]
+  },
+  {
+    "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "symbol": "RAY",
+    "name": "Raydium",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["raydium", "jupiter"],
+    "price_sources": ["raydium", "jupiter"]
+  },
+  {
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "symbol": "USDC",
+    "name": "USD Coin",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca", "raydium"],
+    "price_sources": ["jupiter", "coinbase"]
+  },
+  {
+    "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "symbol": "USDT",
+    "name": "Tether USD",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "raydium"],
+    "price_sources": ["jupiter", "binance"]
+  }
+]

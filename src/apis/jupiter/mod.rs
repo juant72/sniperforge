@@ -6,6 +6,7 @@
 pub mod config;
 pub mod types;
 pub mod client;
+pub mod jupiter;
 
 // Re-export main types and structs for easy access
 pub use config::{JupiterApiConfig, JupiterSimpleConfig};
@@ -19,3 +20,9 @@ pub use types::{
     DexLabel, tokens,
 };
 pub use client::JupiterClient;
+pub use jupiter::{
+    Jupiter, JupiterBuilder, JupiterConfigFile, JupiterMetrics,
+    JupiterApiSettings, NetworkJupiterConfig, RateLimitingConfig,
+    TradingParameters, WalletIntegrationConfig, MonitoringConfig,
+    FallbackConfig, AdvancedFeatures,
+};

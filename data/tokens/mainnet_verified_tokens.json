@@ -1,0 +1,72 @@
+[
+  {
+    "address": "So11111111111111111111111111111111111111112",
+    "symbol": "SOL",
+    "name": "Wrapped SOL",
+    "decimals": 9,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca", "raydium"],
+    "price_sources": ["jupiter", "coingecko", "binance"]
+  },
+  {
+    "address": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "symbol": "RAY",
+    "name": "Raydium",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["raydium", "jupiter", "orca"],
+    "price_sources": ["raydium", "jupiter", "coingecko"]
+  },
+  {
+    "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "symbol": "USDC",
+    "name": "USD Coin",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca", "raydium"],
+    "price_sources": ["jupiter", "coinbase", "circle"]
+  },
+  {
+    "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+    "symbol": "USDT",
+    "name": "Tether USD",
+    "decimals": 6,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "raydium", "orca"],
+    "price_sources": ["jupiter", "binance", "tether"]
+  },
+  {
+    "address": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+    "symbol": "mSOL",
+    "name": "Marinade staked SOL",
+    "decimals": 9,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca"],
+    "price_sources": ["jupiter", "marinade"]
+  },
+  {
+    "address": "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj",
+    "symbol": "stSOL",
+    "name": "Lido Staked SOL",
+    "decimals": 9,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "orca"],
+    "price_sources": ["jupiter", "lido"]
+  },
+  {
+    "address": "rndrizKT3MK1iimdxRdWabcF7Zg7AR5T4nud4EkHBof",
+    "symbol": "RENDER",
+    "name": "Render Token",
+    "decimals": 8,
+    "verified": true,
+    "tradeable": true,
+    "liquidity_pools": ["jupiter", "raydium"],
+    "price_sources": ["jupiter", "coinbase"]
+  }
+]

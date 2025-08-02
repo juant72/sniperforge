@@ -44,8 +44,8 @@ impl TokenPriceData {
 // QUOTE API TYPES
 // =============================================================================
 
-/// Jupiter V6 Quote Request
-#[derive(Debug, Serialize, Clone)]
+/// Jupiter V6 Quote Request - ENHANCED VERSION
+#[derive(Debug, Serialize, Clone, Default)]
 pub struct QuoteRequest {
     #[serde(rename = "inputMint")]
     pub input_mint: String,
@@ -64,10 +64,13 @@ pub struct QuoteRequest {
     pub platform_fee_bps: Option<u16>,
     #[serde(rename = "maxAccounts")]
     pub max_accounts: Option<u16>,
+    /// User public key for wallet-specific operations - ENTERPRISE ENHANCEMENT
+    #[serde(rename = "userPublicKey", skip_serializing_if = "Option::is_none")]
+    pub user_public_key: Option<String>,
 }
 
 impl QuoteRequest {
-    /// Create a basic quote request
+    /// Create a basic quote request with enhanced defaults
     pub fn new(input_mint: String, output_mint: String, amount: u64) -> Self {
         Self {
             input_mint,
@@ -79,6 +82,7 @@ impl QuoteRequest {
             exclude_dexes: None,
             platform_fee_bps: None,
             max_accounts: None,
+            user_public_key: None, // ENTERPRISE ENHANCEMENT - Optional user key
         }
     }
 
@@ -91,6 +95,12 @@ impl QuoteRequest {
     /// Exclude specific DEXes
     pub fn exclude_dexes(mut self, dexes: Vec<String>) -> Self {
         self.exclude_dexes = Some(dexes);
+        self
+    }
+
+    /// Set user public key for wallet-specific operations - ENTERPRISE ENHANCEMENT
+    pub fn with_user_public_key(mut self, user_public_key: String) -> Self {
+        self.user_public_key = Some(user_public_key);
         self
     }
 }
@@ -140,7 +150,7 @@ pub struct RoutePlan {
     pub percent: u8,
 }
 
-/// Swap information
+/// Swap information - ENHANCED VERSION with price impact
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SwapInfo {
     #[serde(rename = "ammKey")]
@@ -158,6 +168,9 @@ pub struct SwapInfo {
     pub fee_amount: String,
     #[serde(rename = "feeMint")]
     pub fee_mint: String,
+    /// Price impact percentage (0.0 to 1.0) - ENTERPRISE ENHANCEMENT
+    #[serde(rename = "priceImpactPct", default)]
+    pub price_impact_pct: Option<f64>,
 }
 
 // =============================================================================
