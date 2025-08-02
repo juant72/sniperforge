@@ -15,22 +15,45 @@
 //! - **NEW**: Real trade execution engine for blockchain trading
 //!
 //! ## Usage
-//! ```rust
-//! use crate::trading::execution::{TradeExecutor, RealTradeExecutor};
-//! use crate::types::TradingMode;
+//! ```rust,no_run
+//! use sniperforge::config::Config;
+//! use sniperforge::types::TradingMode;
+//! use sniperforge::trading::execution::{TradeExecutor, RealTradeExecutor, RealTradingEngine};
+//! use sniperforge::trading::execution::{RealSwapRequest, RealTradeRequest};
 //!
-//! // Basic trade executor
-//! let executor = TradeExecutor::new(config, TradingMode::DevNet).await?;
-//! let result = executor.execute_trade(trade_request).await?;
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let config = Config::default();
 //!
-//! // Real trade executor for blockchain execution
-//! let real_executor = RealTradeExecutor::new(config, TradingMode::DevNet).await?;
-//! let real_result = real_executor.execute_real_trade(real_trade_request).await?;
+//!     // Basic trade executor
+//!     let executor = TradeExecutor::new(config.clone(), TradingMode::DevNet).await?;
+//!     // let result = executor.execute_trade(trade_request).await?;
+//!
+//!     // Real trade executor for blockchain execution
+//!     let real_executor = RealTradeExecutor::new(config.clone(), TradingMode::DevNet).await?;
+//!     // let real_result = real_executor.execute_real_trade(real_trade_request).await?;
+//!
+//!     // Real trading engine for advanced swap execution
+//!     let engine = RealTradingEngine::new(config.clone(), TradingMode::DevNet).await?;
+//!     // let swap_result = engine.execute_real_swap(swap_request).await?;
+//!     
+//!     Ok(())
+//! }
 //! ```
 
 pub mod real_executor;
+pub mod engine;
+pub mod jupiter_real;
+
+#[cfg(test)]
+pub mod jupiter_real_test;
 
 pub use real_executor::{RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats, RealTradingMode};
+pub use engine::{
+    RealTradingEngine, RealTradingConfig, RealSwapRequest, RealSwapResult, 
+    QuoteValidation, SwapInfo
+};
+pub use jupiter_real::{JupiterRealClient, JupiterQuote, JupiterSwapResult, JupiterRealConfig};
 
 use std::time::Instant;
 use tracing::{error, info, warn};
@@ -424,9 +447,9 @@ impl TradeExecutor {
         Ok(TradeExecutionResult {
             success: true,
             transaction_signature: Some(format!("devnet_sim_{}", chrono::Utc::now().timestamp())),
-            output_amount: 1000000, // TODO: Use actual quote output when methods are available
+            output_amount: 1_000_000, // TODO: Use actual quote output when methods are available
             slippage: 0.1, // Simulated minimal slippage
-            gas_fee: 0.000005, // Simulated fee
+            gas_fee: 0.000_005, // Simulated fee
             error_message: None,
         })
     }
@@ -465,9 +488,9 @@ impl TradeExecutor {
         Ok(TradeExecutionResult {
             success: true,
             transaction_signature: Some(format!("testnet_tx_{}", chrono::Utc::now().timestamp())),
-            output_amount: 950000, // Simulated output with some slippage
+            output_amount: 950_000, // Simulated output with some slippage
             slippage: 0.2, // Slightly higher slippage than DevNet
-            gas_fee: 0.000010, // Realistic TestNet fee
+            gas_fee: 0.000_010, // Realistic TestNet fee
             error_message: None,
         })
     }
@@ -484,7 +507,7 @@ impl TradeExecutor {
         Ok(TradeExecutionResult {
             success: true,
             transaction_signature: Some(format!("sim_tx_{}", chrono::Utc::now().timestamp())),
-            output_amount: 990000, // Ideal output with minimal slippage
+            output_amount: 990_000, // Ideal output with minimal slippage
             slippage: 0.05, // Minimal simulated slippage
             gas_fee: 0.0, // No real gas cost in simulation
             error_message: None,

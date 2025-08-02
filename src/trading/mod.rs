@@ -15,7 +15,12 @@ pub mod route_optimizer;  // ✅ AGREGADO: Route optimization engine
 // pub mod strategies;
 
 pub use arbitrage::{ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult, PerformanceMetrics};
-pub use execution::{TradeExecutor, TradeRequest, TradeResult as ExecutionTradeResult, ExecutionStats, RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats};
+pub use execution::{
+    TradeExecutor, TradeRequest, TradeResult as ExecutionTradeResult, ExecutionStats, 
+    RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats,
+    RealTradingEngine, RealTradingConfig, RealSwapRequest, RealSwapResult, 
+    QuoteValidation, SwapInfo
+};
 pub use hft_engine::{HftEngine, HftOrder, HftMetrics, OrderSide, OrderType};
 // pub use engine::*;
 // pub use executor::*;

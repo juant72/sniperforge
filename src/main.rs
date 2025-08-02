@@ -29,7 +29,6 @@ use sniperforge::{
 use std::{collections::HashMap, sync::Arc};
 use tokio::time::{sleep, Duration};
 use tracing::{info, warn, error, Level};
-use tracing_subscriber;
 
 /// Enterprise MultiBot system constants
 const SYSTEM_VERSION: &str = "3.0.0";
@@ -195,11 +194,11 @@ async fn main() -> Result<()> {
 /// Display enterprise MultiBot startup banner
 fn display_enterprise_multibot_banner() {
     println!("\n╔══════════════════════════════════════════════════════════════════════════════╗");
-    println!("║                  SniperForge Enterprise MultiBot System v{}                 ║", SYSTEM_VERSION);
+    println!("║                  SniperForge Enterprise MultiBot System v{SYSTEM_VERSION}                 ║");
     println!("║                        Professional Institutional Trading Platform              ║");
-    println!("║                              Codename: {}                 ║", SYSTEM_CODENAME);
+    println!("║                              Codename: {SYSTEM_CODENAME}                 ║");
     println!("╠══════════════════════════════════════════════════════════════════════════════╣");
-    println!("║ Build: {}                                                                ║", BUILD_DATE);
+    println!("║ Build: {BUILD_DATE}                                                                ║");
     println!("║ Started: {}                                                    ║", Utc::now().format("%Y-%m-%d %H:%M:%S UTC"));
     println!("╠══════════════════════════════════════════════════════════════════════════════╣");
     println!("║ 🎯 ALL PHASES 1-11 IMPLEMENTED 100% - COMPLETE ENTERPRISE SYSTEM             ║");
@@ -1243,8 +1242,8 @@ impl EnterpriseMultiBotSystem {
         println!("║   📊 SYSTEM PERFORMANCE METRICS:                                               ║");
         println!("║   • Total Cycles Executed: {}                                                  ║", self.cycle_count);
         println!("║   • Total Profit Generated: ${:.2}                                             ║", self.total_profit);
-        println!("║   • Average Profit per Cycle: ${:.2}                                          ║", avg_profit_per_cycle);
-        println!("║   • System Runtime: {} minutes                                                 ║", runtime_minutes);
+        println!("║   • Average Profit per Cycle: ${avg_profit_per_cycle:.2}                                          ║");
+        println!("║   • System Runtime: {runtime_minutes} minutes                                                 ║");
         println!("║   • Success Rate: {:.1}%                                                       ║", self.system_metrics.success_rate_percentage);
         println!("║   • AI Accuracy Rate: {:.1}%                                                   ║", self.system_metrics.ai_accuracy_rate);
         println!("║                                                                                  ║");

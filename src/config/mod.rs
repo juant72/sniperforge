@@ -1,4 +1,4 @@
-//! Configuration management for SniperForge
+//! Configuration management for `SniperForge`
 
 pub mod api_credentials;
 pub mod enterprise;

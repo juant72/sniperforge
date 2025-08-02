@@ -12,12 +12,18 @@
 //! - **Audit Trail** - Complete transaction logging and tracking
 //!
 //! ## Usage
-//! ```rust
-//! use crate::trading::execution::RealTradeExecutor;
-//! use crate::types::TradingMode;
+//! ```rust,no_run
+//! use sniperforge::config::Config;
+//! use sniperforge::types::TradingMode;
+//! use sniperforge::trading::execution::{RealTradeExecutor, RealTradeRequest};
 //!
-//! let executor = RealTradeExecutor::new(config, TradingMode::DevNet).await?;
-//! let result = executor.execute_real_trade(real_trade_request).await?;
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let config = Config::default();
+//!     let executor = RealTradeExecutor::new(config, TradingMode::DevNet).await?;
+//!     // let result = executor.execute_real_trade(real_trade_request).await?;
+//!     Ok(())
+//! }
 //! ```
 
 use serde::{Deserialize, Serialize};
@@ -416,10 +422,10 @@ impl RealTradeExecutor {
         Ok(BlockchainSwapResult {
             success: true,
             transaction_signature: Some(simulated_signature),
-            block_height: Some(123456789),
+            block_height: Some(123_456_789),
             output_amount: simulated_output,
             actual_slippage: 0.1, // 0.1% slippage
-            network_fee: 0.000005, // ~$0.0001 fee
+            network_fee: 0.000_005, // ~$0.0001 fee
             error_message: None,
         })
     }

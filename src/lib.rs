@@ -1,6 +1,6 @@
-//! # SniperForge Core Library
+//! # `SniperForge` Core Library
 //! 
-//! Professional-grade core library for Solana DeFi trading bots.
+//! Professional-grade core library for Solana `DeFi` trading bots.
 //! 
 //! ## Features
 //! 
@@ -16,6 +16,20 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
+// Allow some verbose warnings during development
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::too_many_lines)]
+#![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::redundant_else)]
+#![allow(clippy::too_long_first_doc_paragraph)]
+#![allow(clippy::uninlined_format_args)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_const_for_fn)]
 
 pub mod config;
 pub mod trading;
@@ -30,7 +44,12 @@ pub mod intelligence;
 
 // Re-export commonly used types
 pub use config::{SimpleConfig, EnterpriseConfig};
-pub use trading::{ArbitrageEngine, PortfolioManager, Position, TradeSide, RiskMetrics, PortfolioSummary, HftEngine, TradeExecutor, TradeRequest, ExecutionStats, RealTradeExecutor, RealTradeRequest, RealTradeResult};
+pub use trading::{
+    ArbitrageEngine, PortfolioManager, Position, TradeSide, RiskMetrics, PortfolioSummary, HftEngine, 
+    TradeExecutor, TradeRequest, ExecutionStats, 
+    RealTradeExecutor, RealTradeRequest, RealTradeResult,
+    RealTradingEngine, RealTradingConfig, RealSwapRequest, RealSwapResult
+};
 pub use monitoring::{EnterpriseMonitor, SystemStatus, TradingMetrics, SystemMetrics};
 pub use intelligence::{AdvancedAiEngine, IntelligenceSystem, AutonomousTrader, IntelligenceConfig, MarketIntelligence, TradingAction};
 pub use types::*;

@@ -1,4 +1,4 @@
-//! Configuración de credenciales de APIs para el sistema SniperForge
+//! Configuración de credenciales de APIs para el sistema `SniperForge`
 //! Centraliza todas las credenciales y URLs de servicios externos
 //! TODAS LAS CREDENCIALES SE CARGAN DESDE config.json - NO HAY HARDCODING
 
@@ -98,7 +98,7 @@ impl Default for ApiCredentials {
     fn default() -> Self {
         // Intentar cargar desde config.json, usar valores por defecto si falla
         Self::load_from_file("config.json").unwrap_or_else(|e| {
-            eprintln!("⚠️ Error cargando config.json: {}", e);
+            eprintln!("⚠️ Error cargando config.json: {e}");
             eprintln!("📁 Usando configuración por defecto (NO RECOMENDADO para producción)");
             Self::create_default_fallback()
         })

@@ -56,7 +56,7 @@ mod validation_tests {
         for address in malicious_addresses {
             // Malicious addresses should be invalid (wrong length, invalid characters)
             assert_ne!(address.len(), 44);
-            println!("✅ Security: Malicious input '{}' correctly identified as invalid", address);
+            println!("✅ Security: Malicious input '{address}' correctly identified as invalid");
         }
         
         println!("✅ Security: Address validation passed");
@@ -82,7 +82,7 @@ mod validation_tests {
         
         for amount in malicious_amounts {
             assert!(amount.is_infinite() || amount.is_nan() || amount < 0.0 || amount > config.max_position_size);
-            println!("✅ Security: Malicious amount {} correctly handled", amount);
+            println!("✅ Security: Malicious amount {amount} correctly handled");
         }
     }
 
@@ -99,7 +99,7 @@ mod validation_tests {
         
         for value in extreme_values {
             if value <= 0.0 || value >= 1.0 || !value.is_finite() {
-                println!("✅ Security: Extreme profit threshold {} correctly identified", value);
+                println!("✅ Security: Extreme profit threshold {value} correctly identified");
             }
         }
     }
@@ -141,9 +141,9 @@ mod risk_management_tests {
         for amount in test_amounts {
             let within_limits = amount <= config.max_position_size;
             if within_limits {
-                println!("✅ Security: Amount {} within portfolio limits", amount);
+                println!("✅ Security: Amount {amount} within portfolio limits");
             } else {
-                println!("✅ Security: Amount {} exceeds limits (correctly identified)", amount);
+                println!("✅ Security: Amount {amount} exceeds limits (correctly identified)");
             }
         }
     }
@@ -178,7 +178,7 @@ mod transaction_security_tests {
         for slippage in extreme_slippage {
             let is_safe = slippage > 0.0 && slippage < 0.2 && slippage.is_finite();
             if !is_safe {
-                println!("✅ Security: Unsafe slippage {} correctly identified", slippage);
+                println!("✅ Security: Unsafe slippage {slippage} correctly identified");
             }
         }
     }
@@ -198,14 +198,14 @@ mod error_security_tests {
         ];
         
         for error in errors {
-            let error_msg = format!("{}", error);
+            let error_msg = format!("{error}");
             
             // Ensure no sensitive data in error messages
             assert!(!error_msg.contains("password"));
             assert!(!error_msg.contains("private_key"));
             assert!(!error_msg.contains("secret"));
             
-            println!("✅ Security: Error message safe: {}", error_msg);
+            println!("✅ Security: Error message safe: {error_msg}");
         }
     }
 
@@ -269,7 +269,7 @@ mod network_security_tests {
         
         for url in malicious_urls {
             assert!(!url.starts_with("https://"));
-            println!("✅ Security: Malicious URL '{}' correctly rejected", url);
+            println!("✅ Security: Malicious URL '{url}' correctly rejected");
         }
     }
 
