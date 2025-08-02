@@ -112,7 +112,7 @@ fn test_strategy_config_creation() {
 fn test_arbitrage_strategy_creation() {
     let strategy = ArbitrageStrategy::new();
     
-    assert_eq!(strategy.name(), "arbitrage");
+    assert_eq!(strategy.name(), "Enhanced Arbitrage");
     
     println!("✅ ArbitrageStrategy creation works correctly");
 }
@@ -121,7 +121,7 @@ fn test_arbitrage_strategy_creation() {
 fn test_momentum_strategy_creation() {
     let strategy = MomentumStrategy::new();
     
-    assert_eq!(strategy.name(), "momentum");
+    assert_eq!(strategy.name(), "Enhanced Momentum Enterprise");
     
     println!("✅ MomentumStrategy creation works correctly");
 }
@@ -130,7 +130,7 @@ fn test_momentum_strategy_creation() {
 fn test_mean_reversion_strategy_creation() {
     let strategy = MeanReversionStrategy::new();
     
-    assert_eq!(strategy.name(), "mean_reversion");
+    assert_eq!(strategy.name(), "Enhanced Mean Reversion Enterprise");
     
     println!("✅ MeanReversionStrategy creation works correctly");
 }
