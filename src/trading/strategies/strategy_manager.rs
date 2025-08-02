@@ -620,13 +620,15 @@ impl StrategyManager {
 mod tests {
     use super::*;
     use crate::config::SimpleConfig;
-    use std::collections::HashMap;
 
     fn create_test_config() -> SimpleConfig {
         SimpleConfig {
-            portfolio_value: Some(10000.0),
-            enable_ml_analysis: Some(true),
-            max_concurrent_trades: Some(5),
+            enable_ml_analysis: true,
+            max_concurrent_trades: 5,
+            trading_amount: 10000.0,
+            use_secondary_rpc: Some(false),
+            rpc_retry_attempts: Some(3),
+            rpc_timeout_ms: Some(10000),
             ..Default::default()
         }
     }
@@ -634,9 +636,9 @@ mod tests {
     #[test]
     fn test_strategy_manager_creation() {
         let config = create_test_config();
-        let manager = StrategyManager::new(config);
+        let manager = StrategyManager::new(config.clone());
         
-        assert_eq!(manager.total_capital, 10000.0);
+        assert_eq!(manager.total_capital, config.trading_amount * 100.0); // Expected calculation
         assert_eq!(manager.max_concurrent_strategies, 3);
         assert_eq!(manager.strategies.len(), 0); // Before initialization
     }
@@ -677,18 +679,23 @@ mod tests {
     #[test]
     fn test_daily_loss_tracking() {
         let config = create_test_config();
-        let mut manager = StrategyManager::new(config);
+        let mut manager = StrategyManager::new(config.clone());
         
-        // Simulate a large loss
+        // Calculate expected total capital
+        let expected_total_capital = config.trading_amount * 100.0; // 1,000,000.0
+        
+        // Simulate a large loss that should trigger emergency stop (15% loss)
         let trade_result = TradeResult {
-            profit_loss: -1500.0, // 15% loss
+            profit_loss: -0.15 * expected_total_capital, // 15% of total capital
             fees: 5.0,
             ..Default::default()
         };
         
         manager.update_global_performance(&trade_result, "test_strategy").unwrap();
         
-        // Should trigger emergency stop
-        assert!(manager.current_daily_loss <= manager.emergency_stop_threshold);
+        // Should trigger emergency stop (current_daily_loss should be <= -0.10)
+        assert!(manager.current_daily_loss <= manager.emergency_stop_threshold,
+               "Daily loss {} should trigger emergency stop at {}", 
+               manager.current_daily_loss, manager.emergency_stop_threshold);
     }
 }

@@ -531,8 +531,8 @@ mod tests {
     fn test_arbitrage_strategy_creation() {
         let strategy = ArbitrageStrategy::new();
         assert_eq!(strategy.name(), "Enhanced Arbitrage");
-        assert!(strategy.is_enabled());
-        assert_eq!(strategy.get_config().capital_allocation, 0.15);
+        assert!(strategy.enabled());
+        assert_eq!(strategy.config().capital_allocation, 0.15);
     }
 
     #[test]

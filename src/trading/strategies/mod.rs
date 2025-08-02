@@ -56,7 +56,7 @@ impl Default for StrategyConfig {
 }
 
 /// Risk level for strategy configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RiskLevel {
     Conservative,
     Moderate,

@@ -552,6 +552,7 @@ impl Default for MomentumStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::OpportunityType;
     use std::collections::HashMap;
 
     fn create_test_market_data() -> MarketData {

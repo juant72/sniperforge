@@ -563,6 +563,7 @@ impl Default for MeanReversionStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::OpportunityType;
     use std::collections::HashMap;
 
     fn create_test_market_data() -> MarketData {
@@ -609,7 +610,11 @@ mod tests {
     #[test]
     fn test_statistical_calculations() {
         let strategy = MeanReversionStrategy::new();
-        let prices = vec![95.0, 98.0, 100.0, 102.0, 105.0, 103.0, 101.0, 99.0, 97.0, 100.0];
+        // Providing 20 prices to ensure we have enough for RSI calculation (needs 15 minimum)
+        let prices = vec![
+            95.0, 98.0, 100.0, 102.0, 105.0, 103.0, 101.0, 99.0, 97.0, 100.0,
+            102.0, 104.0, 103.0, 101.0, 99.0, 98.0, 100.0, 102.0, 104.0, 103.0
+        ];
         
         // Test SMA calculation
         let sma = strategy.calculate_sma(&prices, 5);
@@ -619,7 +624,7 @@ mod tests {
         let ema = strategy.calculate_ema(&prices, 5);
         assert!(ema.is_some());
         
-        // Test RSI calculation
+        // Test RSI calculation (now with sufficient data)
         let rsi = strategy.calculate_rsi(&prices);
         assert!(rsi.is_some());
         
