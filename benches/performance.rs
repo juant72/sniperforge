@@ -75,6 +75,11 @@ fn create_test_config() -> SimpleConfig {
         portfolio_rebalancing: true,
         stop_loss_percentage: 5.0,
         take_profit_percentage: 10.0,
+        
+        // ✅ RPC Configuration Enterprise (Required fields)
+        use_secondary_rpc: Some(true),
+        rpc_retry_attempts: Some(3),
+        rpc_timeout_ms: Some(5000),
     }
 }
 
