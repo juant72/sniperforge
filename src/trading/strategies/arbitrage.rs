@@ -6,11 +6,9 @@
 
 use super::{
     TradingStrategy, StrategyConfig, StrategyPerformance, StrategySignal, SignalType,
-    Timeframe, RiskLevel, TradeResult, utils
+    Timeframe, RiskLevel, TradeResult
 };
-use crate::trading::arbitrage::{
-    ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult as ArbitrageTradeResult
-};
+use crate::trading::arbitrage::ArbitrageEngine;
 use crate::types::{TradingOpportunity, MarketData};
 use anyhow::Result;
 use std::collections::HashMap;
@@ -177,8 +175,9 @@ impl ArbitrageStrategy {
                         };
 
                     // Estimate liquidity (simplified - in production use real data)
-                    let liquidity_buy = market_data.liquidity * 0.8;
-                    let liquidity_sell = market_data.liquidity * 0.8;
+                    let default_liquidity = 10000.0; // Default liquidity assumption
+                    let liquidity_buy = market_data.get_liquidity(&buy_exchange).unwrap_or(default_liquidity) * 0.8;
+                    let liquidity_sell = market_data.get_liquidity(&sell_exchange).unwrap_or(default_liquidity) * 0.8;
 
                     // Calculate net profit after costs
                     let amount = self.config.max_position_size;
@@ -307,19 +306,19 @@ impl TradingStrategy for ArbitrageStrategy {
         &self.config.name
     }
 
-    fn analyze(&self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Option<StrategySignal>> {
+    fn analyze(&mut self, opportunity: &TradingOpportunity, market_data: &MarketData) -> Result<Vec<StrategySignal>> {
         debug!("🔍 Analyzing arbitrage opportunity: {}", opportunity.opportunity_type);
 
         // Check if strategy is enabled and we have sufficient price feeds
         if !self.enabled {
             debug!("🚫 Arbitrage strategy disabled");
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         if self.price_feeds.len() < 2 {
             warn!("🚫 Insufficient real exchange price feeds for arbitrage (need 2+, have {})", 
                   self.price_feeds.len());
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         // Detect arbitrage opportunities using real price feeds
@@ -330,7 +329,7 @@ impl TradingStrategy for ArbitrageStrategy {
             Some(opp) => opp,
             None => {
                 debug!("🚫 No profitable arbitrage opportunities found");
-                return Ok(None);
+                return Ok(vec![]);
             }
         };
 
@@ -338,13 +337,13 @@ impl TradingStrategy for ArbitrageStrategy {
         if best_opportunity.confidence < self.config.min_confidence {
             debug!("🚫 Arbitrage confidence too low: {:.2} < {:.2}", 
                    best_opportunity.confidence, self.config.min_confidence);
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         if best_opportunity.estimated_profit < 1.0 {
             debug!("🚫 Arbitrage profit too low: ${:.2} < $1.00", 
                    best_opportunity.estimated_profit);
-            return Ok(None);
+            return Ok(vec![]);
         }
 
         // Calculate position size
@@ -355,11 +354,11 @@ impl TradingStrategy for ArbitrageStrategy {
         let signal_type = SignalType::Buy;
 
         // Set tight stop loss for arbitrage
-        let stop_loss = Some(best_opportunity.buy_price * 
+        let _stop_loss = Some(best_opportunity.buy_price * 
             (1.0 - self.config.stop_loss_percent / 100.0));
 
         // Take profit at sell price minus execution slippage
-        let take_profit = Some(best_opportunity.sell_price * 0.995);
+        let _take_profit = Some(best_opportunity.sell_price * 0.995);
 
         // Create detailed metadata
         let mut metadata = HashMap::new();
@@ -378,12 +377,14 @@ impl TradingStrategy for ArbitrageStrategy {
             signal_type,
             confidence: best_opportunity.confidence,
             timeframe: Timeframe::OneMin, // Arbitrage requires immediate execution
-            entry_price: best_opportunity.buy_price,
-            stop_loss,
-            take_profit,
-            position_size,
+            token_pair: opportunity.token_pair.clone(),
+            price: best_opportunity.buy_price,
+            volume: position_size,
             timestamp: Utc::now(),
-            metadata,
+            metadata: Some(format!("profit:{:.2}%,buy:{},sell:{}", 
+                best_opportunity.profit_percentage * 100.0,
+                best_opportunity.buy_exchange,
+                best_opportunity.sell_exchange)),
         };
 
         info!("⚡ Arbitrage Signal Generated: Buy {} at {:.6}, Sell {} at {:.6} | Profit: {:.2}% (${:.2})", 
@@ -394,7 +395,7 @@ impl TradingStrategy for ArbitrageStrategy {
               best_opportunity.profit_percentage * 100.0,
               best_opportunity.estimated_profit);
 
-        Ok(Some(signal))
+        Ok(vec![signal])
     }
 
     fn update_performance(&mut self, trade_result: &TradeResult) -> Result<()> {
@@ -454,11 +455,7 @@ impl TradingStrategy for ArbitrageStrategy {
         Ok(())
     }
 
-    fn get_performance(&self) -> &StrategyPerformance {
-        &self.performance
-    }
-
-    fn is_enabled(&self) -> bool {
+    fn enabled(&self) -> bool {
         self.enabled
     }
 
@@ -467,15 +464,44 @@ impl TradingStrategy for ArbitrageStrategy {
         info!("🔄 Arbitrage strategy {}", if enabled { "enabled" } else { "disabled" });
     }
 
-    fn get_config(&self) -> &StrategyConfig {
+    fn config(&self) -> &StrategyConfig {
         &self.config
     }
 
-    fn update_config(&mut self, config: StrategyConfig) -> Result<()> {
-        info!("⚙️ Updating arbitrage strategy configuration");
-        self.config = config;
-        self.performance.strategy_name = self.config.name.clone();
-        Ok(())
+    fn config_mut(&mut self) -> &mut StrategyConfig {
+        &mut self.config
+    }
+
+    fn performance(&self) -> &StrategyPerformance {
+        &self.performance
+    }
+
+    fn performance_mut(&mut self) -> &mut StrategyPerformance {
+        &mut self.performance
+    }
+
+    fn get_position_size(&self, confidence: f64, available_capital: f64) -> f64 {
+        let max_size = self.config.max_position_size;
+        let risk_adjusted_size = available_capital * self.config.capital_allocation * confidence;
+        risk_adjusted_size.min(max_size)
+    }
+
+    fn should_exit(&self, current_price: f64, entry_price: f64, signal_type: &SignalType) -> bool {
+        let price_change_percent = ((current_price - entry_price) / entry_price) * 100.0;
+        
+        match signal_type {
+            SignalType::Buy => {
+                // Exit long position if stop loss or take profit hit
+                price_change_percent <= -self.config.stop_loss_percent ||
+                price_change_percent >= self.config.take_profit_percent
+            }
+            SignalType::Sell => {
+                // Exit short position if stop loss or take profit hit
+                price_change_percent >= self.config.stop_loss_percent ||
+                price_change_percent <= -self.config.take_profit_percent
+            }
+            _ => false,
+        }
     }
 }
 
@@ -488,8 +514,6 @@ impl Default for ArbitrageStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::OpportunityType;
-
     #[test]
     fn test_arbitrage_strategy_creation() {
         let strategy = ArbitrageStrategy::new();

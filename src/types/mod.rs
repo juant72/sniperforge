@@ -481,6 +481,18 @@ pub enum OpportunityType {
     Grid,
 }
 
+impl std::fmt::Display for OpportunityType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpportunityType::Arbitrage => write!(f, "Arbitrage"),
+            OpportunityType::Momentum => write!(f, "Momentum"),
+            OpportunityType::MeanReversion => write!(f, "MeanReversion"),
+            OpportunityType::TrendFollowing => write!(f, "TrendFollowing"),
+            OpportunityType::Grid => write!(f, "Grid"),
+        }
+    }
+}
+
 /// Trading opportunity structure for strategy framework
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradingOpportunity {

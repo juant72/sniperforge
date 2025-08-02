@@ -1,5 +1,6 @@
 use sniperforge::trading::strategies::{ArbitrageStrategy, TradingStrategy, StrategyManager};
 use sniperforge::types::{TradingOpportunity, MarketData, OpportunityType};
+use std::collections::HashMap;
 
 #[tokio::test]
 async fn test_arbitrage_consolidation_integration() {
@@ -11,13 +12,29 @@ async fn test_arbitrage_consolidation_integration() {
     arbitrage_strategy.update_price_feed("Raydium".to_string(), 102.30);
     arbitrage_strategy.update_price_feed("Orca".to_string(), 101.80);
     
-    // Create test data
-    let market_data = MarketData {
+    // Create enhanced test market data with enterprise features
+    let mut market_data = MarketData {
         current_price: 101.0,
         volume_24h: 500000.0,
-        liquidity: 100000.0,
         bid_ask_spread: 0.002,
+        prices: HashMap::new(),
+        volumes: HashMap::new(),
+        liquidity: HashMap::new(),
+        last_updated: Some(std::time::Instant::now()),
     };
+    
+    // Add enterprise market data for multiple exchanges
+    market_data.prices.insert("Jupiter".to_string(), 100.50);
+    market_data.prices.insert("Raydium".to_string(), 102.30);
+    market_data.prices.insert("Orca".to_string(), 101.80);
+    
+    market_data.volumes.insert("Jupiter".to_string(), 150000.0);
+    market_data.volumes.insert("Raydium".to_string(), 200000.0);
+    market_data.volumes.insert("Orca".to_string(), 150000.0);
+    
+    market_data.liquidity.insert("Jupiter".to_string(), 100000.0);
+    market_data.liquidity.insert("Raydium".to_string(), 120000.0);
+    market_data.liquidity.insert("Orca".to_string(), 110000.0);
     
     let opportunity = TradingOpportunity {
         opportunity_type: OpportunityType::Arbitrage,
@@ -66,13 +83,24 @@ async fn test_strategy_manager_integration() {
     // Add strategy to manager
     strategy_manager.add_strategy(Box::new(arbitrage_strategy));
     
-    // Create test data
-    let market_data = MarketData {
+    // Create enhanced test market data with enterprise features
+    let mut market_data = MarketData {
         current_price: 101.0,
         volume_24h: 500000.0,
-        liquidity: 100000.0,
         bid_ask_spread: 0.002,
+        prices: HashMap::new(),
+        volumes: HashMap::new(),
+        liquidity: HashMap::new(),
+        last_updated: Some(std::time::Instant::now()),
     };
+    
+    // Add enterprise market data for multiple exchanges  
+    market_data.prices.insert("Jupiter".to_string(), 100.50);
+    market_data.prices.insert("Raydium".to_string(), 102.30);
+    market_data.volumes.insert("Jupiter".to_string(), 150000.0);
+    market_data.volumes.insert("Raydium".to_string(), 200000.0);
+    market_data.liquidity.insert("Jupiter".to_string(), 100000.0);
+    market_data.liquidity.insert("Raydium".to_string(), 120000.0);
     
     let opportunity = TradingOpportunity {
         opportunity_type: OpportunityType::Arbitrage,
@@ -102,7 +130,7 @@ async fn test_strategy_manager_integration() {
 #[tokio::test]
 async fn test_ml_preservation() {
     // Test 3: Verify ML capabilities are preserved
-    let mut arbitrage_strategy = ArbitrageStrategy::new();
+    let arbitrage_strategy = ArbitrageStrategy::new();
     
     // Access the underlying ML engine
     let ml_engine = arbitrage_strategy.arbitrage_engine();

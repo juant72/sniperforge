@@ -15,7 +15,7 @@ pub mod hft_engine;
 pub mod route_optimizer;  // ✅ AGREGADO: Route optimization engine
 // pub mod strategies;
 
-pub use arbitrage::{ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult, PerformanceMetrics};
+pub use arbitrage::{ArbitrageEngine, EnhancedArbitrageOpportunity, DexData, TradeResult as ArbitrageTradeResult, PerformanceMetrics};
 pub use execution::{
     TradeExecutor, TradeRequest, TradeResult as ExecutionTradeResult, ExecutionStats, 
     RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats,
@@ -24,12 +24,13 @@ pub use execution::{
 };
 pub use strategies::{
     TradingStrategy, StrategyConfig, StrategySignal, StrategyPerformance, 
-    StrategyManager, SignalType, RiskLevel, Timeframe, TradeResult as StrategyTradeResult
+    StrategyManager, SignalType, RiskLevel, Timeframe, TradeResult as StrategyTradeResult,
+    ArbitrageStrategy, MomentumStrategy, MeanReversionStrategy
 };
-pub use hft_engine::{HftEngine, HftOrder, HftMetrics, OrderSide, OrderType};
+pub use risk::{RiskManager};
 // pub use engine::*;
 // pub use executor::*;
-pub use risk::*;
 pub use portfolio::{PortfolioManager, Position, TradeRecord, TradeSide, RiskMetrics, PortfolioSummary, PerformanceMetrics as PortfolioPerformanceMetrics};
 pub use triangular::*;
+pub use hft_engine::{HftEngine, HftOrder, HftMetrics, OrderSide, OrderType};
 pub use flash_loan::*;

@@ -701,6 +701,61 @@ pub struct EngineStatistics {
     pub is_active: bool,
 }
 
+impl ArbitrageEngine {
+    /// Create a dummy ArbitrageEngine for testing and compilation
+    /// TODO: Replace with proper engine initialization in production
+    pub fn create_dummy_for_testing() -> Self {
+        use std::sync::Arc;
+        use std::collections::{HashMap, VecDeque};
+        use tokio::sync::RwLock;
+        use solana_client::rpc_client::RpcClient;
+        use solana_sdk::signature::Keypair;
+        use crate::config::SimpleConfig;
+        use crate::apis::price_feeds::PriceFeedManager;
+        use crate::trading::risk::RiskManager;
+        
+        // Create dummy configuration with enterprise features
+        let config = SimpleConfig {
+            solana_rpc_url: "https://api.devnet.solana.com".to_string(),
+            private_key_path: "dummy_wallet.json".to_string(),
+            trading_amount: 0.01,
+            profit_threshold: 0.5,
+            max_price_age_seconds: 30,
+            risk_percentage: 2.0,
+            enable_simulation: true,  // Safe for testing
+            enable_ml_analysis: true,
+            enable_sentiment_analysis: true,
+            enable_technical_analysis: true,
+            ..Default::default()
+        };
+        
+        // Create dummy components with proper configuration
+        let rpc_client = Arc::new(RpcClient::new(config.solana_rpc_url.clone()));
+        let price_feed_manager = Arc::new(PriceFeedManager::new(&config));
+        let risk_manager = RiskManager::new(&config);
+        let wallet = Arc::new(Keypair::new());
+        
+        Self {
+            config,
+            rpc_client,
+            price_feed_manager,
+            risk_manager,
+            wallet,
+            active_pairs: Arc::new(RwLock::new(HashMap::new())),
+            last_scan_time: Arc::new(RwLock::new(std::time::Instant::now())),
+            is_initialized: Arc::new(RwLock::new(false)),
+            enhanced_trading_stats: Arc::new(RwLock::new(EnhancedTradingStats::default())),
+            trade_history: Arc::new(RwLock::new(VecDeque::new())),
+            perf_config: Arc::new(RwLock::new(PerformanceConfig::default())),
+            perf_metrics: Arc::new(RwLock::new(PerformanceMetrics::default())),
+            api_status: Arc::new(RwLock::new(HashMap::new())),
+            market_data_cache: Arc::new(RwLock::new(HashMap::new())),
+            hourly_profits: Arc::new(RwLock::new(VecDeque::new())),
+            current_balance: Arc::new(RwLock::new(0.0)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     

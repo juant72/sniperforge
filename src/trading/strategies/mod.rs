@@ -4,14 +4,19 @@
 //! arbitrage system while preserving all ML and enterprise features.
 
 pub mod arbitrage;
+pub mod momentum;
+pub mod mean_reversion;
+pub mod strategy_manager;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 // Re-export strategy implementations
 pub use arbitrage::ArbitrageStrategy;
+pub use momentum::MomentumStrategy;
+pub use mean_reversion::MeanReversionStrategy;
+pub use strategy_manager::StrategyManager;
 
 // Re-export enterprise types from the existing arbitrage system
 pub use crate::trading::arbitrage::{
@@ -76,16 +81,15 @@ pub struct StrategySignal {
     pub signal_type: SignalType,
     pub confidence: f64,
     pub timeframe: Timeframe,
-    pub entry_price: f64,
-    pub stop_loss: Option<f64>,
-    pub take_profit: Option<f64>,
-    pub position_size: f64,
+    pub token_pair: String,
+    pub price: f64,
+    pub volume: f64,
     pub timestamp: DateTime<Utc>,
-    pub metadata: HashMap<String, String>,
+    pub metadata: Option<String>,
 }
 
 /// Type of trading signal
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum SignalType {
     Buy,
     Sell,
@@ -148,30 +152,39 @@ pub trait TradingStrategy: Send + Sync {
     /// Get the strategy name
     fn name(&self) -> &str;
     
-    /// Analyze market data and opportunity to generate trading signals
-    fn analyze(
-        &self,
-        opportunity: &TradingOpportunity,
-        market_data: &MarketData,
-    ) -> Result<Option<StrategySignal>>;
-    
-    /// Update strategy performance based on trade results
-    fn update_performance(&mut self, trade_result: &TradeResult) -> Result<()>;
-    
-    /// Get current strategy performance metrics
-    fn get_performance(&self) -> &StrategyPerformance;
-    
     /// Check if strategy is enabled
-    fn is_enabled(&self) -> bool;
+    fn enabled(&self) -> bool;
     
     /// Enable/disable strategy
     fn set_enabled(&mut self, enabled: bool);
     
     /// Get strategy configuration
-    fn get_config(&self) -> &StrategyConfig;
+    fn config(&self) -> &StrategyConfig;
     
-    /// Update strategy configuration
-    fn update_config(&mut self, config: StrategyConfig) -> Result<()>;
+    /// Get mutable strategy configuration
+    fn config_mut(&mut self) -> &mut StrategyConfig;
+    
+    /// Get strategy performance metrics
+    fn performance(&self) -> &StrategyPerformance;
+    
+    /// Get mutable strategy performance metrics
+    fn performance_mut(&mut self) -> &mut StrategyPerformance;
+    
+    /// Analyze market data and opportunity to generate trading signals
+    fn analyze(
+        &mut self,
+        opportunity: &TradingOpportunity,
+        market_data: &MarketData,
+    ) -> Result<Vec<StrategySignal>>;
+    
+    /// Update strategy performance based on trade results
+    fn update_performance(&mut self, trade_result: &TradeResult) -> Result<()>;
+    
+    /// Get position size based on confidence and available capital
+    fn get_position_size(&self, confidence: f64, available_capital: f64) -> f64;
+    
+    /// Check if should exit position based on current conditions
+    fn should_exit(&self, current_price: f64, entry_price: f64, signal_type: &SignalType) -> bool;
 }
 
 /// Utility functions for strategy framework
@@ -212,68 +225,18 @@ pub mod utils {
     }
 }
 
-/// Strategy manager for coordinating multiple strategies
-#[derive(Debug)]
-pub struct StrategyManager {
-    strategies: Vec<Box<dyn TradingStrategy>>,
-    enabled: bool,
-}
-
-impl StrategyManager {
-    /// Create new strategy manager
-    pub fn new() -> Self {
-        Self {
-            strategies: Vec::new(),
-            enabled: true,
-        }
-    }
-    
-    /// Add a strategy to the manager
-    pub fn add_strategy(&mut self, strategy: Box<dyn TradingStrategy>) {
-        self.strategies.push(strategy);
-    }
-    
-    /// Analyze market data with all enabled strategies
-    pub fn analyze_all(
-        &self,
-        opportunity: &TradingOpportunity,
-        market_data: &MarketData,
-    ) -> Result<Vec<StrategySignal>> {
-        let mut signals = Vec::new();
-        
-        for strategy in &self.strategies {
-            if strategy.is_enabled() {
-                if let Some(signal) = strategy.analyze(opportunity, market_data)? {
-                    signals.push(signal);
-                }
-            }
-        }
-        
-        Ok(signals)
-    }
-    
-    /// Get performance summary for all strategies
-    pub fn get_performance_summary(&self) -> HashMap<String, &StrategyPerformance> {
-        self.strategies
-            .iter()
-            .map(|s| (s.name().to_string(), s.get_performance()))
-            .collect()
-    }
-    
-    /// Enable/disable strategy manager
-    pub fn set_enabled(&mut self, enabled: bool) {
-        self.enabled = enabled;
-    }
-    
-    /// Check if manager is enabled
-    pub fn is_enabled(&self) -> bool {
-        self.enabled
-    }
-}
-
-impl Default for StrategyManager {
+impl Default for TradeResult {
     fn default() -> Self {
-        Self::new()
+        Self {
+            trade_id: "default".to_string(),
+            timestamp: Utc::now(),
+            profit_loss: 0.0,
+            fees: 0.0,
+            success: false,
+            strategy_name: "unknown".to_string(),
+            signal_confidence: 0.0,
+            execution_time_ms: 0,
+        }
     }
 }
 
@@ -299,7 +262,7 @@ mod tests {
     #[test]
     fn test_sharpe_ratio_calculation() {
         let returns = vec![0.1, 0.05, -0.02, 0.08, 0.03];
-        let sharpe = utils::calculate_sharpe_ratio(&returns, 0.02);
-        assert!(sharpe > 0.0);
+        let ratio = utils::calculate_sharpe_ratio(&returns, 0.02);
+        assert!(ratio > 0.0);
     }
 }

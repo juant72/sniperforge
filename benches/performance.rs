@@ -62,6 +62,19 @@ fn create_test_config() -> SimpleConfig {
         max_requests_per_second: 10,
         cooldown_period_ms: 100,
         max_history_size: 1000,
+        
+        // 🚀 Enterprise benchmark configuration for maximum performance
+        trading_amount: 0.01,
+        profit_threshold: 0.5,
+        max_price_age_seconds: 30,
+        risk_percentage: 2.0,
+        enable_ml_analysis: true,
+        enable_sentiment_analysis: true,
+        enable_technical_analysis: true,
+        max_concurrent_trades: 10,          // High concurrency for benchmarks
+        portfolio_rebalancing: true,
+        stop_loss_percentage: 5.0,
+        take_profit_percentage: 10.0,
     }
 }
 
