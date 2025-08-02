@@ -2,6 +2,7 @@
 
 pub mod arbitrage;
 pub mod execution;  // ✅ AGREGADO: Enterprise trade execution engine
+pub mod strategies; // ✅ AGREGADO: Trading strategies framework
 // pub mod engine;
 // pub mod executor;
 pub mod risk;
@@ -20,6 +21,10 @@ pub use execution::{
     RealTradeExecutor, RealTradeRequest, RealTradeResult, RealTradingStats,
     RealTradingEngine, RealTradingConfig, RealSwapRequest, RealSwapResult, 
     QuoteValidation, SwapInfo
+};
+pub use strategies::{
+    TradingStrategy, StrategyConfig, StrategySignal, StrategyPerformance, 
+    StrategyManager, SignalType, RiskLevel, Timeframe, TradeResult as StrategyTradeResult
 };
 pub use hft_engine::{HftEngine, HftOrder, HftMetrics, OrderSide, OrderType};
 // pub use engine::*;

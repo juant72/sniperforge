@@ -310,6 +310,12 @@ pub struct MarketData {
     pub volumes: HashMap<String, f64>,
     pub liquidity: HashMap<String, f64>,
     pub last_updated: Option<Instant>,
+    /// Current price for the primary trading pair
+    pub current_price: f64,
+    /// 24-hour trading volume
+    pub volume_24h: f64,
+    /// Bid-ask spread percentage
+    pub bid_ask_spread: f64,
 }
 
 impl MarketData {
@@ -457,5 +463,109 @@ impl ComponentHealthStatus {
             ComponentHealthStatus::Degraded(issues) => format!("Degraded: {}", issues.join(", ")),
             ComponentHealthStatus::Unhealthy(reason) => format!("Unhealthy: {}", reason),
         }
+    }
+}
+
+/// Type of trading opportunity for strategy framework
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OpportunityType {
+    /// Arbitrage opportunity between exchanges
+    Arbitrage,
+    /// Momentum trading opportunity
+    Momentum,
+    /// Mean reversion opportunity
+    MeanReversion,
+    /// Trend following opportunity
+    TrendFollowing,
+    /// Grid trading opportunity
+    Grid,
+}
+
+/// Trading opportunity structure for strategy framework
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TradingOpportunity {
+    /// Type of opportunity
+    pub opportunity_type: OpportunityType,
+    /// Trading pair (e.g., "SOL/USDC")
+    pub token_pair: String,
+    /// Expected profit percentage
+    pub profit_percentage: f64,
+    /// 24-hour volume
+    pub volume_24h: f64,
+    /// Available liquidity
+    pub liquidity: f64,
+    /// Source exchange
+    pub source_exchange: String,
+    /// Target exchange
+    pub target_exchange: String,
+    /// Entry price
+    pub entry_price: f64,
+    /// Exit price
+    pub exit_price: f64,
+    /// Risk score (0.0-1.0)
+    pub risk_score: f64,
+    /// Confidence level (0.0-1.0)
+    pub confidence: f64,
+    /// Timestamp when opportunity was detected
+    pub timestamp: Timestamp,
+    /// Maximum execution time window
+    pub execution_window: Duration,
+    /// Additional metadata
+    pub metadata: HashMap<String, String>,
+}
+
+impl Default for TradingOpportunity {
+    fn default() -> Self {
+        Self {
+            opportunity_type: OpportunityType::Arbitrage,
+            token_pair: String::new(),
+            profit_percentage: 0.0,
+            volume_24h: 0.0,
+            liquidity: 0.0,
+            source_exchange: String::new(),
+            target_exchange: String::new(),
+            entry_price: 0.0,
+            exit_price: 0.0,
+            risk_score: 0.0,
+            confidence: 0.0,
+            timestamp: chrono::Utc::now(),
+            execution_window: Duration::from_secs(30),
+            metadata: HashMap::new(),
+        }
+    }
+}
+
+impl TradingOpportunity {
+    /// Create a new trading opportunity
+    pub fn new(
+        opportunity_type: OpportunityType,
+        token_pair: String,
+        profit_percentage: f64,
+        source_exchange: String,
+        target_exchange: String,
+    ) -> Self {
+        Self {
+            opportunity_type,
+            token_pair,
+            profit_percentage,
+            source_exchange,
+            target_exchange,
+            timestamp: chrono::Utc::now(),
+            ..Default::default()
+        }
+    }
+    
+    /// Check if opportunity is still valid based on timestamp
+    pub fn is_valid(&self) -> bool {
+        let elapsed = chrono::Utc::now()
+            .signed_duration_since(self.timestamp)
+            .to_std()
+            .unwrap_or(Duration::from_secs(0));
+        elapsed < self.execution_window
+    }
+    
+    /// Calculate potential profit in USD
+    pub fn calculate_profit(&self, investment: f64) -> f64 {
+        investment * (self.profit_percentage / 100.0)
     }
 }
