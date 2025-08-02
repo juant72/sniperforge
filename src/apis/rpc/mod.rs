@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Semaphore};
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 
 use crate::config::SimpleConfig;
 
@@ -20,6 +20,7 @@ use crate::config::SimpleConfig;
 pub struct RpcEndpointHealth {
     pub url: String,
     pub healthy: bool,
+    #[serde(skip, default = "Instant::now")]
     pub last_check: Instant,
     pub response_time_ms: u64,
     pub error_count: u32,
@@ -122,30 +123,49 @@ impl RpcPool {
     pub async fn get_client(&self) -> Result<Arc<RpcClient>> {
         let _permit = self.connection_semaphore.acquire().await?;
         
-        // Try primary endpoint first
-        if let Some(primary_url) = &*self.primary_endpoint.read().await {
-            if let Ok(client) = self.get_client_for_endpoint(primary_url).await {
-                return Ok(client);
+        // Check if we should use config-based endpoint selection
+        let use_primary_first = self.config.use_secondary_rpc.unwrap_or(false);
+        
+        // Try primary endpoint first (unless config says otherwise)
+        if !use_primary_first {
+            if let Some(primary_url) = &*self.primary_endpoint.read().await {
+                if let Ok(client) = self.get_client_for_endpoint(primary_url).await {
+                    debug!("Using primary RPC endpoint: {}", primary_url);
+                    return Ok(client);
+                }
             }
         }
 
-        // Failover to healthy endpoints
+        // Failover to healthy endpoints with config-based prioritization
         let endpoints = self.endpoints.read().await;
         let mut healthy_endpoints: Vec<_> = endpoints
             .iter()
             .filter(|e| e.healthy)
             .collect();
         
-        healthy_endpoints.sort_by_key(|e| e.priority);
+        // Apply config-based sorting
+        if use_primary_first {
+            // Prefer backup endpoints when config specifies secondary RPC usage
+            healthy_endpoints.sort_by(|a, b| {
+                b.priority.cmp(&a.priority) // Higher priority first when using secondary
+                    .then_with(|| a.response_time_ms.cmp(&b.response_time_ms))
+            });
+        } else {
+            // Standard prioritization
+            healthy_endpoints.sort_by_key(|e| e.priority);
+        }
 
         for endpoint in healthy_endpoints {
             if let Ok(client) = self.get_client_for_endpoint(&endpoint.url).await {
                 // Update primary endpoint to working one
                 *self.primary_endpoint.write().await = Some(endpoint.url.clone());
+                info!("Failover successful to RPC endpoint: {} (response: {}ms)", 
+                      endpoint.url, endpoint.response_time_ms);
                 return Ok(client);
             }
         }
 
+        error!("No healthy RPC endpoints available in pool with {} endpoints", endpoints.len());
         Err(anyhow::anyhow!("No healthy RPC endpoints available"))
     }
 
@@ -221,7 +241,7 @@ impl RpcPool {
                 for endpoint in endpoints_guard.iter() {
                     if !endpoint.healthy {
                         // Try to reconnect to unhealthy endpoints
-                        if let Ok(client) = RpcClient::new(&endpoint.url).get_slot() {
+                        if let Ok(_) = RpcClient::new(&endpoint.url).get_slot() {
                             debug!("Endpoint {} is back online", endpoint.url);
                             // Mark as healthy in the next iteration
                         }

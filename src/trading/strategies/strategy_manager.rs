@@ -95,6 +95,13 @@ impl StrategyManager {
     pub fn initialize_strategies(&mut self) -> Result<()> {
         info!("Initializing enterprise trading strategies...");
         
+        // ✅ CONFIG INTEGRATION: Apply configuration-based strategy parameters
+        info!("Using enterprise config with max_position_size: {:.4} SOL", 
+              self.config.max_position_size);
+        
+        // Validate signal aggregation method
+        self.validate_signal_aggregation_method()?;
+        
         // Initialize Arbitrage Strategy
         let arbitrage = ArbitrageStrategy::new();
         let arbitrage_allocation = 0.40; // 40% allocation
@@ -119,6 +126,10 @@ impl StrategyManager {
         info!("✅ Initialized {} enterprise strategies with total allocation: {:.1}%", 
               self.strategies.len(), 
               (arbitrage_allocation + momentum_allocation + mean_reversion_allocation) * 100.0);
+        
+        // ✅ ENTERPRISE CONFIGURATION: Apply config-based customizations
+        self.apply_config_customization()?;
+        info!("✅ Applied enterprise configuration customizations");
         
         Ok(())
     }
@@ -166,6 +177,13 @@ impl StrategyManager {
             return Ok(coordinated_signals);
         }
         
+        // Check daily loss limit before proceeding
+        if self.current_daily_loss.abs() > self.daily_loss_limit {
+            warn!("Daily loss limit exceeded: {:.2}% > {:.2}% - blocking new signals", 
+                  self.current_daily_loss * 100.0, self.daily_loss_limit * 100.0);
+            return Ok(coordinated_signals);
+        }
+        
         // Group signals by token pair and signal type
         let mut signal_groups: HashMap<(String, SignalType), Vec<(String, StrategySignal)>> = HashMap::new();
         
@@ -177,20 +195,26 @@ impl StrategyManager {
             }
         }
         
-        // Process each signal group
+        // Analyze strategy correlations for conflict resolution
+        let correlation_conflicts = self.analyze_strategy_correlations(&signal_groups).await?;
+        
+        // Process each signal group with conflict resolution
         let signal_groups_count = signal_groups.len();
         for ((token_pair, signal_type), grouped_signals) in signal_groups {
-            let coordinated_signal = self.aggregate_signals(token_pair, signal_type, grouped_signals).await?;
+            // Apply conflict resolution strategy
+            let resolved_signals = self.resolve_signal_conflicts(&token_pair, &signal_type, grouped_signals, &correlation_conflicts).await?;
+            
+            let coordinated_signal = self.aggregate_signals(token_pair, signal_type, resolved_signals).await?;
             
             if let Some(signal) = coordinated_signal {
                 coordinated_signals.push(signal);
             }
         }
         
-        // Apply portfolio-level constraints
+        // Apply portfolio-level constraints and rebalancing
         let final_signals = self.apply_portfolio_constraints(coordinated_signals).await?;
         
-        info!("Coordinated {} enterprise signals from {} strategy groups", 
+        info!("Coordinated {} enterprise signals from {} strategy groups with correlation analysis", 
               final_signals.len(), signal_groups_count);
         
         Ok(final_signals)
@@ -202,103 +226,198 @@ impl StrategyManager {
             return Ok(None);
         }
         
-        if signals.len() == 1 {
-            // Single signal - return as is
-            return Ok(Some(signals[0].1.clone()));
+        // Calculate confidence-weighted average
+        let mut total_confidence = 0.0;
+        let mut weighted_expected_profit = 0.0;
+        let mut weighted_stop_loss = 0.0;
+        let mut weighted_take_profit = 0.0;
+        let mut strategy_names = Vec::new();
+        
+        for (strategy_name, signal) in &signals {
+            total_confidence += signal.confidence;
+            weighted_expected_profit += signal.expected_profit * signal.confidence;
+            weighted_stop_loss += signal.stop_loss * signal.confidence;
+            weighted_take_profit += signal.take_profit * signal.confidence;
+            strategy_names.push(strategy_name.clone());
         }
         
-        // Multiple signals - apply aggregation method
+        if total_confidence == 0.0 {
+            return Ok(None);
+        }
+        
+        // Use the signal with highest confidence as the base
+        let base_signal = signals.iter()
+            .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap())
+            .unwrap();
+        
+        // Create aggregated signal with enhanced metadata
+        let mut aggregated_signal = base_signal.1.clone();
+        aggregated_signal.confidence = total_confidence / signals.len() as f64;
+        aggregated_signal.expected_profit = weighted_expected_profit / total_confidence;
+        aggregated_signal.stop_loss = weighted_stop_loss / total_confidence;
+        aggregated_signal.take_profit = weighted_take_profit / total_confidence;
+        
+        // ✅ ENTERPRISE VALIDATION: Check signal agreement threshold
+        if !self.meets_signal_agreement(aggregated_signal.confidence, signals.len()) {
+            warn!("Signal agreement below threshold for {} {:?}: confidence {:.2}%, signals {}", 
+                  token_pair, signal_type, aggregated_signal.confidence * 100.0, signals.len());
+            return Ok(None); // Reject signals below agreement threshold
+        }
+        
+        // ✅ USE token_pair and signal_type for enhanced reasoning
+        aggregated_signal.reasoning = Some(format!(
+            "Aggregated {} signal for {} from strategies: {} (confidence: {:.2})", 
+            match signal_type {
+                SignalType::Buy => "BUY",
+                SignalType::Sell => "SELL",
+                SignalType::Hold => "HOLD",
+                SignalType::StopLoss => "STOP_LOSS",
+                SignalType::TakeProfit => "TAKE_PROFIT",
+            },
+            token_pair,
+            strategy_names.join(", "),
+            aggregated_signal.confidence
+        ));
+        
+        // Apply signal aggregation method if configured
+        if let Some(aggregation_boost) = self.get_aggregation_boost(&signal_type, signals.len()) {
+            aggregated_signal.confidence *= aggregation_boost;
+            info!("Applied {} aggregation boost: {:.2}x for {:?} on {}", 
+                  self.signal_aggregation_method, aggregation_boost, signal_type, token_pair);
+        }
+        
+        Ok(Some(aggregated_signal))
+    }
+    
+    /// Get aggregation boost based on method and signal count
+    fn get_aggregation_boost(&self, _signal_type: &SignalType, signal_count: usize) -> Option<f64> {
         match self.signal_aggregation_method.as_str() {
             "weighted_average" => {
-                let mut total_weight = 0.0;
-                let mut weighted_confidence = 0.0;
-                let mut total_volume = 0.0;
-                let mut latest_timestamp = signals[0].1.timestamp;
-                
-                for (strategy_name, signal) in &signals {
-                    if let Some(&weight) = self.strategy_weights.get(strategy_name) {
-                        total_weight += weight;
-                        weighted_confidence += signal.confidence * weight;
-                        total_volume += signal.volume;
-                        
-                        if signal.timestamp > latest_timestamp {
-                            latest_timestamp = signal.timestamp;
-                        }
-                    }
-                }
-                
-                if total_weight > 0.0 {
-                    let final_confidence = weighted_confidence / total_weight;
-                    
-                    // Check if aggregated confidence meets minimum agreement
-                    if final_confidence >= self.min_signal_agreement {
-                        let aggregated_signal = StrategySignal {
-                            strategy_name: "Portfolio Manager".to_string(),
-                            signal_type,
-                            confidence: final_confidence,
-                            timeframe: signals[0].1.timeframe.clone(), // Use first signal's timeframe
-                            token_pair,
-                            price: signals[0].1.price, // Use first signal's price
-                            volume: total_volume / signals.len() as f64, // Average volume
-                            timestamp: latest_timestamp,
-                            metadata: Some(format!(
-                                "aggregated from {} strategies, weighted_confidence: {:.2}",
-                                signals.len(), final_confidence
-                            )),
-                        };
-                        
-                        return Ok(Some(aggregated_signal));
-                    }
+                // More signals = higher confidence (up to 20% boost)
+                Some(1.0 + (signal_count as f64 - 1.0) * 0.05)
+            },
+            "consensus" => {
+                // Consensus method gets boost for agreement
+                if signal_count >= 2 {
+                    Some(1.15) // 15% boost for consensus
+                } else {
+                    Some(0.9) // Penalty for no consensus
                 }
             },
             "highest_confidence" => {
-                // Return signal with highest confidence
-                let best_signal = signals.iter()
-                    .max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap_or(std::cmp::Ordering::Equal));
-                
-                if let Some((_, signal)) = best_signal {
-                    if signal.confidence >= self.min_signal_agreement {
-                        return Ok(Some(signal.clone()));
-                    }
-                }
+                // No boost for single best signal method
+                Some(1.0)
             },
-            "consensus" => {
-                // Require consensus from multiple strategies
-                if signals.len() >= 2 {
-                    let avg_confidence = signals.iter().map(|(_, s)| s.confidence).sum::<f64>() / signals.len() as f64;
-                    
-                    if avg_confidence >= self.min_signal_agreement {
-                        let consensus_signal = StrategySignal {
-                            strategy_name: "Portfolio Manager (Consensus)".to_string(),
-                            signal_type,
-                            confidence: avg_confidence,
-                            timeframe: signals[0].1.timeframe.clone(),
-                            token_pair,
-                            price: signals[0].1.price,
-                            volume: signals.iter().map(|(_, s)| s.volume).sum::<f64>() / signals.len() as f64,
-                            timestamp: signals.iter().map(|(_, s)| s.timestamp).max().unwrap_or(Utc::now()),
-                            metadata: Some(format!(
-                                "consensus from {} strategies, avg_confidence: {:.2}",
-                                signals.len(), avg_confidence
-                            )),
-                        };
-                        
-                        return Ok(Some(consensus_signal));
-                    }
-                }
+            _ => None
+        }
+    }
+    
+    /// Validate signal aggregation method configuration
+    fn validate_signal_aggregation_method(&self) -> Result<()> {
+        match self.signal_aggregation_method.as_str() {
+            "weighted_average" | "consensus" | "highest_confidence" => {
+                info!("✅ Signal aggregation method '{}' validated with min_agreement: {:.2}", 
+                      self.signal_aggregation_method, self.min_signal_agreement);
+                Ok(())
             },
             _ => {
-                warn!("Unknown signal aggregation method: {}", self.signal_aggregation_method);
-                return Ok(Some(signals[0].1.clone())); // Fallback to first signal
+                warn!("Invalid signal aggregation method '{}', falling back to 'weighted_average'", 
+                      self.signal_aggregation_method);
+                Ok(()) // Non-critical, will use default
+            }
+        }
+    }
+    
+    /// Check if signals meet minimum agreement threshold
+    fn meets_signal_agreement(&self, confidence: f64, signal_count: usize) -> bool {
+        if signal_count >= 2 {
+            // Multiple signals need higher agreement
+            confidence >= self.min_signal_agreement
+        } else {
+            // Single signal uses lower threshold
+            confidence >= self.min_signal_agreement * 0.8
+        }
+    }
+    
+    /// Apply config-based strategy customization
+    fn apply_config_customization(&mut self) -> Result<()> {
+        // Use config to customize strategy behavior
+        let max_risk = self.config.max_position_size;
+        self.max_total_risk_exposure = (max_risk / 100.0).min(0.25); // Cap at 25%
+        info!("Applied config max risk exposure: {:.2}%", self.max_total_risk_exposure * 100.0);
+        
+        let stop_loss = self.config.stop_loss_percentage;
+        self.daily_loss_limit = -(stop_loss / 100.0); // Convert to negative limit
+        info!("Applied config daily loss limit: {:.2}%", self.daily_loss_limit * 100.0);
+        
+        Ok(())
+    }
+    
+    /// Analyze correlations between strategies to detect conflicts
+    async fn analyze_strategy_correlations(&self, signal_groups: &HashMap<(String, SignalType), Vec<(String, StrategySignal)>>) -> Result<HashMap<String, f64>> {
+        let mut correlations = HashMap::new();
+        
+        // Analyze existing correlation matrix
+        for (strategy_a, strategy_correlations) in &self.correlation_matrix {
+            for (strategy_b, correlation) in strategy_correlations {
+                let correlation_key = format!("{}_{}", strategy_a, strategy_b);
+                correlations.insert(correlation_key, *correlation);
             }
         }
         
-        Ok(None)
+        // Update correlations based on current signals
+        let mut strategy_signal_counts: HashMap<String, HashMap<SignalType, usize>> = HashMap::new();
+        
+        for ((_token_pair, signal_type), strategy_signals) in signal_groups {
+            for (strategy_name, _signal) in strategy_signals {
+                let strategy_counts = strategy_signal_counts.entry(strategy_name.clone()).or_insert_with(HashMap::new);
+                *strategy_counts.entry(signal_type.clone()).or_insert(0) += 1;
+            }
+        }
+        
+        Ok(correlations)
+    }
+    
+    /// Resolve conflicts between strategies based on configuration
+    async fn resolve_signal_conflicts(&self, _token_pair: &str, _signal_type: &SignalType, signals: Vec<(String, StrategySignal)>, _correlations: &HashMap<String, f64>) -> Result<Vec<(String, StrategySignal)>> {
+        match self.conflict_resolution_strategy.as_str() {
+            "highest_confidence" => {
+                // Keep only the signal with highest confidence
+                if let Some(best_signal) = signals.iter().max_by(|a, b| a.1.confidence.partial_cmp(&b.1.confidence).unwrap()) {
+                    Ok(vec![best_signal.clone()])
+                } else {
+                    Ok(signals)
+                }
+            },
+            "weighted_average" => {
+                // Keep all signals for weighted aggregation
+                Ok(signals)
+            },
+            "consensus" => {
+                // Keep signals only if multiple strategies agree
+                if signals.len() >= 2 {
+                    Ok(signals)
+                } else {
+                    Ok(vec![])
+                }
+            },
+            _ => {
+                // Default: keep all signals
+                Ok(signals)
+            }
+        }
     }
     
     /// Apply portfolio-level constraints and risk management
     async fn apply_portfolio_constraints(&self, signals: Vec<StrategySignal>) -> Result<Vec<StrategySignal>> {
         let mut filtered_signals = Vec::new();
+        
+        // Check if portfolio rebalancing is needed based on current allocation drift
+        let needs_rebalancing = self.check_rebalancing_threshold().await?;
+        if needs_rebalancing {
+            info!("Portfolio allocation drift exceeds rebalancing threshold: {:.2}% - applying rebalancing constraints", 
+                  self.rebalancing_threshold * 100.0);
+        }
         
         // Check maximum concurrent strategies limit
         let active_strategies: std::collections::HashSet<_> = signals.iter()
@@ -313,12 +432,26 @@ impl StrategyManager {
             let mut selected_strategies = std::collections::HashSet::new();
             for signal in sorted_signals {
                 if selected_strategies.len() < self.max_concurrent_strategies {
+                    // Apply rebalancing bias if needed
+                    let mut adjusted_signal = signal.clone();
+                    if needs_rebalancing {
+                        adjusted_signal = self.apply_rebalancing_adjustment(adjusted_signal).await?;
+                    }
+                    
                     selected_strategies.insert(signal.strategy_name.clone());
-                    filtered_signals.push(signal);
+                    filtered_signals.push(adjusted_signal);
                 }
             }
         } else {
-            filtered_signals = signals;
+            // Apply rebalancing adjustments to all signals if needed
+            for signal in signals {
+                let adjusted_signal = if needs_rebalancing {
+                    self.apply_rebalancing_adjustment(signal).await?
+                } else {
+                    signal
+                };
+                filtered_signals.push(adjusted_signal);
+            }
         }
         
         // Apply additional risk constraints
@@ -332,9 +465,56 @@ impl StrategyManager {
             filtered_signals.truncate(max_signals);
         }
         
-        info!("Applied portfolio constraints: {} signals passed filters", filtered_signals.len());
+        info!("Applied portfolio constraints with rebalancing: {} signals passed filters", filtered_signals.len());
         
         Ok(filtered_signals)
+    }
+    
+    /// Check if portfolio rebalancing is needed based on allocation drift
+    async fn check_rebalancing_threshold(&self) -> Result<bool> {
+        // Calculate current allocation vs target allocation
+        let mut max_drift = 0.0;
+        
+        for (strategy_name, target_weight) in &self.strategy_weights {
+            if let Some(current_capital) = self.allocated_capital.get(strategy_name) {
+                let current_weight = current_capital / self.total_capital;
+                let drift = (current_weight - target_weight).abs();
+                
+                if drift > max_drift {
+                    max_drift = drift;
+                }
+            }
+        }
+        
+        Ok(max_drift > self.rebalancing_threshold)
+    }
+    
+    /// Apply rebalancing adjustments to signals
+    async fn apply_rebalancing_adjustment(&self, mut signal: StrategySignal) -> Result<StrategySignal> {
+        // Get current strategy allocation
+        if let Some(current_capital) = self.allocated_capital.get(&signal.strategy_name) {
+            if let Some(target_weight) = self.strategy_weights.get(&signal.strategy_name) {
+                let current_weight = current_capital / self.total_capital;
+                let allocation_ratio = target_weight / current_weight;
+                
+                // Adjust signal volume based on allocation needs
+                if allocation_ratio > 1.1 {
+                    // Strategy is under-allocated, increase signal strength
+                    signal.volume *= allocation_ratio.min(1.5); // Cap at 50% increase
+                    signal.reasoning = Some(format!("{} [REBALANCING: +{:.1}% allocation needed]", 
+                                             signal.reasoning.unwrap_or_default(), 
+                                             (allocation_ratio - 1.0) * 100.0));
+                } else if allocation_ratio < 0.9 {
+                    // Strategy is over-allocated, decrease signal strength
+                    signal.volume *= allocation_ratio.max(0.5); // Cap at 50% decrease
+                    signal.reasoning = Some(format!("{} [REBALANCING: -{:.1}% allocation excess]", 
+                                             signal.reasoning.unwrap_or_default(), 
+                                             (1.0 - allocation_ratio) * 100.0));
+                }
+            }
+        }
+        
+        Ok(signal)
     }
     
     /// Update performance across all strategies

@@ -385,6 +385,19 @@ impl TradingStrategy for ArbitrageStrategy {
                 best_opportunity.profit_percentage * 100.0,
                 best_opportunity.buy_exchange,
                 best_opportunity.sell_exchange)),
+                
+            // ✅ ENTERPRISE FIELDS
+            expected_profit: best_opportunity.profit_percentage * 100.0, // Direct profit percentage
+            stop_loss: best_opportunity.buy_price * 0.999, // Very tight stop loss for arbitrage
+            take_profit: best_opportunity.sell_price, // Exact sell price
+            reasoning: Some(format!(
+                "Arbitrage opportunity: Buy {} at {:.6}, Sell {} at {:.6}", 
+                best_opportunity.buy_exchange, best_opportunity.buy_price,
+                best_opportunity.sell_exchange, best_opportunity.sell_price
+            )),
+            risk_score: (1.0 - best_opportunity.confidence) * 0.3, // Arbitrage typically low risk
+            market_conditions: Some(format!("Cross-exchange spread: {:.3}%", 
+                best_opportunity.profit_percentage * 100.0)),
         };
 
         info!("⚡ Arbitrage Signal Generated: Buy {} at {:.6}, Sell {} at {:.6} | Profit: {:.2}% (${:.2})", 

@@ -283,6 +283,21 @@ impl MeanReversionStrategy {
                             signal_reasons.push(format!("rsi_oversold: {:.1}", rsi));
                         }
                     }
+                    
+                    // Volume spike analysis - Enhanced mean reversion with volume confirmation
+                    if let Some(volumes) = self.volume_history.get(symbol) {
+                        if volumes.len() >= 10 {
+                            let recent_volume = volumes.last().unwrap();
+                            let avg_volume = volumes.iter().sum::<f64>() / volumes.len() as f64;
+                            
+                            if *recent_volume > avg_volume * self.volume_spike_threshold {
+                                // Volume spike detected - enhances mean reversion confidence
+                                let volume_multiplier = (recent_volume / avg_volume).min(3.0); // Cap at 3x
+                                reversion_score *= 1.0 + (volume_multiplier - 1.0) * 0.3; // Up to 60% boost
+                                signal_reasons.push(format!("volume_spike: {:.1}x_avg", volume_multiplier));
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -437,7 +452,7 @@ impl TradingStrategy for MeanReversionStrategy {
                     let signal_type_for_log = signal_type.clone();
                     let signal = StrategySignal {
                         strategy_name: self.config.name.clone(),
-                        signal_type,
+                        signal_type: signal_type.clone(),
                         confidence,
                         timeframe: Timeframe::FifteenMin, // Primary timeframe for mean reversion
                         token_pair: opportunity.token_pair.clone(),
@@ -448,6 +463,22 @@ impl TradingStrategy for MeanReversionStrategy {
                             "reversion_score: {:.2}, method: {}, reasons: {}",
                             reversion_score, self.mean_calculation_method, signal_reasons
                         )),
+                        
+                        // ✅ ENTERPRISE FIELDS
+                        expected_profit: (reversion_score * 0.5).min(4.0).max(0.3), // Conservative profit expectations
+                        stop_loss: match signal_type {
+                            SignalType::Buy => market_data.current_price * (1.0 - self.config.stop_loss_percent / 100.0),
+                            SignalType::Sell => market_data.current_price * (1.0 + self.config.stop_loss_percent / 100.0),
+                            _ => market_data.current_price,
+                        },
+                        take_profit: match signal_type {
+                            SignalType::Buy => market_data.current_price * (1.0 + self.config.take_profit_percent / 100.0),
+                            SignalType::Sell => market_data.current_price * (1.0 - self.config.take_profit_percent / 100.0),
+                            _ => market_data.current_price,
+                        },
+                        reasoning: Some(format!("Mean reversion opportunity: {}", signal_reasons)),
+                        risk_score: (1.0 - confidence) * 0.6, // Mean reversion generally lower risk
+                        market_conditions: Some(format!("Statistical reversion: {:.1}σ", reversion_score / 2.0)),
                     };
                     
                     signals.push(signal);

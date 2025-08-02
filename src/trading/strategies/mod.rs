@@ -86,6 +86,14 @@ pub struct StrategySignal {
     pub volume: f64,
     pub timestamp: DateTime<Utc>,
     pub metadata: Option<String>,
+    
+    // ✅ ENRIQUECIMIENTO ENTERPRISE - Campos de trading avanzados
+    pub expected_profit: f64,        // Expected profit percentage
+    pub stop_loss: f64,              // Stop loss price
+    pub take_profit: f64,            // Take profit price
+    pub reasoning: Option<String>,   // Signal reasoning/explanation
+    pub risk_score: f64,             // Risk assessment score (0.0-1.0)
+    pub market_conditions: Option<String>, // Market condition context
 }
 
 /// Type of trading signal

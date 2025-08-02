@@ -109,6 +109,20 @@ impl MomentumStrategy {
                 
                 momentum_score += velocity * 0.4; // 40% weight for price velocity
                 
+                // RSI Analysis Integration
+                if let Some(rsi) = self.calculate_rsi(prices, 14) {
+                    let rsi_momentum = if rsi < self.rsi_oversold {
+                        1.5 // Oversold - potential bullish reversal
+                    } else if rsi > self.rsi_overbought {
+                        -1.5 // Overbought - potential bearish reversal  
+                    } else if rsi > 50.0 {
+                        0.8 // Bullish momentum
+                    } else {
+                        -0.8 // Bearish momentum
+                    };
+                    momentum_score += rsi_momentum * 0.25; // 25% weight for RSI
+                }
+                
                 // Acceleration calculation
                 if recent_prices.len() >= 5 {
                     let mid_point = recent_prices.len() / 2;
@@ -116,7 +130,33 @@ impl MomentumStrategy {
                     let second_half_avg = recent_prices[mid_point..].iter().sum::<f64>() / (recent_prices.len() - mid_point) as f64;
                     let acceleration = (second_half_avg - first_half_avg) / first_half_avg * 100.0;
                     
-                    momentum_score += acceleration * self.acceleration_factor * 0.3; // 30% weight for acceleration
+                    momentum_score += acceleration * self.acceleration_factor * 0.25; // 25% weight for acceleration
+                }
+            }
+        }
+        
+        // Multi-timeframe analysis enhancement
+        if self.multi_timeframe_analysis {
+            if let Some(prices) = self.price_history.get(symbol) {
+                if prices.len() >= 50 {
+                    // Short-term momentum (5 periods)
+                    let short_momentum = self.calculate_velocity(&prices[prices.len()-5..]);
+                    // Medium-term momentum (20 periods) 
+                    let medium_momentum = self.calculate_velocity(&prices[prices.len()-20..]);
+                    // Long-term momentum (50 periods)
+                    let long_momentum = self.calculate_velocity(&prices[prices.len()-50..]);
+                    
+                    // Timeframe alignment bonus
+                    let alignment_bonus = if short_momentum.signum() == medium_momentum.signum() && 
+                                            medium_momentum.signum() == long_momentum.signum() {
+                        1.5 // All timeframes aligned
+                    } else if short_momentum.signum() == medium_momentum.signum() {
+                        1.2 // Short and medium aligned
+                    } else {
+                        0.8 // Conflicting signals
+                    };
+                    
+                    momentum_score *= alignment_bonus;
                 }
             }
         }
@@ -129,16 +169,133 @@ impl MomentumStrategy {
                     let historical_avg = volumes[..volumes.len() - 3].iter().sum::<f64>() / (volumes.len() - 3) as f64;
                     let volume_momentum = (recent_avg - historical_avg) / historical_avg * 100.0;
                     
-                    momentum_score += volume_momentum * 0.2; // 20% weight for volume
+                    momentum_score += volume_momentum * 0.1; // 10% weight for volume
                 }
             }
         }
         
         // Market structure momentum
         let spread_momentum = if market_data.bid_ask_spread < 0.001 { 0.5 } else { -0.2 }; // Tight spreads favor momentum
-        momentum_score += spread_momentum * 0.1; // 10% weight for market structure
+        momentum_score += spread_momentum * 0.05; // 5% weight for market structure
+        
+        // ✅ ADVANCED INDICATORS: MACD Analysis
+        if let Some(prices) = self.price_history.get(symbol) {
+            if prices.len() >= 26 { // Minimum for MACD calculation
+                if let Some(macd_signal) = self.calculate_macd_signal(prices) {
+                    if macd_signal.abs() > self.macd_signal_threshold {
+                        let macd_contribution = macd_signal * 0.15; // 15% weight for MACD
+                        momentum_score += macd_contribution;
+                        debug!("MACD signal: {:.3}, threshold: {:.3}, contribution: {:.3}", 
+                               macd_signal, self.macd_signal_threshold, macd_contribution);
+                    }
+                }
+            }
+        }
+        
+        // ✅ BOLLINGER BANDS Analysis
+        if let Some(prices) = self.price_history.get(symbol) {
+            if prices.len() >= 20 { // Minimum for Bollinger Bands
+                if let Some(bollinger_position) = self.calculate_bollinger_position(prices, market_data.current_price) {
+                    let bollinger_momentum = bollinger_position * 0.1; // 10% weight for Bollinger position
+                    momentum_score += bollinger_momentum;
+                    debug!("Bollinger position: {:.3}, momentum contribution: {:.3}", 
+                           bollinger_position, bollinger_momentum);
+                }
+            }
+        }
+        
+        // ✅ ADAPTIVE PARAMETERS: Adjust thresholds based on market volatility
+        if self.adaptive_parameters {
+            if let Some(prices) = self.price_history.get(symbol) {
+                if prices.len() >= 20 {
+                    let volatility = self.calculate_volatility(prices);
+                    let volatility_adjustment = if volatility > 0.02 { 0.8 } else { 1.2 }; // High vol = lower threshold
+                    momentum_score *= volatility_adjustment;
+                    debug!("Volatility: {:.4}, adjustment: {:.2}x", volatility, volatility_adjustment);
+                }
+            }
+        }
         
         momentum_score
+    }
+    
+    /// Calculate MACD signal (Moving Average Convergence Divergence)
+    fn calculate_macd_signal(&self, prices: &[f64]) -> Option<f64> {
+        if prices.len() < 26 {
+            return None;
+        }
+        
+        // Calculate EMA 12 and EMA 26
+        let ema12 = self.calculate_ema(prices, 12)?;
+        let ema26 = self.calculate_ema(prices, 26)?;
+        
+        // MACD line = EMA12 - EMA26
+        let macd_line = ema12 - ema26;
+        
+        // For simplicity, return MACD line (in real implementation, would include signal line)
+        Some(macd_line)
+    }
+    
+    /// Calculate EMA (Exponential Moving Average)
+    fn calculate_ema(&self, prices: &[f64], period: usize) -> Option<f64> {
+        if prices.len() < period {
+            return None;
+        }
+        
+        let alpha = 2.0 / (period as f64 + 1.0);
+        let mut ema = prices[0];
+        
+        for &price in &prices[1..] {
+            ema = alpha * price + (1.0 - alpha) * ema;
+        }
+        
+        Some(ema)
+    }
+    
+    /// Calculate position relative to Bollinger Bands
+    fn calculate_bollinger_position(&self, prices: &[f64], current_price: f64) -> Option<f64> {
+        if prices.len() < 20 {
+            return None;
+        }
+        
+        // Calculate 20-period SMA
+        let sma = prices.iter().sum::<f64>() / prices.len() as f64;
+        
+        // Calculate standard deviation
+        let variance = prices.iter()
+            .map(|price| (price - sma).powi(2))
+            .sum::<f64>() / prices.len() as f64;
+        let std_dev = variance.sqrt();
+        
+        // Bollinger Bands
+        let upper_band = sma + (self.bollinger_band_factor * std_dev);
+        let lower_band = sma - (self.bollinger_band_factor * std_dev);
+        
+        // Position: -1 (lower band) to +1 (upper band)
+        if upper_band == lower_band {
+            return Some(0.0);
+        }
+        
+        let position = (current_price - sma) / (upper_band - sma);
+        Some(position.max(-1.0).min(1.0))
+    }
+    
+    /// Calculate volatility (standard deviation of returns)
+    fn calculate_volatility(&self, prices: &[f64]) -> f64 {
+        if prices.len() < 2 {
+            return 0.0;
+        }
+        
+        let returns: Vec<f64> = prices.windows(2)
+            .map(|window| (window[1] - window[0]) / window[0])
+            .collect();
+        
+        let mean_return = returns.iter().sum::<f64>() / returns.len() as f64;
+        let variance = returns.iter()
+            .map(|ret| (ret - mean_return).powi(2))
+            .sum::<f64>() / returns.len() as f64;
+        
+        variance.sqrt()
     }
     
     /// Calculate RSI (Relative Strength Index)
@@ -168,6 +325,22 @@ impl MomentumStrategy {
         
         let rs = avg_gain / avg_loss;
         Some(100.0 - (100.0 / (1.0 + rs)))
+    }
+    
+    /// Calculate velocity (rate of change) for price series
+    fn calculate_velocity(&self, prices: &[f64]) -> f64 {
+        if prices.len() < 2 {
+            return 0.0;
+        }
+        
+        let first = prices.first().unwrap();
+        let last = prices.last().unwrap();
+        
+        if *first == 0.0 {
+            return 0.0;
+        }
+        
+        (last - first) / first * 100.0
     }
     
     /// Update price and volume history for momentum calculations
@@ -267,6 +440,14 @@ impl TradingStrategy for MomentumStrategy {
                         "momentum_score: {:.2}, threshold: {:.2}, market_structure: favorable",
                         momentum_score, self.momentum_threshold
                     )),
+                    
+                    // ✅ ENTERPRISE FIELDS
+                    expected_profit: (momentum_score / 10.0).min(5.0).max(0.5), // 0.5-5% expected profit
+                    stop_loss: market_data.current_price * (1.0 - self.config.stop_loss_percent / 100.0),
+                    take_profit: market_data.current_price * (1.0 + self.config.take_profit_percent / 100.0),
+                    reasoning: Some(format!("Momentum breakout detected: score {:.2}, velocity confirmed", momentum_score)),
+                    risk_score: (1.0 - confidence) * 0.7, // Lower confidence = higher risk
+                    market_conditions: Some("Momentum favorable".to_string()),
                 };
                 
                 signals.push(signal);
@@ -291,6 +472,14 @@ impl TradingStrategy for MomentumStrategy {
                         "momentum_score: {:.2}, threshold: -{:.2}, market_structure: bearish",
                         momentum_score, self.momentum_threshold
                     )),
+                    
+                    // ✅ ENTERPRISE FIELDS
+                    expected_profit: (momentum_score.abs() / 10.0).min(5.0).max(0.5), // 0.5-5% expected profit
+                    stop_loss: market_data.current_price * (1.0 + self.config.stop_loss_percent / 100.0),
+                    take_profit: market_data.current_price * (1.0 - self.config.take_profit_percent / 100.0),
+                    reasoning: Some(format!("Momentum breakdown detected: score {:.2}, bearish velocity", momentum_score)),
+                    risk_score: (1.0 - confidence) * 0.7, // Lower confidence = higher risk
+                    market_conditions: Some("Momentum bearish".to_string()),
                 };
                 
                 signals.push(signal);

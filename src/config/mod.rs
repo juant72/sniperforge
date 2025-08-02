@@ -61,6 +61,11 @@ impl SniperForgeConfig {
             portfolio_rebalancing: true, // Enable portfolio rebalancing
             stop_loss_percentage: 5.0, // 5% stop loss
             take_profit_percentage: 10.0, // 10% take profit
+            
+            // ✅ RPC Configuration Enterprise
+            use_secondary_rpc: Some(false), // Primary RPC by default
+            rpc_retry_attempts: Some(3), // 3 retry attempts
+            rpc_timeout_ms: Some(10000), // 10 second timeout
         }
     }
 }
@@ -95,6 +100,11 @@ pub struct SimpleConfig {
     pub portfolio_rebalancing: bool,  // Enable portfolio rebalancing
     pub stop_loss_percentage: f64,    // Global stop loss
     pub take_profit_percentage: f64,  // Global take profit
+    
+    // ✅ RPC Configuration Enterprise
+    pub use_secondary_rpc: Option<bool>, // Enable secondary RPC usage
+    pub rpc_retry_attempts: Option<u32>, // Number of retry attempts
+    pub rpc_timeout_ms: Option<u64>,     // RPC timeout in milliseconds
 }
 
 impl Default for SimpleConfig {
@@ -127,6 +137,11 @@ impl Default for SimpleConfig {
             portfolio_rebalancing: true,        // Enable rebalancing
             stop_loss_percentage: 5.0,          // 5% stop loss
             take_profit_percentage: 10.0,       // 10% take profit
+            
+            // ✅ RPC Configuration Enterprise
+            use_secondary_rpc: Some(false),     // Primary RPC by default
+            rpc_retry_attempts: Some(3),        // 3 retry attempts
+            rpc_timeout_ms: Some(10000),        // 10 second timeout
         }
     }
 }
