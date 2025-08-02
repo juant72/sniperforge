@@ -33,7 +33,7 @@ mod system_integration {
                 if e.to_string().contains("keypair") || e.to_string().contains("wallet") {
                     println!("✅ Integration: Expected test environment error handled");
                 } else {
-                    println!("⚠️ Integration: Unexpected error: {}", e);
+                    println!("⚠️ Integration: Unexpected error: {e}");
                 }
             }
         }
@@ -135,7 +135,7 @@ mod trading_integration {
                 if e.to_string().contains("keypair") || e.to_string().contains("signature") {
                     println!("✅ Integration: Expected test environment error handled");
                 } else {
-                    println!("⚠️ Integration: Unexpected error: {}", e);
+                    println!("⚠️ Integration: Unexpected error: {e}");
                 }
             }
         }
@@ -192,8 +192,8 @@ mod error_integration {
         let config_error = SniperForgeError::Config("Test config error".to_string());
         
         // Test error formatting
-        assert!(format!("{}", network_error).contains("Test network error"));
-        assert!(format!("{}", config_error).contains("Test config error"));
+        assert!(format!("{network_error}").contains("Test network error"));
+        assert!(format!("{config_error}").contains("Test config error"));
         
         println!("✅ Integration: Error handling integration verified");
     }
@@ -282,7 +282,7 @@ mod performance_integration {
         let elapsed = start_time.elapsed();
         assert!(elapsed < Duration::from_secs(1)); // Should be fast
         
-        println!("✅ Integration: Performance metrics verified ({:?})", elapsed);
+        println!("✅ Integration: Performance metrics verified ({elapsed:?})");
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -302,6 +302,6 @@ mod performance_integration {
         assert!(!config.solana_rpc_url.is_empty());
         
         let elapsed = start_time.elapsed();
-        println!("✅ Integration: End-to-end simulation completed in {:?}", elapsed);
+        println!("✅ Integration: End-to-end simulation completed in {elapsed:?}");
     }
 }

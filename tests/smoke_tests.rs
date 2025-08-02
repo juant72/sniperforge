@@ -161,10 +161,10 @@ fn test_memory_efficiency_smoke() {
     assert!(health_size < 1024);
     
     println!("✅ Smoke Test: Memory efficiency verified");
-    println!("   - SimpleConfig: {} bytes", config_size);
-    println!("   - Token: {} bytes", token_size);
-    println!("   - TradingPair: {} bytes", pair_size);
-    println!("   - SystemHealth: {} bytes", health_size);
+    println!("   - SimpleConfig: {config_size} bytes");
+    println!("   - Token: {token_size} bytes");
+    println!("   - TradingPair: {pair_size} bytes");
+    println!("   - SystemHealth: {health_size} bytes");
 }
 
 #[test]
@@ -211,8 +211,8 @@ fn test_error_handling_smoke() {
     let config_error = SniperForgeError::Config("Test config error".to_string());
     
     // Test error display
-    let network_msg = format!("{}", network_error);
-    let config_msg = format!("{}", config_error);
+    let network_msg = format!("{network_error}");
+    let config_msg = format!("{config_error}");
     
     assert!(network_msg.contains("Test error"));
     assert!(config_msg.contains("Test config error"));

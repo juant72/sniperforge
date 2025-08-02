@@ -1,7 +1,8 @@
-//! Configuration management for SniperForge
+//! Configuration management for `SniperForge`
 
 pub mod api_credentials;
 pub mod enterprise;
+pub mod network;
 
 use serde::{Deserialize, Serialize};
 use std::{path::Path, collections::HashMap};
@@ -9,6 +10,7 @@ use crate::types::Result;
 pub use api_credentials::{ApiCredentials, WebSocketConfig};
 pub use enterprise::{EnterpriseConfig, SolanaConfig as EnterpriseSolanaConfig, 
                     ApiConfig as EnterpriseApiConfig, TradingConfig as EnterpriseTradingConfig};
+pub use network::{NetworkConfig, TokenInfo, ProgramIds};
 
 /// Simple configuration alias for backward compatibility
 pub type Config = SniperForgeConfig;
@@ -24,6 +26,8 @@ pub struct SniperForgeConfig {
     pub apis: ApiConfig,
     /// Performance configuration
     pub performance: PerformanceConfig,
+    /// Wallet configuration (optional for enterprise wallet management)
+    pub wallets: Option<WalletConfig>,
 }
 
 impl SniperForgeConfig {
@@ -320,6 +324,7 @@ impl Default for SniperForgeConfig {
                 monitoring_enabled: true,
                 metrics_interval_seconds: 60,
             },
+            wallets: Some(WalletConfig::default()),
         }
     }
 }
@@ -386,5 +391,74 @@ impl SniperForgeConfig {
         config.trading.max_trade_size_sol = 0.01; // Very conservative
         config.trading.min_profit_bps = 100; // 1% minimum
         config
+    }
+}
+
+/// Wallet environment configuration for enterprise wallet management
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletEnvironmentConfig {
+    /// Whether this environment is enabled
+    pub enabled: bool,
+    /// Initial balance for new wallets (SOL)
+    pub initial_balance_sol: Option<f64>,
+    /// Maximum trade amount for this environment
+    pub max_trade_amount_sol: f64,
+    /// RPC endpoint for this environment
+    pub rpc_endpoint: Option<String>,
+    /// Whether to require confirmation for trades
+    pub require_confirmation: bool,
+}
+
+impl Default for WalletEnvironmentConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            initial_balance_sol: Some(1.0),
+            max_trade_amount_sol: 0.1,
+            rpc_endpoint: None,
+            require_confirmation: true,
+        }
+    }
+}
+
+/// Enterprise wallet configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletConfig {
+    /// Whether to auto-generate wallets
+    pub auto_generate: bool,
+    /// DevNet environment configuration
+    pub devnet: WalletEnvironmentConfig,
+    /// MainNet environment configuration  
+    pub mainnet: WalletEnvironmentConfig,
+    /// Whether to auto-airdrop on devnet
+    pub auto_airdrop_devnet: bool,
+    /// Amount to airdrop on devnet
+    pub devnet_airdrop_amount: f64,
+    /// Default daily trading limit
+    pub default_daily_limit_sol: f64,
+}
+
+impl Default for WalletConfig {
+    fn default() -> Self {
+        Self {
+            auto_generate: true,
+            devnet: WalletEnvironmentConfig {
+                enabled: true,
+                initial_balance_sol: Some(5.0),
+                max_trade_amount_sol: 1.0,
+                rpc_endpoint: Some("https://api.devnet.solana.com".to_string()),
+                require_confirmation: false,
+            },
+            mainnet: WalletEnvironmentConfig {
+                enabled: false,
+                initial_balance_sol: None,
+                max_trade_amount_sol: 0.01,
+                rpc_endpoint: Some("https://api.mainnet-beta.solana.com".to_string()),
+                require_confirmation: true,
+            },
+            auto_airdrop_devnet: true,
+            devnet_airdrop_amount: 2.0,
+            default_daily_limit_sol: 10.0,
+        }
     }
 }

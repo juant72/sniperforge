@@ -176,7 +176,7 @@ mod validation_tests {
         
         for address in valid_addresses {
             assert!(is_valid_solana_address(address));
-            println!("✅ Validation: Address {} is valid", address);
+            println!("✅ Validation: Address {address} is valid");
         }
         
         // Invalid addresses
@@ -189,7 +189,7 @@ mod validation_tests {
         
         for address in invalid_addresses {
             assert!(!is_valid_solana_address(address));
-            println!("✅ Validation: Address '{}' correctly rejected", address);
+            println!("✅ Validation: Address '{address}' correctly rejected");
         }
     }
 
@@ -234,23 +234,21 @@ mod error_tests {
         let api_error = SniperForgeError::Api("Rate limit exceeded".to_string());
         
         // Test error messages contain expected content
-        assert!(format!("{}", config_error).contains("Invalid RPC URL"));
-        assert!(format!("{}", network_error).contains("Connection failed"));
-        assert!(format!("{}", trading_error).contains("Insufficient balance"));
-        assert!(format!("{}", api_error).contains("Rate limit exceeded"));
+        assert!(format!("{config_error}").contains("Invalid RPC URL"));
+        assert!(format!("{network_error}").contains("Connection failed"));
+        assert!(format!("{trading_error}").contains("Insufficient balance"));
+        assert!(format!("{api_error}").contains("Rate limit exceeded"));
         
         println!("✅ Errors: Error creation and formatting validated");
     }
 
     #[test]
     fn test_error_types() {
-        let errors = vec![
-            SniperForgeError::Config("test".to_string()),
+        let errors = [SniperForgeError::Config("test".to_string()),
             SniperForgeError::Trading("test".to_string()),
             SniperForgeError::Api("test".to_string()),
             SniperForgeError::Security("test".to_string()),
-            SniperForgeError::Network("test".to_string()),
-        ];
+            SniperForgeError::Network("test".to_string())];
         
         // Verify all error types can be created
         assert_eq!(errors.len(), 5);
@@ -274,7 +272,7 @@ mod logging_tests {
         
         // Test each level exists
         for level in levels {
-            println!("✅ Logging: LogLevel::{:?} validated", level);
+            println!("✅ Logging: LogLevel::{level:?} validated");
         }
     }
 
@@ -314,7 +312,7 @@ mod performance_tests {
         assert!(elapsed >= Duration::from_millis(50));
         assert!(elapsed < Duration::from_millis(100)); // Should be reasonably fast
         
-        println!("✅ Performance: Operation timing validation passed ({:?})", elapsed);
+        println!("✅ Performance: Operation timing validation passed ({elapsed:?})");
     }
 
     #[test]
@@ -327,8 +325,8 @@ mod performance_tests {
         assert!(pair_size > 0);
         
         println!("✅ Performance: Memory estimation validation passed");
-        println!("   Config size: {} bytes", config_size);
-        println!("   Pair size: {} bytes", pair_size);
+        println!("   Config size: {config_size} bytes");
+        println!("   Pair size: {pair_size} bytes");
     }
 
     #[test]
@@ -347,6 +345,6 @@ mod performance_tests {
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < HFT_SPEED_REQUIREMENT_MS as u128);
         
-        println!("✅ Performance: HFT speed requirements met ({:?})", elapsed);
+        println!("✅ Performance: HFT speed requirements met ({elapsed:?})");
     }
 }

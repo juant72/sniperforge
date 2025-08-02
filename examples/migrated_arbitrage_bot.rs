@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 info!("🔍 Found {} arbitrage opportunities", opportunities.len());
                 
                 // Demonstrate ML analysis on mock opportunity
-                let mock_token_pair = format!("TOKEN_{}-SOL", cycle);
+                let mock_token_pair = format!("TOKEN_{cycle}-SOL");
                 let mock_profit_pct = 0.001 + (cycle as f64 * 0.0002); // Increasing profit
                 let mock_volume = 100000.0 + (cycle as f64 * 50000.0);
                 let mock_liquidity = 200000.0 + (cycle as f64 * 100000.0);
@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             info!("🚀 ML recommends execution - simulating trade");
                             
                             // Record trade result for ML learning
-                            let trade_id = format!("MIGRATED_EXAMPLE_{}", cycle);
+                            let trade_id = format!("MIGRATED_EXAMPLE_{cycle}");
                             let simulated_profit = mock_profit_pct * 10.0; // Simulate 10 SOL base
                             let execution_time = 1500; // 1.5 seconds
                             

@@ -28,7 +28,7 @@ mod performance_benchmarks {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_millis(100));
         
-        println!("✅ Performance: Config creation benchmark passed ({:?})", elapsed);
+        println!("✅ Performance: Config creation benchmark passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -43,7 +43,7 @@ mod performance_benchmarks {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_millis(50));
         
-        println!("✅ Performance: ArbitragePair creation benchmark passed ({:?})", elapsed);
+        println!("✅ Performance: ArbitragePair creation benchmark passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -55,7 +55,7 @@ mod performance_benchmarks {
         for i in 0..1000 {
             opportunities.push(ArbitrageOpportunity {
                 pair: ArbitragePair::default(),
-                buy_exchange: format!("Exchange{}", i),
+                buy_exchange: format!("Exchange{i}"),
                 sell_exchange: format!("Exchange{}", i + 1),
                 buy_price: 100.0 + i as f64,
                 sell_price: 102.0 + i as f64,
@@ -72,7 +72,7 @@ mod performance_benchmarks {
         assert!(elapsed < Duration::from_millis(200));
         assert_eq!(opportunities.len(), 1000);
         
-        println!("✅ Performance: Memory allocation benchmark passed ({:?})", elapsed);
+        println!("✅ Performance: Memory allocation benchmark passed ({elapsed:?})");
     }
 }
 
@@ -92,7 +92,7 @@ mod hft_performance_tests {
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < HFT_SPEED_REQUIREMENT_MS as u128);
         
-        println!("✅ Performance: HFT latency requirements met ({:?})", elapsed);
+        println!("✅ Performance: HFT latency requirements met ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -122,7 +122,7 @@ mod hft_performance_tests {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_millis(50));
         
-        println!("✅ Performance: Rapid opportunity processing passed ({:?})", elapsed);
+        println!("✅ Performance: Rapid opportunity processing passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -134,7 +134,7 @@ mod hft_performance_tests {
             tokio::spawn(async move {
                 let mut market_data = MarketData::new();
                 for j in 0..100 {
-                    market_data.set_price(format!("TOKEN{}", j), 100.0 + i as f64);
+                    market_data.set_price(format!("TOKEN{j}"), 100.0 + i as f64);
                 }
                 market_data
             })
@@ -148,7 +148,7 @@ mod hft_performance_tests {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_millis(100));
         
-        println!("✅ Performance: Concurrent price processing passed ({:?})", elapsed);
+        println!("✅ Performance: Concurrent price processing passed ({elapsed:?})");
     }
 }
 
@@ -182,7 +182,7 @@ mod load_tests {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_secs(2));
         
-        println!("✅ Performance: High volume operations passed ({:?})", elapsed);
+        println!("✅ Performance: High volume operations passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -199,7 +199,7 @@ mod load_tests {
         // Should handle significant operations per second
         assert!(operations_count > 1000);
         
-        println!("✅ Performance: Sustained load test passed ({} ops)", operations_count);
+        println!("✅ Performance: Sustained load test passed ({operations_count} ops)");
     }
 
     #[tokio::test]
@@ -228,7 +228,7 @@ mod load_tests {
         assert!(elapsed < Duration::from_millis(500));
         assert_eq!(objects.len(), 1000);
         
-        println!("✅ Performance: Memory usage under load passed ({:?})", elapsed);
+        println!("✅ Performance: Memory usage under load passed ({elapsed:?})");
     }
 }
 
@@ -262,7 +262,7 @@ mod stress_tests {
         assert_eq!(results.len(), 100);
         assert!(elapsed < Duration::from_secs(5));
         
-        println!("✅ Performance: Extreme concurrent operations passed ({:?})", elapsed);
+        println!("✅ Performance: Extreme concurrent operations passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -280,7 +280,7 @@ mod stress_tests {
         let elapsed = start.elapsed();
         assert!(elapsed < Duration::from_millis(100));
         
-        println!("✅ Performance: Rapid configuration changes passed ({:?})", elapsed);
+        println!("✅ Performance: Rapid configuration changes passed ({elapsed:?})");
     }
 
     #[tokio::test]
@@ -334,7 +334,7 @@ mod system_performance_tests {
                 if e.to_string().contains("keypair") || e.to_string().contains("signature") {
                     println!("✅ Performance: Expected test environment error handled");
                 } else {
-                    println!("⚠️ Performance: Unexpected error: {}", e);
+                    println!("⚠️ Performance: Unexpected error: {e}");
                 }
             }
         }
@@ -342,7 +342,7 @@ mod system_performance_tests {
         let elapsed = start_time.elapsed();
         assert!(elapsed < Duration::from_secs(5));
         
-        println!("✅ Performance: End-to-end performance test completed in {:?}", elapsed);
+        println!("✅ Performance: End-to-end performance test completed in {elapsed:?}");
     }
 
     #[tokio::test]
@@ -363,6 +363,6 @@ mod system_performance_tests {
         // Should achieve reasonable throughput
         assert!(ops_per_second > 1000.0);
         
-        println!("✅ Performance: Throughput measurement passed ({:.0} ops/sec)", ops_per_second);
+        println!("✅ Performance: Throughput measurement passed ({ops_per_second:.0} ops/sec)");
     }
 }

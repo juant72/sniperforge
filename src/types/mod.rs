@@ -37,6 +37,68 @@ pub type Balance = f64;
 /// Timestamp type
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
 
+/// Enterprise Trading Mode - Real blockchain execution environments
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum TradingMode {
+    /// DevNet environment - Real transactions on development network
+    DevNet,
+    /// MainNet environment - Real transactions on production network  
+    MainNet,
+    /// TestNet environment - Real transactions on test network
+    TestNet,
+    /// Simulation mode - No real transactions, simulation only
+    Simulation,
+}
+
+impl TradingMode {
+    /// Check if mode involves real transactions
+    pub fn is_real_trading(&self) -> bool {
+        matches!(self, TradingMode::DevNet | TradingMode::MainNet | TradingMode::TestNet)
+    }
+    
+    /// Check if mode is production environment
+    pub fn is_production(&self) -> bool {
+        matches!(self, TradingMode::MainNet)
+    }
+    
+    /// Check if mode is safe for testing
+    pub fn is_safe_testing(&self) -> bool {
+        matches!(self, TradingMode::DevNet | TradingMode::TestNet | TradingMode::Simulation)
+    }
+    
+    /// Get environment name
+    pub fn environment_name(&self) -> &'static str {
+        match self {
+            TradingMode::DevNet => "DevNet",
+            TradingMode::MainNet => "MainNet", 
+            TradingMode::TestNet => "TestNet",
+            TradingMode::Simulation => "Simulation",
+        }
+    }
+    
+    /// Get RPC endpoint suffix for Solana networks
+    pub fn rpc_suffix(&self) -> &'static str {
+        match self {
+            TradingMode::DevNet => "devnet",
+            TradingMode::MainNet => "mainnet-beta",
+            TradingMode::TestNet => "testnet", 
+            TradingMode::Simulation => "devnet", // Use devnet for simulation
+        }
+    }
+}
+
+impl Default for TradingMode {
+    fn default() -> Self {
+        TradingMode::DevNet // Safe default for development
+    }
+}
+
+impl std::fmt::Display for TradingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.environment_name())
+    }
+}
+
 /// Core token representation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Token {
@@ -307,4 +369,93 @@ pub enum ConnectionStatus {
     Disconnected,
     Error(String),
     Unknown,
+}
+
+/// Platform-specific error types for enterprise trading system
+#[derive(Debug, thiserror::Error)]
+pub enum PlatformError {
+    /// Wallet management error
+    #[error("Wallet management error: {0}")]
+    WalletManagement(String),
+    
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Configuration(String),
+    
+    /// Network connectivity error
+    #[error("Network error: {0}")]
+    Network(String),
+    
+    /// Trading execution error
+    #[error("Trading error: {0}")]
+    Trading(String),
+    
+    /// Jupiter API connection error
+    #[error("Jupiter connection error: {0}")]
+    JupiterConnectionError(String),
+    
+    /// Jupiter quote error
+    #[error("Jupiter quote error: {0}")]
+    JupiterQuoteError(String),
+    
+    /// RPC pool initialization error
+    #[error("RPC pool initialization error: {0}")]
+    RpcPoolInitError(String),
+    
+    /// RPC operation error
+    #[error("RPC error: {0}")]
+    RpcError(String),
+    
+    /// RPC timeout error
+    #[error("RPC timeout: {0}")]
+    RpcTimeout(String),
+    
+    /// Wallet manager initialization error
+    #[error("Wallet manager initialization error: {0}")]
+    WalletManagerInitError(String),
+    
+    /// Wallet not found error
+    #[error("Wallet not found: {0}")]
+    WalletNotFound(String),
+    
+    /// Wallet validation error
+    #[error("Wallet validation error: {0}")]
+    WalletValidationError(String),
+}
+
+/// Detailed health status for individual components
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ComponentHealthStatus {
+    /// Component is healthy and functioning normally
+    Healthy,
+    /// Component is degraded with specific issues
+    Degraded(Vec<String>),
+    /// Component is unhealthy or offline
+    Unhealthy(String),
+}
+
+impl ComponentHealthStatus {
+    /// Check if component is healthy
+    pub fn is_healthy(&self) -> bool {
+        matches!(self, ComponentHealthStatus::Healthy)
+    }
+    
+    /// Check if component is degraded
+    pub fn is_degraded(&self) -> bool {
+        matches!(self, ComponentHealthStatus::Degraded(_))
+    }
+    
+    /// Check if component is unhealthy
+    pub fn is_unhealthy(&self) -> bool {
+        matches!(self, ComponentHealthStatus::Unhealthy(_))
+    }
+    
+    /// Get status description
+    pub fn description(&self) -> String {
+        match self {
+            ComponentHealthStatus::Healthy => "Healthy".to_string(),
+            ComponentHealthStatus::Degraded(issues) => format!("Degraded: {}", issues.join(", ")),
+            ComponentHealthStatus::Unhealthy(reason) => format!("Unhealthy: {}", reason),
+        }
+    }
 }

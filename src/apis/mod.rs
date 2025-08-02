@@ -1,7 +1,7 @@
 //! API integrations
 
 pub mod dexscreener;
-// pub mod jupiter;
+pub mod jupiter; // ✅ ENABLED: Enterprise Jupiter integration
 // pub mod orca;
 pub mod price_feeds;
 pub mod real_price_feeds;
@@ -13,6 +13,7 @@ pub mod rate_limiter;
 // pub mod traits;
 
 pub use dexscreener::*;
+pub use jupiter::{JupiterClient, JupiterApiConfig, QuoteRequest, JupiterQuoteResponse, JupiterQuote}; // ✅ Jupiter exports
 pub use price_feeds::*;
 pub use real_price_feeds::*;
 pub use multi_price_feeds::*;

@@ -107,7 +107,7 @@ fn test_log_level_functionality() {
     for level in levels {
         let level_str = level.as_str();
         assert!(!level_str.is_empty());
-        println!("✅ LogLevel::{:?} -> '{}'", level, level_str);
+        println!("✅ LogLevel::{level:?} -> '{level_str}'");
     }
     
     println!("✅ LogLevel: All levels validated");
@@ -188,7 +188,7 @@ fn test_token_address_validation() {
     
     for address in invalid_addresses {
         assert!(address.len() != 44 || !address.chars().all(|c| c.is_alphanumeric()));
-        println!("✅ TokenAddress: Invalid address '{}' correctly rejected", address);
+        println!("✅ TokenAddress: Invalid address '{address}' correctly rejected");
     }
     
     println!("✅ TokenAddress: Validation testing complete");
@@ -209,13 +209,13 @@ async fn test_performance_metrics_calculation() -> Result<()> {
     let operations_per_second = 1000.0 / elapsed.as_millis() as f64;
     assert!(operations_per_second > 0.0);
     
-    println!("✅ Performance: Metrics calculation verified (OPS: {:.2})", operations_per_second);
+    println!("✅ Performance: Metrics calculation verified (OPS: {operations_per_second:.2})");
     
     // Test memory usage estimation
     let estimated_memory = std::mem::size_of::<SimpleConfig>();
     assert!(estimated_memory > 0);
     
-    println!("✅ Performance: Memory usage estimation verified ({} bytes)", estimated_memory);
+    println!("✅ Performance: Memory usage estimation verified ({estimated_memory} bytes)");
     
     Ok(())
 }
@@ -231,11 +231,11 @@ fn test_error_types_comprehensive() {
     let trading_error = SniperForgeError::Trading("Insufficient balance".to_string());
     
     // Verify error messages
-    assert!(format!("{}", network_error).contains("Connection failed"));
-    assert!(format!("{}", api_error).contains("Rate limit exceeded"));
-    assert!(format!("{}", config_error).contains("Invalid input"));
-    assert!(format!("{}", trading_error).contains("Insufficient balance"));
-    assert!(format!("{}", trading_error).contains("Insufficient balance"));
+    assert!(format!("{network_error}").contains("Connection failed"));
+    assert!(format!("{api_error}").contains("Rate limit exceeded"));
+    assert!(format!("{config_error}").contains("Invalid input"));
+    assert!(format!("{trading_error}").contains("Insufficient balance"));
+    assert!(format!("{trading_error}").contains("Insufficient balance"));
     
     println!("✅ Error Types: All error variants validated");
 }
@@ -328,10 +328,10 @@ fn test_memory_efficiency() {
     assert!(price_info_size < 2048);
     
     println!("✅ Memory: Efficiency verified");
-    println!("   - SimpleConfig: {} bytes", config_size);
-    println!("   - ArbitragePair: {} bytes", pair_size);
-    println!("   - ArbitrageOpportunity: {} bytes", opportunity_size);
-    println!("   - PriceInfo: {} bytes", price_info_size);
+    println!("   - SimpleConfig: {config_size} bytes");
+    println!("   - ArbitragePair: {pair_size} bytes");
+    println!("   - ArbitrageOpportunity: {opportunity_size} bytes");
+    println!("   - PriceInfo: {price_info_size} bytes");
 }
 
 #[test]

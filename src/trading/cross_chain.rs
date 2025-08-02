@@ -269,8 +269,6 @@ impl CrossChainPriceMonitor {
     /// Método eliminado - ya no usamos CoinGecko batch para evitar rate limiting
     /// Reemplazado por MultiPriceFeeds system
     /// Método eliminado - reemplazado por MultiPriceFeeds system para evitar rate limiting
-    /// Método eliminado - reemplazado por MultiPriceFeeds system para evitar rate limiting
-    
     /// Obtener dirección de token para una chain específica con mapeo nativo correcto
     #[allow(dead_code)] // Utility method for future multi-chain support
     fn get_token_address(&self, token: &str, chain: &str) -> Result<String> {
