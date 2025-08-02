@@ -16,7 +16,7 @@ pub mod helpers {
     use rust_decimal::Decimal;
     use std::str::FromStr;
 
-    /// Create a standard test configuration
+    /// Create a standard test configuration with enterprise features
     pub fn create_test_config() -> SimpleConfig {
         SimpleConfig {
             solana_rpc_url: "https://api.devnet.solana.com".to_string(),
@@ -31,6 +31,24 @@ pub mod helpers {
             max_requests_per_second: 10,
             cooldown_period_ms: 1000,
             max_history_size: 1000,
+            
+            // 🚀 Enterprise test suite configuration
+            trading_amount: 0.01,
+            profit_threshold: 0.5,
+            max_price_age_seconds: 30,
+            risk_percentage: 2.0,
+            enable_ml_analysis: true,                // Enable ML for comprehensive testing
+            enable_sentiment_analysis: true,         // Enable sentiment analysis testing
+            enable_technical_analysis: true,         // Enable technical analysis testing
+            max_concurrent_trades: 3,                // Conservative for test stability
+            portfolio_rebalancing: true,
+            stop_loss_percentage: 5.0,
+            take_profit_percentage: 10.0,
+            
+            // RPC Configuration fields
+            use_secondary_rpc: Some(false),
+            rpc_retry_attempts: Some(3),
+            rpc_timeout_ms: Some(5000),
         }
     }
 

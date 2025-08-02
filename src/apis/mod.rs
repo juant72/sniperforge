@@ -7,6 +7,7 @@ pub mod price_feeds;
 pub mod real_price_feeds;
 pub mod multi_price_feeds; // Nuevo sistema multi-proveedor
 pub mod stablecoin_monitor; // ✅ NEW: Real stablecoin monitoring
+pub mod rpc; // ✅ NEW: Enterprise RPC pool management
 // pub mod raydium;
 pub mod rate_limiter;
 // pub mod solana_rpc;
@@ -14,10 +15,10 @@ pub mod rate_limiter;
 
 pub use dexscreener::*;
 pub use jupiter::{JupiterClient, JupiterApiConfig, QuoteRequest, JupiterQuoteResponse, JupiterQuote}; // ✅ Jupiter exports
-pub use price_feeds::*;
+pub use price_feeds::{PriceFeedManager};
 pub use real_price_feeds::*;
 pub use multi_price_feeds::*;
 pub use stablecoin_monitor::*; // ✅ Export stablecoin monitor
-pub use rate_limiter::*;
+pub use rpc::{RpcPool, RpcPoolConfig, RpcEndpointHealth};
 // pub use solana_rpc::*;
 // pub use traits::*;

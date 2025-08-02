@@ -31,7 +31,7 @@ pub struct SniperForgeConfig {
 }
 
 impl SniperForgeConfig {
-    /// Create a simplified config for the arbitrage engine
+    /// Create a simplified config for the arbitrage engine with enterprise features
     pub fn to_simple_config(&self) -> SimpleConfig {
         SimpleConfig {
             solana_rpc_url: self.security.rpc_url.clone(),
@@ -46,11 +46,31 @@ impl SniperForgeConfig {
             max_requests_per_second: 10, // Default value
             cooldown_period_ms: 1000, // Default value
             max_history_size: 1000, // Default value
+            
+            // 🚀 Enterprise trading parameters
+            trading_amount: self.trading.max_trade_size_sol * 0.1, // 10% of max as default trading amount
+            profit_threshold: self.trading.min_profit_bps as f64 / 10000.0, // Same as min_profit_threshold
+            max_price_age_seconds: 30, // 30 seconds max price age
+            risk_percentage: 2.0, // 2% risk per trade
+            
+            // 🎯 Advanced enterprise features  
+            enable_ml_analysis: true, // Enable ML analysis by default
+            enable_sentiment_analysis: true, // Enable sentiment analysis
+            enable_technical_analysis: true, // Enable technical indicators
+            max_concurrent_trades: 5, // Conservative default for enterprise
+            portfolio_rebalancing: true, // Enable portfolio rebalancing
+            stop_loss_percentage: 5.0, // 5% stop loss
+            take_profit_percentage: 10.0, // 10% take profit
+            
+            // ✅ RPC Configuration Enterprise
+            use_secondary_rpc: Some(false), // Primary RPC by default
+            rpc_retry_attempts: Some(3), // 3 retry attempts
+            rpc_timeout_ms: Some(10000), // 10 second timeout
         }
     }
 }
 
-/// Simplified configuration for arbitrage engine
+/// Enterprise configuration for trading platform
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleConfig {
     pub solana_rpc_url: String,
@@ -65,6 +85,26 @@ pub struct SimpleConfig {
     pub max_requests_per_second: u32,
     pub cooldown_period_ms: u64,
     pub max_history_size: usize,
+    
+    // Enterprise trading parameters
+    pub trading_amount: f64,          // Amount per trade
+    pub profit_threshold: f64,        // Alternative profit threshold
+    pub max_price_age_seconds: u64,   // Max age for price data
+    pub risk_percentage: f64,         // Risk management percentage
+    
+    // Advanced configuration
+    pub enable_ml_analysis: bool,     // Enable ML-powered analysis
+    pub enable_sentiment_analysis: bool, // Enable sentiment analysis
+    pub enable_technical_analysis: bool, // Enable technical indicators
+    pub max_concurrent_trades: usize, // Max simultaneous trades
+    pub portfolio_rebalancing: bool,  // Enable portfolio rebalancing
+    pub stop_loss_percentage: f64,    // Global stop loss
+    pub take_profit_percentage: f64,  // Global take profit
+    
+    // ✅ RPC Configuration Enterprise
+    pub use_secondary_rpc: Option<bool>, // Enable secondary RPC usage
+    pub rpc_retry_attempts: Option<u32>, // Number of retry attempts
+    pub rpc_timeout_ms: Option<u64>,     // RPC timeout in milliseconds
 }
 
 impl Default for SimpleConfig {
@@ -82,6 +122,26 @@ impl Default for SimpleConfig {
             max_requests_per_second: 10,
             cooldown_period_ms: 100,
             max_history_size: 1000,
+            
+            // Enterprise trading parameters
+            trading_amount: 0.01,               // 0.01 SOL per trade by default
+            profit_threshold: 0.5,              // 0.5% alternative threshold  
+            max_price_age_seconds: 30,          // Price data max 30 seconds old
+            risk_percentage: 2.0,               // 2% risk per trade
+            
+            // Advanced configuration
+            enable_ml_analysis: true,           // Enable ML by default
+            enable_sentiment_analysis: true,    // Enable sentiment analysis
+            enable_technical_analysis: true,    // Enable technical indicators
+            max_concurrent_trades: 10,          // Max 10 simultaneous trades
+            portfolio_rebalancing: true,        // Enable rebalancing
+            stop_loss_percentage: 5.0,          // 5% stop loss
+            take_profit_percentage: 10.0,       // 10% take profit
+            
+            // ✅ RPC Configuration Enterprise
+            use_secondary_rpc: Some(false),     // Primary RPC by default
+            rpc_retry_attempts: Some(3),        // 3 retry attempts
+            rpc_timeout_ms: Some(10000),        // 10 second timeout
         }
     }
 }
