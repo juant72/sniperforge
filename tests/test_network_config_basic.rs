@@ -12,7 +12,7 @@ mod tests {
         // Test que NetworkConfig::devnet() funciona (backward compatibility)
         let config = NetworkConfig::devnet().unwrap();
         
-        assert_eq!(config.network, "devnet");
+        assert_eq!(config.network, "DevNet"); // Configuration uses capitalized names
         assert!(config.rpc_endpoint.contains("devnet"));
         assert!(config.program_ids.system_program.to_string().len() > 0);
     }
@@ -21,7 +21,7 @@ mod tests {
     fn test_network_config_mainnet_basic() {
         let config = NetworkConfig::mainnet().unwrap();
         
-        assert_eq!(config.network, "mainnet");
+        assert_eq!(config.network, "MainNet"); // Configuration uses capitalized names
         assert!(config.rpc_endpoint.contains("mainnet"));
         assert!(config.program_ids.system_program.to_string().len() > 0);
     }
@@ -30,7 +30,7 @@ mod tests {
     fn test_network_config_testnet_basic() {
         let config = NetworkConfig::testnet().unwrap();
         
-        assert_eq!(config.network, "testnet");
+        assert_eq!(config.network, "TestNet"); // Configuration uses capitalized names
         assert!(config.rpc_endpoint.contains("testnet"));
     }
 

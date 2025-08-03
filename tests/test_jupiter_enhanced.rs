@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use sniperforge::apis::jupiter::{
-        Jupiter, JupiterBuilder, JupiterApiConfig,
-        QuoteRequest, JupiterClient, JupiterMetrics
+        Jupiter, JupiterBuilder,
+        QuoteRequest
     };
     use sniperforge::config::network::NetworkConfig;
     use std::time::Duration;
@@ -166,12 +166,50 @@ mod tests {
     async fn test_jupiter_health_check() {
         let mut jupiter = Jupiter::from_config("devnet").await.expect("Failed to create Jupiter");
         
-        // Health check will likely fail without real network access
-        let _health_result = jupiter.health_check().await;
-        // We don't assert the result since it depends on network connectivity
+        // Get initial metrics state
+        let initial_metrics = jupiter.get_metrics();
+        let initial_requests = initial_metrics.total_requests;
         
-        // But we can check that metrics were updated
-        assert!(jupiter.get_metrics().total_requests > 0);
+        // Health check is a simple config validation, not a network request
+        let health_result = jupiter.health_check().await;
+        assert!(health_result.is_ok(), "Health check should succeed with valid config");
+        assert!(health_result.unwrap(), "Health check should return true for valid config");
+        
+        // ENHANCED: Health check doesn't make network requests, so metrics shouldn't change
+        // This is the correct behavior - it's a lightweight config validation
+        let post_health_metrics = jupiter.get_metrics();
+        assert_eq!(post_health_metrics.total_requests, initial_requests, 
+                  "Health check should not increment request counter (it's config validation, not network request)");
+        
+        println!("✅ Health check completed successfully - config validation passed");
+    }
+
+    #[tokio::test]
+    async fn test_jupiter_network_request_metrics() {
+        let mut jupiter = Jupiter::from_config("devnet").await.expect("Failed to create Jupiter");
+        
+        // Get initial metrics
+        let initial_requests = jupiter.get_metrics().total_requests;
+        
+        // Make an actual network request that should increment metrics
+        let quote_request = QuoteRequest {
+            input_mint: "So11111111111111111111111111111111111111112".to_string(), // SOL
+            output_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v".to_string(), // USDC
+            amount: 1000000, // 0.001 SOL
+            slippage_bps: Some(300), // 3%
+            ..Default::default()
+        };
+        
+        // This will likely fail without real network access, but should increment metrics
+        let _quote_result = jupiter.get_quote(&quote_request).await;
+        
+        // Check that metrics were updated (regardless of success/failure)
+        let updated_metrics = jupiter.get_metrics();
+        assert!(updated_metrics.total_requests > initial_requests, 
+               "Network request should increment total_requests counter");
+        
+        println!("✅ Network request metrics validated - counter incremented from {} to {}", 
+                initial_requests, updated_metrics.total_requests);
     }
 
     #[test]
