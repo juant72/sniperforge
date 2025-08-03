@@ -479,16 +479,25 @@ impl Jupiter {
         }
 
         // Update average response time (simple moving average)
-        if self.metrics.total_requests == 1 {
+        // Fix: Handle the case where total_requests might be 0 or 1 safely
+        if self.metrics.total_requests <= 1 {
             self.metrics.average_response_time = response_time;
         } else {
-            let total_time = self.metrics.average_response_time.as_millis() as f64 * (self.metrics.total_requests - 1) as f64;
+            // Safe calculation: total_requests is guaranteed to be > 1 here
+            let previous_requests = self.metrics.total_requests - 1;
+            let total_time = self.metrics.average_response_time.as_millis() as f64 * previous_requests as f64;
             let new_average = (total_time + response_time.as_millis() as f64) / self.metrics.total_requests as f64;
             self.metrics.average_response_time = Duration::from_millis(new_average as u64);
         }
 
         self.metrics.last_request_time = Some(Instant::now());
-        self.metrics.error_rate = self.metrics.failed_requests as f64 / self.metrics.total_requests as f64;
+        
+        // Safe division: ensure total_requests is not 0
+        if self.metrics.total_requests > 0 {
+            self.metrics.error_rate = self.metrics.failed_requests as f64 / self.metrics.total_requests as f64;
+        } else {
+            self.metrics.error_rate = 0.0;
+        }
 
         // Alert on high error rate
         if self.config.monitoring.alert_on_errors && 
@@ -520,6 +529,8 @@ impl Jupiter {
 
     /// Update performance metrics - ENTERPRISE ACCESSOR
     pub fn update_performance_metrics(&mut self, success: bool, response_time: Duration) {
+        // Increment total requests first to maintain consistency with internal flow
+        self.metrics.total_requests += 1;
         self.update_metrics(success, response_time);
     }
 
