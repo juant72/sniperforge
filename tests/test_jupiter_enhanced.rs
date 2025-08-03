@@ -105,7 +105,7 @@ mod tests {
         
         // Simulate updating metrics manually
         let mut jupiter = Jupiter {
-            client: JupiterClient::new(&JupiterApiConfig::default()).unwrap(),
+            client: JupiterClient::new(JupiterApiConfig::default()).unwrap(),
             config: Jupiter::load_jupiter_config().unwrap(),
             network_config: NetworkConfig::from_config("devnet").unwrap(),
             network_name: "devnet".to_string(),
