@@ -21,7 +21,7 @@ pub struct ArbitrageStrategy {
     performance: StrategyPerformance,
     enabled: bool,
     price_feeds: HashMap<String, f64>, // DEX -> Price mapping
-    arbitrage_engine: ArbitrageEngine, // ✅ PRESERVAR: Existing ML engine
+    arbitrage_engine: Option<ArbitrageEngine>, // ✅ CORREGIDO: Optional para lazy initialization
 }
 
 /// Arbitrage opportunity structure for strategy analysis
@@ -39,15 +39,24 @@ pub struct ArbitrageOpportunity {
 }
 
 impl ArbitrageStrategy {
-    /// Create default ArbitrageEngine for strategy use
-    fn create_default_arbitrage_engine() -> ArbitrageEngine {
-        // TODO: En producción, usar configuración real del sistema
-        // Por ahora, crear un engine dummy para compilación
-        ArbitrageEngine::create_dummy_for_testing()
+    /// Create default ArbitrageEngine for strategy use with real configuration
+    async fn create_default_arbitrage_engine() -> Result<ArbitrageEngine, String> {
+        // Load real configuration from system
+        let config = crate::config::SimpleConfig::default();
+        
+        // Create price feed manager
+        let price_feed_manager = std::sync::Arc::new(
+            crate::apis::price_feeds::PriceFeedManager::new()
+        );
+        
+        // Create real ArbitrageEngine with proper initialization
+        crate::trading::arbitrage::ArbitrageEngine::new(config, price_feed_manager)
+            .await
+            .map_err(|e| format!("Failed to create ArbitrageEngine: {:?}", e))
     }
 
     /// Create new arbitrage strategy with default configuration
-    pub fn new() -> Self {
+    pub async fn new() -> Result<Self, String> {
         let config = StrategyConfig {
             name: "Enhanced Arbitrage".to_string(),
             enabled: true,
@@ -80,8 +89,25 @@ impl ArbitrageStrategy {
             performance,
             enabled: true,
             price_feeds: HashMap::new(),
-            arbitrage_engine: Self::create_default_arbitrage_engine(), // ✅ CORREGIDO: Crear engine por defecto
+            arbitrage_engine: None, // ✅ CORREGIDO: Se inicializará de forma lazy
         }
+    }
+
+    /// Initialize the arbitrage engine (lazy initialization)
+    async fn ensure_engine_initialized(&mut self) -> Result<(), String> {
+        if self.arbitrage_engine.is_none() {
+            info!("🚀 Initializing real ArbitrageEngine...");
+            self.arbitrage_engine = Some(Self::create_default_arbitrage_engine().await?);
+            info!("✅ ArbitrageEngine initialized successfully");
+        }
+        Ok(())
+    }
+
+    /// Get reference to the arbitrage engine, initializing if needed
+    async fn get_engine(&mut self) -> Result<&ArbitrageEngine, String> {
+        self.ensure_engine_initialized().await?;
+        self.arbitrage_engine.as_ref()
+            .ok_or_else(|| "ArbitrageEngine not initialized".to_string())
     }
 
     /// Create arbitrage strategy with custom configuration
@@ -96,7 +122,7 @@ impl ArbitrageStrategy {
             performance,
             enabled: true,
             price_feeds: HashMap::new(),
-            arbitrage_engine: Self::create_default_arbitrage_engine(),
+            arbitrage_engine: None, // ✅ CORREGIDO: Se inicializará de forma lazy
         }
     }
 

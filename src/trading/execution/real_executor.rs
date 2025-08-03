@@ -361,33 +361,95 @@ impl RealTradeExecutor {
     }
 
     /// Get real quote from Jupiter
-    async fn get_real_quote(&self, _request: &RealTradeRequest) -> Result<JupiterQuoteResponse, PlatformError> {
-        debug!("💰 Getting real quote from Jupiter");
+    async fn get_real_quote(&self, request: &RealTradeRequest) -> Result<JupiterQuoteResponse, PlatformError> {
+        debug!("💰 Getting real quote from Jupiter for {} -> {}", 
+               request.input_mint, request.output_mint);
 
-        // TODO: Implement real Jupiter quote when methods are available
-        warn!("⚠️ Using placeholder quote during migration");
+        // Create Jupiter client
+        let jupiter_client = match request.trading_mode {
+            RealTradingMode::MainNet => crate::apis::jupiter::JupiterClient::mainnet(),
+            RealTradingMode::DevNet => crate::apis::jupiter::JupiterClient::devnet(),
+            RealTradingMode::TestNet => crate::apis::jupiter::JupiterClient::devnet(), // Use devnet for testnet
+        }.map_err(|e| PlatformError::JupiterQuoteError(format!("Failed to create Jupiter client: {}", e)))?;
 
-        // For now, return error indicating functionality is not yet implemented
-        Err(PlatformError::JupiterQuoteError("Real quote functionality temporarily disabled during migration".to_string()))
+        // Convert amount to native units (assuming input is in base units)
+        let amount_in_native = (request.amount * 1_000_000.0) as u64; // Convert to lamports/smallest unit
+
+        // Build quote request
+        let quote_request = crate::apis::jupiter::types::QuoteRequest::new(
+            request.input_mint.clone(),
+            request.output_mint.clone(),
+            amount_in_native,
+        ).with_slippage_bps(request.slippage_bps);
+
+        // Get quote from Jupiter
+        let quote_response = jupiter_client
+            .get_quote(&quote_request)
+            .await
+            .map_err(|e| PlatformError::JupiterQuoteError(format!("Jupiter quote failed: {}", e)))?;
+
+        info!("✅ Jupiter quote successful: {} {} -> {} {}", 
+              request.amount, request.input_mint, 
+              quote_response.out_amount, request.output_mint);
+
+        Ok(quote_response)
     }
 
     /// Validate quote safety parameters
-    fn validate_quote_safety(&self, _quote: &JupiterQuoteResponse, request: &RealTradeRequest) -> Result<(), PlatformError> {
+    fn validate_quote_safety(&self, quote: &JupiterQuoteResponse, request: &RealTradeRequest) -> Result<(), PlatformError> {
         debug!("🛡️ Validating quote safety parameters");
 
-        // TODO: Implement quote validation when Jupiter response methods are available
-        warn!("⚠️ Quote safety validation temporarily simplified during migration");
-
-        // Basic validation for now
-        if request.max_price_impact > 0.20 {
-            return Err(PlatformError::Trading("Price impact limit too high".to_string()));
+        // 1. Validate price impact
+        if let Some(price_impact_pct) = quote.price_impact_pct.as_ref() {
+            let price_impact: f64 = price_impact_pct.parse()
+                .unwrap_or(0.0);
+            
+            if price_impact.abs() > request.max_price_impact {
+                return Err(PlatformError::Trading(
+                    format!("Price impact too high: {:.2}% > {:.2}%", 
+                           price_impact * 100.0, request.max_price_impact * 100.0)
+                ));
+            }
         }
 
-        if request.slippage_bps > 1000 {
-            return Err(PlatformError::Trading("Slippage tolerance too high".to_string()));
+        // 2. Validate slippage tolerance
+        if request.slippage_bps > 1000 { // Max 10%
+            return Err(PlatformError::Trading(
+                format!("Slippage tolerance too high: {} bps", request.slippage_bps)
+            ));
         }
 
-        info!("✅ Quote safety parameters validated");
+        // 3. Validate minimum output amount if specified
+        if let Some(min_output) = request.min_output_amount {
+            let output_amount: f64 = quote.out_amount.parse()
+                .map_err(|_| PlatformError::Trading("Invalid output amount in quote".to_string()))?;
+            
+            if output_amount < min_output {
+                return Err(PlatformError::Trading(
+                    format!("Output amount too low: {} < {}", output_amount, min_output)
+                ));
+            }
+        }
+
+        // 4. Validate route plan exists
+        if quote.route_plan.is_empty() {
+            return Err(PlatformError::Trading("No valid route found for swap".to_string()));
+        }
+
+        // 5. Validate reasonable amount bounds
+        let input_amount: f64 = quote.in_amount.parse()
+            .map_err(|_| PlatformError::Trading("Invalid input amount in quote".to_string()))?;
+            
+        if input_amount < 1000.0 { // Minimum 1000 lamports/units
+            return Err(PlatformError::Trading("Trade amount too small".to_string()));
+        }
+
+        if input_amount > 100_000_000_000.0 { // Maximum 100B units
+            return Err(PlatformError::Trading("Trade amount too large".to_string()));
+        }
+
+        info!("✅ Quote safety validation passed - Price impact: {:?}, Route: {} steps", 
+              quote.price_impact_pct, quote.route_plan.len());
         Ok(())
     }
 
