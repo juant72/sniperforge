@@ -1,4 +1,4 @@
-//! Enhanced Arbitrage Strategy - Enterprise Integration
+//! Enhanced Arbitrage Strategy - Enterprise Integration with ML
 //! 
 //! This module provides a comprehensive arbitrage strategy that implements the
 //! TradingStrategy trait while preserving and enhancing all existing ML and 
@@ -11,6 +11,7 @@ use super::{
 use crate::config::SimpleConfig;
 use crate::trading::arbitrage::ArbitrageEngine;
 use crate::types::{TradingOpportunity, MarketData};
+use crate::ml::{AdvancedMLEngine, MLConfig, MLEngineFactory, PatternType, SentimentTrend}; // ✅ NUEVO: ML Integration
 use anyhow::Result;
 use std::collections::HashMap;
 use chrono::Utc;
@@ -38,6 +39,7 @@ pub struct ArbitrageStrategy {
     enabled: bool,
     price_feeds: HashMap<String, f64>, // DEX -> Price mapping
     arbitrage_engine: Option<ArbitrageEngine>, // ✅ CORREGIDO: Optional para lazy initialization
+    ml_engine: Option<AdvancedMLEngine>, // ✅ NUEVO: ML Engine integration
 }
 
 /// Arbitrage opportunity structure for strategy analysis
@@ -106,6 +108,7 @@ impl ArbitrageStrategy {
             enabled: true,
             price_feeds: HashMap::new(),
             arbitrage_engine: None, // ✅ CORREGIDO: Se inicializará de forma lazy
+            ml_engine: None, // ✅ NUEVO: ML Engine lazy initialization
         })
     }
 
@@ -115,6 +118,26 @@ impl ArbitrageStrategy {
             info!("🚀 Initializing real ArbitrageEngine...");
             self.arbitrage_engine = Some(Self::create_default_arbitrage_engine().await?);
             info!("✅ ArbitrageEngine initialized successfully");
+        }
+        Ok(())
+    }
+    
+    /// Initialize the ML engine (lazy initialization)
+    async fn ensure_ml_engine_initialized(&mut self) -> Result<(), String> {
+        if self.ml_engine.is_none() {
+            info!("🤖 Initializing Advanced ML Engine...");
+            // Create ML engine optimized for arbitrage
+            let ml_config = MLConfig {
+                sentiment_threshold: 0.7,
+                prediction_horizon: 5, // 5 minutes for arbitrage
+                risk_tolerance: 0.3,   // Conservative for arbitrage
+                portfolio_rebalance_frequency: 15, // 15 minutes
+                pattern_confidence_threshold: 0.8,
+                model_update_interval: 60, // 1 minute
+                enable_real_time_learning: true,
+            };
+            self.ml_engine = Some(MLEngineFactory::create_with_config(ml_config));
+            info!("✅ Advanced ML Engine initialized successfully");
         }
         Ok(())
     }
@@ -139,6 +162,7 @@ impl ArbitrageStrategy {
             enabled: true,
             price_feeds: HashMap::new(),
             arbitrage_engine: None, // ✅ CORREGIDO: Se inicializará de forma lazy
+            ml_engine: None, // ✅ NUEVO: ML Engine lazy initialization
         }
     }
 
@@ -286,6 +310,8 @@ impl ArbitrageStrategy {
     }
 
     /// Select best arbitrage opportunity from available options
+    /// This is the fallback method when ML is not available
+    #[allow(dead_code)]
     fn select_best_arbitrage<'a>(&self, opportunities: &'a [ArbitrageOpportunity]) -> Option<&'a ArbitrageOpportunity> {
         if opportunities.is_empty() {
             return None;
@@ -327,6 +353,87 @@ impl ArbitrageStrategy {
         if let Some(opp) = best_opportunity {
             info!("🎯 Selected best arbitrage: {:.2}% profit, {:.2} confidence, score: {:.3}", 
                   opp.profit_percentage * 100.0, opp.confidence, best_score);
+        }
+
+        best_opportunity
+    }
+    
+    /// Select best arbitrage opportunity enhanced with ML analysis
+    fn select_best_arbitrage_with_ml<'a>(&self, opportunities: &'a [ArbitrageOpportunity], ml_analysis: &Option<crate::ml::MLAnalysisResult>) -> Option<&'a ArbitrageOpportunity> {
+        if opportunities.is_empty() {
+            return None;
+        }
+
+        let mut best_opportunity: Option<&ArbitrageOpportunity> = None;
+        let mut best_score = 0.0;
+
+        for opportunity in opportunities {
+            let mut score = 0.0;
+
+            // Traditional scoring (70% weight when ML is available, 100% when not)
+            let traditional_weight = if ml_analysis.is_some() { 0.7 } else { 1.0 };
+
+            // Profit factor
+            score += opportunity.estimated_profit * 0.4 * traditional_weight;
+
+            // Confidence factor
+            score += opportunity.confidence * 0.3 * traditional_weight;
+
+            // Liquidity factor
+            let min_liquidity = opportunity.liquidity_buy.min(opportunity.liquidity_sell);
+            if min_liquidity > self.config.max_position_size * 3.0 {
+                score += 0.2 * traditional_weight;
+            } else if min_liquidity > self.config.max_position_size * 2.0 {
+                score += 0.15 * traditional_weight;
+            } else if min_liquidity > self.config.max_position_size {
+                score += 0.1 * traditional_weight;
+            }
+
+            // Speed factor - prefer direct arbitrage
+            if !opportunity.buy_exchange.contains("Path") {
+                score += 0.1 * traditional_weight;
+            }
+
+            // ✅ ML Enhancement (30% weight when available)
+            if let Some(ref ml_result) = ml_analysis {
+                let ml_weight = 0.3;
+                
+                // ML Score integration
+                score += ml_result.ml_score * ml_weight;
+                
+                // Sentiment enhancement
+                let sentiment_boost = match ml_result.sentiment_analysis.trend {
+                    SentimentTrend::Bullish => 0.05,
+                    SentimentTrend::Neutral => 0.0,
+                    SentimentTrend::Bearish => -0.03,
+                };
+                score += sentiment_boost;
+                
+                // Risk adjustment
+                let risk_penalty = ml_result.risk_assessment.overall_risk_score * 0.1;
+                score -= risk_penalty;
+                
+                // Pattern recognition bonus
+                let pattern_bonus = ml_result.pattern_matches.iter()
+                    .filter(|p| matches!(p.pattern_type, PatternType::Arbitrage))
+                    .map(|p| p.confidence * 0.02)
+                    .sum::<f64>();
+                score += pattern_bonus;
+                
+                debug!("🤖 ML Enhanced Scoring: base={:.3}, ml_score={:.3}, sentiment={:.3}, risk_penalty={:.3}, pattern_bonus={:.3}", 
+                       score - ml_result.ml_score * ml_weight + risk_penalty - sentiment_boost - pattern_bonus,
+                       ml_result.ml_score * ml_weight, sentiment_boost, risk_penalty, pattern_bonus);
+            }
+
+            if score > best_score {
+                best_score = score;
+                best_opportunity = Some(opportunity);
+            }
+        }
+
+        if let Some(best) = best_opportunity {
+            info!("🎯 Selected best arbitrage opportunity: {} -> {} | Score: {:.3} | Profit: {:.2}%", 
+                  best.buy_exchange, best.sell_exchange, best_score, best.profit_percentage * 100.0);
         }
 
         best_opportunity
@@ -379,11 +486,35 @@ impl TradingStrategy for ArbitrageStrategy {
             return Ok(vec![]);
         }
 
+        // ✅ NUEVO: ML Enhancement - Initialize ML engine if needed (async operations in sync context)
+        let rt = tokio::runtime::Handle::current();
+        if let Err(e) = rt.block_on(self.ensure_ml_engine_initialized()) {
+            warn!("⚠️ Failed to initialize ML engine: {}", e);
+            // Continue without ML (fallback to traditional arbitrage)
+        }
+
+        // ✅ NUEVO: ML Analysis Integration
+        let ml_analysis = if let Some(ref ml_engine) = self.ml_engine {
+            match rt.block_on(ml_engine.analyze_opportunity(opportunity, market_data)) {
+                Ok(analysis) => {
+                    info!("🤖 ML Analysis completed - Score: {:.3}, Confidence: {:.3}", 
+                          analysis.ml_score, analysis.confidence);
+                    Some(analysis)
+                },
+                Err(e) => {
+                    warn!("⚠️ ML Analysis failed: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         // Detect arbitrage opportunities using real price feeds
         let opportunities = self.detect_arbitrage_opportunities(market_data);
         
-        // Select the best opportunity
-        let best_opportunity = match self.select_best_arbitrage(&opportunities) {
+        // Select the best opportunity (enhanced with ML if available)
+        let best_opportunity = match self.select_best_arbitrage_with_ml(&opportunities, &ml_analysis) {
             Some(opp) => opp,
             None => {
                 debug!("🚫 No profitable arbitrage opportunities found");
@@ -391,16 +522,29 @@ impl TradingStrategy for ArbitrageStrategy {
             }
         };
 
-        // Validate against minimum requirements
-        if best_opportunity.confidence < self.config.min_confidence {
-            debug!("🚫 Arbitrage confidence too low: {:.2} < {:.2}", 
-                   best_opportunity.confidence, self.config.min_confidence);
+        // Enhanced validation with ML risk assessment
+        let ml_confidence_factor = ml_analysis.as_ref()
+            .map(|analysis| analysis.confidence)
+            .unwrap_or(1.0);
+        
+        let adjusted_min_confidence = self.config.min_confidence * ml_confidence_factor;
+
+        if best_opportunity.confidence < adjusted_min_confidence {
+            debug!("🚫 Arbitrage confidence too low: {:.2} < {:.2} (ML adjusted)", 
+                   best_opportunity.confidence, adjusted_min_confidence);
             return Ok(vec![]);
         }
 
-        if best_opportunity.estimated_profit < 1.0 {
-            debug!("🚫 Arbitrage profit too low: ${:.2} < $1.00", 
-                   best_opportunity.estimated_profit);
+        // ML-enhanced profit validation
+        let ml_risk_adjustment = ml_analysis.as_ref()
+            .map(|analysis| 1.0 - analysis.risk_assessment.overall_risk_score)
+            .unwrap_or(1.0);
+        
+        let min_profit_threshold = 1.0 / ml_risk_adjustment;
+
+        if best_opportunity.estimated_profit < min_profit_threshold {
+            debug!("🚫 Arbitrage profit too low: ${:.2} < ${:.2} (ML adjusted)", 
+                   best_opportunity.estimated_profit, min_profit_threshold);
             return Ok(vec![]);
         }
 
@@ -588,6 +732,7 @@ impl Default for ArbitrageStrategy {
                 enabled: true,
                 price_feeds: HashMap::new(),
                 arbitrage_engine: None,
+                ml_engine: None, // ✅ NUEVO: ML Engine field
             }
         })
     }

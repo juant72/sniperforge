@@ -41,6 +41,7 @@ pub mod types;
 pub mod errors;
 pub mod monitoring;
 pub mod intelligence;
+pub mod ml; // ✅ NUEVO: ML module export
 
 // Re-export commonly used types
 pub use config::{SimpleConfig, EnterpriseConfig};
