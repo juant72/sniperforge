@@ -8,12 +8,28 @@ use super::{
     TradingStrategy, StrategyConfig, StrategyPerformance, StrategySignal, SignalType,
     Timeframe, RiskLevel, TradeResult
 };
+use crate::config::SimpleConfig;
 use crate::trading::arbitrage::ArbitrageEngine;
 use crate::types::{TradingOpportunity, MarketData};
 use anyhow::Result;
 use std::collections::HashMap;
 use chrono::Utc;
 use tracing::{info, warn, debug};
+
+/// Arbitrage-specific performance metrics
+#[derive(Debug, Clone)]
+pub struct ArbitragePerformance {
+    pub total_trades: u64,
+    pub successful_trades: u64,
+    pub failed_trades: u64,
+    pub total_profit: f64,
+    pub average_profit: f64,
+    pub average_loss: f64,
+    pub max_drawdown: f64,
+    pub sharpe_ratio: f64,
+    pub total_fees: f64,
+    pub last_updated: chrono::DateTime<Utc>,
+}
 
 /// Enhanced arbitrage strategy implementing TradingStrategy trait
 pub struct ArbitrageStrategy {
@@ -42,11 +58,11 @@ impl ArbitrageStrategy {
     /// Create default ArbitrageEngine for strategy use with real configuration
     async fn create_default_arbitrage_engine() -> Result<ArbitrageEngine, String> {
         // Load real configuration from system
-        let config = crate::config::SimpleConfig::default();
+        let config = SimpleConfig::default();
         
         // Create price feed manager
         let price_feed_manager = std::sync::Arc::new(
-            crate::apis::price_feeds::PriceFeedManager::new()
+            crate::apis::price_feeds::PriceFeedManager::new(&config)
         );
         
         // Create real ArbitrageEngine with proper initialization
@@ -84,13 +100,13 @@ impl ArbitrageStrategy {
             last_updated: Utc::now(),
         };
 
-        Self {
+        Ok(Self {
             config,
             performance,
             enabled: true,
             price_feeds: HashMap::new(),
             arbitrage_engine: None, // ✅ CORREGIDO: Se inicializará de forma lazy
-        }
+        })
     }
 
     /// Initialize the arbitrage engine (lazy initialization)
@@ -317,13 +333,29 @@ impl ArbitrageStrategy {
     }
 
     /// Get reference to internal arbitrage engine for ML features
-    pub fn arbitrage_engine(&self) -> &ArbitrageEngine {
-        &self.arbitrage_engine
+    pub fn arbitrage_engine(&self) -> Option<&ArbitrageEngine> {
+        self.arbitrage_engine.as_ref()
     }
 
     /// Get mutable reference to internal arbitrage engine
-    pub fn arbitrage_engine_mut(&mut self) -> &mut ArbitrageEngine {
-        &mut self.arbitrage_engine
+    pub fn arbitrage_engine_mut(&mut self) -> Option<&mut ArbitrageEngine> {
+        self.arbitrage_engine.as_mut()
+    }
+
+    /// Initialize the arbitrage engine for ML features (async)
+    /// Returns true if engine was initialized, false if already initialized
+    pub async fn initialize_ml_engine(&mut self) -> Result<bool, String> {
+        if self.arbitrage_engine.is_none() {
+            self.ensure_engine_initialized().await?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Get reference to ML engine, initializing if needed
+    pub async fn get_ml_engine(&mut self) -> Result<&ArbitrageEngine, String> {
+        self.get_engine().await
     }
 }
 
@@ -546,24 +578,44 @@ impl TradingStrategy for ArbitrageStrategy {
 
 impl Default for ArbitrageStrategy {
     fn default() -> Self {
-        Self::new()
+        // Use blocking runtime for Default implementation
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(Self::new()).unwrap_or_else(|_| {
+            // Fallback if async new() fails
+            ArbitrageStrategy {
+                config: StrategyConfig::default(),
+                performance: StrategyPerformance::default(),
+                enabled: true,
+                price_feeds: HashMap::new(),
+                arbitrage_engine: None,
+            }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn test_arbitrage_strategy_creation() {
-        let strategy = ArbitrageStrategy::new();
+    
+    #[tokio::test]
+    async fn test_arbitrage_strategy_creation() {
+        let strategy = ArbitrageStrategy::new().await.unwrap();
         assert_eq!(strategy.name(), "Enhanced Arbitrage");
         assert!(strategy.enabled());
         assert_eq!(strategy.config().capital_allocation, 0.15);
     }
 
     #[test]
+    fn test_arbitrage_strategy_default() {
+        let strategy = ArbitrageStrategy::default();
+        assert!(strategy.enabled());
+        // Default fallback may have different name, but should be enabled
+        assert!(strategy.config().capital_allocation > 0.0);
+    }
+
+    #[test]
     fn test_transaction_cost_calculation() {
-        let strategy = ArbitrageStrategy::new();
+        let strategy = ArbitrageStrategy::default();
         let cost = strategy.calculate_transaction_costs(1000.0, "Jupiter");
         assert!(cost > 0.0);
         assert!(cost < 100.0); // Reasonable cost
@@ -571,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_price_feed_management() {
-        let mut strategy = ArbitrageStrategy::new();
+        let mut strategy = ArbitrageStrategy::default();
         strategy.update_price_feed("Jupiter".to_string(), 100.0);
         strategy.update_price_feed("Raydium".to_string(), 102.0);
         

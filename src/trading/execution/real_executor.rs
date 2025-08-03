@@ -400,8 +400,8 @@ impl RealTradeExecutor {
         debug!("🛡️ Validating quote safety parameters");
 
         // 1. Validate price impact
-        if let Some(price_impact_pct) = quote.price_impact_pct.as_ref() {
-            let price_impact: f64 = price_impact_pct.parse()
+        if !quote.price_impact_pct.is_empty() {
+            let price_impact: f64 = quote.price_impact_pct.parse()
                 .unwrap_or(0.0);
             
             if price_impact.abs() > request.max_price_impact {

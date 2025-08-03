@@ -92,7 +92,7 @@ impl StrategyManager {
     }
     
     /// Initialize and register all available strategies
-    pub fn initialize_strategies(&mut self) -> Result<()> {
+    pub async fn initialize_strategies(&mut self) -> Result<()> {
         info!("Initializing enterprise trading strategies...");
         
         // ✅ CONFIG INTEGRATION: Apply configuration-based strategy parameters
@@ -103,7 +103,7 @@ impl StrategyManager {
         self.validate_signal_aggregation_method()?;
         
         // Initialize Arbitrage Strategy
-        let arbitrage = ArbitrageStrategy::new();
+        let arbitrage = ArbitrageStrategy::new().await.map_err(|e| anyhow::Error::msg(format!("Failed to initialize arbitrage strategy: {}", e)))?;
         let arbitrage_allocation = 0.40; // 40% allocation
         self.allocated_capital.insert("arbitrage".to_string(), self.total_capital * arbitrage_allocation);
         self.strategy_weights.insert("arbitrage".to_string(), arbitrage_allocation);
@@ -648,7 +648,7 @@ mod tests {
         let config = create_test_config();
         let mut manager = StrategyManager::new(config);
         
-        let result = manager.initialize_strategies();
+        let result = manager.initialize_strategies().await;
         assert!(result.is_ok());
         assert_eq!(manager.strategies.len(), 3); // Should have 3 strategies
         

@@ -108,13 +108,13 @@ fn test_strategy_config_creation() {
     println!("✅ StrategyConfig creation works correctly");
 }
 
-#[test]
-fn test_arbitrage_strategy_creation() {
-    let strategy = ArbitrageStrategy::new();
+#[tokio::test]
+async fn test_arbitrage_strategy_creation() {
+    let strategy = ArbitrageStrategy::new().await.unwrap();
     
     assert_eq!(strategy.name(), "Enhanced Arbitrage");
     
-    println!("✅ ArbitrageStrategy creation works correctly");
+    println!("✅ ArbitrageStrategy creation works correctly - updated");
 }
 
 #[test]
@@ -141,7 +141,7 @@ async fn test_strategy_manager_initialization() -> Result<()> {
     let mut manager = StrategyManager::new(config); // Enterprise strategy manager
     
     // Test initialization
-    manager.initialize_strategies()?;
+    manager.initialize_strategies().await?;
     
     println!("✅ StrategyManager initialization works correctly");
     Ok(())
@@ -151,7 +151,7 @@ async fn test_strategy_manager_initialization() -> Result<()> {
 async fn test_strategy_manager_opportunity_analysis() -> Result<()> {
     let config = create_test_config();
     let mut manager = StrategyManager::new(config);
-    manager.initialize_strategies()?;
+    manager.initialize_strategies().await?;
     
     let opportunity = create_test_opportunity();
     let market_data = create_test_market_data();
@@ -177,7 +177,7 @@ async fn test_strategy_manager_opportunity_analysis() -> Result<()> {
 async fn test_strategy_coordination() -> Result<()> {
     let config = create_test_config();
     let mut manager = StrategyManager::new(config);
-    manager.initialize_strategies()?;
+    manager.initialize_strategies().await?;
     
     let _opportunity = create_test_opportunity();
     let _market_data = create_test_market_data();
@@ -253,7 +253,7 @@ fn test_strategy_signal_creation() {
 async fn test_performance_tracking() -> Result<()> {
     let config = create_test_config();
     let mut manager = StrategyManager::new(config);
-    manager.initialize_strategies()?;
+    manager.initialize_strategies().await?;
     
     // Test performance metrics access
     let performance_report = manager.get_performance_report();

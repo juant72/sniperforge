@@ -3,11 +3,13 @@
 //! con múltiples proveedores y gestión de riesgo avanzada
 
 use crate::config::SimpleConfig;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use tracing::/// Función de utilidad para ejecutar flash loan arbitrage
+use tracing::{debug, info, warn};
+
+/// Función de utilidad para ejecutar flash loan arbitrage
 pub async fn execute_flash_loan_arbitrage(opportunity: &FlashLoanOpportunity) -> Result<String> {
     info!("🚀 Executing enhanced flash loan arbitrage for opportunity: {}", opportunity.id);
 
@@ -46,18 +48,18 @@ async fn execute_real_flash_loan_sequence(opportunity: &FlashLoanOpportunity) ->
 /// Validar precondiciones para flash loan
 async fn validate_flash_loan_preconditions(opportunity: &FlashLoanOpportunity) -> Result<()> {
     // Validar liquidez disponible
-    if opportunity.total_amount < 1000.0 {
-        return Err(anyhow!("Flash loan amount too small: {}", opportunity.total_amount));
+    if opportunity.loan_amount_sol < 1000.0 {
+        return Err(anyhow!("Flash loan amount too small: {}", opportunity.loan_amount_sol));
     }
 
     // Validar profit mínimo
-    if opportunity.estimated_profit < opportunity.total_amount * 0.005 { // Min 0.5%
+    if opportunity.estimated_profit_sol < opportunity.loan_amount_sol * 0.005 { // Min 0.5%
         return Err(anyhow!("Profit margin too low: {:.2}%", 
-                          opportunity.estimated_profit / opportunity.total_amount * 100.0));
+                          opportunity.estimated_profit_sol / opportunity.loan_amount_sol * 100.0));
     }
 
     // Validar rutas de arbitraje
-    if opportunity.arbitrage_routes.is_empty() {
+    if opportunity.execution_path.is_empty() {
         return Err(anyhow!("No arbitrage routes available"));
     }
 
@@ -69,10 +71,9 @@ async fn validate_flash_loan_preconditions(opportunity: &FlashLoanOpportunity) -
 async fn prepare_flash_loan_transaction(opportunity: &FlashLoanOpportunity) -> Result<String> {
     // Construcción de transacción flash loan para Solana
     let flash_loan_instruction = format!(
-        "FLASH_LOAN_BORROW:{}_AMOUNT:{}_TOKEN:{}",
+        "FLASH_LOAN_BORROW:{}_AMOUNT:{}_TOKEN:SOL",
         opportunity.id,
-        opportunity.total_amount,
-        opportunity.token_symbol
+        opportunity.loan_amount_sol
     );
 
     debug!("📋 Flash loan transaction prepared: {}", flash_loan_instruction);
@@ -83,15 +84,13 @@ async fn prepare_flash_loan_transaction(opportunity: &FlashLoanOpportunity) -> R
 async fn build_arbitrage_sequence(opportunity: &FlashLoanOpportunity) -> Result<Vec<String>> {
     let mut sequence = Vec::new();
 
-    for route in &opportunity.arbitrage_routes {
+    for (i, dex) in opportunity.execution_path.iter().enumerate() {
         // Construir instrucción de swap para cada ruta
         let swap_instruction = format!(
-            "SWAP:{}_FROM:{}_TO:{}_AMOUNT:{}_DEX:{}",
-            route.step_id,
-            route.input_token,
-            route.output_token,
-            route.amount,
-            route.dex_name
+            "SWAP:{}_FROM:SOL_TO:SOL_AMOUNT:{}_DEX:{}",
+            i,
+            opportunity.loan_amount_sol / opportunity.execution_path.len() as f64,
+            dex
         );
         sequence.push(swap_instruction);
     }
@@ -100,8 +99,8 @@ async fn build_arbitrage_sequence(opportunity: &FlashLoanOpportunity) -> Result<
     let repay_instruction = format!(
         "FLASH_LOAN_REPAY:{}_AMOUNT:{}_FEE:{}",
         opportunity.id,
-        opportunity.total_amount,
-        opportunity.total_amount * 0.0009 // 0.09% fee típico
+        opportunity.loan_amount_sol,
+        opportunity.loan_amount_sol * 0.0009 // 0.09% fee típico
     );
     sequence.push(repay_instruction);
 
@@ -152,11 +151,11 @@ async fn validate_flash_loan_feasibility(opportunity: &FlashLoanOpportunity) -> 
     info!("🔍 Validating flash loan feasibility for opportunity: {}", opportunity.id);
     
     // Validaciones de factibilidad
-    if opportunity.estimated_profit <= 0.0 {
+    if opportunity.estimated_profit_sol <= 0.0 {
         return Err(anyhow!("Negative profit estimate"));
     }
 
-    if opportunity.arbitrage_routes.len() > 4 {
+    if opportunity.execution_path.len() > 4 {
         return Err(anyhow!("Too many arbitrage steps - high gas risk"));
     }
 
@@ -164,13 +163,13 @@ async fn validate_flash_loan_feasibility(opportunity: &FlashLoanOpportunity) -> 
     let validation_result = format!(
         "FLASH_LOAN_VALIDATED:{}:PROFIT:{:.2}:ROUTES:{}",
         opportunity.id,
-        opportunity.estimated_profit,
-        opportunity.arbitrage_routes.len()
+        opportunity.estimated_profit_sol,
+        opportunity.execution_path.len()
     );
 
     info!("✅ Flash loan feasibility validated: {}", validation_result);
     Ok(validation_result)
-} info, warn};
+}
 
 /// Configuración específica para flash loans empresariales
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -540,14 +539,6 @@ impl EnterpriseFlashLoanEngine {
     pub fn get_config(&self) -> &EnterpriseFlashLoanConfig {
         &self.config
     }
-}
-
-/// Función de utilidad para ejecutar flash loan
-pub async fn execute_flash_loan_arbitrage(_opportunity: &FlashLoanOpportunity) -> Result<String> {
-    // TODO: Implementar ejecución real de flash loan arbitrage
-    // Por ahora retorna simulación
-    warn!("🚧 Ejecución flash loan en desarrollo - simulando éxito");
-    Ok("FLASH_LOAN_EXECUTION_VALIDATED".to_string())
 }
 
 #[cfg(test)]
