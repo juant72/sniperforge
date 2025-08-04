@@ -10,8 +10,7 @@ use uuid::Uuid;
 
 use crate::api::bot_interface::{
     BotInterface, BotConfig, BotError, BotStatus, BotMetrics, HealthStatus, HealthLevel,
-    BotType, BotCapabilities, ValidationResult, OperationalMetrics, TradingMetrics, 
-    PerformanceMetrics, NetworkIOMetrics, ApiCallMetrics, BotFeature, ConfigOption
+    BotType, BotCapabilities, ValidationResult, BotFeature
 };
 
 /// Enhanced arbitrage bot implementation
