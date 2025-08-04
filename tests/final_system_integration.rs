@@ -4,8 +4,8 @@
 use sniperforge::{
     SimpleConfig,
     types::{TradingOpportunity, MarketData, OpportunityType},
-    trading::strategies::{StrategyManager, ArbitrageStrategy},
-    ml::{AdvancedMLEngine, MLEngineFactory},
+    trading::strategies::StrategyManager,
+    ml::MLEngineFactory,
 };
 use std::{
     collections::HashMap,
@@ -167,7 +167,7 @@ async fn test_system_load_testing() -> Result<()> {
     
     for handle in handles {
         if let Ok(session_results) = handle.await {
-            for (session_id, opp_id, signals, ml_success, analysis_time) in session_results {
+            for (_, _, signals, ml_success, analysis_time) in session_results {
                 total_processed += 1;
                 total_signals += signals;
                 if ml_success { total_ml_success += 1; }
@@ -235,7 +235,7 @@ async fn test_system_stability_stress() -> Result<()> {
         
         // Análisis bajo estrés
         match strategy_manager.analyze_opportunity(&opportunity, &market_data).await {
-            Ok(signals) => {
+            Ok(_) => {
                 successful_analyses += 1;
                 
                 // ML analysis under stress
@@ -288,7 +288,6 @@ async fn test_production_configuration() -> Result<()> {
     let production_config = SimpleConfig {
         trading_amount: 100.0,  // $100 base
         max_position_size: 50.0, // Conservative position sizing
-        risk_tolerance: 0.02,    // 2% risk tolerance
         min_profit_threshold: 1.5, // 1.5% minimum profit
         max_slippage: 0.5,       // 0.5% max slippage
         ..Default::default()
@@ -297,7 +296,6 @@ async fn test_production_configuration() -> Result<()> {
     println!("⚙️ Production Configuration:");
     println!("   - Trading amount: ${}", production_config.trading_amount);
     println!("   - Max position size: ${}", production_config.max_position_size);
-    println!("   - Risk tolerance: {:.1}%", production_config.risk_tolerance * 100.0);
     println!("   - Min profit threshold: {:.1}%", production_config.min_profit_threshold);
     println!("   - Max slippage: {:.1}%", production_config.max_slippage);
     
@@ -408,7 +406,7 @@ async fn test_final_system_certification() -> Result<()> {
     
     // 5. Performance benchmarks
     println!("📋 Certification Check 5: Performance Benchmarks");
-    let perf_start = Instant::now();
+    let _perf_start = Instant::now();
     
     // Run 10 analyses for performance benchmark
     let mut perf_results = Vec::new();

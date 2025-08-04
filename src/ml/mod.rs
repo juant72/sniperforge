@@ -314,7 +314,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_ml_engine_creation() {
-        let engine = MLEngineFactory::create_default();
+        let _engine = MLEngineFactory::create_default();
         // Engine should be created successfully
         assert!(true); // Basic existence test
     }

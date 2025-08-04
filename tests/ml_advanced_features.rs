@@ -4,15 +4,13 @@
 use sniperforge::{
     SimpleConfig,
     types::{TradingOpportunity, MarketData, OpportunityType},
-    trading::strategies::{StrategyManager, ArbitrageStrategy},
-    ml::{AdvancedMLEngine, MLEngineFactory, MLConfig, MLAnalysisResult},
+    trading::strategies::StrategyManager,
+    ml::{MLEngineFactory, MLConfig},
 };
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
-    sync::Arc,
 };
-use tokio::sync::Mutex;
 use chrono::Utc;
 use anyhow::Result;
 
@@ -22,15 +20,15 @@ async fn test_ml_engine_initialization() -> Result<()> {
     println!("🤖 ML Engine Test: Initialization and Configuration");
     
     // Test 1: Default ML Engine
-    let default_engine = MLEngineFactory::create_default();
+    let _default_engine = MLEngineFactory::create_default();
     println!("✅ Default ML Engine created successfully");
     
     // Test 2: Production ML Engine
-    let production_engine = MLEngineFactory::create_production();
+    let _production_engine = MLEngineFactory::create_production();
     println!("✅ Production ML Engine created successfully");
     
     // Test 3: HFT ML Engine
-    let hft_engine = MLEngineFactory::create_hft();
+    let _hft_engine = MLEngineFactory::create_hft();
     println!("✅ HFT ML Engine created successfully");
     
     // Test 4: Custom Configuration
@@ -43,7 +41,7 @@ async fn test_ml_engine_initialization() -> Result<()> {
         model_update_interval: 300,
         enable_real_time_learning: true,
     };
-    let custom_engine = MLEngineFactory::create_with_config(custom_config);
+    let _custom_engine = MLEngineFactory::create_with_config(custom_config);
     println!("✅ Custom ML Engine created successfully");
     
     println!("✅ ML Engine initialization test: PASSED");
@@ -158,7 +156,7 @@ async fn test_ml_arbitrage_integration() -> Result<()> {
 async fn test_ml_performance_under_load() -> Result<()> {
     println!("⚡ ML Performance Test: Load Testing");
     
-    let ml_engine = MLEngineFactory::create_production();
+    let _ml_engine = MLEngineFactory::create_production();
     let concurrent_analyses = 10;
     let analyses_per_task = 5;
     

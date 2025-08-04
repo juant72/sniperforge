@@ -727,13 +727,16 @@ pub struct PortfolioOptimization {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Portfolio state tracking for optimization
 #[derive(Debug, Clone, Default)]
-struct PortfolioState {
+#[allow(dead_code)] // Infrastructure for future portfolio management features
+pub struct PortfolioState {
     current_allocations: HashMap<String, f64>,
     total_value: f64,
     last_rebalance: DateTime<Utc>,
 }
 
+#[allow(dead_code)] // Infrastructure for future portfolio management
 impl PortfolioState {
     /// Get current allocations
     pub fn get_current_allocations(&self) -> &HashMap<String, f64> {
@@ -751,13 +754,16 @@ impl PortfolioState {
     }
 }
 
+/// Optimization performance record
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Infrastructure for ML performance tracking
 struct OptimizationRecord {
     sharpe_ratio: f64,
     max_drawdown: f64,
     timestamp: DateTime<Utc>,
 }
 
+#[allow(dead_code)] // Infrastructure for ML performance tracking
 impl OptimizationRecord {
     /// Get Sharpe ratio
     pub fn get_sharpe_ratio(&self) -> f64 {
@@ -775,7 +781,9 @@ impl OptimizationRecord {
     }
 }
 
+/// Pattern definition for ML pattern recognition
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Infrastructure for advanced pattern recognition
 struct PatternDefinition {
     name: String,
     confidence_threshold: f64,
@@ -783,6 +791,7 @@ struct PatternDefinition {
     pattern_type: PatternType,
 }
 
+#[allow(dead_code)] // Infrastructure for advanced pattern recognition
 impl PatternDefinition {
     /// Get minimum profit threshold
     pub fn get_min_profit_threshold(&self) -> f64 {
@@ -815,24 +824,79 @@ pub enum PatternType {
 }
 
 // Model types
+/// ML model for price prediction
 #[derive(Debug)]
-struct PriceModel {
+#[allow(dead_code)] // Infrastructure for advanced ML price modeling
+pub struct PriceModel {
     weights: Vec<f64>,
     bias: f64,
     last_training: DateTime<Utc>,
 }
 
+#[allow(dead_code)] // Infrastructure for advanced ML price modeling
+impl PriceModel {
+    /// Get model weights
+    pub fn get_weights(&self) -> &Vec<f64> {
+        &self.weights
+    }
+
+    /// Get model bias
+    pub fn get_bias(&self) -> f64 {
+        self.bias
+    }
+
+    /// Get last training timestamp
+    pub fn get_last_training(&self) -> DateTime<Utc> {
+        self.last_training
+    }
+}
+
+/// ML model for volatility prediction
 #[derive(Debug)]
-struct VolatilityModel {
+#[allow(dead_code)] // Infrastructure for advanced volatility modeling
+pub struct VolatilityModel {
     parameters: HashMap<String, f64>,
     last_training: DateTime<Utc>,
 }
 
+#[allow(dead_code)] // Infrastructure for advanced volatility modeling
+impl VolatilityModel {
+    /// Get model parameters
+    pub fn get_parameters(&self) -> &HashMap<String, f64> {
+        &self.parameters
+    }
+
+    /// Get last training timestamp
+    pub fn get_last_training(&self) -> DateTime<Utc> {
+        self.last_training
+    }
+}
+
+/// ML model for risk assessment
 #[derive(Debug)]
-struct RiskModel {
+#[allow(dead_code)] // Infrastructure for advanced risk modeling
+pub struct RiskModel {
     coefficients: HashMap<String, f64>,
     intercept: f64,
     last_training: DateTime<Utc>,
+}
+
+#[allow(dead_code)] // Infrastructure for advanced risk modeling
+impl RiskModel {
+    /// Get model coefficients
+    pub fn get_coefficients(&self) -> &HashMap<String, f64> {
+        &self.coefficients
+    }
+
+    /// Get model intercept
+    pub fn get_intercept(&self) -> f64 {
+        self.intercept
+    }
+
+    /// Get last training timestamp
+    pub fn get_last_training(&self) -> DateTime<Utc> {
+        self.last_training
+    }
 }
 
 /// Model performance metrics

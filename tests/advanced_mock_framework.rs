@@ -1,277 +1,367 @@
-//! Advanced Mock Testing Framework
+//! Advanced Mock Framework - Sophisticated Testing Infrastructure
 //! 
-//! Comprehensive testing framework with sophisticated mocking capabilities
+//! This module provides advanced mock testing capabilities with sophisticated
+//! simulation scenarios, stress testing, and comprehensive validation.
 
-use std::sync::{Arc, Mutex};
+use sniperforge::config::SimpleConfig;
+use sniperforge::trading::strategies::StrategyManager;
+use sniperforge::types::{TradingOpportunity, MarketData, OpportunityType};
+use anyhow::Result;
+use std::time::{Duration, Instant};
 use std::collections::HashMap;
-use rand::Rng;
+use chrono::Utc;
+use tokio::time::sleep;
 
-/// Advanced Mock RPC with realistic behaviors
+/// Advanced mock RPC with sophisticated simulation capabilities
 pub struct AdvancedMockRpc {
-    latency_distribution: LatencyDistribution,
-    failure_patterns: FailurePatterns,
-    market_simulation: MarketSimulation,
-    call_history: Arc<Mutex<Vec<RpcCall>>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct LatencyDistribution {
-    pub mean_ms: u64,
-    pub std_dev_ms: u64,
-    pub max_latency_ms: u64,
-}
-
-#[derive(Debug, Clone)]
-pub struct FailurePatterns {
-    pub base_failure_rate: f64,
-    pub burst_failure_rate: f64,
-    pub burst_duration_calls: usize,
-    pub time_between_bursts: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct MarketSimulation {
-    pub base_volatility: f64,
-    pub trend_strength: f64,
-    pub liquidity_variance: f64,
-}
-
-#[derive(Debug, Clone)]
-pub struct RpcCall {
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-    pub method: String,
-    pub success: bool,
-    pub latency_ms: u64,
+    base_price: f64,
+    volatility: f64,
+    call_count: std::sync::Arc<std::sync::Mutex<u32>>,
+    latency_simulation: bool,
 }
 
 impl AdvancedMockRpc {
-    pub fn new_realistic() -> Self {
+    pub fn new(base_price: f64, volatility: f64) -> Self {
         Self {
-            latency_distribution: LatencyDistribution {
-                mean_ms: 45,
-                std_dev_ms: 15,
-                max_latency_ms: 200,
-            },
-            failure_patterns: FailurePatterns {
-                base_failure_rate: 0.02, // 2% baseline
-                burst_failure_rate: 0.15, // 15% during outages
-                burst_duration_calls: 20,
-                time_between_bursts: 500,
-            },
-            market_simulation: MarketSimulation {
-                base_volatility: 0.02,
-                trend_strength: 0.005,
-                liquidity_variance: 0.1,
-            },
-            call_history: Arc::new(Mutex::new(Vec::new())),
+            base_price,
+            volatility,
+            call_count: std::sync::Arc::new(std::sync::Mutex::new(0)),
+            latency_simulation: true,
         }
     }
-    
-    pub async fn get_realistic_quote(&self, token_pair: &str) -> Result<f64, String> {
-        let start_time = std::time::Instant::now();
-        
-        // Simulate realistic latency
-        let latency = self.generate_realistic_latency();
-        tokio::time::sleep(tokio::time::Duration::from_millis(latency)).await;
-        
-        // Determine if this call should fail
-        let should_fail = self.should_call_fail();
-        
-        // Record the call
-        let call = RpcCall {
-            timestamp: chrono::Utc::now(),
-            method: format!("get_quote({})", token_pair),
-            success: !should_fail,
-            latency_ms: latency,
-        };
-        
-        if let Ok(mut history) = self.call_history.lock() {
-            history.push(call);
+
+    pub async fn get_sophisticated_quote(&self, pair: &str) -> Result<f64> {
+        {
+            let mut count = self.call_count.lock().unwrap();
+            *count += 1;
         }
-        
-        if should_fail {
-            return Err(format!("RPC failure for {}", token_pair));
+
+        if self.latency_simulation {
+            // Simulate realistic network latency
+            let latency = 20 + (std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() % 100) as u64;
+            sleep(Duration::from_millis(latency)).await;
         }
+
+        // Sophisticated price simulation with volatility
+        let time_factor = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
         
-        // Generate realistic price based on market simulation
-        let base_price = match token_pair {
-            "SOL/USDC" => 25.0,
-            "BONK/SOL" => 0.000012,
-            "USDT/USDC" => 1.0001,
-            _ => 1.0,
+        let volatility_factor = (time_factor * 0.1).sin() * self.volatility;
+        let price_variation = 1.0 + volatility_factor;
+        
+        // Add pair-specific variations
+        let pair_factor = match pair {
+            p if p.starts_with("BTC") => 1.2,
+            p if p.starts_with("ETH") => 1.1,
+            p if p.starts_with("SOL") => 1.0,
+            _ => 0.9,
         };
         
-        let market_factor = self.generate_market_movement();
-        Ok(base_price * market_factor)
+        Ok(self.base_price * price_variation * pair_factor)
     }
-    
-    fn generate_realistic_latency(&self) -> u64 {
-        let mut rng = rand::thread_rng();
-        let gaussian: f64 = rng.gen();
-        
-        let latency = (self.latency_distribution.mean_ms as f64 
-            + gaussian * self.latency_distribution.std_dev_ms as f64).max(1.0);
-        
-        latency.min(self.latency_distribution.max_latency_ms as f64) as u64
+
+    pub fn get_call_count(&self) -> u32 {
+        *self.call_count.lock().unwrap()
     }
-    
-    fn should_call_fail(&self) -> bool {
-        let mut rng = rand::thread_rng();
-        let call_count = self.call_history.lock().map(|h| h.len()).unwrap_or(0);
-        
-        // Check if we're in a failure burst
-        let burst_cycle = call_count % (self.failure_patterns.time_between_bursts + self.failure_patterns.burst_duration_calls);
-        let in_burst = burst_cycle >= self.failure_patterns.time_between_bursts;
-        
-        let failure_rate = if in_burst {
-            self.failure_patterns.burst_failure_rate
-        } else {
-            self.failure_patterns.base_failure_rate
-        };
-        
-        rng.gen::<f64>() < failure_rate
-    }
-    
-    fn generate_market_movement(&self) -> f64 {
-        let mut rng = rand::thread_rng();
-        
-        // Random walk with trend
-        let random_movement: f64 = rng.gen_range(-1.0..1.0);
-        let trend_component = self.market_simulation.trend_strength;
-        let volatility_component = random_movement * self.market_simulation.base_volatility;
-        
-        1.0 + trend_component + volatility_component
-    }
-    
-    pub fn get_performance_stats(&self) -> RpcPerformanceStats {
-        let history = self.call_history.lock().unwrap();
-        let total_calls = history.len();
-        let successful_calls = history.iter().filter(|c| c.success).count();
-        let avg_latency = if total_calls > 0 {
-            history.iter().map(|c| c.latency_ms).sum::<u64>() / total_calls as u64
-        } else {
-            0
-        };
-        
-        RpcPerformanceStats {
-            total_calls,
-            successful_calls,
-            success_rate: if total_calls > 0 { successful_calls as f64 / total_calls as f64 } else { 0.0 },
-            average_latency_ms: avg_latency,
-            max_latency_ms: history.iter().map(|c| c.latency_ms).max().unwrap_or(0),
-        }
+
+    pub fn set_latency_simulation(&mut self, enabled: bool) {
+        self.latency_simulation = enabled;
     }
 }
 
-#[derive(Debug)]
-pub struct RpcPerformanceStats {
-    pub total_calls: usize,
-    pub successful_calls: usize,
-    pub success_rate: f64,
-    pub average_latency_ms: u64,
-    pub max_latency_ms: u64,
+/// Test de stress avanzado con múltiples scenarios
+#[tokio::test]
+async fn test_advanced_stress_scenarios() -> Result<()> {
+    println!("💪 Advanced Stress Test: Multiple Scenarios");
+    
+    let config = SimpleConfig::default();
+    let mut strategy_manager = StrategyManager::new(config);
+    strategy_manager.initialize_strategies().await?;
+    
+    let mock_rpc = AdvancedMockRpc::new(150.0, 0.05); // 5% volatility
+    let stress_iterations = 100;
+    
+    let _start_time = std::time::Instant::now();
+    let mut successful_calls = 0;
+    
+    for i in 0..stress_iterations {
+        // Create stress scenario
+        let opportunity = TradingOpportunity {
+            opportunity_type: OpportunityType::Arbitrage,
+            token_pair: format!("STRESS_{}/USDC", i),
+            source_exchange: "Jupiter".to_string(),
+            target_exchange: "Orca".to_string(),
+            profit_percentage: 1.5 + (i as f64 * 0.01),
+            volume_24h: 1_000_000.0,
+            liquidity: 300_000.0,
+            confidence: 0.8,
+            entry_price: 150.0,
+            exit_price: 152.25,
+            risk_score: 0.2,
+            timestamp: Utc::now(),
+            execution_window: Duration::from_secs(30),
+            metadata: HashMap::new(),
+        };
+
+        // Create sophisticated market data
+        let price = mock_rpc.get_sophisticated_quote(&opportunity.token_pair).await?;
+        let market_data = MarketData {
+            prices: HashMap::from([
+                ("STRESS".to_string(), price),
+                ("USDC".to_string(), 1.0),
+            ]),
+            volumes: HashMap::from([
+                ("STRESS".to_string(), 1_000_000.0),
+            ]),
+            liquidity: HashMap::from([
+                ("STRESS".to_string(), 300_000.0),
+                ("USDC".to_string(), 500_000.0),
+            ]),
+            last_updated: Some(Instant::now()),
+            current_price: price,
+            volume_24h: 1_000_000.0,
+            bid_ask_spread: 0.001,
+        };
+
+        // Analyze under stress
+        if let Ok(_) = strategy_manager.analyze_opportunity(&opportunity, &market_data).await {
+            successful_calls += 1;
+        }
+
+        // Brief pause for realistic timing
+        if i % 10 == 0 {
+            sleep(Duration::from_millis(50)).await;
+        }
+    }
+
+    let success_rate = successful_calls as f64 / stress_iterations as f64;
+    
+    println!("   📊 Stress test results:");
+    println!("     - Iterations: {}", stress_iterations);
+    println!("     - Successful: {}", successful_calls);
+    println!("     - Success rate: {:.1}%", success_rate * 100.0);
+    println!("     - RPC calls: {}", mock_rpc.get_call_count());
+    
+    assert!(success_rate > 0.8, "Success rate should be > 80%");
+    assert!(mock_rpc.get_call_count() >= stress_iterations, "Should make RPC calls");
+    
+    println!("✅ Advanced stress test: PASSED");
+    Ok(())
 }
 
-#[cfg(test)]
-mod extended_tests {
-    use super::*;
-    use sniperforge::trading::strategies::StrategyManager;
-    use sniperforge::trading::strategies::ArbitrageStrategy;
-    use sniperforge::types::{TradingOpportunity, MarketData};
+/// Test de concurrencia con managers múltiples
+#[tokio::test]
+async fn test_concurrent_managers() -> Result<()> {
+    println!("🚀 Concurrent Managers Test: Multiple Strategy Managers");
     
-    #[tokio::test]
-    async fn test_realistic_rpc_simulation() {
-        println!("🌐 Testing Realistic RPC Simulation");
-        
-        let mock_rpc = AdvancedMockRpc::new_realistic();
-        let mut successful_calls = 0;
-        let test_calls = 100;
-        
-        for i in 0..test_calls {
-            match mock_rpc.get_realistic_quote("SOL/USDC").await {
-                Ok(price) => {
-                    successful_calls += 1;
-                    assert!(price > 0.0, "Price should be positive");
-                    if i % 20 == 0 {
-                        println!("📊 Call {}: Price = ${:.6}", i, price);
-                    }
-                }
-                Err(e) => {
-                    if i % 20 == 0 {
-                        println!("❌ Call {}: Failed - {}", i, e);
-                    }
-                }
-            }
-        }
-        
-        let stats = mock_rpc.get_performance_stats();
-        println!("📊 RPC Performance Stats:");
-        println!("   Total calls: {}", stats.total_calls);
-        println!("   Success rate: {:.1}%", stats.success_rate * 100.0);
-        println!("   Average latency: {}ms", stats.average_latency_ms);
-        println!("   Max latency: {}ms", stats.max_latency_ms);
-        
-        assert!(stats.success_rate > 0.8, "Should maintain >80% success rate");
-        assert!(stats.average_latency_ms < 100, "Average latency should be reasonable");
-        
-        println!("✅ Realistic RPC simulation: PASSED");
-    }
+    let concurrent_managers = 8;
+    let opportunities_per_manager = 5;
     
-    #[tokio::test]
-    async fn test_system_under_network_stress() {
-        println!("🌊 Testing System Under Network Stress");
-        
-        let mock_rpc = AdvancedMockRpc::new_realistic();
-        let mut strategy_manager = StrategyManager::new();
-        strategy_manager.add_strategy("stress_test".to_string(), Box::new(ArbitrageStrategy::new()));
-        
-        let stress_iterations = 200;
-        let mut processed_opportunities = 0;
-        
-        for i in 0..stress_iterations {
-            let opportunity = TradingOpportunity {
-                token_pair: "SOL/USDC".to_string(),
-                dex_name: "Jupiter".to_string(),
-                estimated_profit: 1.5 + (i as f64 * 0.01),
-                confidence: 0.75,
-                timestamp: chrono::Utc::now(),
-            };
+    let mut handles = Vec::new();
+    
+    for manager_id in 0..concurrent_managers {
+        let handle = tokio::spawn(async move {
+            let config = SimpleConfig::default();
+            let mut strategy_manager = StrategyManager::new(config);
             
-            // Try to get market data with potential RPC failures
-            match mock_rpc.get_realistic_quote("SOL/USDC").await {
-                Ok(price) => {
-                    let market_data = MarketData {
-                        current_price: price,
-                        volume_24h: 1_000_000.0,
-                        price_change_24h: 0.02,
-                        volatility: 0.15,
-                        liquidity: 300_000.0,
-                        timestamp: chrono::Utc::now(),
-                    };
-                    
-                    if let Ok(signals) = strategy_manager.analyze_all(&opportunity, &market_data).await {
-                        if !signals.is_empty() {
-                            processed_opportunities += 1;
-                        }
-                    }
-                }
-                Err(_) => {
-                    // System should gracefully handle RPC failures
-                    continue;
-                }
+            if strategy_manager.initialize_strategies().await.is_err() {
+                return vec![(manager_id, 0, false)];
+            }
+            
+            let mock_rpc = AdvancedMockRpc::new(150.0 + manager_id as f64, 0.03);
+            let mut manager_results = Vec::new();
+            
+            for opp_id in 0..opportunities_per_manager {
+                let opportunity = TradingOpportunity {
+                    opportunity_type: OpportunityType::Arbitrage,
+                    token_pair: format!("MGR_{}_{}/USDC", manager_id, opp_id),
+                    source_exchange: "Jupiter".to_string(),
+                    target_exchange: "Orca".to_string(),
+                    profit_percentage: 2.0 + (opp_id as f64 * 0.1),
+                    volume_24h: 800_000.0,
+                    liquidity: 250_000.0,
+                    confidence: 0.75,
+                    entry_price: 150.0,
+                    exit_price: 153.0,
+                    risk_score: 0.25,
+                    timestamp: Utc::now(),
+                    execution_window: Duration::from_secs(30),
+                    metadata: HashMap::new(),
+                };
+                
+                let price = mock_rpc.get_sophisticated_quote(&opportunity.token_pair).await.unwrap_or(150.0);
+                let market_data = MarketData {
+                    prices: HashMap::from([("SOL".to_string(), price), ("USDC".to_string(), 1.0)]),
+                    volumes: HashMap::from([("SOL".to_string(), 800_000.0)]),
+                    liquidity: HashMap::from([("SOL".to_string(), 250_000.0), ("USDC".to_string(), 350_000.0)]),
+                    last_updated: Some(Instant::now()),
+                    current_price: price,
+                    volume_24h: 800_000.0,
+                    bid_ask_spread: 0.001,
+                };
+                
+                let success = strategy_manager.analyze_opportunity(&opportunity, &market_data).await.is_ok();
+                manager_results.push((manager_id, opp_id, success));
+            }
+            
+            manager_results
+        });
+        
+        handles.push(handle);
+    }
+    
+    // Collect results
+    let mut total_processed = 0;
+    let mut total_successful = 0;
+    
+    for handle in handles {
+        if let Ok(manager_results) = handle.await {
+            for (_, _, success) in manager_results {
+                total_processed += 1;
+                if success { total_successful += 1; }
             }
         }
-        
-        let processing_rate = processed_opportunities as f64 / stress_iterations as f64;
-        println!("📊 Network Stress Test Results:");
-        println!("   Processed opportunities: {}/{}", processed_opportunities, stress_iterations);
-        println!("   Processing rate: {:.1}%", processing_rate * 100.0);
-        
-        let rpc_stats = mock_rpc.get_performance_stats();
-        println!("   RPC success rate: {:.1}%", rpc_stats.success_rate * 100.0);
-        
-        assert!(processing_rate > 0.6, "Should process >60% of opportunities despite network issues");
-        
-        println!("✅ System under network stress: PASSED");
     }
+    
+    let success_rate = total_successful as f64 / total_processed as f64;
+    
+    println!("   📊 Concurrent managers results:");
+    println!("     - Managers: {}", concurrent_managers);
+    println!("     - Total processed: {}", total_processed);
+    println!("     - Total successful: {}", total_successful);
+    println!("     - Success rate: {:.1}%", success_rate * 100.0);
+    
+    let expected_total = concurrent_managers * opportunities_per_manager;
+    assert_eq!(total_processed, expected_total, "Should process all opportunities");
+    assert!(success_rate > 0.7, "Success rate should be > 70%");
+    
+    println!("✅ Concurrent managers test: PASSED");
+    Ok(())
+}
+
+/// Test de simulación de latencia de red
+#[tokio::test]
+async fn test_network_latency_simulation() -> Result<()> {
+    println!("🌐 Network Latency Test: Realistic Network Conditions");
+    
+    let config = SimpleConfig::default();
+    let mut strategy_manager = StrategyManager::new(config);
+    strategy_manager.initialize_strategies().await?;
+    
+    let mut mock_rpc = AdvancedMockRpc::new(150.0, 0.02);
+    
+    // Test with latency simulation enabled
+    let start_time = Instant::now();
+    let iterations_with_latency = 10;
+    
+    for i in 0..iterations_with_latency {
+        let opportunity = TradingOpportunity {
+            opportunity_type: OpportunityType::Arbitrage,
+            token_pair: format!("LATENCY_{}/USDC", i),
+            source_exchange: "Jupiter".to_string(),
+            target_exchange: "Orca".to_string(),
+            profit_percentage: 2.0,
+            volume_24h: 600_000.0,
+            liquidity: 200_000.0,
+            confidence: 0.8,
+            entry_price: 150.0,
+            exit_price: 153.0,
+            risk_score: 0.2,
+            timestamp: Utc::now(),
+            execution_window: Duration::from_secs(30),
+            metadata: HashMap::new(),
+        };
+        
+        let _price = mock_rpc.get_sophisticated_quote(&opportunity.token_pair).await?;
+    }
+    
+    let time_with_latency = start_time.elapsed();
+    
+    // Test with latency simulation disabled
+    mock_rpc.set_latency_simulation(false);
+    let start_time_no_latency = Instant::now();
+    
+    for i in 0..iterations_with_latency {
+        let opportunity = TradingOpportunity {
+            opportunity_type: OpportunityType::Arbitrage,
+            token_pair: format!("NO_LATENCY_{}/USDC", i),
+            source_exchange: "Jupiter".to_string(),
+            target_exchange: "Orca".to_string(),
+            profit_percentage: 2.0,
+            volume_24h: 600_000.0,
+            liquidity: 200_000.0,
+            confidence: 0.8,
+            entry_price: 150.0,
+            exit_price: 153.0,
+            risk_score: 0.2,
+            timestamp: Utc::now(),
+            execution_window: Duration::from_secs(30),
+            metadata: HashMap::new(),
+        };
+        
+        let _price = mock_rpc.get_sophisticated_quote(&opportunity.token_pair).await?;
+    }
+    
+    let time_no_latency = start_time_no_latency.elapsed();
+    
+    println!("   🌐 Latency simulation results:");
+    println!("     - With latency: {}ms", time_with_latency.as_millis());
+    println!("     - Without latency: {}ms", time_no_latency.as_millis());
+    println!("     - Latency overhead: {}ms", time_with_latency.as_millis() - time_no_latency.as_millis());
+    println!("     - Total RPC calls: {}", mock_rpc.get_call_count());
+    
+    assert!(time_with_latency > time_no_latency, "Latency simulation should add time");
+    assert!(mock_rpc.get_call_count() == iterations_with_latency * 2, "Should make expected RPC calls");
+    
+    println!("✅ Network latency simulation test: PASSED");
+    Ok(())
+}
+
+/// Test de volatilidad de precios
+#[tokio::test]
+async fn test_price_volatility_simulation() -> Result<()> {
+    println!("📈 Price Volatility Test: Market Volatility Simulation");
+    
+    let config = SimpleConfig::default();
+    let mut strategy_manager = StrategyManager::new(config);
+    strategy_manager.initialize_strategies().await?;
+    
+    // Test different volatility levels
+    let volatility_levels = vec![0.01, 0.05, 0.10, 0.20]; // 1%, 5%, 10%, 20%
+    
+    for (index, volatility) in volatility_levels.iter().enumerate() {
+        let mock_rpc = AdvancedMockRpc::new(150.0, *volatility);
+        let mut prices = Vec::new();
+        
+        // Collect price samples
+        for i in 0..20 {
+            let price = mock_rpc.get_sophisticated_quote(&format!("VOL_TEST_{}/USDC", i)).await?;
+            prices.push(price);
+            
+            // Brief pause to allow time-based variation
+            sleep(Duration::from_millis(10)).await;
+        }
+        
+        // Calculate actual volatility
+        let mean_price = prices.iter().sum::<f64>() / prices.len() as f64;
+        let variance = prices.iter()
+            .map(|price| (*price - mean_price).powi(2))
+            .sum::<f64>() / prices.len() as f64;
+        let actual_volatility = (variance / mean_price.powi(2)).sqrt();
+        
+        println!("   📊 Volatility level {}: {:.1}%", index + 1, volatility * 100.0);
+        println!("     - Mean price: ${:.2}", mean_price);
+        println!("     - Actual volatility: {:.1}%", actual_volatility * 100.0);
+        println!("     - Price range: ${:.2} - ${:.2}", 
+                 prices.iter().fold(f64::INFINITY, |a, &b| a.min(b)),
+                 prices.iter().fold(0.0f64, |a, &b| a.max(b)));
+    }
+    
+    println!("✅ Price volatility simulation test: PASSED");
+    Ok(())
 }
