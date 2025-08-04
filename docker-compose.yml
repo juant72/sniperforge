@@ -1,0 +1,181 @@
+# Docker Compose for local development and testing
+version: '3.8'
+
+services:
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/api-gateway.Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://sniperforge:password@postgres:5432/sniperforge
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - sniperforge-network
+
+  # Enhanced Arbitrage Bot
+  enhanced-arbitrage-bot:
+    build:
+      context: .
+      dockerfile: docker/bot-templates/enhanced-arbitrage-bot.Dockerfile
+    environment:
+      - BOT_TYPE=enhanced_arbitrage
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - LOG_LEVEL=info
+      - SOLANA_RPC_URL=https://api.devnet.solana.com
+      - SOLANA_WS_URL=wss://api.devnet.solana.com
+    depends_on:
+      - api-gateway
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - sniperforge-network
+
+  # ML Analytics Bot
+  ml-analytics-bot:
+    build:
+      context: .
+      dockerfile: docker/bot-templates/ml-analytics-bot.Dockerfile
+    environment:
+      - BOT_TYPE=ml_analytics
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - LOG_LEVEL=info
+      - ML_MODEL_PATH=/app/models
+      - ML_CACHE_SIZE=1000
+    depends_on:
+      - api-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    networks:
+      - sniperforge-network
+
+  # Portfolio Manager Bot
+  portfolio-manager-bot:
+    build:
+      context: .
+      dockerfile: docker/bot-templates/portfolio-manager-bot.Dockerfile
+    environment:
+      - BOT_TYPE=portfolio_manager
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - LOG_LEVEL=info
+    depends_on:
+      - api-gateway
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    networks:
+      - sniperforge-network
+
+  # Real-time Dashboard Bot
+  dashboard-bot:
+    build:
+      context: .
+      dockerfile: docker/bot-templates/dashboard-bot.Dockerfile
+    environment:
+      - BOT_TYPE=real_time_dashboard
+      - API_GATEWAY_URL=http://api-gateway:8080
+      - LOG_LEVEL=info
+    ports:
+      - "3000:3000"  # Dashboard web interface
+    depends_on:
+      - api-gateway
+    networks:
+      - sniperforge-network
+
+  # Web Management UI
+  web-ui:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8080/api/v1
+      - REACT_APP_WS_URL=ws://localhost:8080/api/v1/ws
+    depends_on:
+      - api-gateway
+    networks:
+      - sniperforge-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=sniperforge
+      - POSTGRES_USER=sniperforge
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - sniperforge-network
+
+  # Redis for caching and message queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sniperforge-network
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - sniperforge-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - sniperforge-network
+
+networks:
+  sniperforge-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:

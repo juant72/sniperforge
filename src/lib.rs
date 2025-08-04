@@ -43,6 +43,11 @@ pub mod monitoring;
 pub mod intelligence;
 pub mod ml; // ✅ NUEVO: ML module export
 
+// ✅ NEW: Containerized bot ecosystem modules
+pub mod api;        // Bot API interfaces and gateway
+pub mod bots;       // Bot factory and implementations
+pub mod orchestration; // Container orchestration (future)
+
 // Re-export commonly used types
 pub use config::{SimpleConfig, EnterpriseConfig};
 pub use trading::{

@@ -1,0 +1,164 @@
+# Kubernetes deployment for Enhanced Arbitrage Bot
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enhanced-arbitrage-bot
+  labels:
+    app: enhanced-arbitrage-bot
+    bot-type: enhanced-arbitrage
+    tier: trading
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: enhanced-arbitrage-bot
+  template:
+    metadata:
+      labels:
+        app: enhanced-arbitrage-bot
+        bot-type: enhanced-arbitrage
+        tier: trading
+    spec:
+      serviceAccountName: sniperforge-bot-sa
+      containers:
+      - name: enhanced-arbitrage-bot
+        image: sniperforge/enhanced-arbitrage-bot:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9090
+          name: health
+        env:
+        - name: BOT_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: API_GATEWAY_URL
+          value: "http://api-gateway:8080"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: SOLANA_RPC_URL
+          valueFrom:
+            secretKeyRef:
+              name: solana-config
+              key: rpc-url
+        - name: SOLANA_WS_URL
+          valueFrom:
+            secretKeyRef:
+              name: solana-config
+              key: ws-url
+        - name: JUPITER_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: api-endpoints
+              key: jupiter-url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 9090
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+          readOnly: true
+        - name: secrets-volume
+          mountPath: /etc/secrets
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: arbitrage-bot-config
+      - name: secrets-volume
+        secret:
+          secretName: arbitrage-bot-secrets
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enhanced-arbitrage-bot-service
+  labels:
+    app: enhanced-arbitrage-bot
+spec:
+  type: ClusterIP
+  selector:
+    app: enhanced-arbitrage-bot
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: health
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arbitrage-bot-config
+data:
+  bot-config.json: |
+    {
+      "trading": {
+        "min_profit_bps": 50,
+        "max_trade_sol": 100.0,
+        "confidence_threshold": 0.85,
+        "max_concurrent_trades": 3
+      },
+      "risk_management": {
+        "stop_loss_bps": 200,
+        "max_daily_loss_usd": 1000.0,
+        "emergency_stop_enabled": true
+      },
+      "execution": {
+        "auto_execute": false,
+        "simulation_mode": true,
+        "dexs": ["Jupiter", "Orca", "Raydium"]
+      }
+    }
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arbitrage-bot-secrets
+type: Opaque
+data:
+  # Base64 encoded values
+  wallet-private-key: ""  # Add your base64 encoded private key
+  api-keys: ""            # Add your base64 encoded API keys JSON
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-endpoints
+data:
+  jupiter-url: "https://quote-api.jup.ag/v6"
+  dexscreener-url: "https://api.dexscreener.com/latest"
+  pyth-url: "https://hermes.pyth.network/api"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: solana-config
+type: Opaque
+data:
+  # Base64 encoded values - replace with actual values
+  rpc-url: aHR0cHM6Ly9hcGkuZGV2bmV0LnNvbGFuYS5jb20=  # https://api.devnet.solana.com
+  ws-url: d3NzOi8vYXBpLmRldm5ldC5zb2xhbmEuY29t      # wss://api.devnet.solana.com
