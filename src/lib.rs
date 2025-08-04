@@ -46,6 +46,7 @@ pub mod ml; // ✅ NUEVO: ML module export
 // ✅ NEW: Containerized bot ecosystem modules
 pub mod api;        // Bot API interfaces and gateway
 pub mod bots;       // Bot factory and implementations
+pub mod control;    // Bot control and management system
 pub mod orchestration; // Container orchestration (future)
 
 // Re-export commonly used types
