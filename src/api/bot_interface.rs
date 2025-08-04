@@ -54,7 +54,7 @@ pub trait BotInterface: Send + Sync {
 }
 
 /// Bot type enumeration for the ecosystem
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BotType {
     /// Enhanced arbitrage with ML analysis
     EnhancedArbitrage,
@@ -372,6 +372,8 @@ pub enum BotFeature {
     MultiDexSupport,
     /// Cross-chain operations
     CrossChainSupport,
+    /// Dashboard and monitoring
+    Dashboard,
 }
 
 /// Configuration option definition
@@ -482,6 +484,78 @@ impl Default for NetworkTimeouts {
             rpc_timeout_seconds: 30,
             websocket_timeout_seconds: 60,
             api_timeout_seconds: 15,
+        }
+    }
+}
+
+impl Default for BotMetrics {
+    fn default() -> Self {
+        Self {
+            operational: OperationalMetrics::default(),
+            trading: TradingMetrics::default(),
+            performance: PerformanceMetrics::default(),
+            custom: serde_json::Value::Null,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+}
+
+impl Default for OperationalMetrics {
+    fn default() -> Self {
+        Self {
+            uptime_seconds: 0,
+            restart_count: 0,
+            last_restart: None,
+            config_updates: 0,
+            error_count: 0,
+        }
+    }
+}
+
+impl Default for TradingMetrics {
+    fn default() -> Self {
+        Self {
+            trades_executed: 0,
+            successful_trades: 0,
+            total_pnl_usd: 0.0,
+            success_rate: 0.0,
+            avg_profit_per_trade: 0.0,
+            total_volume_usd: 0.0,
+            sharpe_ratio: None,
+        }
+    }
+}
+
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
+        Self {
+            cpu_usage_percent: 0.0,
+            memory_usage_mb: 0,
+            network_io: NetworkIOMetrics::default(),
+            api_calls: ApiCallMetrics::default(),
+            avg_response_time_ms: 0.0,
+        }
+    }
+}
+
+impl Default for NetworkIOMetrics {
+    fn default() -> Self {
+        Self {
+            bytes_sent: 0,
+            bytes_received: 0,
+            packets_sent: 0,
+            packets_received: 0,
+        }
+    }
+}
+
+impl Default for ApiCallMetrics {
+    fn default() -> Self {
+        Self {
+            total_calls: 0,
+            successful_calls: 0,
+            failed_calls: 0,
+            avg_response_time_ms: 0.0,
         }
     }
 }

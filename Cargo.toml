@@ -41,6 +41,9 @@ bincode = "1.3"
 # HTTP client
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
+# Web framework for API Gateway
+actix-web = "4.4"
+
 # Math and numbers
 rust_decimal = { version = "1.33", features = ["serde"] }
 

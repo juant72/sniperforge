@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use anyhow::Result;
+use serde::{Serialize, Deserialize};
 
 /// Factory for creating and managing bot instances
 pub struct BotFactory {
@@ -55,8 +56,8 @@ impl BotFactory {
     }
     
     /// Get a bot instance by ID
-    pub async fn get_bot(&self, bot_id: Uuid) -> Option<Box<dyn BotInterface>> {
-        let active_bots = self.active_bots.read().await;
+    pub async fn get_bot(&self, _bot_id: Uuid) -> Option<Box<dyn BotInterface>> {
+        let _active_bots = self.active_bots.read().await;
         // Note: This is a simplified version. In practice, you'd want to return a reference
         // or implement a more sophisticated borrowing mechanism
         None // Placeholder - requires more complex lifetime management
@@ -78,65 +79,82 @@ impl BotFactory {
     
     /// Get bot count by type
     pub async fn get_bot_count_by_type(&self) -> HashMap<BotType, usize> {
-        let mut counts = HashMap::new();
+        let counts = HashMap::new();
         // Placeholder implementation
         counts
+    }
+    
+    /// Get available bot types
+    pub fn get_bot_types(&self) -> Vec<BotType> {
+        self.constructors.keys().cloned().collect()
     }
     
     /// Register default bot constructors
     fn register_default_constructors(&mut self) {
         // Enhanced Arbitrage Bot
-        self.register_constructor(BotType::EnhancedArbitrage, |config| {
+        self.register_constructor(BotType::EnhancedArbitrage, |_config| {
             // This would create an actual EnhancedArbitrageBot instance
             Err(BotError::Configuration("EnhancedArbitrageBot constructor not implemented".to_string()))
         });
         
         // Triangular Arbitrage Bot
-        self.register_constructor(BotType::TriangularArbitrage, |config| {
+        self.register_constructor(BotType::TriangularArbitrage, |_config| {
             Err(BotError::Configuration("TriangularArbitrageBot constructor not implemented".to_string()))
         });
         
         // ML Analytics Bot
-        self.register_constructor(BotType::MLAnalytics, |config| {
+        self.register_constructor(BotType::MLAnalytics, |_config| {
             Err(BotError::Configuration("MLAnalyticsBot constructor not implemented".to_string()))
         });
         
         // Portfolio Manager Bot
-        self.register_constructor(BotType::PortfolioManager, |config| {
+        self.register_constructor(BotType::PortfolioManager, |_config| {
             Err(BotError::Configuration("PortfolioManagerBot constructor not implemented".to_string()))
         });
         
         // Real-time Dashboard Bot
-        self.register_constructor(BotType::RealTimeDashboard, |config| {
+        self.register_constructor(BotType::RealTimeDashboard, |_config| {
             Err(BotError::Configuration("DashboardBot constructor not implemented".to_string()))
         });
         
         // Flash Loan Arbitrage Bot
-        self.register_constructor(BotType::FlashLoanArbitrage, |config| {
+        self.register_constructor(BotType::FlashLoanArbitrage, |_config| {
             Err(BotError::Configuration("FlashLoanArbitrageBot constructor not implemented".to_string()))
         });
         
         // Cross Chain Arbitrage Bot
-        self.register_constructor(BotType::CrossChainArbitrage, |config| {
+        self.register_constructor(BotType::CrossChainArbitrage, |_config| {
             Err(BotError::Configuration("CrossChainArbitrageBot constructor not implemented".to_string()))
         });
         
         // Performance Profiler Bot
-        self.register_constructor(BotType::PerformanceProfiler, |config| {
+        self.register_constructor(BotType::PerformanceProfiler, |_config| {
             Err(BotError::Configuration("PerformanceProfilerBot constructor not implemented".to_string()))
         });
         
         // Pattern Analyzer Bot
-        self.register_constructor(BotType::PatternAnalyzer, |config| {
+        self.register_constructor(BotType::PatternAnalyzer, |_config| {
             Err(BotError::Configuration("PatternAnalyzerBot constructor not implemented".to_string()))
         });
     }
 }
 
-/// Bot registry for managing bot metadata
+/// Bot registry for managing bot metadata and instances
 pub struct BotRegistry {
     /// Bot type metadata
     metadata: HashMap<BotType, BotTypeMetadata>,
+    /// Active bot instances info
+    active_bots: HashMap<Uuid, BotInstanceInfo>,
+}
+
+/// Information about an active bot instance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BotInstanceInfo {
+    pub bot_id: Uuid,
+    pub bot_type: BotType,
+    pub name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub status: String,
 }
 
 /// Metadata for a bot type
@@ -174,6 +192,7 @@ impl BotRegistry {
     pub fn new() -> Self {
         let mut registry = Self {
             metadata: HashMap::new(),
+            active_bots: HashMap::new(),
         };
         
         registry.register_default_metadata();
@@ -193,6 +212,33 @@ impl BotRegistry {
     /// List all registered bot types
     pub fn list_bot_types(&self) -> Vec<BotType> {
         self.metadata.keys().cloned().collect()
+    }
+    
+    /// List all active bots
+    pub async fn list_bots(&self) -> Vec<BotInstanceInfo> {
+        self.active_bots.values().cloned().collect()
+    }
+    
+    /// Register a bot instance
+    pub async fn register_bot(&mut self, bot_id: Uuid, bot_type: BotType, name: String) {
+        let instance_info = BotInstanceInfo {
+            bot_id,
+            bot_type,
+            name,
+            created_at: chrono::Utc::now(),
+            status: "active".to_string(),
+        };
+        self.active_bots.insert(bot_id, instance_info);
+    }
+    
+    /// Get bot instance info
+    pub async fn get_bot_info(&self, bot_id: Uuid) -> Option<BotInstanceInfo> {
+        self.active_bots.get(&bot_id).cloned()
+    }
+    
+    /// Unregister a bot instance
+    pub async fn unregister_bot(&mut self, bot_id: Uuid) {
+        self.active_bots.remove(&bot_id);
     }
     
     /// Register default bot metadata
