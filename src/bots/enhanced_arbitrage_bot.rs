@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::api::bot_interface::{
     BotInterface, BotConfig, BotError, BotStatus, BotMetrics, HealthStatus, HealthLevel,
-    BotType, BotCapabilities, ValidationResult, BotFeature
+    BotType, BotCapabilities, ValidationResult, BotFeature, ConfigOption
 };
 
 /// Enhanced arbitrage bot implementation
@@ -651,7 +651,7 @@ mod tests {
     #[tokio::test]
     async fn test_bot_lifecycle() {
         let config = EnhancedArbitrageBot::create_test_config();
-        let mut bot = EnhancedArbitrageBot::new("test-bot".to_string(), config.clone()).unwrap();
+        let bot = EnhancedArbitrageBot::new("test-bot".to_string(), config.clone()).unwrap();
         
         // Test initial status
         assert_eq!(bot.status().await, BotStatus::Stopped);

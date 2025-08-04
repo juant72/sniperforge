@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::api::bot_interface::{
     BotInterface, BotConfig, BotError, BotStatus, BotMetrics, HealthStatus, HealthLevel,
-    BotType, BotCapabilities, ValidationResult, BotFeature, ConfigOption
+    BotType, BotCapabilities, ValidationResult, BotFeature
 };
 
 /// Triangular arbitrage bot implementation

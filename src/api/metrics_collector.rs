@@ -147,7 +147,7 @@ impl MetricsCollector {
         let collection_interval = Duration::from_secs(self.config.collection_interval_seconds);
         
         // Start periodic metrics collection
-        let bot_metrics = Arc::clone(&self.bot_metrics);
+        let _bot_metrics = Arc::clone(&self.bot_metrics);
         let system_metrics = Arc::clone(&self.system_metrics);
         let metric_series = Arc::clone(&self.metric_series);
         let aggregated_metrics = Arc::clone(&self.aggregated_metrics);
@@ -239,7 +239,7 @@ impl MetricsCollector {
             
             self.add_metric_point(
                 format!("bot.{}.errors", bot_id),
-                metrics.error_count as f64,
+                metrics.operational.error_count as f64,
                 HashMap::new(),
             ).await;
         } else {
@@ -406,11 +406,11 @@ impl MetricsCollector {
             .sum();
         
         let average_latency = bot_metrics.values()
-            .map(|m| m.performance.avg_response_time_ms)
+            .map(|m| m.performance.performance.avg_response_time_ms)
             .sum::<f64>() / total_bots.max(1) as f64;
         
         let total_errors = bot_metrics.values()
-            .map(|m| m.operational.error_count)
+            .map(|m| m.performance.operational.error_count)
             .sum();
         
         MetricsSummary {
@@ -636,16 +636,41 @@ mod tests {
         collector.register_bot(bot_id, BotType::EnhancedArbitrage).await.unwrap();
         
         let bot_metrics = BotMetrics {
-            average_latency_ms: 50.0,
-            throughput_per_second: 100.0,
-            error_count: 5,
-            uptime_percentage: 99.5,
+            operational: crate::api::bot_interface::OperationalMetrics {
+                uptime_seconds: 3600,
+                error_count: 5,
+                restart_count: 0,
+                last_restart: None,
+                memory_usage_mb: 256,
+                cpu_usage_percent: 25.0,
+            },
+            trading: crate::api::bot_interface::TradingMetrics {
+                total_trades: 100,
+                successful_trades: 95,
+                failed_trades: 5,
+                total_volume: 10000.0,
+                total_profit: 250.0,
+                average_profit_per_trade: 2.5,
+                max_drawdown: 5.0,
+                sharpe_ratio: 1.5,
+                win_rate: 0.95,
+            },
+            performance: crate::api::bot_interface::PerformanceMetrics {
+                cpu_usage_percent: 25.0,
+                memory_usage_mb: 256,
+                network_io: crate::api::bot_interface::NetworkIOMetrics::default(),
+                api_calls: crate::api::bot_interface::ApiCallMetrics::default(),
+                avg_response_time_ms: 50.0,
+                throughput_per_second: 100.0,
+            },
+            custom: serde_json::Value::Null,
+            timestamp: chrono::Utc::now(),
         };
         
         collector.update_bot_metrics(bot_id, bot_metrics).await.unwrap();
         
         let collection = collector.get_bot_metrics(bot_id).await.unwrap();
-        assert_eq!(collection.performance.average_latency_ms, 50.0);
+        assert_eq!(collection.performance.performance.avg_response_time_ms, 50.0);
     }
 
     #[test]

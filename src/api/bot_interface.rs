@@ -269,6 +269,8 @@ pub struct PerformanceMetrics {
     pub api_calls: ApiCallMetrics,
     /// Average response time for operations
     pub avg_response_time_ms: f64,
+    /// Operations per second throughput
+    pub throughput_per_second: f64,
 }
 
 /// Network I/O metrics
@@ -321,6 +323,8 @@ pub enum HealthLevel {
     Critical,
     /// Bot is unhealthy and not functioning
     Unhealthy,
+    /// Health status is unknown
+    Unknown,
 }
 
 /// Individual health check result
@@ -534,6 +538,7 @@ impl Default for PerformanceMetrics {
             network_io: NetworkIOMetrics::default(),
             api_calls: ApiCallMetrics::default(),
             avg_response_time_ms: 0.0,
+            throughput_per_second: 0.0,
         }
     }
 }

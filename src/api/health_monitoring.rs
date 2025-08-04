@@ -175,7 +175,12 @@ impl HealthMonitor {
     pub async fn register_bot(&self, bot_id: Uuid) -> Result<(), HealthError> {
         let health_record = BotHealthRecord {
             bot_id,
-            status: crate::api::bot_interface::HealthLevel::Unknown,
+            status: crate::api::bot_interface::HealthStatus {
+                status: crate::api::bot_interface::HealthLevel::Unknown,
+                checks: Vec::new(),
+                timestamp: chrono::Utc::now(),
+                details: std::collections::HashMap::new(),
+            },
             last_heartbeat: chrono::Utc::now(),
             metrics: BotMetrics::default(),
             error_count: 0,
@@ -301,9 +306,9 @@ impl HealthMonitor {
         let alerts = self.get_alerts(None).await;
         
         let total_bots = bot_health.len();
-        let healthy_bots = bot_health.values().filter(|h| h.status == crate::api::bot_interface::HealthLevel::Healthy).count();
-        let unhealthy_bots = bot_health.values().filter(|h| h.status == crate::api::bot_interface::HealthLevel::Unhealthy).count();
-        let unknown_bots = bot_health.values().filter(|h| h.status == crate::api::bot_interface::HealthLevel::Unknown).count();
+        let healthy_bots = bot_health.values().filter(|h| h.status.status == crate::api::bot_interface::HealthLevel::Healthy).count();
+        let unhealthy_bots = bot_health.values().filter(|h| h.status.status == crate::api::bot_interface::HealthLevel::Unhealthy).count();
+        let unknown_bots = bot_health.values().filter(|h| h.status.status == crate::api::bot_interface::HealthLevel::Unknown).count();
         
         let critical_alerts = alerts.iter().filter(|a| a.severity == AlertSeverity::Critical && !a.resolved).count();
         let warning_alerts = alerts.iter().filter(|a| a.severity == AlertSeverity::Warning && !a.resolved).count();
@@ -541,10 +546,16 @@ mod tests {
         monitor.register_bot(bot_id).await.unwrap();
         
         let metrics = BotMetrics::default();
-        monitor.update_bot_health(bot_id, HealthStatus::Healthy, metrics).await.unwrap();
+        let health_status = crate::api::bot_interface::HealthStatus {
+            status: crate::api::bot_interface::HealthLevel::Healthy,
+            checks: Vec::new(),
+            timestamp: chrono::Utc::now(),
+            details: std::collections::HashMap::new(),
+        };
+        monitor.update_bot_health(bot_id, health_status.clone(), metrics).await.unwrap();
         
         let health = monitor.get_bot_health(bot_id).await.unwrap();
-        assert_eq!(health.status, HealthStatus::Healthy);
+        assert_eq!(health.status.status, crate::api::bot_interface::HealthLevel::Healthy);
     }
 
     #[tokio::test]

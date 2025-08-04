@@ -151,7 +151,7 @@ async fn create_bot(
     state: web::Data<Arc<AppState>>,
     req: web::Json<CreateBotRequest>,
 ) -> Result<HttpResponse> {
-    let mut factory = state.bot_factory.write().await;
+    let factory = state.bot_factory.write().await;
     
     match factory.create_bot(req.bot_type.clone(), req.config.clone()).await {
         Ok(bot_id) => {
@@ -218,10 +218,10 @@ async fn delete_bot(
 
 /// Start a bot
 async fn start_bot(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot starting logic
     
     Ok(HttpResponse::Ok().json(BotOperationResponse {
@@ -233,10 +233,10 @@ async fn start_bot(
 
 /// Stop a bot
 async fn stop_bot(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot stopping logic
     
     Ok(HttpResponse::Ok().json(BotOperationResponse {
@@ -248,11 +248,11 @@ async fn stop_bot(
 
 /// Configure a bot
 async fn configure_bot(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
-    req: web::Json<UpdateBotConfigRequest>,
+    _req: web::Json<UpdateBotConfigRequest>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot configuration logic
     
     Ok(HttpResponse::Ok().json(BotOperationResponse {
@@ -264,10 +264,10 @@ async fn configure_bot(
 
 /// Get bot status
 async fn get_bot_status(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot status retrieval
     
     let status = BotStatus::Stopped; // Placeholder
@@ -281,10 +281,10 @@ async fn get_bot_status(
 
 /// Get bot metrics
 async fn get_bot_metrics(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot metrics retrieval
     
     Ok(HttpResponse::Ok().json(BotOperationResponse {
@@ -296,10 +296,10 @@ async fn get_bot_metrics(
 
 /// Get bot health
 async fn get_bot_health(
-    state: web::Data<Arc<AppState>>,
+    _state: web::Data<Arc<AppState>>,
     path: web::Path<Uuid>,
 ) -> Result<HttpResponse> {
-    let bot_id = path.into_inner();
+    let _bot_id = path.into_inner();
     // TODO: Implement actual bot health check
     
     let health = crate::api::bot_interface::HealthStatus {

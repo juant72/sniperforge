@@ -599,9 +599,48 @@ mod tests {
         
         let bot_id = Uuid::new_v4();
         let config = BotConfig {
+            config_id: Uuid::new_v4(),
+            bot_id: bot_id,
+            bot_type: crate::api::bot_interface::BotType::EnhancedArbitrage,
+            environment: crate::api::bot_interface::Environment::Development,
             parameters: serde_json::json!({
                 "test_param": "test_value"
-            }).as_object().unwrap().clone(),
+            }),
+            resources: crate::api::bot_interface::ResourceLimits {
+                max_cpu: 1.0,
+                max_memory_mb: 512,
+                max_disk_mb: 1024,
+                max_network_mbps: Some(100),
+            },
+            network: crate::api::bot_interface::NetworkConfig {
+                solana_rpc_urls: vec!["https://api.mainnet-beta.solana.com".to_string()],
+                websocket_urls: vec!["wss://api.mainnet-beta.solana.com".to_string()],
+                api_endpoints: std::collections::HashMap::new(),
+                timeouts: crate::api::bot_interface::NetworkTimeouts {
+                    rpc_timeout_seconds: 30,
+                    websocket_timeout_seconds: 30,
+                    api_timeout_seconds: 30,
+                },
+            },
+            security: crate::api::bot_interface::SecurityConfig {
+                wallet: crate::api::bot_interface::WalletConfig {
+                    wallet_type: "keypair".to_string(),
+                    address: "".to_string(),
+                    private_key_path: Some("./wallet.json".to_string()),
+                    use_env_keys: false,
+                },
+                api_keys: std::collections::HashMap::new(),
+                encryption_enabled: true,
+                auth_required: true,
+            },
+            metadata: crate::api::bot_interface::ConfigMetadata {
+                name: "Test Configuration".to_string(),
+                version: "1.0.0".to_string(),
+                created_at: chrono::Utc::now(),
+                updated_at: chrono::Utc::now(),
+                created_by: "test".to_string(),
+                tags: vec!["test".to_string()],
+            },
         };
         
         // Save configuration
