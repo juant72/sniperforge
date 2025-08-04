@@ -383,13 +383,24 @@ impl EnhancedArbitrageBot {
         let profit_percentage = (max_price - min_price) / min_price - config.slippage_tolerance;
         
         if profit_percentage > config.min_profit_threshold {
+            // ✅ ENRIQUECIMIENTO: Calcular estimated_volume basado en profit y market conditions
+            let profit_factor = (profit_percentage / config.min_profit_threshold).min(3.0); // Cap at 3x
+            let market_volatility = (max_price - min_price) / ((max_price + min_price) / 2.0);
+            let volatility_factor = (1.0 / (1.0 + market_volatility * 10.0)).max(0.1); // Reduce volume in high volatility
+            
+            let calculated_volume = config.max_position_size * profit_factor * volatility_factor;
+            let estimated_volume = calculated_volume.min(config.max_position_size * 0.9); // Safety margin
+            
+            tracing::debug!("📊 Volume calculation: profit_factor={:.2}, volatility_factor={:.2}, estimated_volume=${:.2}", 
+                           profit_factor, volatility_factor, estimated_volume);
+            
             Some(ArbitrageOpportunity {
                 buy_exchange,
                 sell_exchange,
                 buy_price: min_price,
                 sell_price: max_price,
                 profit_percentage,
-                estimated_volume: config.max_position_size,
+                estimated_volume,
             })
         } else {
             None
@@ -402,22 +413,44 @@ impl EnhancedArbitrageBot {
         opportunity: ArbitrageOpportunity,
         config: &EnhancedArbitrageBotConfig,
     ) -> Result<(), BotError> {
-        println!("🚀 Executing arbitrage: Buy {} @ {:.2} | Sell {} @ {:.2} | Profit: {:.4}%",
+        // ✅ ENRIQUECIMIENTO: Utilizar estimated_volume para cálculos de riesgo
+        let estimated_profit = opportunity.profit_percentage * opportunity.estimated_volume;
+        let risk_ratio = opportunity.estimated_volume / config.max_position_size;
+        
+        println!("🚀 Executing arbitrage: Buy {} @ {:.2} | Sell {} @ {:.2}", 
                 opportunity.buy_exchange, opportunity.buy_price,
-                opportunity.sell_exchange, opportunity.sell_price,
-                opportunity.profit_percentage * 100.0);
+                opportunity.sell_exchange, opportunity.sell_price);
+        println!("📊 Volume: ${:.2} | Est. Profit: ${:.2} | Risk: {:.1}%",
+                opportunity.estimated_volume, estimated_profit, risk_ratio * 100.0);
+        
+        // ✅ ENRIQUECIMIENTO: Validar volumen antes de ejecutar
+        if opportunity.estimated_volume > config.max_position_size {
+            tracing::warn!("⚠️ Estimated volume ${:.2} exceeds max position ${:.2}", 
+                          opportunity.estimated_volume, config.max_position_size);
+            return Err(BotError::Internal("Volume exceeds position limits".to_string()));
+        }
+        
+        // ✅ ENRIQUECIMIENTO: Ajustar timeout basado en volumen
+        let volume_factor = (opportunity.estimated_volume / config.max_position_size).min(1.0);
+        let adjusted_timeout = (config.execution_timeout_ms as f64 * (1.0 + volume_factor)) as u64;
         
         // TODO: Implement actual order execution
         // This is a simulation
         
-        // Simulate order execution time
-        tokio::time::sleep(tokio::time::Duration::from_millis(config.execution_timeout_ms / 10)).await;
+        // Simulate order execution time based on volume
+        tokio::time::sleep(tokio::time::Duration::from_millis(adjusted_timeout / 10)).await;
+        
+        // ✅ ENRIQUECIMIENTO: Probabilidad de éxito basada en volumen y profit
+        let volume_penalty = if opportunity.estimated_volume > config.max_position_size * 0.8 { 0.1f64 } else { 0.0f64 };
+        let profit_bonus = if opportunity.profit_percentage > 0.02 { 0.05f64 } else { 0.0f64 };
+        let success_rate = (0.9f64 - volume_penalty + profit_bonus).clamp(0.1f64, 0.95f64);
         
         // Simulate execution success/failure
-        if rand::random::<f64>() < 0.9 { // 90% success rate
-            println!("✅ Arbitrage executed successfully");
+        if rand::random::<f64>() < success_rate {
+            println!("✅ Arbitrage executed successfully (volume: ${:.2})", opportunity.estimated_volume);
+            tracing::info!("🎯 Arbitrage profit: ${:.2} from volume ${:.2}", estimated_profit, opportunity.estimated_volume);
         } else {
-            return Err(BotError::Internal("Order execution failed".to_string()));
+            return Err(BotError::Internal(format!("Order execution failed for volume ${:.2}", opportunity.estimated_volume)));
         }
         
         Ok(())

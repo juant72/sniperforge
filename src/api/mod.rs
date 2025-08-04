@@ -12,4 +12,4 @@ pub use bot_interface::{
 pub use gateway::{ApiGateway, GatewayConfig, AppState};
 pub use config_management::{ConfigManager, BotConfigTemplate, SystemConfig};
 pub use health_monitoring::{HealthMonitor, HealthReport, SystemHealthMetrics};
-pub use metrics_collector::{MetricsCollector, MetricsSummary, MetricsConfig};
+pub use metrics_collector::{MetricsCollector, SystemMetricsSummary, MetricsConfig};

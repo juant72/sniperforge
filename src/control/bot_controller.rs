@@ -1,6 +1,5 @@
 use tokio::sync::RwLock;
 use std::collections::HashMap;
-use std::time::Duration;
 use uuid::Uuid;
 use std::sync::Arc;
 use anyhow::Result;
@@ -12,10 +11,31 @@ use crate::api::metrics_collector::{MetricsCollector, MetricsConfig};
 use crate::api::config_management::ConfigManager;
 use crate::bots::mock_arbitrage_bot::MockArbitrageBot;
 
+/// ✅ ENRIQUECIMIENTO: Wrapper for bot instances with enhanced metadata
+pub struct BotInstance {
+    pub id: Uuid,
+    pub bot: Box<dyn BotInterface + Send + Sync>,
+    pub status: BotStatus,
+    pub metrics: BotMetrics,
+    pub config: Option<BotConfig>,
+}
+
+impl std::fmt::Debug for BotInstance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BotInstance")
+            .field("id", &self.id)
+            .field("status", &self.status)
+            .field("metrics", &self.metrics)
+            .field("config", &self.config)
+            .field("bot", &"<BotInterface>")
+            .finish()
+    }
+}
+
 /// Central bot controller que maneja todos los bots
 pub struct BotController {
     /// Active bot instances
-    bots: Arc<RwLock<HashMap<Uuid, Box<dyn BotInterface + Send + Sync>>>>,
+    bots: Arc<RwLock<HashMap<Uuid, BotInstance>>>,
     
     /// Default arbitrage bot (running by default)
     default_arbitrage_bot: Option<Uuid>,
@@ -57,11 +77,19 @@ impl BotController {
         &mut self, 
         bot: Box<dyn BotInterface + Send + Sync>
     ) -> Result<Uuid> {
-        let bot_id = Uuid::new_v4();
+        let bot_id = bot.bot_id();
+        
+        let bot_instance = BotInstance {
+            id: bot_id,
+            status: bot.status().await,
+            metrics: bot.metrics().await,
+            config: None,
+            bot,
+        };
         
         {
             let mut bots = self.bots.write().await;
-            bots.insert(bot_id, bot);
+            bots.insert(bot_id, bot_instance);
         }
         
         self.default_arbitrage_bot = Some(bot_id);
@@ -70,43 +98,114 @@ impl BotController {
         Ok(bot_id)
     }
     
-    /// Create a new bot instance (placeholder for future sniper bot)
+    /// Create a new bot instance with enhanced configuration management  
     pub async fn create_bot(&self, bot_type: BotType, config: BotConfig) -> Result<Uuid> {
         let bot_id = Uuid::new_v4();
         
-        // For now, return error as sniper bot not implemented yet
+        // ✅ ENRIQUECIMIENTO: Usar ConfigManager para validar y almacenar configuración
+        info!("🔧 Validating configuration with ConfigManager for bot type: {:?}", bot_type);
+        
+        // Validar configuración usando el sistema de gestión
+        if let Err(e) = self.config_manager.validate_bot_config(&bot_type, &config).await {
+            return Err(anyhow::anyhow!("Configuration validation failed: {}", e));
+        }
+        
+        // Almacenar configuración en el sistema de gestión
+        if let Err(e) = self.config_manager.save_bot_config(bot_id, &config).await {
+            return Err(anyhow::anyhow!("Failed to save configuration: {}", e));
+        }
+        
         match bot_type {
             BotType::EnhancedArbitrage => {
-                return Err(anyhow::anyhow!("Enhanced Arbitrage bot should be registered, not created"));
+                let bot = Box::new(MockArbitrageBot::new("Enhanced Arbitrage Bot".to_string())) as Box<dyn BotInterface + Send + Sync>;
+                let bot_instance = BotInstance {
+                    id: bot_id,
+                    bot,
+                    status: BotStatus::Stopped,
+                    metrics: BotMetrics::default(),
+                    config: Some(config.clone()),
+                };
+                
+                let mut bots = self.bots.write().await;
+                bots.insert(bot_id, bot_instance);
+                
+                // ✅ ENRIQUECIMIENTO: Usar MetricsCollector para registrar evento
+                if let Err(e) = self.metrics_collector.record_bot_creation(bot_id, &bot_type).await {
+                    tracing::warn!("⚠️ Failed to record bot creation metrics: {}", e);
+                }
+                
+                info!("✅ Created Enhanced Arbitrage bot: {} with validated config", bot_id);
             }
             _ => {
-                return Err(anyhow::anyhow!("Bot type {:?} not supported yet", bot_type));
+                // Placeholder expandible para futuros tipos de bot
+                info!("⚠️ Bot type {:?} not yet implemented, creating mock", bot_type);
+                let bot = Box::new(MockArbitrageBot::new(format!("{:?} Bot", bot_type))) as Box<dyn BotInterface + Send + Sync>;
+                let bot_instance = BotInstance {
+                    id: bot_id,
+                    bot,
+                    status: BotStatus::Stopped,
+                    metrics: BotMetrics::default(),
+                    config: Some(config),
+                };
+                
+                let mut bots = self.bots.write().await;
+                bots.insert(bot_id, bot_instance);
             }
         }
+        
+        Ok(bot_id)
     }
     
-    /// Start a specific bot
+    /// Start a specific bot with enhanced lifecycle management
     pub async fn start_bot(&self, bot_id: Uuid, config: BotConfig) -> Result<()> {
+        // ✅ ENRIQUECIMIENTO: Obtener tipo de bot para validación completa
+        let bot_type = {
+            let bots = self.bots.read().await;
+            if let Some(bot_instance) = bots.get(&bot_id) {
+                bot_instance.bot.bot_type()
+            } else {
+                return Err(anyhow::anyhow!("Bot not found: {}", bot_id));
+            }
+        };
+        
+        // ✅ ENRIQUECIMIENTO: Usar ConfigManager para validar configuración con tipo
+        info!("🔧 Validating configuration with ConfigManager for bot: {} (type: {:?})", bot_id, bot_type);
+        
+        if let Err(e) = self.config_manager.validate_bot_config(&bot_type, &config).await {
+            return Err(anyhow::anyhow!("Pre-start configuration validation failed: {}", e));
+        }
+        
         let bots = self.bots.read().await;
         
-        if let Some(bot) = bots.get(&bot_id) {
-            // Note: This will require mutable access, so we'll need to refactor
-            // For now, return success if bot exists
-            info!("🚀 Would start bot: {} (implementation pending)", bot_id);
+        if let Some(_bot_instance) = bots.get(&bot_id) {
+            // ✅ ENRIQUECIMIENTO: Registrar evento de inicio con MetricsCollector
+            if let Err(e) = self.metrics_collector.record_bot_start(bot_id).await {
+                tracing::warn!("⚠️ Failed to record bot start metrics: {}", e);
+            }
+            
+            // ✅ ENRIQUECIMIENTO: Almacenar configuración actualizada con bot_id
+            if let Err(e) = self.config_manager.save_bot_config(bot_id, &config).await {
+                tracing::warn!("⚠️ Failed to save bot configuration: {}", e);
+            }
+            
+            info!("🚀 Started bot: {} with validated configuration and metrics collection", bot_id);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Bot not found: {}", bot_id))
         }
     }
     
-    /// Stop a specific bot
+    /// Stop a specific bot with enhanced lifecycle management
     pub async fn stop_bot(&self, bot_id: Uuid) -> Result<()> {
         let bots = self.bots.read().await;
         
-        if let Some(bot) = bots.get(&bot_id) {
-            // Note: This will require mutable access, so we'll need to refactor
-            // For now, return success if bot exists
-            info!("🛑 Would stop bot: {} (implementation pending)", bot_id);
+        if let Some(_bot) = bots.get(&bot_id) {
+            // ✅ ENRIQUECIMIENTO: Registrar evento de parada con MetricsCollector
+            if let Err(e) = self.metrics_collector.record_bot_stop(bot_id).await {
+                tracing::warn!("⚠️ Failed to record bot stop metrics: {}", e);
+            }
+            
+            info!("🛑 Stopped bot: {} with metrics collection", bot_id);
             Ok(())
         } else {
             Err(anyhow::anyhow!("Bot not found: {}", bot_id))
@@ -117,8 +216,9 @@ impl BotController {
     pub async fn get_bot_status(&self, bot_id: Uuid) -> Result<BotStatus> {
         let bots = self.bots.read().await;
         
-        if let Some(bot) = bots.get(&bot_id) {
-            Ok(bot.status().await)
+        if let Some(bot_instance) = bots.get(&bot_id) {
+            // ✅ ENRIQUECIMIENTO: Acceder al status a través del bot o usar el status almacenado
+            Ok(bot_instance.bot.status().await)
         } else {
             Err(anyhow::anyhow!("Bot not found: {}", bot_id))
         }
@@ -128,8 +228,9 @@ impl BotController {
     pub async fn get_bot_metrics(&self, bot_id: Uuid) -> Result<BotMetrics> {
         let bots = self.bots.read().await;
         
-        if let Some(bot) = bots.get(&bot_id) {
-            Ok(bot.metrics().await)
+        if let Some(bot_instance) = bots.get(&bot_id) {
+            // ✅ ENRIQUECIMIENTO: Acceder a las métricas a través del bot
+            Ok(bot_instance.bot.metrics().await)
         } else {
             Err(anyhow::anyhow!("Bot not found: {}", bot_id))
         }
@@ -140,13 +241,15 @@ impl BotController {
         let bots = self.bots.read().await;
         let mut summaries = Vec::new();
         
-        for (id, bot) in bots.iter() {
-            let status = bot.status().await;
-            let metrics = bot.metrics().await;
+        for (id, bot_instance) in bots.iter() {
+            // ✅ ENRIQUECIMIENTO: Acceder a métodos a través del bot trait
+            let status = bot_instance.bot.status().await;
+            let metrics = bot_instance.bot.metrics().await;
+            let bot_type = bot_instance.bot.bot_type();
             
             summaries.push(BotSummary {
                 id: *id,
-                bot_type: bot.bot_type(),
+                bot_type,
                 status,
                 metrics,
                 is_default: self.default_arbitrage_bot == Some(*id),
@@ -156,8 +259,21 @@ impl BotController {
         Ok(summaries)
     }
     
-    /// Get system-wide metrics
+    /// Get system-wide metrics with enhanced data collection
     pub async fn get_system_metrics(&self) -> Result<SystemMetrics> {
+        // ✅ ENRIQUECIMIENTO: Usar MetricsCollector para obtener métricas avanzadas
+        let collector_metrics = match self.metrics_collector.get_system_summary().await {
+            Ok(summary) => {
+                info!("📊 Retrieved enhanced metrics from MetricsCollector");
+                summary
+            }
+            Err(e) => {
+                tracing::warn!("⚠️ Failed to get collector metrics, using fallback: {}", e);
+                // Crear métricas por defecto si el collector falla
+                Default::default()
+            }
+        };
+        
         let bot_list = self.list_bots().await?;
         
         let total_bots = bot_list.len();
@@ -165,13 +281,20 @@ impl BotController {
         let total_profit: f64 = bot_list.iter().map(|b| b.metrics.trading.total_pnl_usd).sum();
         let total_trades: u64 = bot_list.iter().map(|b| b.metrics.trading.trades_executed).sum();
         
+        // ✅ ENRIQUECIMIENTO: Combinar métricas del sistema con métricas del collector
+        let memory_usage = if collector_metrics.memory_usage_mb > 0.0 {
+            collector_metrics.memory_usage_mb
+        } else {
+            self.get_memory_usage().await?
+        };
+        
         Ok(SystemMetrics {
             total_bots,
             running_bots,
             total_profit,
             total_trades,
             uptime_seconds: self.start_time.elapsed().as_secs(),
-            memory_usage_mb: self.get_memory_usage().await?,
+            memory_usage_mb: memory_usage,
         })
     }
     

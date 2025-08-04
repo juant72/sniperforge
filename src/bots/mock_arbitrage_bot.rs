@@ -141,24 +141,92 @@ impl BotInterface for MockArbitrageBot {
     }
 
     fn capabilities(&self) -> BotCapabilities {
+        // ✅ ENRIQUECIMIENTO: Capacidades expandidas con opciones de configuración
         BotCapabilities {
-            networks: vec!["ethereum".to_string(), "polygon".to_string()],
-            dexs: vec!["uniswap".to_string(), "sushiswap".to_string()],
-            token_types: vec!["ERC20".to_string()],
+            networks: vec!["solana".to_string(), "ethereum".to_string(), "polygon".to_string()],
+            dexs: vec!["jupiter".to_string(), "raydium".to_string(), "orca".to_string()],
+            token_types: vec!["SPL".to_string(), "ERC20".to_string()],
             features: vec![
                 BotFeature::RealTimeTrading,
                 BotFeature::SimulationMode,
                 BotFeature::RiskManagement,
+                BotFeature::PerformanceAnalytics,
             ],
-            config_options: vec![],
+            config_options: vec![
+                ConfigOption {
+                    name: "max_slippage_bps".to_string(),
+                    option_type: "number".to_string(),
+                    default_value: serde_json::Value::Number(serde_json::Number::from(50)),
+                    validation: Some(crate::api::bot_interface::ValidationRules {
+                        min: Some(1.0),
+                        max: Some(1000.0),
+                        allowed_values: None,
+                        pattern: None,
+                    }),
+                    description: "Maximum slippage in basis points (1-1000)".to_string(),
+                    required: false,
+                },
+                ConfigOption {
+                    name: "min_profit_threshold".to_string(),
+                    option_type: "number".to_string(),
+                    default_value: serde_json::Value::Number(serde_json::Number::from_f64(0.5).unwrap()),
+                    validation: Some(crate::api::bot_interface::ValidationRules {
+                        min: Some(0.1),
+                        max: Some(10.0),
+                        allowed_values: None,
+                        pattern: None,
+                    }),
+                    description: "Minimum profit threshold in percentage".to_string(),
+                    required: true,
+                },
+            ],
         }
     }
 
-    async fn validate_config(&self, _config: &BotConfig) -> Result<ValidationResult, BotError> {
+    async fn validate_config(&self, config: &BotConfig) -> Result<ValidationResult, BotError> {
+        // ✅ ENRIQUECIMIENTO: Validación avanzada con detección de errores específicos
+        let mut errors = Vec::new();
+        let mut warnings = Vec::new();
+        
+        // Validar configuración de recursos
+        if config.resources.max_cpu < 0.5 {
+            errors.push(ValidationError {
+                field: "resources.max_cpu".to_string(),
+                message: "CPU must be at least 0.5 cores for arbitrage operations".to_string(),
+                code: "INSUFFICIENT_CPU".to_string(),
+            });
+        }
+        
+        if config.resources.max_memory_mb < 512 {
+            errors.push(ValidationError {
+                field: "resources.max_memory_mb".to_string(),
+                message: "Memory must be at least 512MB for bot operations".to_string(),
+                code: "INSUFFICIENT_MEMORY".to_string(),
+            });
+        }
+        
+        // Validar configuración de red
+        if config.network.solana_rpc_urls.is_empty() {
+            errors.push(ValidationError {
+                field: "network.solana_rpc_urls".to_string(),
+                message: "At least one Solana RPC URL is required".to_string(),
+                code: "MISSING_RPC_URL".to_string(),
+            });
+        }
+        
+        // Validar configuración de seguridad
+        if config.security.wallet.address.is_empty() {
+            warnings.push(crate::api::bot_interface::ValidationWarning {
+                field: "security.wallet.address".to_string(),
+                message: "Wallet address is empty - bot will run in simulation mode".to_string(),
+                code: "EMPTY_WALLET".to_string(),
+            });
+        }
+        
         Ok(ValidationResult {
-            is_valid: true,
-            errors: vec![],
-            warnings: vec![],
+            is_valid: errors.is_empty(),
+            errors,
+            warnings,
         })
     }
 }

@@ -257,6 +257,32 @@ pub struct TradingMetrics {
 }
 
 /// System performance metrics
+/// ✅ ENRIQUECIMIENTO: Comprehensive trade metrics for bot performance tracking
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TradeMetrics {
+    /// Total number of trades executed
+    pub total_trades: u64,
+    /// Total trading volume in USD
+    pub total_volume_usd: f64,
+    /// Total profit/loss in USD
+    pub total_pnl_usd: f64,
+    /// Successful trades count
+    pub successful_trades: u64,
+    /// Failed trades count
+    pub failed_trades: u64,
+    /// Average trade size in USD
+    pub avg_trade_size_usd: f64,
+    /// Best trade profit in USD
+    pub best_trade_usd: f64,
+    /// Worst trade loss in USD
+    pub worst_trade_usd: f64,
+    /// Total fees paid in USD
+    pub total_fees_usd: f64,
+    /// Win rate percentage (0-100)
+    pub win_rate_percent: f64,
+}
+
+/// Performance metrics for bot monitoring and optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceMetrics {
     /// Current CPU usage percentage
