@@ -300,7 +300,13 @@ fn create_default_bot_config_for_type(bot_type: BotType) -> BotConfig {
         bot_id,
         bot_type: bot_type.clone(),
         environment: Environment::Development, // Safe default
-        parameters: serde_json::Value::Null,
+        parameters: serde_json::json!({
+            "min_profit_threshold": 0.01,
+            "max_position_size": 1000.0,
+            "execution_timeout_ms": 5000,
+            "exchanges": ["binance", "kraken"],
+            "pairs": ["BTC/USDT", "ETH/USDT"]
+        }),
         resources: ResourceLimits {
             max_cpu,
             max_memory_mb: (max_memory_mb as f64 * memory_multiplier) as u64,

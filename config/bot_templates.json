@@ -1,0 +1,78 @@
+{
+  "EnhancedArbitrage": {
+    "bot_type": "EnhancedArbitrage",
+    "name": "Enhanced Arbitrage Bot",
+    "description": "Advanced arbitrage bot with ML-enhanced opportunity detection",
+    "default_config": {
+      "config_id": "1a0ebaf1-80c6-4860-97e0-ac3d1244eab1",
+      "bot_id": "51708be9-5162-42a7-80c2-97e945808d33",
+      "bot_type": "EnhancedArbitrage",
+      "environment": "Development",
+      "parameters": {
+        "exchanges": [
+          "binance",
+          "kraken"
+        ],
+        "execution_timeout_ms": 5000,
+        "max_position_size": 1000.0,
+        "min_profit_threshold": 0.01,
+        "pairs": [
+          "BTC/USDT",
+          "ETH/USDT"
+        ]
+      },
+      "resources": {
+        "max_cpu": 1.0,
+        "max_memory_mb": 512,
+        "max_disk_mb": 1024,
+        "max_network_mbps": 100
+      },
+      "network": {
+        "solana_rpc_urls": [
+          "https://api.mainnet-beta.solana.com"
+        ],
+        "websocket_urls": [
+          "wss://api.mainnet-beta.solana.com"
+        ],
+        "api_endpoints": {},
+        "timeouts": {
+          "rpc_timeout_seconds": 30,
+          "websocket_timeout_seconds": 30,
+          "api_timeout_seconds": 30
+        }
+      },
+      "security": {
+        "wallet": {
+          "wallet_type": "keypair",
+          "address": "",
+          "private_key_path": "./wallet.json",
+          "use_env_keys": false
+        },
+        "api_keys": {},
+        "encryption_enabled": true,
+        "auth_required": true
+      },
+      "metadata": {
+        "name": "Enhanced Arbitrage Configuration",
+        "version": "1.0.0",
+        "created_at": "2025-08-05T20:59:20.585398200Z",
+        "updated_at": "2025-08-05T20:59:20.585398500Z",
+        "created_by": "system",
+        "tags": [
+          "arbitrage",
+          "trading"
+        ]
+      }
+    },
+    "required_parameters": [
+      "min_profit_threshold",
+      "max_position_size",
+      "exchanges"
+    ],
+    "optional_parameters": [
+      "execution_timeout_ms",
+      "pairs"
+    ],
+    "validation_rules": {}
+  }
+}

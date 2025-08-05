@@ -223,10 +223,11 @@ async fn main() -> Result<()> {
     let mut multibot_system = EnterpriseMultiBotSystem::new(simple_config).await?;
     
     info!("✅ All enterprise MultiBot components initialized successfully");
-    info!("🚀 Starting enterprise multi-strategy trading operations...");
+    info!("🚀 SniperForge Enterprise System ready for external control");
+    info!("💡 Use CLI commands to start specific systems: cargo run --bin sniperforge-cli -- ping");
     
-    // Execute enterprise MultiBot demonstration
-    multibot_system.run_enterprise_demonstration().await?;
+    // NUEVA LÓGICA: Mantener sistema en standby en lugar de auto-ejecutar
+    multibot_system.run_standby_mode().await?;
     
     Ok(())
 }
@@ -622,6 +623,50 @@ impl EnterpriseMultiBotSystem {
         
         self.display_enterprise_final_summary();
         Ok(())
+    }
+    
+    /// ✅ NUEVO: Modo standby - Sistema listo pero no ejecutando automáticamente
+    pub async fn run_standby_mode(&mut self) -> Result<()> {
+        info!("🎯 SniperForge Enterprise System entering STANDBY mode");
+        
+        // ✅ INITIALIZE TCP CONTROL SERVER - External Bot Management
+        info!("🌐 Starting TCP Control Server for external CLI access...");
+        let tcp_server = TcpControlServer::new(self.bot_controller.clone(), 8888).await?;
+        
+        // Start TCP server in background
+        tokio::spawn(async move {
+            if let Err(e) = tcp_server.run().await {
+                error!("❌ TCP Control Server error: {}", e);
+            }
+        });
+        
+        // Store a placeholder (we can't store the server since it's moved to the task)
+        self.tcp_server = None;
+        info!("✅ TCP Control Server running on port 8888");
+        info!("💡 You can now use: cargo run --bin sniperforge-cli -- ping");
+        
+        // Display initial system overview
+        self.display_multibot_system_overview();
+        
+        info!("🔧 Enterprise Systems initialized and ready for commands");
+        info!("💡 Available CLI commands:");
+        info!("   • cargo run --bin sniperforge-cli -- ping");
+        info!("   • cargo run --bin sniperforge-cli -- create-bot enhanced-arbitrage");
+        info!("   • cargo run --bin sniperforge-cli -- list-bots");
+        info!("   • cargo run --bin sniperforge-cli -- system-metrics");
+        info!("⚠️ No automatic trading cycles - system waits for manual activation");
+        
+        // Keep system alive without auto-trading - wait for CLI commands
+        loop {
+            sleep(Duration::from_secs(30)).await; // Heartbeat every 30 seconds
+            
+            // Light monitoring without expensive operations
+            let uptime_hours = (Utc::now() - self.system_start_time).num_hours();
+            if uptime_hours % 6 == 0 && uptime_hours > 0 { // Every 6 hours
+                info!("💓 SniperForge Enterprise heartbeat - Uptime: {} hours", uptime_hours);
+                info!("   TCP Server: ✅ Active | Bot Controller: ✅ Ready | CLI: ✅ Available");
+            }
+        }
     }
     
     /// Execute a complete MultiBot trading cycle with ALL NEW INTEGRATIONS

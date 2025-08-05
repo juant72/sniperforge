@@ -255,27 +255,57 @@ impl ConfigManager {
 
     /// Save bot configuration
     pub async fn save_bot_config(&self, bot_id: Uuid, config: &BotConfig) -> Result<(), ConfigError> {
-        let config_file = self.config_path.join("bots").join(format!("{}.json", bot_id));
-        
-        if let Some(parent) = config_file.parent() {
+        if let Some(parent) = self.config_path.join("bots").parent() {
             fs::create_dir_all(parent).await?;
         }
         
-        // If file exists, remove it first to avoid OS error 183
-        if config_file.exists() {
-            if let Err(e) = fs::remove_file(&config_file).await {
-                tracing::warn!("Failed to remove existing config file: {}", e);
-                // Continue anyway, try to overwrite
-            }
-        }
+        // Ensure bots directory exists
+        let bots_dir = self.config_path.join("bots");
+        fs::create_dir_all(&bots_dir).await?;
+        
+        // ESTRATEGIA HOTRELOAD: Usar bot_id como identificador único
+        // El servidor NO mantiene archivos abiertos, solo lee cuando necesita
+        let final_config_file = bots_dir.join(format!("{}.json", bot_id));
+        
+        tracing::info!("📁 Saving bot config to: {}", final_config_file.display());
         
         let content = serde_json::to_string_pretty(config)?;
-        fs::write(&config_file, content).await?;
         
-        self.bot_configs.write().await.insert(bot_id, config.clone());
+        // ESTRATEGIA HOTRELOAD: Sobrescribir archivo existente de forma segura
+        // 1. Escribir a archivo temporal
+        // 2. Renombrar (operación atómica en Windows)
+        // 3. El servidor hará hot-reload automático cuando reciba comandos CLI
         
-        Ok(())
+        let temp_file = final_config_file.with_extension("tmp");
+        
+        // Escribir contenido al archivo temporal
+        match fs::write(&temp_file, &content).await {
+            Ok(()) => {
+                // Renombrar archivo temporal al final (operación atómica)
+                match fs::rename(&temp_file, &final_config_file).await {
+                    Ok(()) => {
+                        // Actualizar cache en memoria DESPUÉS de escribir el archivo
+                        self.bot_configs.write().await.insert(bot_id, config.clone());
+                        tracing::info!("✅ Bot configuration saved to: {}", final_config_file.display());
+                        tracing::info!("🔄 Hot-reload: Server will reload on next CLI command");
+                        Ok(())
+                    },
+                    Err(e) => {
+                        // Limpiar archivo temporal si falló el rename
+                        let _ = fs::remove_file(&temp_file).await;
+                        tracing::error!("❌ Failed to rename config file: {}", e);
+                        Err(ConfigError::IoError(e))
+                    }
+                }
+            },
+            Err(e) => {
+                tracing::error!("❌ Failed to write temp config file: {}", e);
+                Err(ConfigError::IoError(e))
+            }
+        }
     }
+
+    /// Load bot configuration from file
 
     /// Load bot configuration
     pub async fn load_bot_config(&self, bot_id: Uuid) -> Result<BotConfig, ConfigError> {

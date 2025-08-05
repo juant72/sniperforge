@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use std::sync::Arc;
 use anyhow::Result;
-use tracing::info;
+use tracing::{info, warn, error};
 use serde::{Serialize, Deserialize};
 
 use crate::api::bot_interface::{BotInterface, BotType, BotStatus, BotMetrics, BotConfig};
@@ -52,7 +52,7 @@ pub struct BotController {
 
 impl BotController {
     pub async fn new() -> Result<Self> {
-        let config_path = "config.json";
+        let config_path = "config"; // Directorio, no archivo
         let metrics_config = MetricsConfig {
             collection_interval_seconds: 60,
             retention_hours: 24,
@@ -379,6 +379,48 @@ impl BotController {
         let running_bot_overhead = 5.0; // Extra for running bots
         
         Ok(base_overhead + (bot_count * per_bot_overhead) + (running_bots * running_bot_overhead))
+    }
+    
+    /// 🔄 HOT-RELOAD: Recargar todas las configuraciones desde disco
+    /// Este método se llama automáticamente en cada comando CLI
+    pub async fn hot_reload_configs(&self) -> Result<()> {
+        info!("🔄 Starting hot-reload of all configurations...");
+        
+        // Recargar configuraciones del sistema y templates
+        if let Err(e) = self.config_manager.hot_reload().await {
+            tracing::warn!("⚠️ Hot-reload warning: {}", e);
+            // No fallar completamente - permitir que el comando continúe
+        } else {
+            info!("✅ System configurations reloaded successfully");
+        }
+        
+        // Recargar configuraciones de bots activos
+        let bot_ids: Vec<Uuid> = {
+            let bots = self.bots.read().await;
+            bots.keys().cloned().collect()
+        };
+        
+        let mut reloaded_count = 0;
+        for bot_id in bot_ids {
+            // Intentar recargar configuración específica del bot
+            match self.config_manager.load_bot_config(bot_id).await {
+                Ok(updated_config) => {
+                    // Actualizar configuración en memoria del bot
+                    let mut bots = self.bots.write().await;
+                    if let Some(bot_instance) = bots.get_mut(&bot_id) {
+                        bot_instance.config = Some(updated_config);
+                        reloaded_count += 1;
+                    }
+                },
+                Err(_) => {
+                    // No es un error crítico si el archivo no existe
+                    // Puede ser un bot que no tiene configuración guardada aún
+                }
+            }
+        }
+        
+        info!("🔄 Hot-reload completed: {} bot configs updated", reloaded_count);
+        Ok(())
     }
 }
 

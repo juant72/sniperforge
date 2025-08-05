@@ -1,0 +1,43 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "database": "sniperforge",
+    "username": "sniperforge",
+    "password": "password",
+    "pool_size": 10,
+    "connection_timeout_ms": 30000
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "cors_enabled": true,
+    "rate_limit_per_minute": 1000,
+    "max_request_size_mb": 10,
+    "jwt_secret": "your-secret-key-change-this-in-production",
+    "session_timeout_hours": 24
+  },
+  "logging": {
+    "level": "info",
+    "file_path": "logs/sniperforge.log",
+    "max_file_size_mb": 100,
+    "max_files": 10,
+    "structured_logging": true
+  },
+  "security": {
+    "encryption_key": "your-encryption-key-change-this",
+    "api_key_required": true,
+    "rate_limiting_enabled": true,
+    "audit_logging": true,
+    "ssl_enabled": false,
+    "ssl_cert_path": null,
+    "ssl_key_path": null
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "prometheus_endpoint": "http://localhost:9090",
+    "health_check_interval_seconds": 30,
+    "alert_webhook_url": null,
+    "performance_tracking": true
+  }
+}

@@ -76,6 +76,23 @@ pub enum BotType {
     PatternAnalyzer,
 }
 
+impl BotType {
+    /// Convert bot type to string representation for filenames and display
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BotType::EnhancedArbitrage => "enhanced-arbitrage",
+            BotType::TriangularArbitrage => "triangular-arbitrage",
+            BotType::FlashLoanArbitrage => "flash-loan-arbitrage",
+            BotType::CrossChainArbitrage => "cross-chain-arbitrage",
+            BotType::MLAnalytics => "ml-analytics",
+            BotType::PortfolioManager => "portfolio-manager",
+            BotType::RealTimeDashboard => "real-time-dashboard",
+            BotType::PerformanceProfiler => "performance-profiler",
+            BotType::PatternAnalyzer => "pattern-analyzer",
+        }
+    }
+}
+
 /// Bot operational status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BotStatus {

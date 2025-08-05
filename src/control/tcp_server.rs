@@ -142,6 +142,15 @@ impl TcpControlServer {
         command: TcpCommand, 
         controller: &Arc<BotController>
     ) -> TcpResponse {
+        // 🔄 HOT-RELOAD AUTOMÁTICO: Recargar configuraciones antes de cada comando CLI
+        info!("🔄 Hot-reload: Updating configurations from disk...");
+        if let Err(e) = controller.hot_reload_configs().await {
+            error!("⚠️ Hot-reload failed: {}", e);
+            // No fallar el comando por esto, solo advertir
+        } else {
+            info!("✅ Hot-reload completed successfully");
+        }
+        
         match command {
             TcpCommand::ListBots => {
                 match controller.list_bots().await {
