@@ -141,7 +141,7 @@ pub struct MultiBotMetrics {
 impl Default for MultiBotMetrics {
     fn default() -> Self {
         Self {
-            total_strategies_active: 9,  // ✅ ALL 9 ENTERPRISE MODULES ACTIVE
+            total_strategies_active: 0,      // Real count - will be updated when strategies are actually activated
             total_profit_usd: 0.0,
             total_trades_executed: 0,
             success_rate_percentage: 0.0,
@@ -149,19 +149,19 @@ impl Default for MultiBotMetrics {
             risk_adjusted_return: 0.0,
             sharpe_ratio: 0.0,
             maximum_drawdown: 0.0,
-            uptime_percentage: 100.0,
-            ai_accuracy_rate: 82.0,  // ✅ ENTERPRISE AI ACCURACY
-            current_market_sentiment: 0.0,  // ✅ NEUTRAL STARTING SENTIMENT
-            sentiment_confidence: 0.0,      // ✅ STARTING CONFIDENCE
-            twitter_sentiment: 0.0,         // ✅ TWITTER SENTIMENT
-            stablecoin_depegging_alerts: 0, // ✅ NO INITIAL ALERTS
-            optimized_routes_active: 0,     // ✅ ROUTES TO BE ACTIVATED
+            uptime_percentage: 0.0,          // Real uptime - calculated from actual start time
+            ai_accuracy_rate: 0.0,           // Real accuracy - calculated from actual predictions
+            current_market_sentiment: 0.0,  // Real sentiment - updated by actual analysis
+            sentiment_confidence: 0.0,      // Real confidence - from actual sentiment data
+            twitter_sentiment: 0.0,         // Real Twitter data - from actual API calls
+            stablecoin_depegging_alerts: 0, // Real alerts - from actual monitoring
+            optimized_routes_active: 0,     // Real routes - when actually created and active
             
-            // ✅ ENTERPRISE METRICS (ALL MODULES IMPLEMENTED)
-            ai_optimized_trades: 0,        // ✅ AI Optimization Module ready
-            autonomous_trades_executed: 0,  // ✅ Autonomous Trading Module ready
-            enterprise_features_active: 11, // ✅ ALL 11 MODULES IMPLEMENTED
-            total_enterprise_cycles: 0,     // ✅ Start cycle count
+            // Real enterprise metrics - updated by actual module activity
+            ai_optimized_trades: 0,         // Count of actual AI-optimized trades
+            autonomous_trades_executed: 0,  // Count of actual autonomous trades
+            enterprise_features_active: 0,  // Count of actually running enterprise modules
+            total_enterprise_cycles: 0,     // Real cycle count
         }
     }
 }
@@ -304,40 +304,31 @@ impl EnterpriseMultiBotSystem {
         info!("  ✅ Ensemble learning algorithms initialized");
         info!("✅ Phase 5: Enterprise Machine Learning initialized");
         
-        // Initialize Flash Loan Engine with enterprise-grade config
+        // Initialize Flash Loan Engine with conservative config (cost control)
         let flash_loan_config = EnterpriseFlashLoanConfig {
-            enabled: true,
-            max_loan_amount_sol: 5000.0,     // Enterprise level: 5000 SOL  
-            fee_tier_bps: 3,                 // 0.03% flash loan fee (optimized)
-            min_profit_threshold_bps: 25,    // 0.25% minimum profit (aggressive)
-            max_execution_time_ms: 12000,    // 12 seconds maximum (optimized)
-            risk_management_enabled: true,   // Enterprise risk management
-            auto_sizing_enabled: true,       // AI auto-sizing based on opportunity
+            enabled: false,                  // DISABLED by default - cost control
+            max_loan_amount_sol: 10.0,       // Conservative: 10 SOL (was 5000)
+            fee_tier_bps: 30,                // 0.30% flash loan fee (conservative)
+            min_profit_threshold_bps: 200,   // 2.0% minimum profit (conservative)
+            max_execution_time_ms: 5000,     // 5 seconds maximum (conservative)
+            risk_management_enabled: true,   // Always enabled
+            auto_sizing_enabled: false,      // DISABLED - manual control
         };
         let flash_loan_engine = EnterpriseFlashLoanEngine::new(Some(flash_loan_config), simple_config.clone());
         info!("✅ Phase 6: Enterprise Flash Loan Engine initialized");
         
-        // Initialize Cross-Chain Engine with enterprise-grade config
+        // Initialize Cross-Chain Engine with conservative config (cost control)
         let cross_chain_config = EnterpriseCrossChainConfig {
-            enabled: true,
+            enabled: false,                  // DISABLED by default - cost control
             supported_chains: vec![
-                "Solana".to_string(), 
-                "Ethereum".to_string(), 
-                "Polygon".to_string(),
-                "Arbitrum".to_string(),
-                "Optimism".to_string(),
-                "Base".to_string(),
-                "Avalanche".to_string(),
+                "Solana".to_string(),        // Primary chain only
             ],
             bridge_providers: vec![
-                "Wormhole".to_string(), 
-                "LayerZero".to_string(),
-                "Axelar".to_string(),
-                "Multichain".to_string(),
+                "Wormhole".to_string(),      // Single provider for testing
             ],
-            max_bridge_amount_sol: 2000.0,
-            min_cross_chain_profit_bps: 150,  // 1.5% minimum (enterprise grade)
-            max_bridge_time_seconds: 180,     // 3 minutes max
+            max_bridge_amount_sol: 5.0,      // Conservative: 5 SOL (was 2000)
+            min_cross_chain_profit_bps: 500, // 5.0% minimum (was 1.5%) - conservative
+            max_bridge_time_seconds: 60,     // 1 minute max (was 3 minutes)
             bridge_fee_tolerance_bps: 30,     // 0.3% fee tolerance
             risk_management_enabled: true,
             slippage_tolerance_bps: 75,       // 0.75% slippage tolerance
@@ -537,57 +528,15 @@ impl EnterpriseMultiBotSystem {
         info!("✅ TCP Control Server running on port 8888");
         info!("💡 You can now use: cargo run --bin sniperforge-cli -- ping");
         
-        // 🔧 ACTIVATE ENTERPRISE SYSTEMS TO ELIMINATE WARNINGS
-        info!("🔧 Activating Enterprise Systems...");
+        // 🔧 ENTERPRISE SYSTEMS - DISABLED AUTO-START (Cost Control)
+        info!("🔧 Enterprise Systems initialized but NOT auto-started (cost control)");
+        info!("💡 Use CLI commands to manually start specific systems when needed");
+        info!("⚠️ Auto-mode disabled to prevent unnecessary RPC costs");
         
-        // Start Enterprise Monitoring
-        let enterprise_monitor = self.enterprise_monitor.clone();
-        tokio::spawn(async move {
-            if let Err(e) = enterprise_monitor.start_monitoring().await {
-                tracing::error!("❌ Enterprise Monitor failed to start: {}", e);
-            }
-        });
+        // Systems are initialized but NOT started automatically
+        // This prevents expensive RPC calls without explicit user consent
         
-        // Start AI Engine Processing
-        let ai_engine = self.advanced_ai_engine.clone();
-        tokio::spawn(async move {
-            loop {
-                if let Err(e) = ai_engine.process_autonomous_decision().await {
-                    tracing::error!("❌ AI Engine processing error: {}", e);
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-        });
-        
-        // Start Intelligence System
-        let intelligence_system = self.intelligence_system.clone();
-        tokio::spawn(async move {
-            loop {
-                intelligence_system.analyze_market_patterns().await;
-                tokio::time::sleep(Duration::from_secs(2)).await;
-            }
-        });
-        
-        // Start Autonomous Trader
-        let autonomous_trader = self.autonomous_trader.clone();
-        tokio::spawn(async move {
-            loop {
-                autonomous_trader.execute_autonomous_trade().await;
-                tokio::time::sleep(Duration::from_secs(3)).await;
-            }
-        });
-        
-        // Start Sentiment Analyzer
-        let sentiment_analyzer = self.sentiment_analyzer.clone();
-        tokio::spawn(async move {
-            loop {
-                sentiment_analyzer.analyze_market_sentiment().await;
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
-        });
-        
-        info!("✅ All Enterprise Systems activated successfully");
+        info!("✅ All Enterprise Systems initialized (not auto-started)");
         
         // Display initial system overview
         self.display_multibot_system_overview();

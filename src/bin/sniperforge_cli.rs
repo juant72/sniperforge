@@ -77,6 +77,24 @@ async fn main() -> Result<()> {
 
     let matches = app.get_matches();
 
+    // Verificar si hay subcomando antes de conectar al servidor
+    match matches.subcommand() {
+        None => {
+            println!("❌ No subcommand provided.");
+            println!("\nAvailable commands:");
+            println!("  ping           Test server connection");
+            println!("  list-bots      List all registered bots");
+            println!("  status         Get status of a specific bot");
+            println!("  metrics        Get metrics of a specific bot");
+            println!("  system-metrics Get system-wide metrics");
+            println!("  start-bot      Start a specific bot");
+            println!("  stop-bot       Stop a specific bot");
+            println!("\nUse: {} <COMMAND> for more information", std::env::args().next().unwrap_or("sniperforge-cli".to_string()));
+            return Ok(());
+        }
+        _ => {}
+    }
+
     let server_addr = matches.get_one::<String>("server").unwrap();
     let mut client = TcpBotClient::new(server_addr).await?;
 
@@ -154,7 +172,9 @@ async fn main() -> Result<()> {
             
             let response = client.send_command(TcpCommand::StartBot { bot_id, config }).await?;
             match response {
-                TcpResponse::Success(_) => println!("✅ Bot started successfully"),
+                TcpResponse::BotStarted { bot_id: started_id } => {
+                    println!("✅ Bot started successfully: {}", started_id);
+                }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
                 _ => println!("❌ Unexpected response: {:?}", response),
             }
@@ -165,13 +185,19 @@ async fn main() -> Result<()> {
             
             let response = client.send_command(TcpCommand::StopBot { bot_id }).await?;
             match response {
-                TcpResponse::Success(_) => println!("✅ Bot stopped successfully"),
+                TcpResponse::BotStopped { bot_id: stopped_id } => {
+                    println!("✅ Bot stopped successfully: {}", stopped_id);
+                }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
                 _ => println!("❌ Unexpected response: {:?}", response),
             }
         }
-        _ => {
-            println!("❌ No subcommand provided. Use --help for usage information.");
+        Some((unknown_cmd, _)) => {
+            println!("❌ Unknown subcommand: {}", unknown_cmd);
+        }
+        None => {
+            // Este caso ya fue manejado arriba, pero necesario para completitud
+            unreachable!("None case should have been handled earlier");
         }
     }
 
@@ -189,26 +215,45 @@ fn print_bot_metrics(metrics: &BotMetrics) {
 }
 
 fn create_default_bot_config(bot_id: Uuid) -> BotConfig {
+    // Read real environment variables or use conservative defaults
+    let solana_rpc_url = std::env::var("SOLANA_RPC_URL")
+        .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string()); // Devnet by default for safety
+    
+    let max_cpu = std::env::var("BOT_MAX_CPU")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1.0); // Conservative default: 1 CPU core
+    
+    let max_memory_mb = std::env::var("BOT_MAX_MEMORY_MB")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(256); // Conservative default: 256MB
+    
+    let rpc_timeout = std::env::var("RPC_TIMEOUT_SECONDS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10); // Conservative default: 10 seconds
+
     BotConfig {
         config_id: Uuid::new_v4(),
         bot_id,
         bot_type: BotType::EnhancedArbitrage,
-        environment: Environment::Development,
+        environment: Environment::Development, // Safe default
         parameters: serde_json::Value::Null,
         resources: ResourceLimits {
-            max_cpu: 2.0,
-            max_memory_mb: 1024,
-            max_disk_mb: 512,
-            max_network_mbps: Some(100),
+            max_cpu,
+            max_memory_mb,
+            max_disk_mb: 128, // Conservative: 128MB disk
+            max_network_mbps: Some(10), // Conservative: 10 Mbps
         },
         network: NetworkConfig {
-            solana_rpc_urls: vec!["https://api.mainnet-beta.solana.com".to_string()],
+            solana_rpc_urls: vec![solana_rpc_url], // Real environment-based URL
             websocket_urls: vec![],
             api_endpoints: HashMap::new(),
             timeouts: NetworkTimeouts {
-                rpc_timeout_seconds: 30,
-                websocket_timeout_seconds: 30,
-                api_timeout_seconds: 30,
+                rpc_timeout_seconds: rpc_timeout,
+                websocket_timeout_seconds: rpc_timeout,
+                api_timeout_seconds: rpc_timeout,
             },
         },
         security: SecurityConfig {
@@ -216,19 +261,19 @@ fn create_default_bot_config(bot_id: Uuid) -> BotConfig {
                 wallet_type: "keypair".to_string(),
                 address: "".to_string(),
                 private_key_path: None,
-                use_env_keys: true,
+                use_env_keys: true, // Always use environment for security
             },
             api_keys: HashMap::new(),
-            encryption_enabled: false,
-            auth_required: false,
+            encryption_enabled: true, // Security by default
+            auth_required: true,      // Security by default
         },
         metadata: ConfigMetadata {
-            name: "Default Bot Config".to_string(),
-            version: "1.0.0".to_string(),
+            name: format!("Bot Config {}", bot_id), // Real bot-specific name
+            version: env!("CARGO_PKG_VERSION").to_string(), // Real package version
             created_at: Utc::now(),
             updated_at: Utc::now(),
-            created_by: "CLI".to_string(),
-            tags: vec!["default".to_string()],
+            created_by: format!("CLI-{}", std::env::var("USER").unwrap_or_else(|_| "unknown".to_string())), // Real user
+            tags: vec!["cli-created".to_string(), "development".to_string()],
         },
     }
 }
