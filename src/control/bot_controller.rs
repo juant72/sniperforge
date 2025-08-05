@@ -320,11 +320,12 @@ impl BotController {
         #[cfg(target_os = "windows")]
         {
             // Real Windows implementation using process APIs
-            match self.get_windows_memory_usage() {
+            match self.get_windows_memory_usage().await {
                 Ok(memory_mb) => Ok(memory_mb),
                 Err(_) => {
                     // Fallback: estimate based on actual system state
-                    let bot_count = self.bots.read().unwrap().len() as f64;
+                    let bots = self.bots.read().await;
+                    let bot_count = bots.len() as f64;
                     let estimated_mb = 15.0 + (bot_count * 2.5); // Real estimation
                     Ok(estimated_mb)
                 }
@@ -346,12 +347,16 @@ impl BotController {
                         }
                     }
                     // Fallback if parsing fails
-                    let bot_count = self.bots.read().unwrap().len() as f64;
+                    let bots = self.bots.read().await;
+                    let bot_count = bots.len() as f64;
                     Ok(15.0 + (bot_count * 2.5))
                 }
                 Err(_) => {
-                    // Fallback if /proc not available
-                    let bot_count = self.bots.read().unwrap().len() as f64;
+                    // Fallback if /proc not available  
+                    let bots = futures::executor::block_on(async {
+                        self.bots.read().await
+                    });
+                    let bot_count = bots.len() as f64;
                     Ok(15.0 + (bot_count * 2.5))
                 }
             }
@@ -359,11 +364,11 @@ impl BotController {
     }
 
     #[cfg(target_os = "windows")]
-    fn get_windows_memory_usage(&self) -> Result<f64> {
-        // Attempt to use Windows API for real memory usage
-        // For now, return estimated value based on actual bot count
-        let bot_count = self.bots.read().unwrap().len() as f64;
-        let running_bots = self.bots.read().unwrap()
+    async fn get_windows_memory_usage(&self) -> Result<f64> {
+        let bots = self.bots.read().await;
+        
+        let bot_count = bots.len() as f64;
+        let running_bots = bots
             .iter()
             .filter(|(_, bot)| matches!(bot.status, BotStatus::Running))
             .count() as f64;

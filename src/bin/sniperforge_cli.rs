@@ -35,7 +35,16 @@ async fn main() -> Result<()> {
                 .about("List all registered bots")
         )
         .subcommand(
-            Command::new("status")
+            Command::new("create-bot")
+                .about("Create a new bot")
+                .arg(Arg::new("type")
+                    .value_name("BOT_TYPE")
+                    .help("Bot type (enhanced-arbitrage, flash-loan, cross-chain)")
+                    .required(true)
+                    .index(1))
+        )
+        .subcommand(
+            Command::new("bot-status")
                 .about("Get status of a specific bot")
                 .arg(Arg::new("bot-id")
                     .long("bot-id")
@@ -44,7 +53,7 @@ async fn main() -> Result<()> {
                     .required(true))
         )
         .subcommand(
-            Command::new("metrics")
+            Command::new("bot-metrics")
                 .about("Get metrics of a specific bot")
                 .arg(Arg::new("bot-id")
                     .long("bot-id")
@@ -82,14 +91,15 @@ async fn main() -> Result<()> {
         None => {
             println!("❌ No subcommand provided.");
             println!("\nAvailable commands:");
-            println!("  ping           Test server connection");
-            println!("  list-bots      List all registered bots");
-            println!("  status         Get status of a specific bot");
-            println!("  metrics        Get metrics of a specific bot");
-            println!("  system-metrics Get system-wide metrics");
-            println!("  start-bot      Start a specific bot");
-            println!("  stop-bot       Stop a specific bot");
-            println!("\nUse: {} <COMMAND> for more information", std::env::args().next().unwrap_or("sniperforge-cli".to_string()));
+            println!("  ping              Test server connection");
+            println!("  list-bots         List all registered bots");
+            println!("  create-bot <TYPE> Create a new bot (enhanced-arbitrage, flash-loan, cross-chain)");
+            println!("  bot-status        Get status of a specific bot");
+            println!("  bot-metrics       Get metrics of a specific bot");
+            println!("  system-metrics    Get system-wide metrics");
+            println!("  start-bot         Start a specific bot");
+            println!("  stop-bot          Stop a specific bot");
+            println!("\nUse: {} <COMMAND> --help for more information", std::env::args().next().unwrap_or("sniperforge-cli".to_string()));
             return Ok(());
         }
         _ => {}
@@ -122,7 +132,39 @@ async fn main() -> Result<()> {
                 _ => println!("❌ Unexpected response: {:?}", response),
             }
         }
-        Some(("status", sub_matches)) => {
+        Some(("create-bot", sub_matches)) => {
+            let bot_type_str = sub_matches.get_one::<String>("type").unwrap();
+            let bot_type = match bot_type_str.as_str() {
+                "enhanced-arbitrage" => BotType::EnhancedArbitrage,
+                "triangular-arbitrage" => BotType::TriangularArbitrage,
+                "flash-loan-arbitrage" => BotType::FlashLoanArbitrage,
+                "cross-chain-arbitrage" => BotType::CrossChainArbitrage,
+                "ml-analytics" => BotType::MLAnalytics,
+                "portfolio-manager" => BotType::PortfolioManager,
+                "real-time-dashboard" => BotType::RealTimeDashboard,
+                "performance-profiler" => BotType::PerformanceProfiler,
+                "pattern-analyzer" => BotType::PatternAnalyzer,
+                _ => {
+                    println!("❌ Invalid bot type: {}", bot_type_str);
+                    println!("Available types: enhanced-arbitrage, triangular-arbitrage, flash-loan-arbitrage, cross-chain-arbitrage, ml-analytics, portfolio-manager, real-time-dashboard, performance-profiler, pattern-analyzer");
+                    return Ok(());
+                }
+            };
+            
+            let config = create_default_bot_config_for_type(bot_type.clone());
+            
+            let response = client.send_command(TcpCommand::CreateBot { bot_type, config }).await?;
+            match response {
+                TcpResponse::BotCreated { bot_id } => {
+                    println!("✅ Bot created successfully: {}", bot_id);
+                    println!("   Type: {:?}", bot_type_str);
+                    println!("   Use 'start-bot --bot-id {}' to start it", bot_id);
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("bot-status", sub_matches)) => {
             let bot_id_str = sub_matches.get_one::<String>("bot-id").unwrap();
             let bot_id = Uuid::parse_str(bot_id_str)?;
             
@@ -135,7 +177,7 @@ async fn main() -> Result<()> {
                 _ => println!("❌ Unexpected response: {:?}", response),
             }
         }
-        Some(("metrics", sub_matches)) => {
+        Some(("bot-metrics", sub_matches)) => {
             let bot_id_str = sub_matches.get_one::<String>("bot-id").unwrap();
             let bot_id = Uuid::parse_str(bot_id_str)?;
             
@@ -214,7 +256,13 @@ fn print_bot_metrics(metrics: &BotMetrics) {
     println!("   - Memory Usage: {} MB", metrics.performance.memory_usage_mb);
 }
 
-fn create_default_bot_config(bot_id: Uuid) -> BotConfig {
+fn create_default_bot_config(_bot_id: Uuid) -> BotConfig {
+    create_default_bot_config_for_type(BotType::EnhancedArbitrage)
+}
+
+fn create_default_bot_config_for_type(bot_type: BotType) -> BotConfig {
+    let bot_id = Uuid::new_v4();
+    
     // Read real environment variables or use conservative defaults
     let solana_rpc_url = std::env::var("SOLANA_RPC_URL")
         .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string()); // Devnet by default for safety
@@ -234,15 +282,28 @@ fn create_default_bot_config(bot_id: Uuid) -> BotConfig {
         .and_then(|s| s.parse().ok())
         .unwrap_or(10); // Conservative default: 10 seconds
 
+    // Adjust resources based on bot type
+    let (memory_multiplier, name_suffix) = match bot_type {
+        BotType::EnhancedArbitrage => (1.0, "Enhanced Arbitrage"),
+        BotType::TriangularArbitrage => (1.2, "Triangular Arbitrage"),
+        BotType::FlashLoanArbitrage => (1.5, "Flash Loan Arbitrage"),
+        BotType::CrossChainArbitrage => (2.0, "Cross Chain Arbitrage"),
+        BotType::MLAnalytics => (1.8, "ML Analytics"),
+        BotType::PortfolioManager => (1.3, "Portfolio Manager"),
+        BotType::RealTimeDashboard => (0.8, "Real Time Dashboard"),
+        BotType::PerformanceProfiler => (1.1, "Performance Profiler"),
+        BotType::PatternAnalyzer => (1.6, "Pattern Analyzer"),
+    };
+
     BotConfig {
         config_id: Uuid::new_v4(),
         bot_id,
-        bot_type: BotType::EnhancedArbitrage,
+        bot_type: bot_type.clone(),
         environment: Environment::Development, // Safe default
         parameters: serde_json::Value::Null,
         resources: ResourceLimits {
             max_cpu,
-            max_memory_mb,
+            max_memory_mb: (max_memory_mb as f64 * memory_multiplier) as u64,
             max_disk_mb: 128, // Conservative: 128MB disk
             max_network_mbps: Some(10), // Conservative: 10 Mbps
         },
@@ -268,7 +329,7 @@ fn create_default_bot_config(bot_id: Uuid) -> BotConfig {
             auth_required: true,      // Security by default
         },
         metadata: ConfigMetadata {
-            name: format!("Bot Config {}", bot_id), // Real bot-specific name
+            name: format!("{} Bot Config {}", name_suffix, bot_id), // Real bot-specific name
             version: env!("CARGO_PKG_VERSION").to_string(), // Real package version
             created_at: Utc::now(),
             updated_at: Utc::now(),

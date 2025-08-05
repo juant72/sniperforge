@@ -261,6 +261,14 @@ impl ConfigManager {
             fs::create_dir_all(parent).await?;
         }
         
+        // If file exists, remove it first to avoid OS error 183
+        if config_file.exists() {
+            if let Err(e) = fs::remove_file(&config_file).await {
+                tracing::warn!("Failed to remove existing config file: {}", e);
+                // Continue anyway, try to overwrite
+            }
+        }
+        
         let content = serde_json::to_string_pretty(config)?;
         fs::write(&config_file, content).await?;
         
