@@ -12,6 +12,7 @@ use sniperforge::{
     },
     apis::{RealPriceFeeds, PriceFeedManager, StablecoinMonitor},
     bots::mock_arbitrage_bot::MockArbitrageBot,
+    api::BotInterface,  // 🎯 MEJORA: Import necesario para usar métodos del trait
     config::SimpleConfig,
     control::{BotController, TcpControlServer},
     intelligence::{
@@ -225,6 +226,16 @@ async fn main() -> Result<()> {
     info!("✅ All enterprise MultiBot components initialized successfully");
     info!("🚀 SniperForge Enterprise System ready for external control");
     info!("💡 Use CLI commands to start specific systems: cargo run --bin sniperforge-cli -- ping");
+    
+    // 🎯 MEJORA: Funcionalidad de demo usando MockArbitrageBot para testing
+    #[cfg(debug_assertions)]
+    {
+        if std::env::var("SNIPERFORGE_DEMO_MODE").is_ok() {
+            info!("🎮 Demo mode enabled - creating sample MockArbitrageBot for testing");
+            let demo_bot = MockArbitrageBot::new(uuid::Uuid::new_v4().to_string());
+            info!("✅ Demo bot created successfully: {:?}", demo_bot.bot_id());
+        }
+    }
     
     // NUEVA LÓGICA: Mantener sistema en standby en lugar de auto-ejecutar
     multibot_system.run_standby_mode().await?;

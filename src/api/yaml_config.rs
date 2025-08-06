@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use anyhow::Result;
-use tracing::{info, error};
+use tracing::{info, error, warn, debug};
 
 use crate::api::bot_interface::{BotType, Environment};
 
@@ -856,6 +856,125 @@ impl YamlConfigManager {
         }
         
         Ok(())
+    }
+    
+    /// 🎯 Load desired state configuration from YAML
+    /// This is the core method for the declarative system
+    pub async fn load_desired_state(&self) -> Result<DesiredStateConfig, YamlConfigError> {
+        let config_file = self.config_path.join("system.yaml");
+        
+        if !config_file.exists() {
+            return Err(YamlConfigError::FileNotFound(
+                "system.yaml not found. Please create the configuration file.".to_string()
+            ));
+        }
+        
+        let content = fs::read_to_string(&config_file).await?;
+        
+        // Parse the full YAML but extract only the desired_state section
+        let full_config: serde_yaml::Value = serde_yaml::from_str(&content)?;
+        
+        // Extract desired_state section if it exists
+        if let Some(desired_state_value) = full_config.get("desired_state") {
+            let desired_state: DesiredStateConfig = serde_yaml::from_value(desired_state_value.clone())
+                .map_err(|e| YamlConfigError::InvalidYamlFormat(
+                    format!("Invalid desired_state configuration: {}", e)
+                ))?;
+            
+            // Validate the configuration
+            desired_state.validate()?;
+            
+            info!("✅ Desired state loaded: {} bots configured", desired_state.bots.len());
+            Ok(desired_state)
+        } else {
+            warn!("⚠️ No 'desired_state' section found in system.yaml, using empty configuration");
+            Ok(DesiredStateConfig::new())
+        }
+    }
+    
+    /// 💾 Save desired state configuration to YAML
+    pub async fn save_desired_state(&self, desired_state: &DesiredStateConfig) -> Result<(), YamlConfigError> {
+        let config_file = self.config_path.join("system.yaml");
+        
+        // Load existing YAML content
+        let mut full_config: serde_yaml::Value = if config_file.exists() {
+            let content = fs::read_to_string(&config_file).await?;
+            serde_yaml::from_str(&content)?
+        } else {
+            serde_yaml::Value::Mapping(serde_yaml::Mapping::new())
+        };
+        
+        // Convert desired state to YAML value
+        let desired_state_value = serde_yaml::to_value(desired_state)?;
+        
+        // Update the desired_state section
+        if let serde_yaml::Value::Mapping(ref mut map) = full_config {
+            map.insert(
+                serde_yaml::Value::String("desired_state".to_string()),
+                desired_state_value
+            );
+        }
+        
+        // Write back to file
+        let yaml_content = serde_yaml::to_string(&full_config)?;
+        fs::write(&config_file, yaml_content).await?;
+        
+        info!("✅ Desired state saved to system.yaml");
+        Ok(())
+    }
+    
+    /// 🔄 Hot-reload desired state from YAML
+    /// Returns true if the configuration changed
+    pub async fn reload_desired_state(&self, current_state: &DesiredStateConfig) -> Result<Option<DesiredStateConfig>, YamlConfigError> {
+        let new_state = self.load_desired_state().await?;
+        
+        // Check if configuration actually changed
+        // This is a simple comparison - in a real system you might want more sophisticated change detection
+        let current_yaml = serde_yaml::to_string(current_state).map_err(|e| {
+            YamlConfigError::InvalidYamlFormat(format!("Failed to serialize current state: {}", e))
+        })?;
+        
+        let new_yaml = serde_yaml::to_string(&new_state).map_err(|e| {
+            YamlConfigError::InvalidYamlFormat(format!("Failed to serialize new state: {}", e))
+        })?;
+        
+        if current_yaml != new_yaml {
+            info!("🔄 Desired state configuration changed, reloading...");
+            Ok(Some(new_state))
+        } else {
+            debug!("✅ Desired state configuration unchanged");
+            Ok(None)
+        }
+    }
+    
+    /// 📊 Get desired state summary
+    pub async fn get_desired_state_summary(&self) -> Result<String, YamlConfigError> {
+        let desired_state = self.load_desired_state().await?;
+        
+        let running_count = desired_state.get_bots_by_status(&DesiredBotStatus::Running).len();
+        let stopped_count = desired_state.get_bots_by_status(&DesiredBotStatus::Stopped).len();
+        let paused_count = desired_state.get_bots_by_status(&DesiredBotStatus::Paused).len();
+        let maintenance_count = desired_state.get_bots_by_status(&DesiredBotStatus::Maintenance).len();
+        
+        let summary = format!(
+            "📊 Desired State Summary:\n\
+             • Total bots: {}\n\
+             • Running: {}\n\
+             • Stopped: {}\n\
+             • Paused: {}\n\
+             • Maintenance: {}\n\
+             • Reconciliation enabled: {}\n\
+             • Reconciliation interval: {}s",
+            desired_state.bots.len(),
+            running_count,
+            stopped_count,
+            paused_count,
+            maintenance_count,
+            desired_state.reconciliation.enabled,
+            desired_state.reconciliation.interval_seconds
+        );
+        
+        Ok(summary)
     }
 }
 

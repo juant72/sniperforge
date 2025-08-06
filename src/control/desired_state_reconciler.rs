@@ -9,7 +9,7 @@
 //! 3. 🔄 Ejecutar acciones para converger al estado deseado
 //! 4. 🔁 Reconciliar continuamente para mantener el estado
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
@@ -188,7 +188,7 @@ impl DesiredStateReconciler {
         let yaml_manager = self.yaml_manager.clone();
         let stats = self.stats.clone();
         let should_stop = self.should_stop.clone();
-        let reconciliation_tx = self.reconciliation_tx.clone();
+        let _reconciliation_tx = self.reconciliation_tx.clone();
         
         // Tomar el receiver del canal
         let mut reconciliation_rx = {
@@ -418,7 +418,7 @@ impl DesiredStateReconciler {
                 if current_bot.status != desired_status {
                     analysis.status_mismatches.push(StatusMismatch {
                         bot_id: bot_id.clone(),
-                        current_status: current_bot.status,
+                        current_status: current_bot.status.clone(),
                         desired_status: desired_bot.desired_status.clone(),
                     });
                     analysis.drift_detected = true;
@@ -490,7 +490,7 @@ impl DesiredStateReconciler {
                 DesiredBotStatus::Running => {
                     actions.push(ReconciliationAction::StartBot {
                         bot_id,
-                        config: BotConfig::default(), // TODO: Usar configuración real
+                        config: BotConfig::default_for_id(Uuid::new_v4()), // TODO: Usar configuración real
                     });
                 }
                 DesiredBotStatus::Stopped | DesiredBotStatus::Paused | DesiredBotStatus::Maintenance => {
@@ -504,9 +504,9 @@ impl DesiredStateReconciler {
     }
     
     /// Convertir configuración deseada a configuración de bot
-    fn convert_desired_config_to_bot_config(desired_config: &DesiredBotConfig) -> BotConfig {
+    fn convert_desired_config_to_bot_config(_desired_config: &DesiredBotConfig) -> BotConfig {
         // TODO: Implementar conversión completa basada en los campos disponibles
-        BotConfig::default()
+        BotConfig::default_for_id(Uuid::new_v4())
     }
     
     /// Ejecutar plan de reconciliación
@@ -570,7 +570,7 @@ impl DesiredStateReconciler {
     ) -> Result<()> {
         match action {
             ReconciliationAction::CreateBot { id, bot_type, config } => {
-                let bot_id = bot_controller.create_bot(*bot_type, config.clone()).await?;
+                let bot_id = bot_controller.create_bot(bot_type.clone(), config.clone()).await?;
                 info!("🆕 Bot creado: {} -> {}", id, bot_id);
                 Ok(())
             }
@@ -594,7 +594,7 @@ impl DesiredStateReconciler {
                 Ok(())
             }
             
-            ReconciliationAction::UpdateBotConfig { bot_id, new_config } => {
+            ReconciliationAction::UpdateBotConfig { bot_id, new_config: _ } => {
                 // TODO: Implementar actualización de configuración
                 warn!("⚠️ Actualización de configuración no implementada aún para bot: {}", bot_id);
                 Ok(())

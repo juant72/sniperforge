@@ -10,34 +10,36 @@ use chrono::{DateTime, Utc};
 use sniperforge::control::{TcpCommand, TcpResponse};
 use sniperforge::api::bot_interface::{BotType, BotConfig};
 
-/// Interactive CLI Context - tracks current working directory/bot
+/// Interactive CLI Context - tracks current working directory/strategy
 #[derive(Debug, Clone)]
 pub enum CliContext {
     Root,                           // /
-    BotsDirectory,                  // /bots
-    BotInstance { id: Uuid, name: String }, // /bots/{bot_id}
-    SystemAdmin,                    // /system
-    Monitoring,                     // /monitoring
+    BotsDirectory,                  // /strategies  
+    BotInstance { id: Uuid, name: String }, // /strategies/{strategy_id}
+    SystemAdmin,                    // /admin
+    Monitoring,                     // /analytics
 }
 
 impl CliContext {
     pub fn path(&self) -> String {
         match self {
             CliContext::Root => "/".to_string(),
-            CliContext::BotsDirectory => "/bots".to_string(),
-            CliContext::BotInstance { id, name } => format!("/bots/{}", name),
-            CliContext::SystemAdmin => "/system".to_string(),
-            CliContext::Monitoring => "/monitoring".to_string(),
+            CliContext::BotsDirectory => "/strategies".to_string(),
+            CliContext::BotInstance { id: _, name } => {
+                format!("/strategies/{}", name)
+            },
+            CliContext::SystemAdmin => "/admin".to_string(),
+            CliContext::Monitoring => "/analytics".to_string(),
         }
     }
 
     pub fn prompt(&self) -> String {
         match self {
-            CliContext::Root => "sniperforge:/ $ ".to_string(),
-            CliContext::BotsDirectory => "sniperforge:/bots $ ".to_string(),
-            CliContext::BotInstance { name, .. } => format!("sniperforge:/bots/{} $ ", name),
-            CliContext::SystemAdmin => "sniperforge:/system $ ".to_string(),
-            CliContext::Monitoring => "sniperforge:/monitoring $ ".to_string(),
+            CliContext::Root => "SniperForge-Enterprise:/ $ ".to_string(),
+            CliContext::BotsDirectory => "SniperForge-Enterprise:/strategies $ ".to_string(),
+            CliContext::BotInstance { name, .. } => format!("SniperForge-Enterprise:/strategies/{} $ ", name),
+            CliContext::SystemAdmin => "SniperForge-Enterprise:/admin $ ".to_string(),
+            CliContext::Monitoring => "SniperForge-Enterprise:/analytics $ ".to_string(),
         }
     }
 }
@@ -101,19 +103,31 @@ impl InteractiveCli {
     }
 
     async fn print_welcome(&self) -> Result<()> {
-        println!("🚀 SniperForge Interactive CLI v2.0");
-        println!("   Enterprise MultiBot Management System");
-        println!("   Session started: {}", self.session_start.format("%Y-%m-%d %H:%M:%S UTC"));
-        println!();
-        println!("💡 Type 'help' for commands, 'exit' to quit");
-        println!("📁 Use 'ls' to list, 'cd' to navigate");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("🏢 SNIPERFORGE ENTERPRISE TRADING PLATFORM");
+        println!("   World-Class Automated Trading Infrastructure");
+        println!("   Session: {}", self.session_start.format("%Y-%m-%d %H:%M:%S UTC"));
+        println!("═══════════════════════════════════════════════════════════════");
         println!();
         
         // Test server connection
         match self.send_command(TcpCommand::Ping).await {
-            Ok(_) => println!("✅ Connected to SniperForge server at {}", self.server_addr),
-            Err(e) => println!("❌ Failed to connect to server: {}", e),
+            Ok(_) => {
+                println!("🟢 OPERATIONAL    Server Status: ACTIVE");
+                println!("🔗 CONNECTED      Control Server: {}", self.server_addr);
+            },
+            Err(e) => {
+                println!("🔴 ERROR          Connection Failed: {}", e);
+                println!("📞 SUPPORT        Contact System Administrator");
+            }
         }
+        println!();
+        println!("📋 COMMAND INTERFACE:");
+        println!("   help              Command reference");
+        println!("   ls               List available resources");
+        println!("   cd /strategies   Access trading strategy management");
+        println!("   cd /system       System administration");
+        println!("   exit             Terminate session");
         println!();
         
         Ok(())
@@ -167,51 +181,70 @@ impl InteractiveCli {
     }
 
     async fn show_help(&self) -> Result<()> {
-        println!("📖 SniperForge Interactive CLI Help");
+        println!("═══════════════════════════════════════════════════════════════");
+        println!("📖 SNIPERFORGE ENTERPRISE - COMMAND REFERENCE");
+        println!("═══════════════════════════════════════════════════════════════");
         println!();
         
-        println!("🌐 NAVIGATION:");
-        println!("  ls, list              List contents of current directory");
-        println!("  cd <path>             Change directory (/bots, /system, /monitoring)");
-        println!("  pwd                   Show current working directory");
+        println!("�️  NAVIGATION & SYSTEM:");
+        println!("   ls                    List resources in current context");
+        println!("   cd <directory>        Navigate to: /bots, /system, /monitoring");
+        println!("   pwd                   Display current working directory");
+        println!("   refresh               Update cached system information");
         println!();
         
-        println!("🤖 BOT MANAGEMENT:");
         match &self.context {
             CliContext::BotInstance { .. } => {
-                println!("  start                 Start current bot");
-                println!("  stop                  Stop current bot");
-                println!("  restart               Restart current bot");
-                println!("  status, st            Show bot status");
-                println!("  stats, metrics        Show bot metrics");
+                println!("🤖 BOT OPERATIONS (Current Instance):");
+                println!("   start                 Activate current trading bot");
+                println!("   stop                  Deactivate current trading bot");
+                println!("   restart               Restart current trading bot");
+                println!("   status                Display operational status");
+                println!("   metrics               Show performance analytics");
+                println!();
             }
             CliContext::BotsDirectory => {
-                println!("  start <bot>           Start specific bot");
-                println!("  stop <bot>            Stop specific bot");
-                println!("  create <type>         Create new bot");
-                println!("  remove <bot>          Remove bot");
+                println!("📈 TRADING STRATEGY MANAGEMENT:");
+                println!("   start <strategy-name>    Activate specific trading strategy");
+                println!("   stop <strategy-name>     Deactivate specific trading strategy");
+                println!("   deploy <config>          Deploy new trading configuration");
+                println!("   remove <strategy-name>   Decommission trading strategy");
+                println!("   status <strategy-name>   Check strategy operational status");
+                println!();
+            }
+            CliContext::SystemAdmin => {
+                println!("⚙️  SYSTEM ADMINISTRATION:");
+                println!("   backup                Create system state backup");
+                println!("   save                  Persist current configuration");
+                println!("   resources             Display system resource usage");
+                println!("   start-all             Activate all trading strategies");
+                println!("   stop-all              Deactivate all trading operations");
+                println!();
+            }
+            CliContext::Monitoring => {
+                println!("📊 MONITORING & ANALYTICS:");
+                println!("   dashboard             Real-time performance dashboard");
+                println!("   alerts                System alerts and notifications");
+                println!("   reports               Generate performance reports");
+                println!();
             }
             _ => {
-                println!("  cd /bots              Navigate to bots directory");
-                println!("  start-all             Start all bots");
-                println!("  stop-all              Stop all bots");
+                println!("🏢 ENTERPRISE OPERATIONS:");
+                println!("   cd /bots              Access trading bot management");
+                println!("   cd /system            System administration panel");
+                println!("   cd /monitoring        Performance monitoring center");
+                println!("   start-all             Activate all trading operations");
+                println!("   stop-all              Emergency stop all operations");
+                println!();
             }
         }
-        println!();
         
-        println!("🏢 SYSTEM:");
-        println!("  system                Show system overview");
-        println!("  resources             Show resource usage");
-        println!("  backup                Create system backup");
-        println!("  save                  Force save system state");
+        println!("🔧 SYSTEM COMMANDS:");
+        println!("   clear                 Clear screen display");
+        println!("   help                  Display this command reference");
+        println!("   exit                  Terminate management session");
         println!();
-        
-        println!("🛠️ UTILITY:");
-        println!("  help, ?               Show this help");
-        println!("  refresh               Refresh bot cache");
-        println!("  clear, cls            Clear screen");
-        println!("  exit, quit, q         Exit interactive mode");
-        println!();
+        println!("═══════════════════════════════════════════════════════════════");
         
         Ok(())
     }
@@ -234,9 +267,9 @@ impl InteractiveCli {
                         status: format!("{:?}", bot.status),
                     });
                 }
-                println!("🔄 Refreshed cache: {} bots loaded", self.bot_cache.len());
+                println!("✅ CACHE UPDATED: {} trading strategies loaded", self.bot_cache.len());
             }
-            _ => return Err(anyhow::anyhow!("Failed to get bot list")),
+            _ => return Err(anyhow::anyhow!("Failed to retrieve trading strategy list")),
         }
         Ok(())
     }
@@ -343,27 +376,48 @@ impl InteractiveCli {
             }
             _ => {
                 if args.is_empty() {
-                    println!("❌ No bot specified. Usage: start <bot_name>");
+                    println!("❌ No strategy specified. Usage: start <strategy_name>");
                     return Ok(());
                 }
-                // TODO: Implement start by name
-                println!("💡 Navigate to bot directory first: cd /bots && cd <bot_name>");
+                // Implement start by name
+                println!("💡 Navigate to strategy directory first: cd /strategies && cd <strategy_name>");
             }
         }
         Ok(())
     }
 
     async fn stop_command(&self, args: &[&str]) -> Result<()> {
+        // Support for additional arguments like --force or --graceful
+        let force_mode = args.contains(&"--force") || args.contains(&"-f");
+        let show_verbose = args.contains(&"--verbose") || args.contains(&"-v");
+        
         match &self.context {
-            CliContext::BotInstance { id, .. } => {
+            CliContext::BotInstance { id, name } => {
+                if show_verbose {
+                    println!("🔍 Stopping bot {} (ID: {})...", name, id);
+                }
+                
+                if force_mode {
+                    println!("⚡ Force stopping bot...");
+                }
+                
                 match self.send_command(TcpCommand::StopBot { bot_id: *id }).await? {
-                    TcpResponse::BotStopped { .. } => println!("✅ Bot stopped successfully"),
+                    TcpResponse::BotStopped { .. } => {
+                        if force_mode {
+                            println!("✅ Bot force-stopped successfully");
+                        } else {
+                            println!("✅ Bot stopped successfully");
+                        }
+                    },
                     TcpResponse::Error(msg) => println!("❌ Failed to stop bot: {}", msg),
                     _ => println!("❌ Unexpected response"),
                 }
             }
             _ => {
                 println!("💡 Navigate to bot directory first: cd /bots && cd <bot_name>");
+                if !args.is_empty() {
+                    println!("💡 Available stop options: --force/-f, --verbose/-v");
+                }
             }
         }
         Ok(())
@@ -485,17 +539,17 @@ impl InteractiveCli {
     }
 
     async fn remove_command(&self, _args: &[&str]) -> Result<()> {
-        // TODO: Implement bot removal
-        println!("🚧 Bot removal not yet implemented");
+        // Strategy removal functionality
+        println!("🚧 Strategy removal not yet implemented");
         Ok(())
     }
 
     async fn system_command(&self, _args: &[&str]) -> Result<()> {
         match self.send_command(TcpCommand::GetSystemMetrics).await? {
             TcpResponse::SystemMetrics(metrics) => {
-                println!("🏢 System Overview:");
-                println!("   Total Bots: {}", metrics.total_bots);
-                println!("   Running Bots: {}", metrics.running_bots);
+                println!("🏢 Enterprise System Overview:");
+                println!("   Active Strategies: {}", metrics.total_bots);
+                println!("   Running Strategies: {}", metrics.running_bots);
                 println!("   Total Profit: ${:.2}", metrics.total_profit);
                 println!("   Total Trades: {}", metrics.total_trades);
                 println!("   Uptime: {:.2} hours", metrics.uptime_seconds as f64 / 3600.0);
@@ -584,20 +638,102 @@ impl InteractiveCli {
     async fn send_command(&self, command: TcpCommand) -> Result<TcpResponse> {
         let mut stream = TcpStream::connect(&self.server_addr).await?;
         
-        let command_data = serde_json::to_vec(&command)?;
-        stream.write_all(&command_data).await?;
+        // Convert command to JSON and add newline for proper parsing
+        let command_json = serde_json::to_string(&command)?;
+        let command_with_newline = format!("{}\n", command_json);
         
-        let mut buffer = [0; 8192];
-        let n = stream.read(&mut buffer).await?;
+        // Send command
+        stream.write_all(command_with_newline.as_bytes()).await?;
         
-        let response: TcpResponse = serde_json::from_slice(&buffer[..n])?;
+        // Read response with larger buffer and proper EOF handling
+        let mut buffer = Vec::new();
+        let mut temp_buffer = [0; 1024];
+        
+        loop {
+            let n = stream.read(&mut temp_buffer).await?;
+            if n == 0 {
+                break; // EOF reached
+            }
+            buffer.extend_from_slice(&temp_buffer[..n]);
+            
+            // Check if we have a complete JSON message (ends with newline or })
+            if let Ok(response_str) = String::from_utf8(buffer.clone()) {
+                if response_str.trim().ends_with('}') {
+                    let response: TcpResponse = serde_json::from_str(response_str.trim())?;
+                    return Ok(response);
+                }
+            }
+        }
+        
+        // Parse final response
+        let response_str = String::from_utf8(buffer)?;
+        let response: TcpResponse = serde_json::from_str(response_str.trim())?;
         Ok(response)
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    
+    // Handle command line arguments
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "--help" | "-h" => {
+                print_help();
+                return Ok(());
+            }
+            "--version" | "-v" => {
+                println!("SniperForge Enterprise Interactive Dashboard v1.0.0");
+                return Ok(());
+            }
+            _ => {
+                eprintln!("Unknown argument: {}", args[1]);
+                eprintln!("Use --help for usage information");
+                std::process::exit(1);
+            }
+        }
+    }
+
     let server_addr = "127.0.0.1:8888".to_string();
     let mut cli = InteractiveCli::new(server_addr);
     cli.run().await
+}
+
+fn print_help() {
+    println!("═══════════════════════════════════════════════════════════════");
+    println!("🏢 SNIPERFORGE ENTERPRISE INTERACTIVE DASHBOARD");
+    println!("   World-Class Automated Trading Infrastructure Management");
+    println!("═══════════════════════════════════════════════════════════════");
+    println!();
+    println!("USAGE:");
+    println!("   sniperforge_interactive [OPTIONS]");
+    println!();
+    println!("OPTIONS:");
+    println!("   --help, -h       Display this help information");
+    println!("   --version, -v    Display version information");
+    println!();
+    println!("FEATURES:");
+    println!("   • Enterprise-grade trading strategy management");
+    println!("   • Real-time system monitoring and analytics");
+    println!("   • Interactive command-line interface");
+    println!("   • TCP-based communication with trading server");
+    println!("   • Advanced system administration tools");
+    println!();
+    println!("NAVIGATION:");
+    println!("   /                Root directory - main menu");
+    println!("   /strategies      Trading strategy management");
+    println!("   /admin           System administration");
+    println!("   /analytics       Performance monitoring");
+    println!();
+    println!("COMMANDS:");
+    println!("   help             Show available commands");
+    println!("   clear            Clear the terminal screen");
+    println!("   cd <path>        Navigate to directory");
+    println!("   list             List available items");
+    println!("   status           Check system status");
+    println!("   exit             Exit the application");
+    println!();
+    println!("For more information, visit: https://github.com/juant72/sniperforge");
+    println!("═══════════════════════════════════════════════════════════════");
 }

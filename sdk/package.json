@@ -1,0 +1,78 @@
+{
+  "name": "sniperforge-sdk",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for SniperForge Enterprise Trading Bot System",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "author": "SniperForge Enterprise Team",
+  "license": "MIT",
+  "keywords": [
+    "trading",
+    "arbitrage", 
+    "cryptocurrency",
+    "defi",
+    "bot",
+    "sniperforge",
+    "enterprise",
+    "sdk",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sniperforge/enterprise-sdk"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "demo": "npm run build && node demo/basic-demo.js",
+    "demo:react": "npm run build && cd examples/react-demo && npm start",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "events": "^3.3.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "@types/node": "^18.17.0",
+    "@types/ws": "^8.5.5",
+    "@typescript-eslint/eslint-plugin": "^6.7.0",
+    "@typescript-eslint/parser": "^6.7.0",
+    "eslint": "^8.49.0",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.2.0"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "vue": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
