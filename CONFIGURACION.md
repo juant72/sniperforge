@@ -1,16 +1,61 @@
-# Configuración de SniperForge Enterprise
+# SniperForge Enterprise Configuration v3.0
 
-## 📁 Archivo de Configuración: config.json
+## 🏢 Enterprise System Configuration
 
-**IMPORTANTE**: Todas las credenciales y parámetros se configuran en `config.json` - NO hay hardcoding en el código fuente.
+**Professional Trading Platform Setup & Configuration Management**
 
-### 🔧 Estructura de config.json
+### 🏗️ System Architecture
+
+SniperForge Enterprise utilizes a modern client-server architecture with TCP communication:
+
+- **Server Component**: `sniperforge.exe` (Port 8888)
+- **Interactive Client**: `sniperforge_interactive.exe` 
+- **CLI Interface**: `sniperforge_cli.exe`
+- **Communication Protocol**: TCP JSON messaging
+- **Configuration**: Centralized `config.json` management
+
+## 📁 Enterprise Configuration: config.json
+
+**SECURITY NOTE**: All credentials and sensitive parameters are externalized in `config.json` - NO hardcoding in source code for enterprise compliance.
+
+### 🔧 Complete Configuration Structure
 
 ```json
 {
   "api_credentials": {
     "helius": {
       "api_key": "TU_API_KEY_AQUI",
+      "mainnet_url": "https://mainnet.helius-rpc.com",
+      "websocket_url": "wss://mainnet.helius-rpc.com",
+      "eclipse_url": "https://eclipse.helius-rpc.com"
+    },
+    "jupiter": {
+      "api_url": "https://quote-api.jup.ag/v6"
+    },
+    "dexscreener": {
+      "api_url": "https://api.dexscreener.com/latest"
+    },
+    "pyth": {
+      "api_url": "https://hermes.pyth.network/api"
+    }
+  },
+  "rate_limits": {
+    "helius": 100,
+    "jupiter": 2000,
+    "dexscreener": 500,
+    "pyth": 300
+  },
+  "timeouts": {
+    "helius": 15,
+  "enterprise_communication": {
+    "tcp_port": 8888,
+    "connection_timeout": 3,
+    "localhost_only": true,
+    "max_concurrent_clients": 10
+  },
+  "api_credentials": {
+    "helius": {
+      "api_key": "062bf3dd-23d4-4ffd-99fd-6e397ee59d6c",
       "mainnet_url": "https://mainnet.helius-rpc.com",
       "websocket_url": "wss://mainnet.helius-rpc.com",
       "eclipse_url": "https://eclipse.helius-rpc.com"
@@ -51,39 +96,63 @@
     "max_risk_score": 0.8,
     "optimal_trade_percentage": 0.25,
     "base_market_volatility": 0.15
+  },
+  "enterprise_interface": {
+    "session_tracking": true,
+    "professional_messaging": true,
+    "white_label_ready": true,
+    "utc_timestamps": true
   }
 }
 ```
 
-### 🔑 Credenciales de Helius
+## 🏢 Enterprise Communication Settings
 
-Para usar las credenciales reales de Helius proporcionadas:
+### **TCP Server Configuration**
+- **Port**: 8888 (localhost binding for security)
+- **Connection Timeout**: 3 seconds for responsive user experience
+- **Security**: Localhost-only binding for network isolation
+- **Concurrency**: Support for up to 10 concurrent client connections
 
-1. **API Key**: `062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
-2. **Mainnet URL**: `https://mainnet.helius-rpc.com/?api-key={API_KEY}`
-3. **WebSocket URL**: `wss://mainnet.helius-rpc.com/?api-key={API_KEY}`
-4. **Eclipse URL**: `https://eclipse.helius-rpc.com/`
+### **Professional Interface Settings**
+- **Session Tracking**: UTC timestamp tracking for all enterprise sessions
+- **Professional Messaging**: Corporate-grade status and error reporting
+- **White-Label Ready**: Enterprise branding suitable for partner deployment
+- **Graceful Error Handling**: Non-alarming professional status indicators
 
-### ⚙️ Parámetros Configurables
+## 🔑 API Credentials & Integration
 
-#### Rate Limits (ms entre requests)
-- `helius`: 100ms (rápido, Helius es generoso)
-- `jupiter`: 2000ms (ultra-conservativo para evitar rate limiting)
-- `dexscreener`: 500ms
-- `pyth`: 300ms
+### **Helius RPC Configuration** (Primary Blockchain Provider)
+- **API Key**: `062bf3dd-23d4-4ffd-99fd-6e397ee59d6c`
+- **Mainnet URL**: `https://mainnet.helius-rpc.com/?api-key={API_KEY}`
+- **WebSocket URL**: `wss://mainnet.helius-rpc.com/?api-key={API_KEY}`
+- **Eclipse URL**: `https://eclipse.helius-rpc.com/`
 
-#### Timeouts (segundos)
-- `helius`: 15s
-- `jupiter`: 10s
-- `dexscreener`: 12s
-- `pyth`: 10s
+### **Trading API Endpoints**
+- **Jupiter v6**: DEX aggregation and routing optimization
+- **DexScreener**: Real-time market data and price discovery
+- **Pyth Network**: High-frequency price feeds and oracle data
 
-#### Precios de Fallback
-Precios usados cuando todas las APIs fallan:
-- `SOL`: $180.0
-- `ETH`: $3200.0
-- `USDC`: $1.0
-- `USDT`: $1.0
+## ⚙️ Enterprise Performance Parameters
+
+### **Rate Limiting (Enterprise-Grade)**
+- **Helius**: 100ms intervals (optimized for high-frequency operations)
+- **Jupiter**: 2000ms intervals (conservative for rate limit compliance)
+- **DexScreener**: 500ms intervals (balanced performance/compliance)
+- **Pyth Network**: 300ms intervals (real-time data optimization)
+
+### **Connection Timeouts (Professional)**
+- **Helius**: 15 seconds (blockchain operations)
+- **Jupiter**: 10 seconds (DEX routing)
+- **DexScreener**: 12 seconds (market data)
+- **Pyth Network**: 10 seconds (price feeds)
+
+### **Fallback Price Management**
+Professional fallback pricing for enterprise continuity:
+- **SOL**: $180.0 (Solana native token)
+- **ETH**: $3200.0 (Ethereum bridge operations)
+- **USDC**: $1.0 (USD Coin stablecoin)
+- **USDT**: $1.0 (Tether stablecoin)
 - etc.
 
 #### Configuración de Trading
