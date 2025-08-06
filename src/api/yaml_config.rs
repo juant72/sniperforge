@@ -1100,3 +1100,342 @@ impl BotConfigYaml {
         }
     }
 }
+
+// =====================================================================================
+// 🎯 DECLARATIVE DESIRED STATE CONFIGURATION
+// =====================================================================================
+
+/// Desired State Configuration - Declarative approach for bot management
+/// This represents the target state that the system should maintain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredStateConfig {
+    /// Reconciliation settings
+    pub reconciliation: ReconciliationConfig,
+    
+    /// Desired bot configurations
+    pub bots: Vec<DesiredBotState>,
+    
+    /// System-wide desired state
+    pub system: DesiredSystemState,
+}
+
+/// Reconciliation configuration for desired state convergence
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReconciliationConfig {
+    /// Enable automatic reconciliation
+    pub enabled: bool,
+    
+    /// Reconciliation interval in seconds
+    pub interval_seconds: u64,
+    
+    /// Maximum retries for failed reconciliation attempts
+    pub max_retries: u32,
+    
+    /// Timeout for individual reconciliation operations
+    pub timeout_seconds: u64,
+    
+    /// Enable drift detection
+    pub drift_detection: bool,
+    
+    /// Drift tolerance before triggering reconciliation
+    pub drift_tolerance_percent: f64,
+}
+
+/// Desired state for a single bot
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredBotState {
+    /// Bot identifier (must be unique)
+    pub id: String,
+    
+    /// Bot type
+    #[serde(rename = "type")]
+    pub bot_type: BotType,
+    
+    /// Desired operational status
+    pub desired_status: DesiredBotStatus,
+    
+    /// Bot configuration
+    pub config: DesiredBotConfig,
+    
+    /// Resource allocation
+    pub resources: BotResourceConfig,
+    
+    /// Health check configuration
+    pub health_checks: Option<DesiredHealthConfig>,
+    
+    /// Auto-scaling configuration
+    pub auto_scaling: Option<AutoScalingConfig>,
+}
+
+/// Desired bot operational status
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DesiredBotStatus {
+    /// Bot should be running and active
+    Running,
+    
+    /// Bot should be stopped
+    Stopped,
+    
+    /// Bot should be paused (ready but not executing)
+    Paused,
+    
+    /// Bot should be in maintenance mode
+    Maintenance,
+}
+
+/// Desired bot configuration parameters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredBotConfig {
+    /// Trading pairs for arbitrage bots
+    pub pairs: Option<Vec<String>>,
+    
+    /// Supported exchanges
+    pub exchanges: Option<Vec<String>>,
+    
+    /// Minimum profit threshold
+    pub min_profit_threshold: Option<f64>,
+    
+    /// Maximum position size
+    pub max_position_size: Option<f64>,
+    
+    /// Execution timeout in milliseconds
+    pub execution_timeout_ms: Option<u64>,
+    
+    /// Analysis interval for ML bots (seconds)
+    pub analysis_interval_seconds: Option<u64>,
+    
+    /// Prediction horizon for ML bots (hours)
+    pub prediction_horizon_hours: Option<u64>,
+    
+    /// Confidence threshold for ML predictions
+    pub confidence_threshold: Option<f64>,
+    
+    /// ML models to use
+    pub models: Option<Vec<String>>,
+    
+    /// Data sources for sentiment analysis
+    pub sources: Option<Vec<String>>,
+    
+    /// Update interval for sentiment analysis (seconds)
+    pub update_interval_seconds: Option<u64>,
+    
+    /// Sentiment threshold
+    pub sentiment_threshold: Option<f64>,
+    
+    /// Language filter for sentiment analysis
+    pub language_filter: Option<Vec<String>>,
+    
+    /// Custom parameters
+    pub custom_parameters: Option<HashMap<String, serde_yaml::Value>>,
+}
+
+/// Health check configuration for desired state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredHealthConfig {
+    /// Enable health checks
+    pub enabled: bool,
+    
+    /// Health check interval in seconds
+    pub interval_seconds: u64,
+    
+    /// Health check timeout in seconds
+    pub timeout_seconds: u64,
+    
+    /// Restart bot on health check failure
+    pub restart_on_failure: bool,
+    
+    /// Maximum consecutive failures before marking as unhealthy
+    pub max_failures: u32,
+}
+
+/// Auto-scaling configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoScalingConfig {
+    /// Enable auto-scaling
+    pub enabled: bool,
+    
+    /// Minimum number of instances
+    pub min_instances: u32,
+    
+    /// Maximum number of instances
+    pub max_instances: u32,
+    
+    /// CPU utilization threshold for scaling up (percentage)
+    pub scale_up_cpu_threshold: f64,
+    
+    /// CPU utilization threshold for scaling down (percentage)
+    pub scale_down_cpu_threshold: f64,
+    
+    /// Memory utilization threshold for scaling up (percentage)
+    pub scale_up_memory_threshold: f64,
+    
+    /// Cool-down period between scaling operations (seconds)
+    pub cooldown_seconds: u64,
+}
+
+/// Desired system-wide state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DesiredSystemState {
+    /// Total number of bots that should be running
+    pub target_running_bots: Option<u32>,
+    
+    /// Maximum system resource utilization
+    pub max_system_cpu_percent: Option<f64>,
+    
+    /// Maximum system memory utilization
+    pub max_system_memory_percent: Option<f64>,
+    
+    /// Desired system health score
+    pub target_health_score: Option<f64>,
+    
+    /// Maintenance mode flag
+    pub maintenance_mode: bool,
+    
+    /// Load balancing configuration
+    pub load_balancing: Option<LoadBalancingConfig>,
+}
+
+/// Load balancing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoadBalancingConfig {
+    /// Enable load balancing
+    pub enabled: bool,
+    
+    /// Load balancing strategy
+    pub strategy: LoadBalancingStrategy,
+    
+    /// Target CPU utilization for load balancing
+    pub target_cpu_utilization: f64,
+    
+    /// Target memory utilization for load balancing
+    pub target_memory_utilization: f64,
+}
+
+/// Load balancing strategies
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LoadBalancingStrategy {
+    /// Round-robin distribution
+    RoundRobin,
+    
+    /// Least connections
+    LeastConnections,
+    
+    /// Resource-based (CPU/Memory)
+    ResourceBased,
+    
+    /// Performance-based
+    PerformanceBased,
+}
+
+/// Implementation for DesiredStateConfig
+impl DesiredStateConfig {
+    /// Create a new desired state configuration with defaults
+    pub fn new() -> Self {
+        Self {
+            reconciliation: ReconciliationConfig {
+                enabled: true,
+                interval_seconds: 30,
+                max_retries: 3,
+                timeout_seconds: 300,
+                drift_detection: true,
+                drift_tolerance_percent: 5.0,
+            },
+            bots: Vec::new(),
+            system: DesiredSystemState {
+                target_running_bots: None,
+                max_system_cpu_percent: Some(80.0),
+                max_system_memory_percent: Some(85.0),
+                target_health_score: Some(0.95),
+                maintenance_mode: false,
+                load_balancing: Some(LoadBalancingConfig {
+                    enabled: true,
+                    strategy: LoadBalancingStrategy::ResourceBased,
+                    target_cpu_utilization: 70.0,
+                    target_memory_utilization: 75.0,
+                }),
+            },
+        }
+    }
+    
+    /// Add a desired bot state
+    pub fn add_bot(&mut self, bot_state: DesiredBotState) {
+        self.bots.push(bot_state);
+    }
+    
+    /// Find a bot by ID
+    pub fn find_bot(&self, id: &str) -> Option<&DesiredBotState> {
+        self.bots.iter().find(|bot| bot.id == id)
+    }
+    
+    /// Get all bots with a specific desired status
+    pub fn get_bots_by_status(&self, status: &DesiredBotStatus) -> Vec<&DesiredBotState> {
+        self.bots.iter().filter(|bot| bot.desired_status == *status).collect()
+    }
+    
+    /// Validate the configuration
+    pub fn validate(&self) -> Result<(), YamlConfigError> {
+        // Check for duplicate bot IDs
+        let mut seen_ids = std::collections::HashSet::new();
+        for bot in &self.bots {
+            if !seen_ids.insert(&bot.id) {
+                return Err(YamlConfigError::ValidationFailed(
+                    format!("Duplicate bot ID: {}", bot.id)
+                ));
+            }
+        }
+        
+        // Validate reconciliation settings
+        if self.reconciliation.interval_seconds == 0 {
+            return Err(YamlConfigError::ValidationFailed(
+                "Reconciliation interval must be greater than 0".to_string()
+            ));
+        }
+        
+        if self.reconciliation.timeout_seconds == 0 {
+            return Err(YamlConfigError::ValidationFailed(
+                "Reconciliation timeout must be greater than 0".to_string()
+            ));
+        }
+        
+        Ok(())
+    }
+}
+
+impl Default for DesiredStateConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for ReconciliationConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            interval_seconds: 30,
+            max_retries: 3,
+            timeout_seconds: 300,
+            drift_detection: true,
+            drift_tolerance_percent: 5.0,
+        }
+    }
+}
+
+impl Default for DesiredSystemState {
+    fn default() -> Self {
+        Self {
+            target_running_bots: None,
+            max_system_cpu_percent: Some(80.0),
+            max_system_memory_percent: Some(85.0),
+            target_health_score: Some(0.95),
+            maintenance_mode: false,
+            load_balancing: Some(LoadBalancingConfig {
+                enabled: true,
+                strategy: LoadBalancingStrategy::ResourceBased,
+                target_cpu_utilization: 70.0,
+                target_memory_utilization: 75.0,
+            }),
+        }
+    }
+}

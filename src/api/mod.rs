@@ -20,5 +20,8 @@ pub use state_persistence::{
     SystemStateSnapshot, PersistenceError
 };
 pub use yaml_config::{
-    YamlConfigManager, SystemConfigYaml, BotConfigYaml, YamlConfigError
+    YamlConfigManager, SystemConfigYaml, BotConfigYaml, YamlConfigError,
+    DesiredStateConfig, DesiredBotState, DesiredBotStatus, DesiredBotConfig,
+    ReconciliationConfig, DesiredSystemState, AutoScalingConfig, LoadBalancingConfig,
+    LoadBalancingStrategy, DesiredHealthConfig
 };

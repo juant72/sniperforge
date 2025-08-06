@@ -132,6 +132,11 @@ ureq = { version = "3.0.12", features = ["json"] }
 name = "sniperforge-cli"
 path = "src/bin/sniperforge_cli.rs"
 
+# Interactive CLI binary
+[[bin]]
+name = "sniperforge-interactive"
+path = "src/bin/sniperforge_interactive.rs"
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports", "async_tokio"] }
 tokio-test = "0.4"

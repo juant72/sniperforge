@@ -31,6 +31,10 @@ async fn main() -> Result<()> {
                 .about("Test server connection")
         )
         .subcommand(
+            Command::new("interactive")
+                .about("Start interactive CLI mode")
+        )
+        .subcommand(
             Command::new("list-bots")
                 .about("List all registered bots")
         )
@@ -125,6 +129,7 @@ async fn main() -> Result<()> {
             println!("❌ No subcommand provided.");
             println!("\nAvailable commands:");
             println!("  ping              Test server connection");
+            println!("  interactive       Start interactive CLI mode");
             println!("  list-bots         List all registered bots");
             println!("  create-bot <TYPE> Create a new bot (enhanced-arbitrage, flash-loan, cross-chain)");
             println!("  bot-status        Get status of a specific bot");
@@ -156,6 +161,24 @@ async fn main() -> Result<()> {
                 _ => println!("❌ Unexpected response: {:?}", response),
             }
         }
+        Some(("interactive", _)) => {
+            println!("🚀 Starting Interactive CLI Mode...");
+            println!("💡 Use 'help' for commands, 'exit' to quit");
+            println!();
+            
+            // Launch interactive mode (simplified version here)
+            // For now, just show how to use the separate binary
+            println!("🔧 To start full interactive mode, use:");
+            println!("   sniperforge-interactive");
+            println!();
+            println!("📋 Quick Commands Available:");
+            println!("   ls                    List current directory");
+            println!("   cd /bots              Navigate to bots");
+            println!("   cd /system            Navigate to system admin");
+            println!("   help                  Show help");
+            println!("   exit                  Exit interactive mode");
+            return Ok(());
+        }
         Some(("list-bots", _)) => {
             let response = client.send_command(TcpCommand::ListBots).await?;
             match response {
@@ -175,8 +198,7 @@ async fn main() -> Result<()> {
                         };
                         
                         println!("  🤖 {} ({:?})", bot.id, bot.status);
-                        println!("     {} {}", bot_type_display, 
-                                if bot.is_default { "🌟 (Default)" } else { "" });
+                        println!("     {}", bot_type_display);
                     }
                 }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
@@ -293,7 +315,6 @@ async fn main() -> Result<()> {
                     println!("   📊 Total Registered Bots: {}", state.total_registered_bots);
                     println!("   🔄 Server Restart Count: {}", state.server_restart_count);
                     println!("   ⏱️  System Start Time: {}", state.system_start_time.format("%Y-%m-%d %H:%M:%S UTC"));
-                    println!("   🎯 Has Default Arbitrage Bot: {}", if state.has_default_arbitrage_bot { "Yes" } else { "No" });
                     
                     if !state.persisted_bots.is_empty() {
                         println!("   💾 Persisted Bots ({}):", state.persisted_bots.len());

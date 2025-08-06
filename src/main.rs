@@ -479,19 +479,15 @@ impl EnterpriseMultiBotSystem {
         let twitter_client = TwitterSentimentClient::new();
         info!("✅ Twitter sentiment client initialized");
         
-        // ✅ PHASE 8: EXTERNAL CONTROL SYSTEM - New Implementation
-        info!("🔧 Phase 8: Initializing External Bot Control System...");
-        let mut bot_controller = BotController::new().await?;
-        
-        // Register the existing arbitrage engine as a bot in the controller
-        // This preserves existing functionality while adding external control
-        info!("🤖 Registering existing arbitrage bot with external controller...");
-        let mock_arbitrage_bot = Box::new(MockArbitrageBot::new("Default Arbitrage Bot".to_string()));
-        let arbitrage_bot_id = bot_controller.register_default_arbitrage_bot(mock_arbitrage_bot).await?;
-        info!("✅ Arbitrage bot registered with ID: {}", arbitrage_bot_id);
-        
+        // ✅ ENTERPRISE: Professional Bot Control System
+        info!("🏢 Initializing Enterprise Bot Control System...");
+        let bot_controller = BotController::new().await?;
         let bot_controller = Arc::new(bot_controller);
-        info!("✅ Phase 8: External Control System initialized");
+        info!("✅ Enterprise Bot Control System initialized");
+        
+        // Professional service starts with clean slate
+        // Users create and manage bots through CLI commands
+        info!("💼 Professional MultiBot Service ready for client requests");
         
         // Initialize active strategies (all strategies enabled for enterprise demo)
         let active_strategies = vec![

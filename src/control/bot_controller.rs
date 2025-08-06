@@ -87,9 +87,6 @@ pub struct BotController {
     /// Active bot instances
     bots: Arc<RwLock<HashMap<Uuid, BotInstance>>>,
     
-    /// Default arbitrage bot (running by default)
-    default_arbitrage_bot: Option<Uuid>,
-    
     /// Configuration manager
     config_manager: ConfigManager,
     
@@ -126,7 +123,6 @@ impl BotController {
 
         let mut controller = Self {
             bots: Arc::new(RwLock::new(HashMap::new())),
-            default_arbitrage_bot: None,
             config_manager: ConfigManager::new(config_path),
             persistence_manager,
             metrics_collector: MetricsCollector::new(metrics_config),
@@ -137,32 +133,6 @@ impl BotController {
         controller.restore_bot_states_from_persistence().await?;
         
         Ok(controller)
-    }
-    
-    /// Register the default arbitrage bot that's already running
-    pub async fn register_default_arbitrage_bot(
-        &mut self, 
-        bot: Box<dyn BotInterface + Send + Sync>
-    ) -> Result<Uuid> {
-        let bot_id = bot.bot_id();
-        
-        let bot_instance = BotInstance {
-            id: bot_id,
-            status: bot.status().await,
-            metrics: bot.metrics().await,
-            config: None,
-            bot,
-        };
-        
-        {
-            let mut bots = self.bots.write().await;
-            bots.insert(bot_id, bot_instance);
-        }
-        
-        self.default_arbitrage_bot = Some(bot_id);
-        info!("✅ Registered default arbitrage bot: {}", bot_id);
-        
-        Ok(bot_id)
     }
     
     /// Create a new bot instance with enhanced configuration management  
@@ -366,7 +336,7 @@ impl BotController {
                 bot_type,
                 status,
                 metrics,
-                is_default: self.default_arbitrage_bot == Some(*id),
+                is_default: false, // No default bots in professional service
             });
         }
         
@@ -533,9 +503,6 @@ impl BotController {
         
         info!("📂 Found {} persisted bot states", system_state.bots.len());
         
-        // Restore default arbitrage bot reference
-        self.default_arbitrage_bot = system_state.default_arbitrage_bot;
-        
         // 🚀 CRITICAL FIX: Actually restore the bots to the registry
         let mut restored_count = 0;
         {
@@ -613,8 +580,6 @@ impl BotController {
         let bots = self.bots.read().await;
         
         if let Some(bot_instance) = bots.get(&bot_id) {
-            let is_default = self.default_arbitrage_bot == Some(bot_id);
-            
             // Determine bot type from config or fallback to Enhanced Arbitrage
             let bot_type = if let Some(config) = &bot_instance.config {
                 config.bot_type.clone()
@@ -627,7 +592,7 @@ impl BotController {
                 bot_type,
                 bot_instance.status.clone(),
                 bot_instance.config.clone(),
-                is_default,
+                false, // No default bots
                 Some(bot_instance.metrics.clone()),
             );
             
@@ -687,7 +652,6 @@ impl BotController {
             total_registered_bots: state.bots.len(),
             server_restart_count: state.server_start_count,
             system_start_time: state.snapshot_timestamp,
-            has_default_arbitrage_bot: state.default_arbitrage_bot.is_some(),
             persisted_bots: state.bots.keys().cloned().collect(),
         })
     }
@@ -899,7 +863,6 @@ pub struct SystemStateSummary {
     pub total_registered_bots: usize,
     pub server_restart_count: u64,
     pub system_start_time: chrono::DateTime<chrono::Utc>,
-    pub has_default_arbitrage_bot: bool,
     pub persisted_bots: Vec<Uuid>,
 }
 

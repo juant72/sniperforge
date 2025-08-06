@@ -4,7 +4,9 @@ use tokio::sync::RwLock;
 use uuid::Uuid;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use tracing::info;
+use tracing::{info, warn, error};
+use tokio::time::{sleep, Duration};
+use tokio::task::JoinHandle;
 
 use crate::api::bot_interface::{
     BotInterface, BotType, BotStatus, BotConfig, BotMetrics, BotError, HealthStatus,
@@ -22,6 +24,7 @@ pub struct MockArbitrageBot {
     pub metrics: Arc<RwLock<BotMetrics>>,
     pub config: Arc<RwLock<Option<BotConfig>>>,
     pub start_time: Option<DateTime<Utc>>,
+    pub execution_handle: Arc<RwLock<Option<JoinHandle<()>>>>,
 }
 
 impl MockArbitrageBot {
@@ -33,6 +36,7 @@ impl MockArbitrageBot {
             metrics: Arc::new(RwLock::new(Self::create_default_metrics())),
             config: Arc::new(RwLock::new(None)),
             start_time: None,
+            execution_handle: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -226,13 +230,18 @@ impl BotInterface for MockArbitrageBot {
     }
 
     async fn start(&mut self, config: BotConfig) -> Result<(), BotError> {
+        // Stop any existing execution
+        if let Some(handle) = self.execution_handle.write().await.take() {
+            handle.abort();
+        }
+        
         *self.status.write().await = BotStatus::Running;
         
         // Set real start time for uptime calculation
         self.start_time = Some(Utc::now());
         
         // Store the actual config
-        *self.config.write().await = Some(config);
+        *self.config.write().await = Some(config.clone());
         
         // Initialize metrics with real starting values (no fake data)
         {
@@ -250,11 +259,29 @@ impl BotInterface for MockArbitrageBot {
             metrics.timestamp = Utc::now();
         }
         
-        info!("Bot {} started with real configuration", self.id);
+        // 🚀 START REAL EXECUTION LOOP
+        let bot_id = self.id;
+        let status = self.status.clone();
+        let metrics = self.metrics.clone();
+        let config_ref = self.config.clone();
+        
+        let execution_handle = tokio::spawn(async move {
+            Self::execute_arbitrage_work_loop(bot_id, status, metrics, config_ref).await;
+        });
+        
+        *self.execution_handle.write().await = Some(execution_handle);
+        
+        info!("🚀 Bot {} started with REAL execution loop", self.id);
         Ok(())
     }
 
     async fn stop(&mut self) -> Result<(), BotError> {
+        // Stop execution loop
+        if let Some(handle) = self.execution_handle.write().await.take() {
+            handle.abort();
+            info!("🛑 Execution loop stopped for bot {}", self.id);
+        }
+        
         *self.status.write().await = BotStatus::Stopped;
         
         // Update final metrics before stopping
@@ -263,7 +290,7 @@ impl BotInterface for MockArbitrageBot {
         // Clear start time
         self.start_time = None;
         
-        info!("Bot {} stopped", self.id);
+        info!("🛑 Bot {} completely stopped", self.id);
         Ok(())
     }
 

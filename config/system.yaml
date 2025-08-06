@@ -66,7 +66,100 @@ network:
     websocket_timeout_seconds: 10
     api_timeout_seconds: 15
 
-# 🤖 Default Bot Configurations
+# 🤖 Bot Desired State Configuration (DECLARATIVE)
+# This section defines the desired state of the system.
+# The system will automatically reconcile current state to match this configuration.
+desired_state:
+  reconciliation:
+    enabled: true
+    interval_seconds: 30
+    max_retries: 3
+    timeout_seconds: 300
+  
+  bots:
+    # Production arbitrage fleet
+    - id: "arbitrage-btc-001"
+      type: "arbitrage"
+      desired_status: "running"
+      config:
+        pairs: ["BTC/USDT"]
+        exchanges: ["binance", "kraken"]
+        min_profit_threshold: 0.015
+        max_position_size: 5000.0
+        execution_timeout_ms: 3000
+      resources:
+        max_cpu: 1.0
+        max_memory_mb: 512
+        max_disk_mb: 1024
+    
+    - id: "arbitrage-eth-001"
+      type: "arbitrage"
+      desired_status: "running"
+      config:
+        pairs: ["ETH/USDT"]
+        exchanges: ["binance", "coinbase"]
+        min_profit_threshold: 0.012
+        max_position_size: 3000.0
+        execution_timeout_ms: 2500
+      resources:
+        max_cpu: 0.8
+        max_memory_mb: 512
+        max_disk_mb: 512
+    
+    - id: "arbitrage-sol-001"
+      type: "arbitrage"
+      desired_status: "running"
+      config:
+        pairs: ["SOL/USDT"]
+        exchanges: ["binance", "kraken"]
+        min_profit_threshold: 0.020
+        max_position_size: 10000.0
+        execution_timeout_ms: 2000
+      resources:
+        max_cpu: 1.2
+        max_memory_mb: 768
+        max_disk_mb: 1024
+    
+    - id: "ml-analytics-001"
+      type: "ml-analytics"
+      desired_status: "running"
+      config:
+        analysis_interval_seconds: 300
+        prediction_horizon_hours: 24
+        confidence_threshold: 0.85
+        models: ["lstm", "transformer", "ensemble"]
+      resources:
+        max_cpu: 2.0
+        max_memory_mb: 2048
+        max_disk_mb: 4096
+    
+    - id: "sentiment-monitor-001"
+      type: "sentiment"
+      desired_status: "running"
+      config:
+        sources: ["twitter", "reddit", "telegram"]
+        update_interval_seconds: 60
+        sentiment_threshold: 0.6
+        language_filter: ["en", "es"]
+      resources:
+        max_cpu: 0.5
+        max_memory_mb: 256
+        max_disk_mb: 512
+    
+    # Development/backup bots (stopped by default)
+    - id: "arbitrage-backup-001"
+      type: "arbitrage"
+      desired_status: "stopped"
+      config:
+        pairs: ["BTC/USDT", "ETH/USDT"]
+        exchanges: ["kraken"]
+        min_profit_threshold: 0.025
+      resources:
+        max_cpu: 0.5
+        max_memory_mb: 256
+        max_disk_mb: 512
+
+# 🤖 Default Bot Configurations (FALLBACK)
 bots:
   default_resources:
     max_cpu: 1.0
