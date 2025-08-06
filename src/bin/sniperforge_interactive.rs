@@ -72,29 +72,43 @@ impl InteractiveCli {
 
     pub async fn run(&mut self) -> Result<()> {
         self.print_welcome().await?;
-        self.refresh_bot_cache().await?;
+        
+        // Try to refresh cache, but don't fail if server is not available
+        if let Err(e) = self.refresh_bot_cache().await {
+            println!("⚠️  Warning: Could not connect to SniperForge server");
+            println!("   {}", e);
+            println!("   Server may not be running. Use 'refresh' command to reconnect.");
+            println!();
+        }
 
         loop {
             print!("{}", self.context.prompt());
             io::stdout().flush()?;
 
             let mut input = String::new();
-            io::stdin().read_line(&mut input)?;
-            let input = input.trim();
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    let input = input.trim();
+                    
+                    if input.is_empty() {
+                        continue;
+                    }
 
-            if input.is_empty() {
-                continue;
-            }
-
-            match self.process_command(input).await {
-                Ok(should_exit) => {
-                    if should_exit {
-                        println!("👋 Goodbye!");
-                        break;
+                    match self.process_command(input).await {
+                        Ok(should_exit) => {
+                            if should_exit {
+                                println!("👋 Goodbye!");
+                                break;
+                            }
+                        }
+                        Err(e) => {
+                            println!("❌ Error: {}", e);
+                        }
                     }
                 }
                 Err(e) => {
-                    println!("❌ Error: {}", e);
+                    println!("❌ Input error: {}", e);
+                    break;
                 }
             }
         }
@@ -255,8 +269,8 @@ impl InteractiveCli {
     }
 
     async fn refresh_bot_cache(&mut self) -> Result<()> {
-        match self.send_command(TcpCommand::ListBots).await? {
-            TcpResponse::BotList(bots) => {
+        match self.send_command(TcpCommand::ListBots).await {
+            Ok(TcpResponse::BotList(bots)) => {
                 self.bot_cache.clear();
                 for bot in bots {
                     let name = format!("{:8}", &bot.id.to_string()[..8]);
@@ -268,10 +282,18 @@ impl InteractiveCli {
                     });
                 }
                 println!("✅ CACHE UPDATED: {} trading strategies loaded", self.bot_cache.len());
+                Ok(())
             }
-            _ => return Err(anyhow::anyhow!("Failed to retrieve trading strategy list")),
+            Ok(TcpResponse::Error(msg)) => {
+                Err(anyhow::anyhow!("Server error: {}", msg))
+            }
+            Ok(_) => {
+                Err(anyhow::anyhow!("Unexpected response from server"))
+            }
+            Err(e) => {
+                Err(e)
+            }
         }
-        Ok(())
     }
 
     async fn list_current(&self) -> Result<()> {
@@ -636,39 +658,73 @@ impl InteractiveCli {
     }
 
     async fn send_command(&self, command: TcpCommand) -> Result<TcpResponse> {
-        let mut stream = TcpStream::connect(&self.server_addr).await?;
+        // Try to connect with timeout
+        let connect_result = tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            TcpStream::connect(&self.server_addr)
+        ).await;
+        
+        let mut stream = match connect_result {
+            Ok(Ok(stream)) => stream,
+            Ok(Err(e)) => return Err(anyhow::anyhow!("Connection failed: {}", e)),
+            Err(_) => return Err(anyhow::anyhow!("Connection timeout")),
+        };
         
         // Convert command to JSON and add newline for proper parsing
         let command_json = serde_json::to_string(&command)?;
         let command_with_newline = format!("{}\n", command_json);
         
-        // Send command
-        stream.write_all(command_with_newline.as_bytes()).await?;
+        // Send command with timeout
+        let send_result = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            stream.write_all(command_with_newline.as_bytes())
+        ).await;
         
-        // Read response with larger buffer and proper EOF handling
-        let mut buffer = Vec::new();
-        let mut temp_buffer = [0; 1024];
-        
-        loop {
-            let n = stream.read(&mut temp_buffer).await?;
-            if n == 0 {
-                break; // EOF reached
-            }
-            buffer.extend_from_slice(&temp_buffer[..n]);
-            
-            // Check if we have a complete JSON message (ends with newline or })
-            if let Ok(response_str) = String::from_utf8(buffer.clone()) {
-                if response_str.trim().ends_with('}') {
-                    let response: TcpResponse = serde_json::from_str(response_str.trim())?;
-                    return Ok(response);
-                }
-            }
+        if let Err(_) = send_result {
+            return Err(anyhow::anyhow!("Send timeout"));
         }
+        send_result??;
         
-        // Parse final response
-        let response_str = String::from_utf8(buffer)?;
-        let response: TcpResponse = serde_json::from_str(response_str.trim())?;
-        Ok(response)
+        // Flush the stream
+        stream.flush().await?;
+        
+        // Read response with timeout and proper handling
+        let read_result = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            async {
+                let mut buffer = Vec::new();
+                let mut temp_buffer = [0; 4096];
+                
+                loop {
+                    let n = stream.read(&mut temp_buffer).await?;
+                    if n == 0 {
+                        break; // EOF reached
+                    }
+                    buffer.extend_from_slice(&temp_buffer[..n]);
+                    
+                    // Check if we have a complete JSON message
+                    if let Ok(response_str) = String::from_utf8(buffer.clone()) {
+                        let trimmed = response_str.trim();
+                        if trimmed.ends_with('}') || trimmed.ends_with(']') {
+                            let response: Result<TcpResponse, _> = serde_json::from_str(trimmed);
+                            if response.is_ok() {
+                                return Ok(response.unwrap());
+                            }
+                        }
+                    }
+                }
+                
+                // Parse final response
+                let response_str = String::from_utf8(buffer)?;
+                let response: TcpResponse = serde_json::from_str(response_str.trim())?;
+                Ok(response)
+            }
+        ).await;
+        
+        match read_result {
+            Ok(result) => result,
+            Err(_) => Err(anyhow::anyhow!("Read timeout")),
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 {
-  "config_id": "8eea7b32-d3c8-4ec1-8d22-22f1f391c724",
+  "config_id": "73a3d5db-8f6f-4813-a154-88e4991c8317",
   "bot_id": "725d8b47-3284-437d-80a9-5ba0e2e2d0fb",
   "bot_type": "EnhancedArbitrage",
   "environment": "Development",
@@ -48,8 +48,8 @@
   "metadata": {
     "name": "Default Config for Bot 725d8b47-3284-437d-80a9-5ba0e2e2d0fb",
     "version": "1.0.0",
-    "created_at": "2025-08-06T06:49:17.266610900Z",
-    "updated_at": "2025-08-06T06:49:17.266610900Z",
+    "created_at": "2025-08-06T08:36:53.541790800Z",
+    "updated_at": "2025-08-06T08:36:53.541790800Z",
     "created_by": "System",
     "tags": [
       "default",
