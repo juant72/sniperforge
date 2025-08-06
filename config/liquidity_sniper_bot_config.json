@@ -1,0 +1,76 @@
+{
+  "_comment": "CONFIGURACIÓN ESPECÍFICA DEL BOT SNIPER DE LIQUIDEZ - Optimizada para capital ultra-pequeño (0.001 SOL)",
+  "bot_id": "liquidity_sniper_001",
+  "bot_type": "LiquiditySniper", 
+  "strategy": "LiquiditySnipe",
+  "active": true,
+  "created_at": "2025-08-06T19:37:50Z",
+  
+  "capital_config": {
+    "total_capital_sol": 0.001,
+    "trading_capital_sol": 0.0008,
+    "reserve_sol": 0.0002,
+    "position_size_percent": 80.0,
+    "max_positions": 1
+  },
+  
+  "trading_parameters": {
+    "profit_target_percent": 50.0,
+    "stop_loss_percent": 15.0,
+    "max_slippage_bps": 300,
+    "max_holding_time_minutes": 8,
+    "trades_per_day_limit": 1,
+    "min_profit_sol": 0.0003
+  },
+  
+  "dex_configuration": {
+    "monitored_dexes": [
+      "Raydium",
+      "Orca", 
+      "Jupiter",
+      "Phoenix",
+      "Meteora"
+    ],
+    "scan_interval_ms": 1000,
+    "max_detection_latency_ms": 100
+  },
+  
+  "liquidity_filters": {
+    "min_liquidity_usd": 30000,
+    "min_market_cap_usd": 100000,
+    "min_holders": 300,
+    "min_age_minutes": 45,
+    "max_age_minutes": 30,
+    "max_dev_percentage": 15.0,
+    "min_locked_liquidity_percent": 95.0,
+    "require_contract_verification": true,
+    "require_team_doxx": true,
+    "require_audit": true
+  },
+  
+  "risk_management": {
+    "max_risk_score": 0.5,
+    "min_confidence_score": 0.6,
+    "emergency_stop_enabled": true,
+    "rugpull_detection_enabled": true,
+    "dev_movement_monitoring": true,
+    "liquidity_drain_alerts": true
+  },
+  
+  "execution_settings": {
+    "mev_protection_enabled": true,
+    "bundle_submission": true,
+    "private_mempool": true,
+    "priority_fee_lamports": 30000,
+    "rpc_failover_enabled": true,
+    "execution_timeout_seconds": 30
+  },
+  
+  "monitoring": {
+    "real_time_metrics": true,
+    "performance_tracking": true,
+    "trade_logging": true,
+    "alert_notifications": true,
+    "success_rate_target": 0.8
+  }
+}

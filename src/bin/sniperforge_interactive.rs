@@ -378,7 +378,7 @@ impl InteractiveCli {
         let path = args[0];
         match path {
             "/" => self.context = CliContext::Root,
-            "/bots" | "bots" => self.context = CliContext::BotsDirectory,
+            "/bots" | "bots" | "/strategies" | "strategies" => self.context = CliContext::BotsDirectory,
             "/system" | "system" => self.context = CliContext::SystemAdmin,
             "/monitoring" | "monitoring" => self.context = CliContext::Monitoring,
             ".." => {
