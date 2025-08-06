@@ -74,10 +74,8 @@ impl InteractiveCli {
         self.print_welcome().await?;
         
         // Try to refresh cache, but don't fail if server is not available
-        if let Err(e) = self.refresh_bot_cache().await {
-            println!("⚠️  Warning: Could not connect to SniperForge server");
-            println!("   {}", e);
-            println!("   Server may not be running. Use 'refresh' command to reconnect.");
+        if let Err(_e) = self.refresh_bot_cache().await {
+            println!("📊 INFO          Strategy cache will be updated when server connects");
             println!();
         }
 
@@ -97,17 +95,21 @@ impl InteractiveCli {
                     match self.process_command(input).await {
                         Ok(should_exit) => {
                             if should_exit {
-                                println!("👋 Goodbye!");
+                                println!("👋 Session ended successfully!");
                                 break;
                             }
                         }
                         Err(e) => {
-                            println!("❌ Error: {}", e);
+                            if e.to_string().contains("timeout") || e.to_string().contains("Connection") {
+                                println!("🔌 Server unavailable. Use 'refresh' to reconnect or start server first.");
+                            } else {
+                                println!("⚠️  Command failed: {}", e);
+                            }
                         }
                     }
                 }
                 Err(e) => {
-                    println!("❌ Input error: {}", e);
+                    println!("⚠️  Input error: {}", e);
                     break;
                 }
             }
@@ -131,8 +133,17 @@ impl InteractiveCli {
                 println!("🔗 CONNECTED      Control Server: {}", self.server_addr);
             },
             Err(e) => {
-                println!("🔴 ERROR          Connection Failed: {}", e);
-                println!("📞 SUPPORT        Contact System Administrator");
+                let error_type = if e.to_string().contains("timeout") || e.to_string().contains("Connection timeout") {
+                    "Server Not Available"
+                } else if e.to_string().contains("Connection refused") || e.to_string().contains("denegó") {
+                    "Server Offline"
+                } else {
+                    "Connection Error"
+                };
+                
+                println!("🟡 STANDBY        Server Status: {}", error_type);
+                println!("� INFO          Start server: sniperforge.exe");
+                println!("ℹ️  NOTE          Client works in offline mode for configuration");
             }
         }
         println!();
@@ -162,7 +173,11 @@ impl InteractiveCli {
             "help" | "?" => self.show_help().await?,
             "clear" | "cls" => self.clear_screen(),
             "pwd" => println!("{}", self.context.path()),
-            "refresh" => self.refresh_bot_cache().await?,
+            "refresh" => {
+                if let Err(_) = self.refresh_bot_cache().await {
+                    // Error is already handled inside refresh_bot_cache
+                }
+            },
             
             // Navigation commands
             "ls" | "list" => self.list_current().await?,
@@ -186,7 +201,7 @@ impl InteractiveCli {
             "resources" => self.resources_command().await?,
             
             _ => {
-                println!("❌ Unknown command: '{}'", command);
+                println!("⚠️  Unknown command: '{}'. Type 'help' for available commands.", command);
                 println!("💡 Type 'help' for available commands");
             }
         }
@@ -269,6 +284,7 @@ impl InteractiveCli {
     }
 
     async fn refresh_bot_cache(&mut self) -> Result<()> {
+        println!("🔄 Updating strategy cache...");
         match self.send_command(TcpCommand::ListBots).await {
             Ok(TcpResponse::BotList(bots)) => {
                 self.bot_cache.clear();
@@ -281,16 +297,23 @@ impl InteractiveCli {
                         status: format!("{:?}", bot.status),
                     });
                 }
-                println!("✅ CACHE UPDATED: {} trading strategies loaded", self.bot_cache.len());
+                println!("✅ Strategy cache updated: {} trading strategies available", self.bot_cache.len());
                 Ok(())
             }
             Ok(TcpResponse::Error(msg)) => {
-                Err(anyhow::anyhow!("Server error: {}", msg))
+                println!("⚠️  Server response: {}", msg);
+                Err(anyhow::anyhow!("Cache update failed"))
             }
             Ok(_) => {
-                Err(anyhow::anyhow!("Unexpected response from server"))
+                println!("⚠️  Unexpected server response");
+                Err(anyhow::anyhow!("Cache update failed"))
             }
             Err(e) => {
+                if e.to_string().contains("timeout") || e.to_string().contains("Connection") {
+                    println!("🔌 Server unavailable. Start server first: sniperforge.exe");
+                } else {
+                    println!("⚠️  Connection error: {}", e);
+                }
                 Err(e)
             }
         }
@@ -377,7 +400,7 @@ impl InteractiveCli {
                             return Ok(());
                         }
                     }
-                    println!("❌ Bot '{}' not found", bot_name);
+                    println!("💡 Strategy '{}' not found in cache. Use 'refresh' to update.", bot_name);
                 } else {
                     println!("❌ Invalid path: {}", path);
                 }
@@ -392,13 +415,13 @@ impl InteractiveCli {
                 let config = self.create_default_config(*id);
                 match self.send_command(TcpCommand::StartBot { bot_id: *id, config }).await? {
                     TcpResponse::BotStarted { .. } => println!("✅ Bot started successfully"),
-                    TcpResponse::Error(msg) => println!("❌ Failed to start bot: {}", msg),
-                    _ => println!("❌ Unexpected response"),
+                    TcpResponse::Error(msg) => println!("⚠️  Start failed: {}", msg),
+                    _ => println!("⚠️  Unexpected server response"),
                 }
             }
             _ => {
                 if args.is_empty() {
-                    println!("❌ No strategy specified. Usage: start <strategy_name>");
+                    println!("💡 Usage: start <strategy_name>. Use 'list' to see available strategies.");
                     return Ok(());
                 }
                 // Implement start by name
@@ -431,8 +454,8 @@ impl InteractiveCli {
                             println!("✅ Bot stopped successfully");
                         }
                     },
-                    TcpResponse::Error(msg) => println!("❌ Failed to stop bot: {}", msg),
-                    _ => println!("❌ Unexpected response"),
+                    TcpResponse::Error(msg) => println!("⚠️  Stop failed: {}", msg),
+                    _ => println!("⚠️  Unexpected server response"),
                 }
             }
             _ => {
