@@ -1,0 +1,110 @@
+{
+  "capital_accumulation_phase": {
+    "enabled": true,
+    "phase_name": "Capital Building",
+    "current_capital_sol": 0.29,
+    "target_capital_sol": 1.0,
+    "progress_percent": 29.0,
+    "strategy": "conservative_growth",
+    "capital_allocation": {
+      "trading_capital_sol": 0.2,
+      "emergency_reserve_sol": 0.05,
+      "gas_reserve_sol": 0.04,
+      "total_usable": 0.25
+    },
+    "accumulation_strategy": {
+      "max_positions": 1,
+      "position_size_fixed": 0.2,
+      "no_scaling_positions": true,
+      "focus_on_singles": true,
+      "min_profit_target_percent": 25.0,
+      "max_risk_per_trade_percent": 10.0,
+      "trades_per_day_limit": 3,
+      "weekly_profit_target_sol": 0.05,
+      "monthly_target_sol": 0.2
+    },
+    "strict_filters": {
+      "only_high_confidence": true,
+      "min_confidence_score": 0.8,
+      "min_holders": 200,
+      "min_age_minutes": 30,
+      "min_liquidity_usd": 25000,
+      "max_dev_percentage": 20.0,
+      "min_locked_liquidity_percent": 90.0,
+      "require_verified_contract": true,
+      "require_social_presence": true,
+      "blacklist_suspicious_patterns": true
+    },
+    "conservative_execution": {
+      "max_slippage_percent": 6.0,
+      "priority_fee_conservative": 30000,
+      "mev_protection_mandatory": true,
+      "private_mempool_required": true,
+      "execution_timeout_ms": 3000,
+      "max_retry_attempts": 2
+    },
+    "profit_protection": {
+      "profit_targets": [
+        {"level": 25.0, "exit_percent": 100.0, "reason": "Single target for capital building"}
+      ],
+      "stop_losses": [
+        {"type": "Hard", "level": 10.0, "reason": "Capital preservation"},
+        {"type": "Time", "minutes": 10, "reason": "Quick exits only"}
+      ],
+      "no_trailing_stops": true,
+      "no_partial_exits": true,
+      "simple_all_or_nothing": true
+    },
+    "milestone_progression": {
+      "milestones": [
+        {
+          "target_sol": 0.5,
+          "unlock_features": ["trailing_stops"],
+          "new_position_size": 0.3,
+          "description": "Basic features unlocked"
+        },
+        {
+          "target_sol": 0.75,
+          "unlock_features": ["partial_exits", "2_positions"],
+          "new_position_size": 0.35,
+          "description": "Multi-position capability"
+        },
+        {
+          "target_sol": 1.0,
+          "unlock_features": ["full_strategy", "scaling", "advanced_exits"],
+          "new_position_size": 0.4,
+          "description": "Full strategy unlocked"
+        },
+        {
+          "target_sol": 2.0,
+          "unlock_features": ["aggressive_mode", "leverage", "complex_strategies"],
+          "new_position_size": 0.5,
+          "description": "Advanced trading enabled"
+        }
+      ]
+    },
+    "risk_management_ultra_conservative": {
+      "max_consecutive_losses": 2,
+      "daily_loss_limit_sol": 0.05,
+      "weekly_loss_limit_sol": 0.1,
+      "pause_trading_on_losses": true,
+      "manual_review_required": true,
+      "emergency_stop_at_loss_percent": 15.0
+    },
+    "monitoring_and_alerts": {
+      "profit_milestone_alerts": true,
+      "loss_limit_warnings": true,
+      "capital_progress_daily": true,
+      "weekly_performance_review": true,
+      "adjustment_recommendations": true
+    },
+    "expected_timeline": {
+      "weeks_to_0_5_sol": 4,
+      "weeks_to_1_0_sol": 12,
+      "weeks_to_2_0_sol": 28,
+      "conservative_estimate": true,
+      "assumes_70_percent_win_rate": true,
+      "average_profit_per_trade_sol": 0.05
+    }
+  }
+}

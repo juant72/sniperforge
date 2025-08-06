@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use tracing::{info, warn, error, debug};
 use uuid::Uuid;
 
-use super::{OpportunityData, SniperConfig, RiskAssessment, StopLevel, StopType, MonitoringLevel};
+use super::{OpportunityData, SniperConfig, DexType};
+use super::risk_manager::{RiskAssessment, StopLevel, StopType, MonitoringLevel};
 
 /// Enterprise position manager with automated strategies
 #[derive(Debug)]
@@ -27,7 +28,7 @@ pub struct Position {
     pub opportunity_id: Uuid,
     pub token_address: String,
     pub pool_address: String,
-    pub dex: super::super::DexType,
+    pub dex: DexType,
     pub entry_time: DateTime<Utc>,
     pub entry_price: f64,
     pub position_size_sol: f64,

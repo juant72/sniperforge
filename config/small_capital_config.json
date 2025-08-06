@@ -1,0 +1,130 @@
+{
+  "liquidity_sniper_accumulation_phase": {
+    "enabled": true,
+    "phase": "capital_accumulation",
+    "current_capital_sol": 0.29,
+    "target_milestone_sol": 0.5,
+    "progress_percent": 58.0,
+    "strategy_mode": "ultra_conservative",
+    "capital_allocation_sol": 0.2,
+    "max_position_size_percent": 100.0,
+    "min_liquidity_usd": 30000.0,
+    "max_risk_score": 0.5,
+    "target_profit_percent": 30.0,
+    "max_slippage_bps": 600,
+    "stop_loss_percent": 10.0,
+    "take_profit_percent": 30.0,
+    "max_holding_time_minutes": 8,
+    "max_positions": 1,
+    "trades_per_day_limit": 2,
+    "priority_fee_lamports": 30000,
+    "reserve_sol": 0.09,
+    "accumulation_strategy": {
+      "single_shot_trading": true,
+      "no_scaling_positions": true,
+      "no_partial_exits": true,
+      "all_or_nothing_approach": true,
+      "focus_on_home_runs": true,
+      "weekly_profit_target_sol": 0.05,
+      "monthly_target_sol": 0.2,
+      "capital_preservation_priority": true
+    },
+    "ultra_strict_filters": {
+      "min_holders": 300,
+      "min_age_minutes": 45,
+      "max_dev_percentage": 15.0,
+      "min_locked_liquidity_percent": 95.0,
+      "min_market_cap_usd": 100000,
+      "max_supply_concentration": 0.1,
+      "require_audit": true,
+      "require_verified_contract": true,
+      "require_strong_social_presence": true,
+      "min_confidence_score": 0.85,
+      "blacklist_new_deployers": true,
+      "require_team_doxx": true
+    },
+    "liquidity_analysis_strict": {
+      "min_real_volume_ratio": 0.25,
+      "max_price_impact_small_trade": 2.0,
+      "max_price_impact_full_position": 5.0,
+      "min_depth_levels": 8,
+      "min_24h_volume_usd": 15000,
+      "volume_to_liquidity_ratio": 0.3,
+      "require_organic_volume": true,
+      "detect_wash_trading": true
+    },
+    "conservative_execution": {
+      "max_retry_attempts": 1,
+      "retry_delay_ms": 25,
+      "timeout_ms": 2000,
+      "gas_price_multiplier": 1.1,
+      "priority_fee_multiplier": 1.0,
+      "slippage_tolerance_percent": 6.0,
+      "mev_protection_enabled": true,
+      "private_mempool_required": true,
+      "execution_speed": "careful"
+    },
+    "simple_exit_strategy": {
+      "profit_targets": [
+        {"level": 30.0, "exit_percent": 100.0, "reason": "Single target hit"}
+      ],
+      "stop_losses": [
+        {"type": "Hard", "level": 10.0, "reason": "Capital preservation"},
+        {"type": "Time", "minutes": 8, "reason": "Quick exit mandatory"}
+      ],
+      "emergency_exits": [
+        {"trigger": "any_rugpull_signal", "action": "immediate_exit", "priority": 1},
+        {"trigger": "liquidity_drop_20", "action": "immediate_exit", "priority": 1},
+        {"trigger": "volume_unusual", "action": "immediate_exit", "priority": 2},
+        {"trigger": "dev_movement", "action": "immediate_exit", "priority": 1}
+      ],
+      "no_complex_strategies": true,
+      "no_trailing_stops": true,
+      "no_partial_exits": true
+    },
+    "risk_management_maximum": {
+      "max_consecutive_losses": 1,
+      "daily_loss_limit_sol": 0.03,
+      "weekly_loss_limit_sol": 0.06,
+      "pause_after_loss": true,
+      "manual_review_every_loss": true,
+      "emergency_stop_at_loss_percent": 12.0,
+      "require_confirmation_trades": true
+    },
+    "monitoring_paranoid": {
+      "price_check_interval_ms": 100,
+      "position_update_interval_ms": 250,
+      "risk_assessment_interval_ms": 500,
+      "liquidity_check_interval_ms": 1000,
+      "rugpull_check_interval_ms": 2000,
+      "continuous_monitoring": true,
+      "alert_on_any_change": true,
+      "log_everything": true
+    },
+    "progression_milestones": {
+      "next_milestone": 0.5,
+      "unlocks_at_0_5": [
+        "trailing_stops",
+        "position_scaling",
+        "advanced_exits"
+      ],
+      "unlocks_at_1_0": [
+        "multiple_positions",
+        "partial_exits",
+        "risk_scaling"
+      ],
+      "unlocks_at_2_0": [
+        "full_strategy_suite",
+        "leverage_options",
+        "complex_strategies"
+      ]
+    },
+    "expected_timeline": {
+      "weeks_to_0_5_sol": 3,
+      "assumes_conservative_30_percent_targets": true,
+      "requires_70_percent_win_rate": true,
+      "profit_per_successful_trade_sol": 0.06,
+      "trades_per_week": 6
+    }
+  }
+}

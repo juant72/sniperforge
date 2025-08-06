@@ -18,12 +18,14 @@ pub mod opportunity_analyzer;
 pub mod trade_executor;
 pub mod risk_manager;
 pub mod position_manager;
+pub mod cost_analyzer;
 
-use pool_monitor::*;
-use opportunity_analyzer::*;
-use trade_executor::*;
-use risk_manager::*;
-use position_manager::*;
+use pool_monitor::PoolMonitor;
+use opportunity_analyzer::OpportunityAnalyzer;
+use trade_executor::TradeExecutor;
+use risk_manager::{RiskManager, RiskAssessment as RiskManagerAssessment};
+use position_manager::PositionManager;
+use cost_analyzer::{CostAnalyzer, CostConfig};
 
 /// DEX types supported by the sniper
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -135,6 +137,7 @@ pub struct LiquiditySniperBot {
     pub executor: Arc<TradeExecutor>,
     pub risk_manager: Arc<RiskManager>,
     pub position_manager: Arc<PositionManager>,
+    pub cost_analyzer: Arc<CostAnalyzer>,
     pub metrics: RwLock<SniperMetrics>,
     pub performance_tracker: Arc<RwLock<PerformanceTracker>>,
 }
@@ -302,22 +305,6 @@ pub struct DexStats {
     pub avg_profit: f64,
 }
 
-#[derive(Debug, Clone)]
-pub struct TradeRecord {
-    pub id: Uuid,
-    pub timestamp: DateTime<Utc>,
-    pub strategy: SniperStrategy,
-    pub dex: DexType,
-    pub token_symbol: String,
-    pub amount_sol: f64,
-    pub entry_price: f64,
-    pub exit_price: Option<f64>,
-    pub profit_sol: f64,
-    pub profit_percent: f64,
-    pub holding_time: Option<Duration>,
-    pub execution_time_ms: u64,
-}
-
 impl Default for SniperConfig {
     fn default() -> Self {
         Self {
@@ -432,6 +419,7 @@ impl LiquiditySniperBot {
         let executor = Arc::new(TradeExecutor::new(&config).await?);
         let risk_manager = Arc::new(RiskManager::new(&config)?);
         let position_manager = Arc::new(PositionManager::new(&config)?);
+        let cost_analyzer = Arc::new(CostAnalyzer::new(CostConfig::default()));
         
         Ok(Self {
             id,
@@ -442,6 +430,7 @@ impl LiquiditySniperBot {
             executor,
             risk_manager,
             position_manager,
+            cost_analyzer,
             metrics: RwLock::new(SniperMetrics::new()),
             performance_tracker: Arc::new(RwLock::new(PerformanceTracker::new())),
         })
@@ -650,18 +639,6 @@ impl LiquiditySniperBot {
         info!("✅ Enterprise Sniper Bot stopped gracefully");
         Ok(())
     }
-}
-
-/// Trade execution result
-#[derive(Debug)]
-pub struct TradeResult {
-    pub success: bool,
-    pub position: Option<PositionData>,
-    pub transaction_hash: Option<String>,
-    pub execution_price: f64,
-    pub gas_used: f64,
-    pub execution_time_ms: u64,
-    pub error: Option<String>,
 }
 
 impl PerformanceTracker {

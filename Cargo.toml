@@ -152,3 +152,16 @@ opt-level = 1
 debug = false
 opt-level = 3
 lto = true
+
+# Binary executables
+[[bin]]
+name = "sniperforge-cli"
+path = "src/bin/sniperforge_cli.rs"
+
+[[bin]]
+name = "sniperforge-interactive"
+path = "src/bin/sniperforge_interactive.rs"
+
+[[bin]]
+name = "sniperforge-enterprise"
+path = "src/bin/sniperforge_enterprise.rs"
