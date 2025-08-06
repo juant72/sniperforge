@@ -5,7 +5,7 @@
 param(
     [string]$Mode = "test",
     [string]$Config = "config\small_capital_config.json",
-    [string]$Wallet = "wallet_secure_20250806_120539.json"
+    [string]$Wallet = "wallet.json"
 )
 
 Write-Host "🚀 SniperForge Capital Accumulation Mode" -ForegroundColor Green
@@ -112,4 +112,3 @@ switch ($Mode) {
         Write-Host "💡 Example: .\run_small_capital.ps1 -Mode test" -ForegroundColor Cyan
     }
 }
-

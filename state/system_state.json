@@ -1087,7 +1087,7 @@
     "5c511197-5b0c-4a19-a2e5-6e5f6fc010f6": {
       "bot_id": "5c511197-5b0c-4a19-a2e5-6e5f6fc010f6",
       "bot_type": "EnhancedArbitrage",
-      "status": "Running",
+      "status": "Stopped",
       "config": {
         "config_id": "f61a2e62-2ea1-411c-b2b2-de465ee71f35",
         "bot_id": "5db9fa01-2df1-49f0-aa14-73c38a0b0bfe",
@@ -1150,8 +1150,8 @@
       "is_default": false,
       "created_at": "2025-08-06T13:11:49.752121100Z",
       "last_started_at": "2025-08-06T13:18:37.913038200Z",
-      "last_stopped_at": null,
-      "total_uptime_seconds": 0,
+      "last_stopped_at": "2025-08-06T13:28:58.549593900Z",
+      "total_uptime_seconds": 620,
       "restart_count": 1,
       "last_known_metrics": {
         "operational": {
