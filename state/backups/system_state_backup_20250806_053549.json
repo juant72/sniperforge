@@ -1,17 +1,17 @@
 {
   "version": "1.0.0",
   "snapshot_timestamp": "2025-08-05T21:52:30.262107Z",
-  "server_start_count": 2,
+  "server_start_count": 1,
   "total_system_uptime_seconds": 0,
   "bots": {
-    "6543779d-dda5-47f4-96bc-cd4754963742": {
-      "bot_id": "6543779d-dda5-47f4-96bc-cd4754963742",
-      "bot_type": "CrossChainArbitrage",
+    "a7a807b7-7bc8-4759-b994-c8533eeec2fc": {
+      "bot_id": "a7a807b7-7bc8-4759-b994-c8533eeec2fc",
+      "bot_type": "EnhancedArbitrage",
       "status": "Stopped",
       "config": {
-        "config_id": "58cea212-debc-4696-9d28-ea8d2d7d92c0",
-        "bot_id": "bc11e247-0c66-4b2a-a7fa-f982d32a1e72",
-        "bot_type": "CrossChainArbitrage",
+        "config_id": "154fe5c5-bd36-44dc-9bf3-02ebd1dc9d2b",
+        "bot_id": "6d66519e-ebc6-43ea-abe0-9a58406c9d83",
+        "bot_type": "EnhancedArbitrage",
         "environment": "Development",
         "parameters": {
           "exchanges": [
@@ -28,7 +28,7 @@
         },
         "resources": {
           "max_cpu": 1.0,
-          "max_memory_mb": 512,
+          "max_memory_mb": 256,
           "max_disk_mb": 128,
           "max_network_mbps": 10
         },
@@ -56,10 +56,10 @@
           "auth_required": true
         },
         "metadata": {
-          "name": "Cross Chain Arbitrage Bot Config bc11e247-0c66-4b2a-a7fa-f982d32a1e72",
+          "name": "Enhanced Arbitrage Bot Config 6d66519e-ebc6-43ea-abe0-9a58406c9d83",
           "version": "1.0.0",
-          "created_at": "2025-08-06T05:34:35.054970100Z",
-          "updated_at": "2025-08-06T05:34:35.054972Z",
+          "created_at": "2025-08-05T22:40:44.667918800Z",
+          "updated_at": "2025-08-05T22:40:44.667920800Z",
           "created_by": "CLI-unknown",
           "tags": [
             "cli-created",
@@ -68,10 +68,118 @@
         }
       },
       "is_default": false,
-      "created_at": "2025-08-06T06:10:20.943360300Z",
-      "last_started_at": "2025-08-06T06:10:20.943360500Z",
-      "last_stopped_at": "2025-08-06T06:10:28.460525Z",
-      "total_uptime_seconds": 7,
+      "created_at": "2025-08-05T22:40:44.672208200Z",
+      "last_started_at": "2025-08-05T22:41:17.880398600Z",
+      "last_stopped_at": "2025-08-06T05:28:34.909833600Z",
+      "total_uptime_seconds": 0,
+      "restart_count": 1,
+      "last_known_metrics": {
+        "operational": {
+          "uptime_seconds": 0,
+          "restart_count": 0,
+          "last_restart": null,
+          "config_updates": 0,
+          "error_count": 0
+        },
+        "trading": {
+          "trades_executed": 0,
+          "successful_trades": 0,
+          "total_pnl_usd": 0.0,
+          "success_rate": 0.0,
+          "avg_profit_per_trade": 0.0,
+          "total_volume_usd": 0.0,
+          "sharpe_ratio": null
+        },
+        "performance": {
+          "cpu_usage_percent": 0.0,
+          "memory_usage_mb": 0,
+          "network_io": {
+            "bytes_sent": 0,
+            "bytes_received": 0,
+            "packets_sent": 0,
+            "packets_received": 0
+          },
+          "api_calls": {
+            "total_calls": 0,
+            "successful_calls": 0,
+            "failed_calls": 0,
+            "avg_response_time_ms": 0.0
+          },
+          "avg_response_time_ms": 0.0,
+          "throughput_per_second": 0.0
+        },
+        "custom": null,
+        "timestamp": "2025-08-05T22:40:44.672199600Z"
+      }
+    },
+    "725d8b47-3284-437d-80a9-5ba0e2e2d0fb": {
+      "bot_id": "725d8b47-3284-437d-80a9-5ba0e2e2d0fb",
+      "bot_type": "EnhancedArbitrage",
+      "status": "Running",
+      "config": {
+        "config_id": "78fb8915-5bca-4c79-af4b-043387fad70d",
+        "bot_id": "49576a90-4e50-4322-9546-d109faf020f1",
+        "bot_type": "EnhancedArbitrage",
+        "environment": "Development",
+        "parameters": {
+          "exchanges": [
+            "binance",
+            "kraken"
+          ],
+          "execution_timeout_ms": 5000,
+          "max_position_size": 1000.0,
+          "min_profit_threshold": 0.01,
+          "pairs": [
+            "BTC/USDT",
+            "ETH/USDT"
+          ]
+        },
+        "resources": {
+          "max_cpu": 1.0,
+          "max_memory_mb": 256,
+          "max_disk_mb": 128,
+          "max_network_mbps": 10
+        },
+        "network": {
+          "solana_rpc_urls": [
+            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
+          ],
+          "websocket_urls": [],
+          "api_endpoints": {},
+          "timeouts": {
+            "rpc_timeout_seconds": 10,
+            "websocket_timeout_seconds": 10,
+            "api_timeout_seconds": 10
+          }
+        },
+        "security": {
+          "wallet": {
+            "wallet_type": "keypair",
+            "address": "",
+            "private_key_path": null,
+            "use_env_keys": true
+          },
+          "api_keys": {},
+          "encryption_enabled": true,
+          "auth_required": true
+        },
+        "metadata": {
+          "name": "Enhanced Arbitrage Bot Config 49576a90-4e50-4322-9546-d109faf020f1",
+          "version": "1.0.0",
+          "created_at": "2025-08-06T05:34:52.371475300Z",
+          "updated_at": "2025-08-06T05:34:52.371477300Z",
+          "created_by": "CLI-unknown",
+          "tags": [
+            "cli-created",
+            "development"
+          ]
+        }
+      },
+      "is_default": false,
+      "created_at": "2025-08-06T05:35:41.881801700Z",
+      "last_started_at": "2025-08-06T05:35:41.881801800Z",
+      "last_stopped_at": null,
+      "total_uptime_seconds": 0,
       "restart_count": 0,
       "last_known_metrics": {
         "operational": {
@@ -109,7 +217,115 @@
           "throughput_per_second": 0.0
         },
         "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501562800Z"
+        "timestamp": "2025-08-06T05:34:20.939108700Z"
+      }
+    },
+    "12f0879e-f058-4b7f-af73-a0a72b222a0f": {
+      "bot_id": "12f0879e-f058-4b7f-af73-a0a72b222a0f",
+      "bot_type": "EnhancedArbitrage",
+      "status": "Running",
+      "config": {
+        "config_id": "75d2e493-b286-44ae-807a-2a75b6a62f71",
+        "bot_id": "9b7c8317-1fe7-43b2-af79-6d420641c5d1",
+        "bot_type": "EnhancedArbitrage",
+        "environment": "Development",
+        "parameters": {
+          "exchanges": [
+            "binance",
+            "kraken"
+          ],
+          "execution_timeout_ms": 5000,
+          "max_position_size": 1000.0,
+          "min_profit_threshold": 0.01,
+          "pairs": [
+            "BTC/USDT",
+            "ETH/USDT"
+          ]
+        },
+        "resources": {
+          "max_cpu": 1.0,
+          "max_memory_mb": 256,
+          "max_disk_mb": 128,
+          "max_network_mbps": 10
+        },
+        "network": {
+          "solana_rpc_urls": [
+            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
+          ],
+          "websocket_urls": [],
+          "api_endpoints": {},
+          "timeouts": {
+            "rpc_timeout_seconds": 10,
+            "websocket_timeout_seconds": 10,
+            "api_timeout_seconds": 10
+          }
+        },
+        "security": {
+          "wallet": {
+            "wallet_type": "keypair",
+            "address": "",
+            "private_key_path": null,
+            "use_env_keys": true
+          },
+          "api_keys": {},
+          "encryption_enabled": true,
+          "auth_required": true
+        },
+        "metadata": {
+          "name": "Enhanced Arbitrage Bot Config 9b7c8317-1fe7-43b2-af79-6d420641c5d1",
+          "version": "1.0.0",
+          "created_at": "2025-08-06T05:34:46.707538200Z",
+          "updated_at": "2025-08-06T05:34:46.707540700Z",
+          "created_by": "CLI-unknown",
+          "tags": [
+            "cli-created",
+            "development"
+          ]
+        }
+      },
+      "is_default": false,
+      "created_at": "2025-08-06T05:35:41.884042800Z",
+      "last_started_at": "2025-08-06T05:35:41.884042900Z",
+      "last_stopped_at": null,
+      "total_uptime_seconds": 0,
+      "restart_count": 0,
+      "last_known_metrics": {
+        "operational": {
+          "uptime_seconds": 0,
+          "restart_count": 0,
+          "last_restart": null,
+          "config_updates": 0,
+          "error_count": 0
+        },
+        "trading": {
+          "trades_executed": 0,
+          "successful_trades": 0,
+          "total_pnl_usd": 0.0,
+          "success_rate": 0.0,
+          "avg_profit_per_trade": 0.0,
+          "total_volume_usd": 0.0,
+          "sharpe_ratio": null
+        },
+        "performance": {
+          "cpu_usage_percent": 0.0,
+          "memory_usage_mb": 0,
+          "network_io": {
+            "bytes_sent": 0,
+            "bytes_received": 0,
+            "packets_sent": 0,
+            "packets_received": 0
+          },
+          "api_calls": {
+            "total_calls": 0,
+            "successful_calls": 0,
+            "failed_calls": 0,
+            "avg_response_time_ms": 0.0
+          },
+          "avg_response_time_ms": 0.0,
+          "throughput_per_second": 0.0
+        },
+        "custom": null,
+        "timestamp": "2025-08-06T05:32:45.126510600Z"
       }
     },
     "7c1cacf7-f629-4154-9cf8-0582c41fedf7": {
@@ -176,10 +392,10 @@
         }
       },
       "is_default": false,
-      "created_at": "2025-08-06T06:10:20.947231800Z",
-      "last_started_at": "2025-08-06T06:10:20.947231900Z",
-      "last_stopped_at": "2025-08-06T06:10:28.465168700Z",
-      "total_uptime_seconds": 7,
+      "created_at": "2025-08-05T21:55:56.705227400Z",
+      "last_started_at": null,
+      "last_stopped_at": null,
+      "total_uptime_seconds": 0,
       "restart_count": 0,
       "last_known_metrics": {
         "operational": {
@@ -217,17 +433,17 @@
           "throughput_per_second": 0.0
         },
         "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501598700Z"
+        "timestamp": "2025-08-05T21:55:56.705214300Z"
       }
     },
-    "8793744d-eacd-4cc2-a2fe-fb51679b8887": {
-      "bot_id": "8793744d-eacd-4cc2-a2fe-fb51679b8887",
-      "bot_type": "EnhancedArbitrage",
+    "6543779d-dda5-47f4-96bc-cd4754963742": {
+      "bot_id": "6543779d-dda5-47f4-96bc-cd4754963742",
+      "bot_type": "CrossChainArbitrage",
       "status": "Stopped",
       "config": {
-        "config_id": "bac1948e-4e96-4416-b113-6805a1b7d7c9",
-        "bot_id": "8793744d-eacd-4cc2-a2fe-fb51679b8887",
-        "bot_type": "EnhancedArbitrage",
+        "config_id": "58cea212-debc-4696-9d28-ea8d2d7d92c0",
+        "bot_id": "bc11e247-0c66-4b2a-a7fa-f982d32a1e72",
+        "bot_type": "CrossChainArbitrage",
         "environment": "Development",
         "parameters": {
           "exchanges": [
@@ -244,115 +460,7 @@
         },
         "resources": {
           "max_cpu": 1.0,
-          "max_memory_mb": 256,
-          "max_disk_mb": 128,
-          "max_network_mbps": 10
-        },
-        "network": {
-          "solana_rpc_urls": [
-            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
-          ],
-          "websocket_urls": [],
-          "api_endpoints": {},
-          "timeouts": {
-            "rpc_timeout_seconds": 10,
-            "websocket_timeout_seconds": 10,
-            "api_timeout_seconds": 10
-          }
-        },
-        "security": {
-          "wallet": {
-            "wallet_type": "keypair",
-            "address": "",
-            "private_key_path": null,
-            "use_env_keys": true
-          },
-          "api_keys": {},
-          "encryption_enabled": true,
-          "auth_required": false
-        },
-        "metadata": {
-          "name": "Default Config for Bot 8793744d-eacd-4cc2-a2fe-fb51679b8887",
-          "version": "1.0.0",
-          "created_at": "2025-08-06T06:08:21.350366300Z",
-          "updated_at": "2025-08-06T06:08:21.350366300Z",
-          "created_by": "System",
-          "tags": [
-            "default",
-            "auto-generated"
-          ]
-        }
-      },
-      "is_default": true,
-      "created_at": "2025-08-06T06:10:20.945091200Z",
-      "last_started_at": "2025-08-06T06:10:20.945091400Z",
-      "last_stopped_at": "2025-08-06T06:10:28.462441800Z",
-      "total_uptime_seconds": 7,
-      "restart_count": 0,
-      "last_known_metrics": {
-        "operational": {
-          "uptime_seconds": 0,
-          "restart_count": 0,
-          "last_restart": null,
-          "config_updates": 0,
-          "error_count": 0
-        },
-        "trading": {
-          "trades_executed": 0,
-          "successful_trades": 0,
-          "total_pnl_usd": 0.0,
-          "success_rate": 0.0,
-          "avg_profit_per_trade": 0.0,
-          "total_volume_usd": 0.0,
-          "sharpe_ratio": null
-        },
-        "performance": {
-          "cpu_usage_percent": 0.0,
-          "memory_usage_mb": 0,
-          "network_io": {
-            "bytes_sent": 0,
-            "bytes_received": 0,
-            "packets_sent": 0,
-            "packets_received": 0
-          },
-          "api_calls": {
-            "total_calls": 0,
-            "successful_calls": 0,
-            "failed_calls": 0,
-            "avg_response_time_ms": 0.0
-          },
-          "avg_response_time_ms": 0.0,
-          "throughput_per_second": 0.0
-        },
-        "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501810500Z"
-      }
-    },
-    "725d8b47-3284-437d-80a9-5ba0e2e2d0fb": {
-      "bot_id": "725d8b47-3284-437d-80a9-5ba0e2e2d0fb",
-      "bot_type": "EnhancedArbitrage",
-      "status": "Stopped",
-      "config": {
-        "config_id": "78fb8915-5bca-4c79-af4b-043387fad70d",
-        "bot_id": "49576a90-4e50-4322-9546-d109faf020f1",
-        "bot_type": "EnhancedArbitrage",
-        "environment": "Development",
-        "parameters": {
-          "exchanges": [
-            "binance",
-            "kraken"
-          ],
-          "execution_timeout_ms": 5000,
-          "max_position_size": 1000.0,
-          "min_profit_threshold": 0.01,
-          "pairs": [
-            "BTC/USDT",
-            "ETH/USDT"
-          ]
-        },
-        "resources": {
-          "max_cpu": 1.0,
-          "max_memory_mb": 256,
+          "max_memory_mb": 512,
           "max_disk_mb": 128,
           "max_network_mbps": 10
         },
@@ -380,10 +488,10 @@
           "auth_required": true
         },
         "metadata": {
-          "name": "Enhanced Arbitrage Bot Config 49576a90-4e50-4322-9546-d109faf020f1",
+          "name": "Cross Chain Arbitrage Bot Config bc11e247-0c66-4b2a-a7fa-f982d32a1e72",
           "version": "1.0.0",
-          "created_at": "2025-08-06T05:34:52.371475300Z",
-          "updated_at": "2025-08-06T05:34:52.371477300Z",
+          "created_at": "2025-08-06T05:34:35.054970100Z",
+          "updated_at": "2025-08-06T05:34:35.054972Z",
           "created_by": "CLI-unknown",
           "tags": [
             "cli-created",
@@ -392,10 +500,10 @@
         }
       },
       "is_default": false,
-      "created_at": "2025-08-06T06:10:20.947935800Z",
-      "last_started_at": "2025-08-06T06:10:20.947935900Z",
-      "last_stopped_at": "2025-08-06T06:10:28.466110500Z",
-      "total_uptime_seconds": 7,
+      "created_at": "2025-08-06T05:35:41.883371700Z",
+      "last_started_at": null,
+      "last_stopped_at": null,
+      "total_uptime_seconds": 0,
       "restart_count": 0,
       "last_known_metrics": {
         "operational": {
@@ -433,77 +541,19 @@
           "throughput_per_second": 0.0
         },
         "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501409800Z"
+        "timestamp": "2025-08-06T05:34:35.058739600Z"
       }
     },
     "bdd9bc45-324f-48c0-9f19-447cbf31705d": {
       "bot_id": "bdd9bc45-324f-48c0-9f19-447cbf31705d",
       "bot_type": "EnhancedArbitrage",
       "status": "Stopped",
-      "config": {
-        "config_id": "0fef4bcd-bae5-463f-8edd-841a73c4f2a4",
-        "bot_id": "bdd9bc45-324f-48c0-9f19-447cbf31705d",
-        "bot_type": "EnhancedArbitrage",
-        "environment": "Development",
-        "parameters": {
-          "exchanges": [
-            "binance",
-            "kraken"
-          ],
-          "execution_timeout_ms": 5000,
-          "max_position_size": 1000.0,
-          "min_profit_threshold": 0.01,
-          "pairs": [
-            "BTC/USDT",
-            "ETH/USDT"
-          ]
-        },
-        "resources": {
-          "max_cpu": 1.0,
-          "max_memory_mb": 256,
-          "max_disk_mb": 128,
-          "max_network_mbps": 10
-        },
-        "network": {
-          "solana_rpc_urls": [
-            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
-          ],
-          "websocket_urls": [],
-          "api_endpoints": {},
-          "timeouts": {
-            "rpc_timeout_seconds": 10,
-            "websocket_timeout_seconds": 10,
-            "api_timeout_seconds": 10
-          }
-        },
-        "security": {
-          "wallet": {
-            "wallet_type": "keypair",
-            "address": "",
-            "private_key_path": null,
-            "use_env_keys": true
-          },
-          "api_keys": {},
-          "encryption_enabled": true,
-          "auth_required": false
-        },
-        "metadata": {
-          "name": "Default Config for Bot bdd9bc45-324f-48c0-9f19-447cbf31705d",
-          "version": "1.0.0",
-          "created_at": "2025-08-06T06:06:56.501447500Z",
-          "updated_at": "2025-08-06T06:06:56.501447500Z",
-          "created_by": "System",
-          "tags": [
-            "default",
-            "auto-generated"
-          ]
-        }
-      },
-      "is_default": false,
-      "created_at": "2025-08-06T06:10:20.945847800Z",
-      "last_started_at": "2025-08-06T06:10:20.945847900Z",
-      "last_stopped_at": "2025-08-06T06:10:28.463344100Z",
-      "total_uptime_seconds": 7,
+      "config": null,
+      "is_default": true,
+      "created_at": "2025-08-06T05:35:41.882637200Z",
+      "last_started_at": null,
+      "last_stopped_at": null,
+      "total_uptime_seconds": 0,
       "restart_count": 0,
       "last_known_metrics": {
         "operational": {
@@ -541,223 +591,7 @@
           "throughput_per_second": 0.0
         },
         "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501452100Z"
-      }
-    },
-    "12f0879e-f058-4b7f-af73-a0a72b222a0f": {
-      "bot_id": "12f0879e-f058-4b7f-af73-a0a72b222a0f",
-      "bot_type": "EnhancedArbitrage",
-      "status": "Stopped",
-      "config": {
-        "config_id": "75d2e493-b286-44ae-807a-2a75b6a62f71",
-        "bot_id": "9b7c8317-1fe7-43b2-af79-6d420641c5d1",
-        "bot_type": "EnhancedArbitrage",
-        "environment": "Development",
-        "parameters": {
-          "exchanges": [
-            "binance",
-            "kraken"
-          ],
-          "execution_timeout_ms": 5000,
-          "max_position_size": 1000.0,
-          "min_profit_threshold": 0.01,
-          "pairs": [
-            "BTC/USDT",
-            "ETH/USDT"
-          ]
-        },
-        "resources": {
-          "max_cpu": 1.0,
-          "max_memory_mb": 256,
-          "max_disk_mb": 128,
-          "max_network_mbps": 10
-        },
-        "network": {
-          "solana_rpc_urls": [
-            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
-          ],
-          "websocket_urls": [],
-          "api_endpoints": {},
-          "timeouts": {
-            "rpc_timeout_seconds": 10,
-            "websocket_timeout_seconds": 10,
-            "api_timeout_seconds": 10
-          }
-        },
-        "security": {
-          "wallet": {
-            "wallet_type": "keypair",
-            "address": "",
-            "private_key_path": null,
-            "use_env_keys": true
-          },
-          "api_keys": {},
-          "encryption_enabled": true,
-          "auth_required": true
-        },
-        "metadata": {
-          "name": "Enhanced Arbitrage Bot Config 9b7c8317-1fe7-43b2-af79-6d420641c5d1",
-          "version": "1.0.0",
-          "created_at": "2025-08-06T05:34:46.707538200Z",
-          "updated_at": "2025-08-06T05:34:46.707540700Z",
-          "created_by": "CLI-unknown",
-          "tags": [
-            "cli-created",
-            "development"
-          ]
-        }
-      },
-      "is_default": false,
-      "created_at": "2025-08-06T06:10:20.944186900Z",
-      "last_started_at": "2025-08-06T06:10:20.944187Z",
-      "last_stopped_at": "2025-08-06T06:10:28.461564500Z",
-      "total_uptime_seconds": 7,
-      "restart_count": 0,
-      "last_known_metrics": {
-        "operational": {
-          "uptime_seconds": 0,
-          "restart_count": 0,
-          "last_restart": null,
-          "config_updates": 0,
-          "error_count": 0
-        },
-        "trading": {
-          "trades_executed": 0,
-          "successful_trades": 0,
-          "total_pnl_usd": 0.0,
-          "success_rate": 0.0,
-          "avg_profit_per_trade": 0.0,
-          "total_volume_usd": 0.0,
-          "sharpe_ratio": null
-        },
-        "performance": {
-          "cpu_usage_percent": 0.0,
-          "memory_usage_mb": 0,
-          "network_io": {
-            "bytes_sent": 0,
-            "bytes_received": 0,
-            "packets_sent": 0,
-            "packets_received": 0
-          },
-          "api_calls": {
-            "total_calls": 0,
-            "successful_calls": 0,
-            "failed_calls": 0,
-            "avg_response_time_ms": 0.0
-          },
-          "avg_response_time_ms": 0.0,
-          "throughput_per_second": 0.0
-        },
-        "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501488300Z"
-      }
-    },
-    "a7a807b7-7bc8-4759-b994-c8533eeec2fc": {
-      "bot_id": "a7a807b7-7bc8-4759-b994-c8533eeec2fc",
-      "bot_type": "EnhancedArbitrage",
-      "status": "Stopped",
-      "config": {
-        "config_id": "c606563d-9a5a-4d77-ad2b-d837ae231666",
-        "bot_id": "ee5d0eb6-7837-49bf-b145-78177567506d",
-        "bot_type": "EnhancedArbitrage",
-        "environment": "Development",
-        "parameters": {
-          "exchanges": [
-            "binance",
-            "kraken"
-          ],
-          "execution_timeout_ms": 5000,
-          "max_position_size": 1000.0,
-          "min_profit_threshold": 0.01,
-          "pairs": [
-            "BTC/USDT",
-            "ETH/USDT"
-          ]
-        },
-        "resources": {
-          "max_cpu": 1.0,
-          "max_memory_mb": 256,
-          "max_disk_mb": 128,
-          "max_network_mbps": 10
-        },
-        "network": {
-          "solana_rpc_urls": [
-            "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
-          ],
-          "websocket_urls": [],
-          "api_endpoints": {},
-          "timeouts": {
-            "rpc_timeout_seconds": 10,
-            "websocket_timeout_seconds": 10,
-            "api_timeout_seconds": 10
-          }
-        },
-        "security": {
-          "wallet": {
-            "wallet_type": "keypair",
-            "address": "",
-            "private_key_path": null,
-            "use_env_keys": true
-          },
-          "api_keys": {},
-          "encryption_enabled": true,
-          "auth_required": true
-        },
-        "metadata": {
-          "name": "Enhanced Arbitrage Bot Config ee5d0eb6-7837-49bf-b145-78177567506d",
-          "version": "1.0.0",
-          "created_at": "2025-08-05T22:41:17.877328Z",
-          "updated_at": "2025-08-05T22:41:17.877330Z",
-          "created_by": "CLI-unknown",
-          "tags": [
-            "cli-created",
-            "development"
-          ]
-        }
-      },
-      "is_default": false,
-      "created_at": "2025-08-06T06:10:20.946560900Z",
-      "last_started_at": "2025-08-06T06:10:20.946560900Z",
-      "last_stopped_at": "2025-08-06T06:10:28.464265300Z",
-      "total_uptime_seconds": 7,
-      "restart_count": 0,
-      "last_known_metrics": {
-        "operational": {
-          "uptime_seconds": 0,
-          "restart_count": 0,
-          "last_restart": null,
-          "config_updates": 0,
-          "error_count": 0
-        },
-        "trading": {
-          "trades_executed": 0,
-          "successful_trades": 0,
-          "total_pnl_usd": 0.0,
-          "success_rate": 0.0,
-          "avg_profit_per_trade": 0.0,
-          "total_volume_usd": 0.0,
-          "sharpe_ratio": null
-        },
-        "performance": {
-          "cpu_usage_percent": 0.0,
-          "memory_usage_mb": 0,
-          "network_io": {
-            "bytes_sent": 0,
-            "bytes_received": 0,
-            "packets_sent": 0,
-            "packets_received": 0
-          },
-          "api_calls": {
-            "total_calls": 0,
-            "successful_calls": 0,
-            "failed_calls": 0,
-            "avg_response_time_ms": 0.0
-          },
-          "avg_response_time_ms": 0.0,
-          "throughput_per_second": 0.0
-        },
-        "custom": null,
-        "timestamp": "2025-08-06T06:06:56.501523800Z"
+        "timestamp": "2025-08-06T05:28:34.910406900Z"
       }
     }
   },
@@ -771,15 +605,6 @@
       "total_trades": 0,
       "system_uptime_seconds": 426,
       "memory_usage_mb": 35.0
-    },
-    {
-      "timestamp": "2025-08-06T06:10:20.948723900Z",
-      "total_bots": 7,
-      "running_bots": 7,
-      "total_profit": 0.0,
-      "total_trades": 0,
-      "system_uptime_seconds": 204,
-      "memory_usage_mb": 67.5
     }
   ],
   "configuration_hashes": {}

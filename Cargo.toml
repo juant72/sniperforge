@@ -48,6 +48,9 @@ actix-web = "4.4"
 # Math and numbers
 rust_decimal = { version = "1.33", features = ["serde"] }
 
+# System utilities
+num_cpus = "1.16"
+
 # Time handling
 chrono = { version = "0.4", features = ["serde"] }
 

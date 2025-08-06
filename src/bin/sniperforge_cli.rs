@@ -103,6 +103,18 @@ async fn main() -> Result<()> {
         .subcommand(
             Command::new("force-save")
                 .about("Force save all current state to persistence")
+        )
+        .subcommand(
+            Command::new("start-all")
+                .about("Start all registered bots")
+        )
+        .subcommand(
+            Command::new("stop-all")
+                .about("Stop all running bots")
+        )
+        .subcommand(
+            Command::new("resource-status")
+                .about("Show system resource usage and limits")
         );
 
     let matches = app.get_matches();
@@ -124,6 +136,9 @@ async fn main() -> Result<()> {
             println!("  backup-system     Create a backup of current system state");
             println!("  metrics-history   Show historical system metrics");
             println!("  force-save        Force save all current state to persistence");
+            println!("  start-all         Start all registered bots");
+            println!("  stop-all          Stop all running bots");
+            println!("  resource-status   Show system resource usage and limits");
             println!("\nUse: {} <COMMAND> --help for more information", std::env::args().next().unwrap_or("sniperforge-cli".to_string()));
             return Ok(());
         }
@@ -349,6 +364,73 @@ async fn main() -> Result<()> {
                     println!("✅ Force save completed: {}", msg);
                     println!("   💾 All current system state has been saved to persistence");
                     println!("   🔄 System can now be safely restarted");
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("start-all", _)) => {
+            let response = client.send_command(TcpCommand::StartAllBots).await?;
+            match response {
+                TcpResponse::MassControlResult(result) => {
+                    println!("🚀 Mass Start Results:");
+                    println!("   ✅ Successfully started: {} bots", result.successful.len());
+                    for bot_id in &result.successful {
+                        println!("      - {}", bot_id);
+                    }
+                    
+                    if !result.failed.is_empty() {
+                        println!("   ❌ Failed to start: {} bots", result.failed.len());
+                        for (bot_id, error) in &result.failed {
+                            println!("      - {}: {}", bot_id, error);
+                        }
+                    }
+                    
+                    println!("   📊 Total attempted: {}", result.total_attempted);
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("stop-all", _)) => {
+            let response = client.send_command(TcpCommand::StopAllBots).await?;
+            match response {
+                TcpResponse::MassControlResult(result) => {
+                    println!("🛑 Mass Stop Results:");
+                    println!("   ✅ Successfully stopped: {} bots", result.successful.len());
+                    for bot_id in &result.successful {
+                        println!("      - {}", bot_id);
+                    }
+                    
+                    if !result.failed.is_empty() {
+                        println!("   ❌ Failed to stop: {} bots", result.failed.len());
+                        for (bot_id, error) in &result.failed {
+                            println!("      - {}: {}", bot_id, error);
+                        }
+                    }
+                    
+                    println!("   📊 Total attempted: {}", result.total_attempted);
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("resource-status", _)) => {
+            let response = client.send_command(TcpCommand::GetResourceStatus).await?;
+            match response {
+                TcpResponse::ResourceStatus(status) => {
+                    println!("🏢 System Resource Status:");
+                    println!("   📊 Total Bots: {}", status.total_bots);
+                    println!("   🔄 Running Bots: {}", status.running_bots);
+                    println!("   💾 Memory Usage: {:.1} MB", status.memory_usage_mb);
+                    println!("   🖥️  CPU Cores: {}", status.cpu_cores);
+                    println!("   📈 Estimated Max Bots: {}", status.estimated_max_bots);
+                    
+                    if let Some(warning) = &status.resource_warning {
+                        println!("   ⚠️  Resource Warning: {}", warning);
+                    } else {
+                        println!("   ✅ Resource usage within safe limits");
+                    }
                 }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
                 _ => println!("❌ Unexpected response: {:?}", response),

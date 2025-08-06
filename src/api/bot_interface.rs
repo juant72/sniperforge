@@ -607,3 +607,61 @@ impl Default for ApiCallMetrics {
         }
     }
 }
+
+impl BotConfig {
+    /// Create a default configuration for a specific bot ID
+    pub fn default_for_id(bot_id: Uuid) -> Self {
+        let now = Utc::now();
+        
+        Self {
+            config_id: Uuid::new_v4(),
+            bot_id,
+            bot_type: BotType::EnhancedArbitrage, // Default to enhanced arbitrage
+            environment: Environment::Development,
+            parameters: serde_json::json!({
+                "pairs": ["BTC/USDT", "ETH/USDT"],
+                "exchanges": ["binance", "kraken"],
+                "min_profit_threshold": 0.01,
+                "max_position_size": 1000.0,
+                "execution_timeout_ms": 5000
+            }),
+            resources: ResourceLimits {
+                max_cpu: 1.0,
+                max_memory_mb: 256,
+                max_disk_mb: 128,
+                max_network_mbps: Some(10),
+            },
+            network: NetworkConfig {
+                solana_rpc_urls: vec![
+                    "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c".to_string()
+                ],
+                websocket_urls: vec![],
+                api_endpoints: HashMap::new(),
+                timeouts: NetworkTimeouts {
+                    rpc_timeout_seconds: 10,
+                    websocket_timeout_seconds: 10,
+                    api_timeout_seconds: 10,
+                },
+            },
+            security: SecurityConfig {
+                wallet: WalletConfig {
+                    wallet_type: "keypair".to_string(),
+                    address: "".to_string(),
+                    private_key_path: None,
+                    use_env_keys: true,
+                },
+                api_keys: HashMap::new(),
+                encryption_enabled: true,
+                auth_required: false,
+            },
+            metadata: ConfigMetadata {
+                name: format!("Default Config for Bot {}", bot_id),
+                version: "1.0.0".to_string(),
+                created_at: now,
+                updated_at: now,
+                created_by: "System".to_string(),
+                tags: vec!["default".to_string(), "auto-generated".to_string()],
+            },
+        }
+    }
+}

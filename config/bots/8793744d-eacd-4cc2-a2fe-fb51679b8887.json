@@ -1,0 +1,59 @@
+{
+  "config_id": "bac1948e-4e96-4416-b113-6805a1b7d7c9",
+  "bot_id": "8793744d-eacd-4cc2-a2fe-fb51679b8887",
+  "bot_type": "EnhancedArbitrage",
+  "environment": "Development",
+  "parameters": {
+    "exchanges": [
+      "binance",
+      "kraken"
+    ],
+    "execution_timeout_ms": 5000,
+    "max_position_size": 1000.0,
+    "min_profit_threshold": 0.01,
+    "pairs": [
+      "BTC/USDT",
+      "ETH/USDT"
+    ]
+  },
+  "resources": {
+    "max_cpu": 1.0,
+    "max_memory_mb": 256,
+    "max_disk_mb": 128,
+    "max_network_mbps": 10
+  },
+  "network": {
+    "solana_rpc_urls": [
+      "https://mainnet.helius-rpc.com/?api-key=062bf3dd-23d4-4ffd-99fd-6e397ee59d6c"
+    ],
+    "websocket_urls": [],
+    "api_endpoints": {},
+    "timeouts": {
+      "rpc_timeout_seconds": 10,
+      "websocket_timeout_seconds": 10,
+      "api_timeout_seconds": 10
+    }
+  },
+  "security": {
+    "wallet": {
+      "wallet_type": "keypair",
+      "address": "",
+      "private_key_path": null,
+      "use_env_keys": true
+    },
+    "api_keys": {},
+    "encryption_enabled": true,
+    "auth_required": false
+  },
+  "metadata": {
+    "name": "Default Config for Bot 8793744d-eacd-4cc2-a2fe-fb51679b8887",
+    "version": "1.0.0",
+    "created_at": "2025-08-06T06:08:21.350366300Z",
+    "updated_at": "2025-08-06T06:08:21.350366300Z",
+    "created_by": "System",
+    "tags": [
+      "default",
+      "auto-generated"
+    ]
+  }
+}

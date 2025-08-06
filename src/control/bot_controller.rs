@@ -21,6 +21,55 @@ pub struct BotInstance {
     pub config: Option<BotConfig>,
 }
 
+impl BotInstance {
+    /// Create a new bot instance with the specified configuration
+    pub fn new(
+        id: Uuid,
+        bot_type: BotType,
+        config: BotConfig,
+        _strategy: Option<()>, // Placeholder for future strategy parameter
+    ) -> Self {
+        // Create the appropriate bot implementation based on type
+        let bot: Box<dyn BotInterface + Send + Sync> = match bot_type {
+            BotType::EnhancedArbitrage => {
+                Box::new(MockArbitrageBot::new("Enhanced Arbitrage Bot".to_string()))
+            }
+            BotType::TriangularArbitrage => {
+                Box::new(MockArbitrageBot::new("Triangular Arbitrage Bot".to_string()))
+            }
+            BotType::FlashLoanArbitrage => {
+                Box::new(MockArbitrageBot::new("Flash Loan Arbitrage Bot".to_string()))
+            }
+            BotType::CrossChainArbitrage => {
+                Box::new(MockArbitrageBot::new("Cross-Chain Arbitrage Bot".to_string()))
+            }
+            BotType::MLAnalytics => {
+                Box::new(MockArbitrageBot::new("ML Analytics Bot".to_string()))
+            }
+            BotType::PortfolioManager => {
+                Box::new(MockArbitrageBot::new("Portfolio Manager Bot".to_string()))
+            }
+            BotType::RealTimeDashboard => {
+                Box::new(MockArbitrageBot::new("Real-Time Dashboard Bot".to_string()))
+            }
+            BotType::PerformanceProfiler => {
+                Box::new(MockArbitrageBot::new("Performance Profiler Bot".to_string()))
+            }
+            BotType::PatternAnalyzer => {
+                Box::new(MockArbitrageBot::new("Pattern Analyzer Bot".to_string()))
+            }
+        };
+
+        Self {
+            id,
+            bot,
+            status: BotStatus::Stopped, // Always start stopped, will be updated based on desired state
+            metrics: BotMetrics::default(),
+            config: Some(config),
+        }
+    }
+}
+
 impl std::fmt::Debug for BotInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BotInstance")
@@ -487,11 +536,73 @@ impl BotController {
         // Restore default arbitrage bot reference
         self.default_arbitrage_bot = system_state.default_arbitrage_bot;
         
-        // Note: We don't restore the actual bot instances here
-        // They will be recreated when needed, but we have their state information
+        // 🚀 CRITICAL FIX: Actually restore the bots to the registry
+        let mut restored_count = 0;
+        {
+            let mut bots = self.bots.write().await;
+            
+            for (uuid, persisted_bot) in system_state.bots.clone() {
+                // Create config - use persisted config or create default
+                let config = persisted_bot.config.unwrap_or_else(|| {
+                    BotConfig::default_for_id(uuid)
+                });
+                
+                // Create new bot instance with persisted configuration
+                let bot = BotInstance::new(
+                    uuid,
+                    persisted_bot.bot_type.clone(),
+                    config,
+                    None, // We'll let it create default strategy
+                );
+                
+                // Add to registry
+                bots.insert(uuid, bot);
+                
+                restored_count += 1;
+                info!("✅ Restored bot: {} ({:?})", uuid, persisted_bot.bot_type);
+                
+                // 🎯 ESTADO DESEADO: If bot was running, we'll start it after restoration
+                if persisted_bot.status == BotStatus::Running {
+                    info!("🔄 Bot {} was running - will restart after registry restoration", uuid);
+                }
+            }
+        } // Release write lock
         
-        info!("✅ Bot state restoration completed");
-        info!("🔄 Bots that were running before restart need to be restarted manually");
+        // 🎯 ESTADO DESEADO: Now restart bots that were running
+        let running_bots: Vec<(Uuid, BotConfig)> = {
+            let state = self.persistence_manager.get_current_state().await;
+            state.bots.into_iter()
+                .filter(|(_, bot)| bot.status == BotStatus::Running)
+                .filter_map(|(uuid, bot)| {
+                    if let Some(config) = bot.config {
+                        Some((uuid, config))
+                    } else {
+                        Some((uuid, BotConfig::default_for_id(uuid)))
+                    }
+                })
+                .collect()
+        };
+        
+        // Restart bots that were running
+        let mut restarted_count = 0;
+        for (bot_id, config) in running_bots {
+            match self.start_bot(bot_id, config).await {
+                Ok(_) => {
+                    info!("🚀 Restarted bot: {} (was running before restart)", bot_id);
+                    restarted_count += 1;
+                }
+                Err(e) => {
+                    warn!("❌ Failed to restart bot {}: {}", bot_id, e);
+                }
+            }
+        }
+        
+        info!("✅ Bot state restoration completed: {} bots restored", restored_count);
+        if restarted_count > 0 {
+            info!("� Auto-restarted {} bots that were running before restart", restarted_count);
+        } else {
+            info!("💡 All bots restored in stopped state - use CLI to start as needed");
+        }
         info!("📊 Total system restarts: {}", system_state.server_start_count);
         
         Ok(())
@@ -607,6 +718,180 @@ impl BotController {
         info!("💾 All system state saved to persistence");
         Ok(())
     }
+
+    /// 🚀 CONTROL MASIVO: Start all registered bots
+    pub async fn start_all_bots(&self) -> Result<MassControlResult> {
+        info!("🚀 Starting all registered bots...");
+        
+        let bot_list: Vec<(Uuid, BotConfig)> = {
+            let bots = self.bots.read().await;
+            bots.iter()
+                .filter_map(|(id, instance)| {
+                    if matches!(instance.status, BotStatus::Stopped) {
+                        if let Some(config) = &instance.config {
+                            Some((*id, config.clone()))
+                        } else {
+                            // Create default config for bots without config
+                            let default_config = self.create_default_config_for_bot(*id);
+                            Some((*id, default_config))
+                        }
+                    } else {
+                        None // Skip already running bots
+                    }
+                })
+                .collect()
+        };
+        
+        let mut successful = Vec::new();
+        let mut failed = Vec::new();
+        
+        for (bot_id, config) in bot_list {
+            match self.start_bot(bot_id, config).await {
+                Ok(_) => {
+                    successful.push(bot_id);
+                    info!("✅ Started bot: {}", bot_id);
+                }
+                Err(e) => {
+                    failed.push((bot_id, e.to_string()));
+                    warn!("❌ Failed to start bot {}: {}", bot_id, e);
+                }
+            }
+        }
+        
+        info!("🚀 Mass start completed: {} successful, {} failed", successful.len(), failed.len());
+        
+        let total_attempted = successful.len() + failed.len();
+        Ok(MassControlResult {
+            successful,
+            failed,
+            total_attempted,
+        })
+    }
+
+    /// 🛑 CONTROL MASIVO: Stop all running bots
+    pub async fn stop_all_bots(&self) -> Result<MassControlResult> {
+        info!("🛑 Stopping all running bots...");
+        
+        let running_bot_ids: Vec<Uuid> = {
+            let bots = self.bots.read().await;
+            bots.iter()
+                .filter_map(|(id, instance)| {
+                    if matches!(instance.status, BotStatus::Running) {
+                        Some(*id)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+        
+        let mut successful = Vec::new();
+        let mut failed = Vec::new();
+        
+        for bot_id in running_bot_ids {
+            match self.stop_bot(bot_id).await {
+                Ok(_) => {
+                    successful.push(bot_id);
+                    info!("✅ Stopped bot: {}", bot_id);
+                }
+                Err(e) => {
+                    failed.push((bot_id, e.to_string()));
+                    warn!("❌ Failed to stop bot {}: {}", bot_id, e);
+                }
+            }
+        }
+        
+        info!("🛑 Mass stop completed: {} successful, {} failed", successful.len(), failed.len());
+        
+        let total_attempted = successful.len() + failed.len();
+        Ok(MassControlResult {
+            successful,
+            failed,
+            total_attempted,
+        })
+    }
+
+    /// 📊 ENTERPRISE: Get system resource usage and limits
+    pub async fn get_system_resource_status(&self) -> Result<SystemResourceStatus> {
+        let bots = self.bots.read().await;
+        let total_bots = bots.len();
+        let running_bots = bots.iter()
+            .filter(|(_, bot)| matches!(bot.status, BotStatus::Running))
+            .count();
+        
+        // Calculate resource usage
+        let memory_usage = self.get_memory_usage().await?;
+        let estimated_max_bots = self.calculate_max_bots_for_system(memory_usage).await;
+        
+        // Check if we're approaching limits
+        let resource_warning = if running_bots > estimated_max_bots / 2 {
+            Some(format!("Running {} bots, recommended max: {} for optimal performance", 
+                        running_bots, estimated_max_bots))
+        } else {
+            None
+        };
+        
+        Ok(SystemResourceStatus {
+            total_bots,
+            running_bots,
+            memory_usage_mb: memory_usage,
+            estimated_max_bots,
+            resource_warning,
+            cpu_cores: num_cpus::get(),
+        })
+    }
+
+    /// Create default configuration for a bot without saved config
+    fn create_default_config_for_bot(&self, bot_id: Uuid) -> BotConfig {
+        // This should match the default config creation in your config system
+        BotConfig::default_for_id(bot_id)
+    }
+
+    /// Calculate maximum recommended bots for current system
+    async fn calculate_max_bots_for_system(&self, _current_memory_mb: f64) -> usize {
+        let system_total_memory = self.get_total_system_memory().await.unwrap_or(8192.0); // 8GB default
+        let memory_per_bot = 25.0; // Estimated MB per bot
+        let system_overhead = 512.0; // Reserve for OS and other processes
+        
+        let available_memory = system_total_memory - system_overhead;
+        let max_bots = (available_memory / memory_per_bot) as usize;
+        
+        // Conservative limit
+        std::cmp::max(1, max_bots.saturating_sub(2))
+    }
+
+    /// Get total system memory
+    async fn get_total_system_memory(&self) -> Result<f64> {
+        // This is a placeholder - in production you'd use system APIs
+        #[cfg(target_os = "windows")]
+        {
+            // Real implementation would use Windows APIs
+            Ok(16384.0) // 16GB default estimate
+        }
+        
+        #[cfg(not(target_os = "windows"))]
+        {
+            // Real implementation would read /proc/meminfo
+            Ok(16384.0) // 16GB default estimate
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct MassControlResult {
+    pub successful: Vec<Uuid>,
+    pub failed: Vec<(Uuid, String)>,
+    pub total_attempted: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SystemResourceStatus {
+    pub total_bots: usize,
+    pub running_bots: usize,
+    pub memory_usage_mb: f64,
+    pub estimated_max_bots: usize,
+    pub resource_warning: Option<String>,
+    pub cpu_cores: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

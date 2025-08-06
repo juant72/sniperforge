@@ -7,7 +7,7 @@ use uuid::Uuid;
 use tracing::{info, error};
 
 use crate::api::{BotType, BotStatus, BotMetrics, BotConfig, PersistedSystemMetrics};
-use crate::control::{BotController, BotSummary, SystemMetrics, SystemStateSummary};
+use crate::control::{BotController, BotSummary, SystemMetrics, SystemStateSummary, MassControlResult, SystemResourceStatus};
 
 pub struct TcpControlServer {
     bot_controller: Arc<BotController>,
@@ -28,6 +28,9 @@ pub enum TcpCommand {
     GetMetricsHistory { hours: u32 },
     CreateBackup,
     ForceSave,
+    StartAllBots,
+    StopAllBots,
+    GetResourceStatus,
     Ping,
     Shutdown,
 }
@@ -44,6 +47,8 @@ pub enum TcpResponse {
     SystemState(SystemStateSummary),
     MetricsHistory(Vec<PersistedSystemMetrics>),
     BackupCreated(String),
+    MassControlResult(MassControlResult),
+    ResourceStatus(SystemResourceStatus),
     Pong,
     Success(String),
     Error(String),
@@ -274,6 +279,27 @@ impl TcpControlServer {
             TcpCommand::ForceSave => {
                 match controller.force_save_all_state().await {
                     Ok(()) => TcpResponse::Success("All state saved to persistence".to_string()),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::StartAllBots => {
+                match controller.start_all_bots().await {
+                    Ok(result) => TcpResponse::MassControlResult(result),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::StopAllBots => {
+                match controller.stop_all_bots().await {
+                    Ok(result) => TcpResponse::MassControlResult(result),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::GetResourceStatus => {
+                match controller.get_system_resource_status().await {
+                    Ok(status) => TcpResponse::ResourceStatus(status),
                     Err(e) => TcpResponse::Error(e.to_string()),
                 }
             }
