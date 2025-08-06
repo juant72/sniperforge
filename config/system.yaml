@@ -1,0 +1,175 @@
+# 🚀 SniperForge Enterprise Configuration
+# Version: 5.8.1
+# Environment: development
+
+# 📡 Server Configuration
+server:
+  tcp:
+    enabled: true
+    port: 8888
+    bind_address: "127.0.0.1"
+    max_connections: 100
+  
+  http:
+    enabled: true  
+    port: 8080
+    bind_address: "127.0.0.1"
+    cors_enabled: true
+    cors_origins: ["http://localhost:3000"]
+
+# 📊 Persistence Configuration
+persistence:
+  enabled: true
+  directory: "state"
+  auto_save: true
+  backup_retention_days: 30
+  snapshot_interval_hours: 1
+
+# 📈 Metrics Configuration  
+metrics:
+  collection_interval_seconds: 60
+  retention_hours: 168  # 1 week
+  max_points_per_metric: 10000
+  enable_trading_metrics: true
+  enable_performance_metrics: true
+
+# 📝 Logging Configuration
+logging:
+  level: "info"
+  file_enabled: true
+  file_path: "logs/sniperforge.log"
+  console_enabled: true
+  max_file_size_mb: 100
+  max_files: 10
+
+# 🔒 Security Configuration
+security:
+  api_key_required: false
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+  
+  encryption:
+    enabled: true
+    key_rotation_days: 30
+
+# 🌐 Network Configuration
+network:
+  solana:
+    mainnet_rpc: "https://api.mainnet-beta.solana.com"
+    devnet_rpc: "https://api.devnet.solana.com"
+    testnet_rpc: "https://api.testnet.solana.com"
+    ws_endpoint: "wss://api.mainnet-beta.solana.com"
+  
+  timeouts:
+    rpc_timeout_seconds: 30
+    websocket_timeout_seconds: 10
+    api_timeout_seconds: 15
+
+# 🤖 Default Bot Configurations
+bots:
+  default_resources:
+    max_cpu: 1.0
+    max_memory_mb: 512
+    max_disk_mb: 1024
+    max_network_mbps: 100
+  
+  arbitrage:
+    enabled: true
+    min_profit_threshold: 0.01
+    max_position_size: 1000.0
+    execution_timeout_ms: 5000
+    exchanges: ["binance", "kraken", "coinbase"]
+    pairs: ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+  
+  flash_loan:
+    enabled: false
+    min_profit_threshold: 0.005
+    max_loan_amount: 10000.0
+    supported_protocols: ["aave", "compound"]
+  
+  cross_chain:
+    enabled: false
+    supported_chains: ["ethereum", "solana", "polygon"]
+    bridge_protocols: ["wormhole", "allbridge"]
+
+# 💰 Trading Configuration
+trading:
+  default_slippage: 0.01
+  max_slippage: 0.05
+  gas_price_multiplier: 1.1
+  priority_fee_lamports: 1000
+  
+  risk_management:
+    max_daily_loss: 1000.0
+    max_position_size_percentage: 10.0
+    stop_loss_percentage: 5.0
+
+# 🧪 Environment-Specific Overrides
+environments:
+  development:
+    logging:
+      level: "debug"
+    
+    server:
+      tcp:
+        port: 8888
+      http:
+        port: 8080
+    
+    network:
+      solana:
+        mainnet_rpc: "https://api.devnet.solana.com"  # Use devnet for development
+    
+    trading:
+      risk_management:
+        max_daily_loss: 100.0  # Lower limits for development
+  
+  production:
+    logging:
+      level: "info"
+      file_enabled: true
+    
+    server:
+      tcp:
+        port: 9999
+      http:
+        port: 9998
+    
+    security:
+      api_key_required: true
+      rate_limiting:
+        requests_per_minute: 50  # Stricter limits for production
+    
+    trading:
+      risk_management:
+        max_daily_loss: 5000.0
+        stop_loss_percentage: 3.0  # Tighter stops in production
+  
+  testing:
+    logging:
+      level: "warn"
+    
+    persistence:
+      enabled: false  # Don't persist during tests
+    
+    trading:
+      risk_management:
+        max_daily_loss: 10.0  # Very low limits for testing
+
+# 🔧 Advanced Features
+features:
+  experimental:
+    ml_analytics: false
+    pattern_recognition: false
+    sentiment_analysis: false
+  
+  monitoring:
+    health_checks: true
+    performance_profiling: true
+    resource_monitoring: true
+  
+  ui:
+    web_dashboard: true
+    cli_colors: true
+    progress_bars: true

@@ -82,6 +82,27 @@ async fn main() -> Result<()> {
                     .value_name("UUID")
                     .help("Bot ID")
                     .required(true))
+        )
+        .subcommand(
+            Command::new("system-state")
+                .about("Show system state and persistence information")
+        )
+        .subcommand(
+            Command::new("backup-system")
+                .about("Create a backup of current system state")
+        )
+        .subcommand(
+            Command::new("metrics-history")
+                .about("Show historical system metrics")
+                .arg(Arg::new("hours")
+                    .long("hours")
+                    .value_name("HOURS")
+                    .help("Number of hours of history to show")
+                    .default_value("24"))
+        )
+        .subcommand(
+            Command::new("force-save")
+                .about("Force save all current state to persistence")
         );
 
     let matches = app.get_matches();
@@ -99,6 +120,10 @@ async fn main() -> Result<()> {
             println!("  system-metrics    Get system-wide metrics");
             println!("  start-bot         Start a specific bot");
             println!("  stop-bot          Stop a specific bot");
+            println!("  system-state      Show system state and persistence information");
+            println!("  backup-system     Create a backup of current system state");
+            println!("  metrics-history   Show historical system metrics");
+            println!("  force-save        Force save all current state to persistence");
             println!("\nUse: {} <COMMAND> --help for more information", std::env::args().next().unwrap_or("sniperforge-cli".to_string()));
             return Ok(());
         }
@@ -122,10 +147,21 @@ async fn main() -> Result<()> {
                 TcpResponse::BotList(bots) => {
                     println!("📋 Registered Bots ({}):", bots.len());
                     for bot in bots {
+                        let bot_type_display = match bot.bot_type {
+                            BotType::EnhancedArbitrage => "🎯 Enhanced Arbitrage",
+                            BotType::TriangularArbitrage => "🔺 Triangular Arbitrage", 
+                            BotType::FlashLoanArbitrage => "⚡ Flash Loan Arbitrage",
+                            BotType::CrossChainArbitrage => "🌉 Cross-Chain Arbitrage",
+                            BotType::MLAnalytics => "🧠 ML Analytics",
+                            BotType::PortfolioManager => "📊 Portfolio Manager",
+                            BotType::RealTimeDashboard => "📈 Real-Time Dashboard",
+                            BotType::PerformanceProfiler => "⚙️ Performance Profiler",
+                            BotType::PatternAnalyzer => "🔍 Pattern Analyzer",
+                        };
+                        
                         println!("  🤖 {} ({:?})", bot.id, bot.status);
-                        if bot.is_default {
-                            println!("    🌟 Default arbitrage bot");
-                        }
+                        println!("     {} {}", bot_type_display, 
+                                if bot.is_default { "🌟 (Default)" } else { "" });
                     }
                 }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
@@ -229,6 +265,90 @@ async fn main() -> Result<()> {
             match response {
                 TcpResponse::BotStopped { bot_id: stopped_id } => {
                     println!("✅ Bot stopped successfully: {}", stopped_id);
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("system-state", _)) => {
+            let response = client.send_command(TcpCommand::GetSystemState).await?;
+            match response {
+                TcpResponse::SystemState(state) => {
+                    println!("🏢 System State Summary:");
+                    println!("   📊 Total Registered Bots: {}", state.total_registered_bots);
+                    println!("   🔄 Server Restart Count: {}", state.server_restart_count);
+                    println!("   ⏱️  System Start Time: {}", state.system_start_time.format("%Y-%m-%d %H:%M:%S UTC"));
+                    println!("   🎯 Has Default Arbitrage Bot: {}", if state.has_default_arbitrage_bot { "Yes" } else { "No" });
+                    
+                    if !state.persisted_bots.is_empty() {
+                        println!("   💾 Persisted Bots ({}):", state.persisted_bots.len());
+                        for bot_id in state.persisted_bots {
+                            println!("      - {}", bot_id);
+                        }
+                    } else {
+                        println!("   💾 No persisted bots found");
+                    }
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("backup-system", _)) => {
+            let response = client.send_command(TcpCommand::CreateBackup).await?;
+            match response {
+                TcpResponse::BackupCreated(backup_path) => {
+                    println!("✅ System backup created successfully:");
+                    println!("   📁 Backup location: {}", backup_path);
+                    println!("   💡 Use this backup to restore system state if needed");
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("metrics-history", sub_matches)) => {
+            let hours: u32 = sub_matches.get_one::<String>("hours").unwrap().parse()?;
+            
+            let response = client.send_command(TcpCommand::GetMetricsHistory { hours }).await?;
+            match response {
+                TcpResponse::MetricsHistory(history) => {
+                    println!("📈 System Metrics History (Last {} hours):", hours);
+                    println!("   📊 Total Data Points: {}", history.len());
+                    
+                    if history.is_empty() {
+                        println!("   📭 No historical data available");
+                    } else {
+                        println!("   ┌─────────────────────┬──────┬─────────┬──────────┬─────────┐");
+                        println!("   │ Timestamp           │ Bots │ Running │ Profit   │ Trades  │");
+                        println!("   ├─────────────────────┼──────┼─────────┼──────────┼─────────┤");
+                        
+                        for metric in history.iter().take(10) { // Show last 10 entries
+                            println!("   │ {} │ {:4} │ {:7} │ ${:7.2} │ {:7} │",
+                                metric.timestamp.format("%Y-%m-%d %H:%M:%S"),
+                                metric.total_bots,
+                                metric.running_bots,
+                                metric.total_profit,
+                                metric.total_trades
+                            );
+                        }
+                        
+                        println!("   └─────────────────────┴──────┴─────────┴──────────┴─────────┘");
+                        
+                        if history.len() > 10 {
+                            println!("   ... and {} more entries", history.len() - 10);
+                        }
+                    }
+                }
+                TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
+                _ => println!("❌ Unexpected response: {:?}", response),
+            }
+        }
+        Some(("force-save", _)) => {
+            let response = client.send_command(TcpCommand::ForceSave).await?;
+            match response {
+                TcpResponse::Success(msg) => {
+                    println!("✅ Force save completed: {}", msg);
+                    println!("   💾 All current system state has been saved to persistence");
+                    println!("   🔄 System can now be safely restarted");
                 }
                 TcpResponse::Error(msg) => println!("❌ Error: {}", msg),
                 _ => println!("❌ Unexpected response: {:?}", response),

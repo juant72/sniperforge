@@ -3,12 +3,13 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use std::sync::Arc;
 use anyhow::Result;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 use serde::{Serialize, Deserialize};
 
 use crate::api::bot_interface::{BotInterface, BotType, BotStatus, BotMetrics, BotConfig};
 use crate::api::metrics_collector::{MetricsCollector, MetricsConfig};
 use crate::api::config_management::ConfigManager;
+use crate::api::state_persistence::{StatePersistenceManager, PersistedBotState, PersistedSystemMetrics};
 use crate::bots::mock_arbitrage_bot::MockArbitrageBot;
 
 /// ✅ ENRIQUECIMIENTO: Wrapper for bot instances with enhanced metadata
@@ -43,6 +44,9 @@ pub struct BotController {
     /// Configuration manager
     config_manager: ConfigManager,
     
+    /// State persistence manager
+    persistence_manager: StatePersistenceManager,
+    
     /// Metrics collector
     metrics_collector: MetricsCollector,
     
@@ -53,6 +57,8 @@ pub struct BotController {
 impl BotController {
     pub async fn new() -> Result<Self> {
         let config_path = "config"; // Directorio, no archivo
+        let persistence_path = "state"; // Directorio para persistencia
+        
         let metrics_config = MetricsConfig {
             collection_interval_seconds: 60,
             retention_hours: 24,
@@ -63,13 +69,25 @@ impl BotController {
             custom_metrics_enabled: false,
         };
 
-        Ok(Self {
+        // Initialize persistence manager
+        let persistence_manager = StatePersistenceManager::new(persistence_path);
+        persistence_manager.initialize().await.map_err(|e| {
+            anyhow::anyhow!("Failed to initialize persistence: {}", e)
+        })?;
+
+        let mut controller = Self {
             bots: Arc::new(RwLock::new(HashMap::new())),
             default_arbitrage_bot: None,
             config_manager: ConfigManager::new(config_path),
+            persistence_manager,
             metrics_collector: MetricsCollector::new(metrics_config),
             start_time: std::time::Instant::now(),
-        })
+        };
+
+        // 🔄 RECOVERY: Restore bot states from persistence
+        controller.restore_bot_states_from_persistence().await?;
+        
+        Ok(controller)
     }
     
     /// Register the default arbitrage bot that's already running
@@ -129,6 +147,12 @@ impl BotController {
                 let mut bots = self.bots.write().await;
                 bots.insert(bot_id, bot_instance);
                 
+                // 💾 PERSISTENCE: Persist new bot state
+                drop(bots); // Release lock before async call
+                if let Err(e) = self.persist_bot_state(bot_id).await {
+                    warn!("Failed to persist new bot state: {}", e);
+                }
+                
                 // ✅ ENRIQUECIMIENTO: Usar MetricsCollector para registrar evento
                 if let Err(e) = self.metrics_collector.record_bot_creation(bot_id, &bot_type).await {
                     tracing::warn!("⚠️ Failed to record bot creation metrics: {}", e);
@@ -145,11 +169,17 @@ impl BotController {
                     bot,
                     status: BotStatus::Stopped,
                     metrics: BotMetrics::default(),
-                    config: Some(config),
+                    config: Some(config.clone()),
                 };
                 
                 let mut bots = self.bots.write().await;
                 bots.insert(bot_id, bot_instance);
+                
+                // 💾 PERSISTENCE: Persist new bot state
+                drop(bots); // Release lock before async call
+                if let Err(e) = self.persist_bot_state(bot_id).await {
+                    warn!("Failed to persist new bot state: {}", e);
+                }
             }
         }
         
@@ -187,6 +217,12 @@ impl BotController {
             bot_instance.status = BotStatus::Running;
             bot_instance.config = Some(config.clone());
             
+            // 💾 PERSISTENCE: Persist bot status change
+            drop(bots); // Release lock before async call
+            if let Err(e) = self.persist_bot_status_change(bot_id, BotStatus::Running).await {
+                warn!("Failed to persist bot start status: {}", e);
+            }
+            
             // ✅ ENRIQUECIMIENTO: Registrar evento de inicio con MetricsCollector
             if let Err(e) = self.metrics_collector.record_bot_start(bot_id).await {
                 tracing::warn!("⚠️ Failed to record bot start metrics: {}", e);
@@ -216,6 +252,12 @@ impl BotController {
             
             // ✅ ARREGLO: Actualizar el estado almacenado
             bot_instance.status = BotStatus::Stopped;
+            
+            // 💾 PERSISTENCE: Persist bot status change
+            drop(bots); // Release lock before async call
+            if let Err(e) = self.persist_bot_status_change(bot_id, BotStatus::Stopped).await {
+                warn!("Failed to persist bot stop status: {}", e);
+            }
             
             // ✅ ENRIQUECIMIENTO: Registrar evento de parada con MetricsCollector
             if let Err(e) = self.metrics_collector.record_bot_stop(bot_id).await {
@@ -259,10 +301,16 @@ impl BotController {
         let mut summaries = Vec::new();
         
         for (id, bot_instance) in bots.iter() {
+            // ✅ CORRECCIÓN: Usar el bot_type de la configuración si está disponible
+            let bot_type = if let Some(config) = &bot_instance.config {
+                config.bot_type.clone()
+            } else {
+                bot_instance.bot.bot_type() // Fallback al método del bot
+            };
+            
             // ✅ ARREGLO: Usar el estado almacenado que se mantiene actualizado
             let status = bot_instance.status.clone();
             let metrics = bot_instance.bot.metrics().await;
-            let bot_type = bot_instance.bot.bot_type();
             
             summaries.push(BotSummary {
                 id: *id,
@@ -422,6 +470,152 @@ impl BotController {
         info!("🔄 Hot-reload completed: {} bot configs updated", reloaded_count);
         Ok(())
     }
+
+    /// 💾 PERSISTENCE: Restore bot states from persistence after system restart
+    pub async fn restore_bot_states_from_persistence(&mut self) -> Result<()> {
+        info!("🔄 Restoring bot states from persistence...");
+        
+        let system_state = self.persistence_manager.get_current_state().await;
+        
+        if system_state.bots.is_empty() {
+            info!("📭 No persisted bot states found - fresh start");
+            return Ok(());
+        }
+        
+        info!("📂 Found {} persisted bot states", system_state.bots.len());
+        
+        // Restore default arbitrage bot reference
+        self.default_arbitrage_bot = system_state.default_arbitrage_bot;
+        
+        // Note: We don't restore the actual bot instances here
+        // They will be recreated when needed, but we have their state information
+        
+        info!("✅ Bot state restoration completed");
+        info!("🔄 Bots that were running before restart need to be restarted manually");
+        info!("📊 Total system restarts: {}", system_state.server_start_count);
+        
+        Ok(())
+    }
+
+    /// 💾 PERSISTENCE: Save bot state to persistence
+    async fn persist_bot_state(&self, bot_id: Uuid) -> Result<()> {
+        let bots = self.bots.read().await;
+        
+        if let Some(bot_instance) = bots.get(&bot_id) {
+            let is_default = self.default_arbitrage_bot == Some(bot_id);
+            
+            // Determine bot type from config or fallback to Enhanced Arbitrage
+            let bot_type = if let Some(config) = &bot_instance.config {
+                config.bot_type.clone()
+            } else {
+                BotType::EnhancedArbitrage // Fallback for legacy bots
+            };
+            
+            let persisted_state = PersistedBotState::from_runtime(
+                bot_id,
+                bot_type,
+                bot_instance.status.clone(),
+                bot_instance.config.clone(),
+                is_default,
+                Some(bot_instance.metrics.clone()),
+            );
+            
+            self.persistence_manager.save_bot_state(persisted_state).await
+                .map_err(|e| anyhow::anyhow!("Failed to persist bot state: {}", e))?;
+        }
+        
+        Ok(())
+    }
+
+    /// 💾 PERSISTENCE: Update bot status in persistence
+    async fn persist_bot_status_change(&self, bot_id: Uuid, new_status: BotStatus) -> Result<()> {
+        self.persistence_manager.update_bot_status(bot_id, new_status).await
+            .map_err(|e| anyhow::anyhow!("Failed to persist bot status: {}", e))?;
+        
+        Ok(())
+    }
+
+    /// 💾 PERSISTENCE: Save system metrics to persistence
+    async fn persist_system_metrics(&self) -> Result<()> {
+        let system_metrics = self.get_system_metrics().await?;
+        
+        let persisted_metrics = PersistedSystemMetrics {
+            timestamp: chrono::Utc::now(),
+            total_bots: system_metrics.total_bots,
+            running_bots: system_metrics.running_bots,
+            total_profit: system_metrics.total_profit,
+            total_trades: system_metrics.total_trades,
+            system_uptime_seconds: system_metrics.uptime_seconds,
+            memory_usage_mb: system_metrics.memory_usage_mb,
+        };
+        
+        self.persistence_manager.save_system_metrics(persisted_metrics).await
+            .map_err(|e| anyhow::anyhow!("Failed to persist system metrics: {}", e))?;
+        
+        Ok(())
+    }
+
+    /// 💾 PERSISTENCE: Get historical metrics from persistence
+    pub async fn get_historical_metrics(&self, hours: u32) -> Result<Vec<PersistedSystemMetrics>> {
+        Ok(self.persistence_manager.get_metrics_history(hours).await)
+    }
+
+    /// 💾 PERSISTENCE: Create backup of current system state
+    pub async fn create_system_backup(&self) -> Result<String> {
+        let backup_path = self.persistence_manager.create_backup().await
+            .map_err(|e| anyhow::anyhow!("Failed to create backup: {}", e))?;
+        
+        Ok(backup_path.to_string_lossy().to_string())
+    }
+
+    /// 💾 PERSISTENCE: Get current system state for CLI display
+    pub async fn get_system_state_summary(&self) -> Result<SystemStateSummary> {
+        let state = self.persistence_manager.get_current_state().await;
+        
+        Ok(SystemStateSummary {
+            total_registered_bots: state.bots.len(),
+            server_restart_count: state.server_start_count,
+            system_start_time: state.snapshot_timestamp,
+            has_default_arbitrage_bot: state.default_arbitrage_bot.is_some(),
+            persisted_bots: state.bots.keys().cloned().collect(),
+        })
+    }
+
+    /// 💾 PERSISTENCE: Force save all current state
+    pub async fn force_save_all_state(&self) -> Result<()> {
+        // Save all current bot states
+        let bot_ids: Vec<Uuid> = {
+            let bots = self.bots.read().await;
+            bots.keys().cloned().collect()
+        };
+        
+        for bot_id in bot_ids {
+            if let Err(e) = self.persist_bot_state(bot_id).await {
+                warn!("Failed to persist bot {}: {}", bot_id, e);
+            }
+        }
+        
+        // Save system metrics
+        if let Err(e) = self.persist_system_metrics().await {
+            warn!("Failed to persist system metrics: {}", e);
+        }
+        
+        // Force write to disk
+        self.persistence_manager.force_save().await
+            .map_err(|e| anyhow::anyhow!("Failed to force save: {}", e))?;
+        
+        info!("💾 All system state saved to persistence");
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SystemStateSummary {
+    pub total_registered_bots: usize,
+    pub server_restart_count: u64,
+    pub system_start_time: chrono::DateTime<chrono::Utc>,
+    pub has_default_arbitrage_bot: bool,
+    pub persisted_bots: Vec<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

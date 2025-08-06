@@ -6,8 +6,8 @@ use anyhow::Result;
 use uuid::Uuid;
 use tracing::{info, error};
 
-use crate::api::{BotType, BotStatus, BotMetrics, BotConfig};
-use crate::control::{BotController, BotSummary, SystemMetrics};
+use crate::api::{BotType, BotStatus, BotMetrics, BotConfig, PersistedSystemMetrics};
+use crate::control::{BotController, BotSummary, SystemMetrics, SystemStateSummary};
 
 pub struct TcpControlServer {
     bot_controller: Arc<BotController>,
@@ -24,6 +24,10 @@ pub enum TcpCommand {
     GetBotStatus { bot_id: Uuid },
     GetBotMetrics { bot_id: Uuid },
     GetSystemMetrics,
+    GetSystemState,
+    GetMetricsHistory { hours: u32 },
+    CreateBackup,
+    ForceSave,
     Ping,
     Shutdown,
 }
@@ -37,6 +41,9 @@ pub enum TcpResponse {
     BotStatus(BotStatus),
     BotMetrics(BotMetrics),
     SystemMetrics(SystemMetrics),
+    SystemState(SystemStateSummary),
+    MetricsHistory(Vec<PersistedSystemMetrics>),
+    BackupCreated(String),
     Pong,
     Success(String),
     Error(String),
@@ -240,6 +247,34 @@ impl TcpControlServer {
                         error!("❌ Error getting system metrics: {}", e);
                         TcpResponse::Error(e.to_string())
                     }
+                }
+            }
+            
+            TcpCommand::GetSystemState => {
+                match controller.get_system_state_summary().await {
+                    Ok(state) => TcpResponse::SystemState(state),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::GetMetricsHistory { hours } => {
+                match controller.get_historical_metrics(hours).await {
+                    Ok(history) => TcpResponse::MetricsHistory(history),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::CreateBackup => {
+                match controller.create_system_backup().await {
+                    Ok(backup_path) => TcpResponse::BackupCreated(backup_path),
+                    Err(e) => TcpResponse::Error(e.to_string()),
+                }
+            }
+            
+            TcpCommand::ForceSave => {
+                match controller.force_save_all_state().await {
+                    Ok(()) => TcpResponse::Success("All state saved to persistence".to_string()),
+                    Err(e) => TcpResponse::Error(e.to_string()),
                 }
             }
             
