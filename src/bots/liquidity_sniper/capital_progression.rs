@@ -40,7 +40,7 @@ pub struct CapitalSnapshot {
 /// Milestone de progresión
 #[derive(Debug, Clone)]
 pub struct Milestone {
-    target_capital_sol: f64,
+    pub target_capital_sol: f64,
     phase: TradingPhase,
     unlocked_features: Vec<String>,
     new_config: MilestoneConfig,
@@ -85,7 +85,7 @@ impl CapitalProgressionManager {
         info!("   Fase inicial: {:?}", phase);
         
         Ok(Self {
-            current_phase: phase,
+            current_phase: phase.clone(),
             capital_history: vec![CapitalSnapshot {
                 timestamp: Utc::now(),
                 total_capital_sol: initial_capital_sol,
@@ -157,7 +157,7 @@ impl CapitalProgressionManager {
             previous_phase,
             new_phase,
             phase_changed,
-            achieved_milestones,
+            achieved_milestones: achieved_milestones.clone(),
             newly_unlocked_features: self.get_newly_unlocked_features(&achieved_milestones),
             updated_config: self.get_current_config(),
             progress_metrics: self.performance_metrics.clone(),

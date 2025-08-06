@@ -53,13 +53,14 @@ async fn main() -> Result<()> {
         "server" => {
             println!("🌐 Starting TCP control server on port {}...", server_port);
             
-            // Initialize capital progression manager
-            let progression_manager = CapitalProgressionManager::new(PathBuf::from(config_path))?;
+            // Initialize capital progression manager with ultra-small capital
+            let progression_manager = CapitalProgressionManager::new(0.001)?;
             println!("📈 Capital Progression Manager initialized");
-            println!("💰 Current phase: {:?}", progression_manager.get_current_phase());
+            let status = progression_manager.get_progression_status();
+            println!("💰 Current phase: {:?}", status.current_phase);
             
             // Initialize bot controller
-            let bot_controller = Arc::new(BotController::new());
+            let bot_controller = Arc::new(BotController::new().await?);
             
             let server = TcpControlServer::new(bot_controller, server_port).await?;
             server.run().await?;
@@ -71,10 +72,15 @@ async fn main() -> Result<()> {
         }
         "test" => {
             println!("🧪 Test mode - validating configuration");
-            let progression_manager = CapitalProgressionManager::new(PathBuf::from(config_path))?;
+            let progression_manager = CapitalProgressionManager::new(0.001)?;
             println!("✅ Configuration validated successfully");
-            println!("📊 Current capital: {:.4} SOL", progression_manager.get_current_capital());
-            println!("🎯 Next milestone: {:.1} SOL", progression_manager.get_next_milestone());
+            let status = progression_manager.get_progression_status();
+            println!("📊 Current capital: {:.4} SOL", status.current_capital_sol);
+            println!("🎯 Next milestone: {:.1} SOL", 
+                status.next_milestone.as_ref()
+                    .map(|m| m.target_capital_sol)
+                    .unwrap_or(0.0)
+            );
         }
         _ => {
             eprintln!("❌ Invalid mode: {}", mode);

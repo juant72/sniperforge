@@ -19,11 +19,12 @@ pub mod trade_executor;
 pub mod risk_manager;
 pub mod position_manager;
 pub mod cost_analyzer;
+pub mod capital_progression;
 
 use pool_monitor::PoolMonitor;
 use opportunity_analyzer::OpportunityAnalyzer;
 use trade_executor::TradeExecutor;
-use risk_manager::{RiskManager, RiskAssessment as RiskManagerAssessment};
+use risk_manager::{RiskManager, RiskAssessment as RiskManagerAssessment, MonitoringLevel};
 use position_manager::PositionManager;
 use cost_analyzer::{CostAnalyzer, CostConfig};
 
@@ -64,8 +65,10 @@ pub struct TradeData {
 pub struct TradeResult {
     pub success: bool,
     pub transaction_signature: Option<String>,
+    pub transaction_hash: Option<String>,
     pub execution_time_ms: u64,
     pub actual_price: Option<f64>,
+    pub execution_price: Option<f64>,
     pub slippage_percent: Option<f64>,
     pub gas_used: Option<u64>,
     pub position: Option<PositionData>,
@@ -75,9 +78,21 @@ pub struct TradeResult {
 /// Position data from trade execution
 #[derive(Debug, Clone)]
 pub struct PositionData {
+    pub id: Uuid,
+    pub token_address: String,
+    pub pool_address: String,
+    pub amount_tokens: f64,
+    pub amount_sol_invested: f64,
     pub entry_price: f64,
+    pub current_price: f64,
     pub position_size: f64,
+    pub unrealized_pnl: f64,
+    pub unrealized_pnl_percent: f64,
+    pub stop_loss_price: Option<f64>,
+    pub target_price: Option<f64>,
+    pub strategy: SniperStrategy,
     pub entry_time: DateTime<Utc>,
+    pub monitoring_level: MonitoringLevel,
 }
 
 /// Opportunity data structure
@@ -127,7 +142,6 @@ pub struct TradeRecord {
 }
 
 /// Enterprise-grade Liquidity Sniper Bot with world-class guarantees
-#[derive(Debug)]
 pub struct LiquiditySniperBot {
     pub id: Uuid,
     pub config: SniperConfig,
@@ -189,6 +203,9 @@ pub struct SniperConfig {
     
     /// Advanced analytics enabled
     pub advanced_analytics: bool,
+    
+    /// Maximum simultaneous positions
+    pub max_positions: u32,
 }
 
 /// Current state of the sniper bot
@@ -248,7 +265,7 @@ pub struct SniperMetrics {
 }
 
 /// Market condition assessment
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MarketCondition {
     Bull,        // Strong uptrend
     Bear,        // Strong downtrend  
@@ -323,6 +340,7 @@ impl Default for SniperConfig {
             mev_protection_enabled: true,
             use_private_mempool: true,
             advanced_analytics: true,
+            max_positions: 3,
         }
     }
 }

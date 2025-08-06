@@ -8,9 +8,9 @@ use tracing::{info, warn, error, debug};
 use uuid::Uuid;
 
 use super::{SniperConfig, TradeData, TradeResult, PositionData, SniperStrategy};
+use super::risk_manager::MonitoringLevel;
 
 /// Enterprise trade executor with MEV protection
-#[derive(Debug)]
 pub struct TradeExecutor {
     config: SniperConfig,
     execution_engine: ExecutionEngine,
@@ -21,7 +21,6 @@ pub struct TradeExecutor {
 }
 
 /// High-performance execution engine
-#[derive(Debug)]
 pub struct ExecutionEngine {
     rpc_clients: Vec<RpcClient>,
     transaction_builder: TransactionBuilder,
@@ -67,7 +66,6 @@ pub struct ExecutionStats {
 }
 
 /// RPC client for Solana
-#[derive(Debug)]
 pub struct RpcClient {
     endpoint: String,
     client: solana_client::rpc_client::RpcClient,
@@ -209,6 +207,7 @@ pub struct AggregatorInterface;
 pub struct ExecutionResult {
     pub success: bool,
     pub transaction_hash: Option<String>,
+    pub transaction_signature: Option<String>,
     pub execution_time_ms: u64,
     pub actual_price: f64,
     pub slippage_percent: f64,
@@ -277,9 +276,12 @@ impl TradeExecutor {
         let trade_result = TradeResult {
             success: result.success,
             position,
-            transaction_hash: result.transaction_hash,
-            execution_price: result.actual_price,
-            gas_used: result.gas_used as f64,
+            transaction_signature: result.transaction_signature.clone(),
+            transaction_hash: result.transaction_hash.clone(),
+            actual_price: Some(result.actual_price),
+            execution_price: Some(result.actual_price),
+            slippage_percent: Some(result.slippage_percent),
+            gas_used: Some(result.gas_used),
             execution_time_ms: execution_time,
             error: result.error_message,
         };
@@ -287,7 +289,7 @@ impl TradeExecutor {
         if trade_result.success {
             info!("✅ Trade executed successfully in {}ms", execution_time);
             info!("   TX Hash: {}", trade_result.transaction_hash.as_ref().unwrap_or(&"N/A".to_string()));
-            info!("   Execution Price: {:.6}", trade_result.execution_price);
+            info!("   Execution Price: {:.6}", trade_result.execution_price.unwrap_or(0.0));
             info!("   Slippage: {:.2}%", result.slippage_percent);
         } else {
             warn!("❌ Trade execution failed: {}", trade_result.error.as_ref().unwrap_or(&"Unknown error".to_string()));
@@ -451,6 +453,7 @@ impl TradeExecutor {
                 Ok(ExecutionResult {
                     success: true,
                     transaction_hash: Some(tx_hash.clone()),
+                    transaction_signature: Some(tx_hash.clone()),
                     execution_time_ms: execution_time,
                     actual_price,
                     slippage_percent: slippage,
@@ -462,6 +465,7 @@ impl TradeExecutor {
                 Ok(ExecutionResult {
                     success: false,
                     transaction_hash: Some(tx_hash.clone()),
+                    transaction_signature: Some(tx_hash.clone()),
                     execution_time_ms: execution_time,
                     actual_price: 0.0,
                     slippage_percent: 0.0,
@@ -474,6 +478,7 @@ impl TradeExecutor {
             Ok(ExecutionResult {
                 success: false,
                 transaction_hash: None,
+                transaction_signature: None,
                 execution_time_ms: execution_time,
                 actual_price: 0.0,
                 slippage_percent: 0.0,
@@ -591,12 +596,14 @@ impl TradeExecutor {
             amount_sol_invested: trade_data.amount_sol,
             entry_price: execution_result.actual_price,
             current_price: execution_result.actual_price,
-            entry_time: current_time,
+            position_size: trade_data.amount_sol,
             unrealized_pnl: 0.0,
             unrealized_pnl_percent: 0.0,
-            stop_loss_price,
-            target_price,
+            stop_loss_price: Some(stop_loss_price),
+            target_price: Some(target_price),
             strategy: SniperStrategy::QuickFlip, // TODO: Get from analysis
+            entry_time: current_time,
+            monitoring_level: MonitoringLevel::Medium,
         })
     }
     

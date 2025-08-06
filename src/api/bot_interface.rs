@@ -142,6 +142,8 @@ pub enum Environment {
     Testing,
     Staging,
     Production,
+    Mainnet,
+    Testnet,
 }
 
 /// Resource limits for container orchestration

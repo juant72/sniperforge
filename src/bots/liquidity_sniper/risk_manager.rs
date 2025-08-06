@@ -146,7 +146,7 @@ pub enum StopType {
 }
 
 /// Risk monitoring levels
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum MonitoringLevel {
     Low,               // Standard monitoring
     Medium,            // Enhanced monitoring
@@ -356,7 +356,7 @@ impl RiskManager {
     async fn assess_liquidity_risk(&self, opportunity: &OpportunityData) -> Result<RiskComponent> {
         debug!("💧 Assessing liquidity risk");
         
-        let mut risk_score = 0.0;
+        let mut risk_score: f64 = 0.0;
         let mut factors = Vec::new();
         
         // Absolute liquidity check
@@ -395,7 +395,7 @@ impl RiskManager {
     async fn assess_volatility_risk(&self, opportunity: &OpportunityData) -> Result<RiskComponent> {
         debug!("📈 Assessing volatility risk");
         
-        let mut risk_score = 0.0;
+        let mut risk_score: f64 = 0.0;
         let mut factors = Vec::new();
         
         // Token age factor (newer = more volatile)

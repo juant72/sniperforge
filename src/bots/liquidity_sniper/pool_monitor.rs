@@ -349,8 +349,8 @@ impl PoolMonitor {
             confidence_score,
             market_cap_usd: pool.market_cap_usd,
             volume_24h_usd: pool.volume_24h_usd,
-            holder_count: pool.holder_count,
-            age_minutes,
+            holder_count: pool.holder_count as u64,
+            age_minutes: age_minutes as u64,
         })
     }
     
@@ -369,7 +369,7 @@ impl PoolMonitor {
     
     /// Calculate risk score (0-1, higher = riskier)
     async fn calculate_risk_score(&self, pool: &PoolData) -> Result<f64> {
-        let mut risk_score = 0.0;
+        let mut risk_score: f64 = 0.0;
         
         // Liquidity risk (lower liquidity = higher risk)
         if pool.liquidity_usd < 50000.0 {
@@ -391,7 +391,7 @@ impl PoolMonitor {
         // Age risk (too new or too old)
         let age_minutes = Utc::now()
             .signed_duration_since(pool.created_at)
-            .num_minutes();
+            .num_minutes() as u64;
         
         if age_minutes < 5 {
             risk_score += 0.1; // Very new, might be unstable
@@ -404,7 +404,7 @@ impl PoolMonitor {
     
     /// Calculate confidence score (0-1, higher = more confident)
     async fn calculate_confidence_score(&self, pool: &PoolData) -> Result<f64> {
-        let mut confidence = 0.0;
+        let mut confidence: f64 = 0.0;
         
         // Liquidity confidence
         if pool.liquidity_usd > 100000.0 {

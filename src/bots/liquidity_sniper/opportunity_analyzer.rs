@@ -360,7 +360,7 @@ impl OpportunityAnalyzer {
         };
         
         // Time risk based on opportunity age
-        let time_risk = if opportunity.age_minutes > 20 {
+        let time_risk: f64 = if opportunity.age_minutes > 20 {
             0.8 // Might be too late
         } else if opportunity.age_minutes > 10 {
             0.5
@@ -369,7 +369,7 @@ impl OpportunityAnalyzer {
         };
         
         // Overall risk (weighted average)
-        let overall_risk = (liquidity_risk * 0.25 + 
+        let overall_risk: f64 = (liquidity_risk * 0.25 + 
                            volatility_risk * 0.20 + 
                            market_risk * 0.20 + 
                            token_risk * 0.15 + 
@@ -496,13 +496,13 @@ impl OpportunityAnalyzer {
             Ok(SniperStrategy::QuickFlip)
         } else if market_context.volume_trends > 50.0 && opportunity.volume_24h_usd > 20000.0 {
             // High volume - ride the wave
-            Ok(SniperStrategy::LiquidityRide)
+            Ok(SniperStrategy::LiquiditySnipe)
         } else if opportunity.liquidity_usd > 100000.0 && risk_assessment.overall_risk < 0.5 {
             // Good liquidity, moderate risk - arbitrage setup
-            Ok(SniperStrategy::ArbitrageSetup)
+            Ok(SniperStrategy::ArbitrageSnipe)
         } else if market_context.volatility_index > 60.0 {
-            // High volatility - volume spike strategy
-            Ok(SniperStrategy::VolumeSpike)
+            // High volatility - trend riding strategy
+            Ok(SniperStrategy::TrendRiding)
         } else {
             // Default to quick flip for safety
             Ok(SniperStrategy::QuickFlip)
