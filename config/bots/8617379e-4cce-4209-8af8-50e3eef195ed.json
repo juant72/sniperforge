@@ -1,7 +1,7 @@
 {
-  "config_id": "30815762-e8e7-4ca2-9eac-7928256f6587",
-  "bot_id": "0df76821-b039-4678-9716-1bf24e31278b",
-  "bot_type": "RealTimeDashboard",
+  "config_id": "338e3366-fdec-445f-b2a3-996dcd257875",
+  "bot_id": "8617379e-4cce-4209-8af8-50e3eef195ed",
+  "bot_type": "EnhancedArbitrage",
   "environment": "Development",
   "parameters": {
     "exchanges": [
@@ -18,7 +18,7 @@
   },
   "resources": {
     "max_cpu": 1.0,
-    "max_memory_mb": 204,
+    "max_memory_mb": 256,
     "max_disk_mb": 128,
     "max_network_mbps": 10
   },
@@ -43,17 +43,17 @@
     },
     "api_keys": {},
     "encryption_enabled": true,
-    "auth_required": true
+    "auth_required": false
   },
   "metadata": {
-    "name": "Real Time Dashboard Bot Config 0df76821-b039-4678-9716-1bf24e31278b",
+    "name": "Default Config for Bot 8617379e-4cce-4209-8af8-50e3eef195ed",
     "version": "1.0.0",
-    "created_at": "2025-08-06T06:29:50.496455800Z",
-    "updated_at": "2025-08-06T06:29:50.496457800Z",
-    "created_by": "CLI-unknown",
+    "created_at": "2025-08-06T09:35:05.114244100Z",
+    "updated_at": "2025-08-06T09:35:05.114244100Z",
+    "created_by": "System",
     "tags": [
-      "cli-created",
-      "development"
+      "default",
+      "auto-generated"
     ]
   }
 }

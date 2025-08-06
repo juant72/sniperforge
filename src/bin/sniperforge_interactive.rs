@@ -127,7 +127,7 @@ impl InteractiveCli {
         println!();
         
         // Test server connection
-        match self.send_command(TcpCommand::Ping).await {
+        match self.send_command(TcpCommand::ListBots).await {
             Ok(_) => {
                 println!("🟢 OPERATIONAL    Server Status: ACTIVE");
                 println!("🔗 CONNECTED      Control Server: {}", self.server_addr);
