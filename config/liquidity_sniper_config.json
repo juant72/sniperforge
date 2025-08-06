@@ -1,0 +1,88 @@
+{
+  "liquidity_sniper": {
+    "enabled": true,
+    "capital_allocation_sol": 50.0,
+    "max_position_size_percent": 15.0,
+    "min_liquidity_usd": 25000.0,
+    "max_risk_score": 0.7,
+    "target_profit_percent": 8.0,
+    "max_slippage_bps": 300,
+    "stop_loss_percent": 5.0,
+    "take_profit_percent": 12.0,
+    "max_holding_time_minutes": 30,
+    "max_positions": 8,
+    "priority_fee_lamports": 150000,
+    "max_detection_latency_ms": 300,
+    "max_execution_time_ms": 150,
+    "monitored_dexes": [
+      "Raydium",
+      "Orca", 
+      "Jupiter",
+      "Phoenix",
+      "Meteora"
+    ],
+    "environment": "Mainnet",
+    "mev_protection_enabled": true,
+    "use_private_mempool": true,
+    "advanced_analytics": true,
+    "risk_management": {
+      "max_var_percent": 5.0,
+      "max_drawdown_percent": 15.0,
+      "correlation_limit": 0.7,
+      "concentration_limit_percent": 25.0,
+      "position_limits": {
+        "max_single_position_sol": 7.5,
+        "max_daily_volume_sol": 100.0,
+        "max_leverage": 1.0
+      },
+      "stop_levels": [
+        {
+          "type": "Hard",
+          "level_percent": 3.0,
+          "trigger_condition": "Price drops below level"
+        },
+        {
+          "type": "Soft", 
+          "level_percent": 2.0,
+          "trigger_condition": "Warning level reached"
+        },
+        {
+          "type": "TimeBasedExit",
+          "level_percent": 0.0,
+          "trigger_condition": "Maximum hold time exceeded"
+        }
+      ]
+    },
+    "monitoring": {
+      "price_update_interval_ms": 500,
+      "position_check_interval_ms": 1000,
+      "risk_assessment_interval_ms": 5000,
+      "performance_logging_interval_s": 30,
+      "alert_thresholds": {
+        "profit_alert_percent": 10.0,
+        "loss_alert_percent": 3.0,
+        "volume_drop_percent": 50.0,
+        "liquidity_drop_percent": 30.0
+      }
+    },
+    "execution": {
+      "max_retry_attempts": 3,
+      "retry_delay_ms": 100,
+      "gas_optimization": true,
+      "priority_scaling": true,
+      "mev_protection_methods": [
+        "PrivateMempool",
+        "BundleSubmission", 
+        "FlashbotsRelay"
+      ]
+    },
+    "analytics": {
+      "track_market_conditions": true,
+      "sentiment_analysis": true,
+      "pattern_recognition": true,
+      "performance_attribution": true,
+      "real_time_reporting": true,
+      "export_data": true
+    }
+  }
+}
