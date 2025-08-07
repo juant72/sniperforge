@@ -58,6 +58,9 @@ impl BotInstance {
             BotType::PatternAnalyzer => {
                 Box::new(MockArbitrageBot::new("Pattern Analyzer Bot".to_string()))
             }
+            BotType::LiquiditySniper => {
+                Box::new(MockArbitrageBot::new("Liquidity Sniper Bot".to_string()))
+            }
         };
 
         Self {

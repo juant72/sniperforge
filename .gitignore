@@ -1,3 +1,52 @@
+# 🔒 WALLET SECURITY - NEVER COMMIT PRIVATE KEYS
+# SniperForge Enterprise Security Policy
+
+# ===== WALLET FILES =====
+# Never commit any wallet files containing private keys
+*.json
+wallet*.json
+*wallet*.json
+backup_wallet*.json
+wallet_*.json
+*_wallet.json
+emergency_wallet*.json
+secure_wallet*.json
+compromised_wallet*.json
+
+# ===== PRIVATE KEYS =====
+# Never commit raw private keys in any format
+*.key
+*.pem
+*.p12
+*.pfx
+private_key*
+*private_key*
+keypair*
+*keypair*
+
+# ===== SEED PHRASES =====
+# Never commit seed phrases or mnemonics
+seed*.txt
+mnemonic*.txt
+*seed*
+*mnemonic*
+
+# ===== SECURITY SCRIPTS =====
+# Scripts containing sensitive wallet information
+*security*
+*migration*
+*breach*
+*emergency*
+*forensic*
+
+# ===== CONFIGURATION FILES =====
+# Configuration files that might contain sensitive data
+.env
+.env.local
+.env.prod
+config/secrets*
+secrets*
+
 # Rust
 /target/
 Cargo.lock

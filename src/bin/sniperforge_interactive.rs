@@ -551,6 +551,7 @@ impl InteractiveCli {
             println!("   enhanced-arbitrage, triangular-arbitrage, flash-loan-arbitrage");
             println!("   cross-chain-arbitrage, ml-analytics, portfolio-manager");
             println!("   real-time-dashboard, performance-profiler, pattern-analyzer");
+            println!("   liquidity-sniper");
             return Ok(());
         }
 
@@ -565,6 +566,7 @@ impl InteractiveCli {
             "real-time-dashboard" => BotType::RealTimeDashboard,
             "performance-profiler" => BotType::PerformanceProfiler,
             "pattern-analyzer" => BotType::PatternAnalyzer,
+            "liquidity-sniper" => BotType::LiquiditySniper,
             _ => {
                 println!("❌ Invalid bot type: {}", bot_type_str);
                 return Ok(());

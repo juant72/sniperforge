@@ -19,6 +19,7 @@ use sniperforge::{
         sentiment::{RealSentimentAnalyzer, TwitterSentimentClient},
     },
     monitoring::EnterpriseMonitor,
+    security::{SecureWalletManager, load_secure_wallet},
     trading::{
         arbitrage::ArbitrageEngine,
         triangular::TriangularArbitrageEngine,

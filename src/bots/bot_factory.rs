@@ -1,6 +1,7 @@
 //! Bot Factory - Creates and manages bot instances for the containerized ecosystem
 
 use crate::api::bot_interface::{BotInterface, BotType, BotConfig, BotError};
+use crate::bots::liquidity_sniper::LiquiditySniperBot;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -135,6 +136,12 @@ impl BotFactory {
         // Pattern Analyzer Bot
         self.register_constructor(BotType::PatternAnalyzer, |_config| {
             Err(BotError::Configuration("PatternAnalyzerBot constructor not implemented".to_string()))
+        });
+        
+        // Liquidity Sniper Bot
+        self.register_constructor(BotType::LiquiditySniper, |config| {
+            // For now, return a placeholder until we implement the actual constructor
+            Err(BotError::Configuration("LiquiditySniperBot constructor not yet implemented".to_string()))
         });
     }
 }

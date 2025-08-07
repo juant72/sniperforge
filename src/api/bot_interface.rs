@@ -74,6 +74,8 @@ pub enum BotType {
     PerformanceProfiler,
     /// Pattern analysis and recognition
     PatternAnalyzer,
+    /// Liquidity pool sniper bot
+    LiquiditySniper,
 }
 
 impl BotType {
@@ -89,6 +91,7 @@ impl BotType {
             BotType::RealTimeDashboard => "real-time-dashboard",
             BotType::PerformanceProfiler => "performance-profiler",
             BotType::PatternAnalyzer => "pattern-analyzer",
+            BotType::LiquiditySniper => "liquidity-sniper",
         }
     }
 }

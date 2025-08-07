@@ -195,6 +195,7 @@ async fn main() -> Result<()> {
                             BotType::RealTimeDashboard => "📈 Real-Time Dashboard",
                             BotType::PerformanceProfiler => "⚙️ Performance Profiler",
                             BotType::PatternAnalyzer => "🔍 Pattern Analyzer",
+                            BotType::LiquiditySniper => "🎯 Liquidity Sniper",
                         };
                         
                         println!("  🤖 {} ({:?})", bot.id, bot.status);
@@ -516,6 +517,7 @@ fn create_default_bot_config_for_type(bot_type: BotType) -> BotConfig {
         BotType::RealTimeDashboard => (0.8, "Real Time Dashboard"),
         BotType::PerformanceProfiler => (1.1, "Performance Profiler"),
         BotType::PatternAnalyzer => (1.6, "Pattern Analyzer"),
+        BotType::LiquiditySniper => (1.4, "Liquidity Sniper"),
     };
 
     BotConfig {
