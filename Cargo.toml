@@ -19,6 +19,7 @@ solana-program = "2.2"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
 
 # Error handling
 anyhow = "1.0"

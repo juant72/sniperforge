@@ -4,7 +4,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc, Duration};
 use std::collections::HashMap;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug};
 use uuid::Uuid;
 
 use super::{OpportunityData, SniperConfig, DexType};
@@ -873,6 +873,214 @@ impl PositionManager {
         
         Ok(closed_positions)
     }
+
+    /// 🚀 ENRIQUECIMIENTO: Utiliza el config para validación de límites
+    pub async fn validate_position_limits(&self, new_position_size: f64) -> Result<bool> {
+        debug!("🔍 Validating position limits using config");
+        
+        // Usar config.max_positions para validar límites
+        if self.active_positions.len() >= self.config.max_positions as usize {
+            warn!("❌ Position limit exceeded: {}/{}", self.active_positions.len(), self.config.max_positions);
+            return Ok(false);
+        }
+
+        // Usar config.max_position_size_percent para validar tamaño
+        let max_position_size = self.config.capital_allocation * (self.config.max_position_size_percent / 100.0);
+        if new_position_size > max_position_size {
+            warn!("❌ Position size too large: {} > {} SOL", new_position_size, max_position_size);
+            return Ok(false);
+        }
+
+        // Usar config.max_risk_score para validar exposición total
+        let total_exposure = self.calculate_total_exposure().await?;
+        let exposure_after_new = total_exposure + new_position_size;
+        let max_exposure = self.config.capital_allocation * 0.8; // 80% max exposure
+        
+        if exposure_after_new > max_exposure {
+            warn!("❌ Total exposure would exceed limit: {} > {} SOL", exposure_after_new, max_exposure);
+            return Ok(false);
+        }
+
+        debug!("✅ Position limits validation passed");
+        Ok(true)
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Utiliza el performance_analyzer para análisis avanzado
+    pub async fn analyze_performance_with_analyzer(&self) -> Result<PerformanceReport> {
+        debug!("📊 Analyzing performance using advanced analyzer");
+        
+        // Usar el PnlCalculator para cálculos detallados
+        let total_realized_pnl = self.performance_analyzer.pnl_calculator.realized_pnl;
+        let total_unrealized_pnl = self.calculate_total_unrealized_pnl().await?;
+        
+        // Usar el RiskMetricsCalculator para métricas de riesgo
+        let portfolio_var = self.performance_analyzer.risk_metrics.calculate_var().await?;
+        let max_drawdown = self.performance_analyzer.risk_metrics.calculate_max_drawdown().await?;
+        
+        // Usar el AttributionAnalyzer para análisis de contribución
+        let factor_performance = self.performance_analyzer.attribution_analyzer
+            .analyze_factor_contributions(&self.active_positions).await?;
+        
+        let strategy_performance = self.performance_analyzer.attribution_analyzer
+            .analyze_strategy_performance(&self.metrics).await?;
+
+        let report = PerformanceReport {
+            total_realized_pnl,
+            total_unrealized_pnl,
+            portfolio_var,
+            max_drawdown,
+            factor_contributions: factor_performance,
+            strategy_performance,
+            sharpe_ratio: self.calculate_sharpe_ratio().await?,
+            win_rate: self.metrics.win_rate,
+            average_holding_period: Duration::minutes(self.metrics.average_hold_time_minutes as i64),
+            risk_adjusted_return: total_realized_pnl / portfolio_var.max(0.01),
+        };
+
+        debug!("📈 Performance analysis complete: Sharpe={:.2}, Win Rate={:.1}%", 
+               report.sharpe_ratio, report.win_rate * 100.0);
+        
+        Ok(report)
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Usa config para optimización dinámica de estrategias
+    pub async fn optimize_strategies_with_config(&mut self) -> Result<StrategyOptimization> {
+        debug!("⚙️ Optimizing strategies using config parameters");
+        
+        let current_performance = self.analyze_performance_with_analyzer().await?;
+        let config_target_return = self.config.target_profit_percent;
+        let config_max_risk = self.config.max_risk_score;
+        
+        // Análisis de performance vs targets del config
+        let performance_vs_target = (current_performance.total_realized_pnl / self.config.capital_allocation) / 
+                                  (config_target_return / 100.0);
+        
+        // Recomendaciones basadas en config
+        let mut recommendations = Vec::new();
+        let mut parameter_adjustments = HashMap::new();
+        
+        if performance_vs_target < 0.8 {
+            recommendations.push("Consider increasing position sizes within risk limits".to_string());
+            parameter_adjustments.insert("position_size_multiplier".to_string(), 1.1);
+            
+            // Usar config.max_positions para sugerir más posiciones
+            if self.active_positions.len() < self.config.max_positions as usize {
+                recommendations.push(format!("Consider opening more positions (current: {}/{})", 
+                                           self.active_positions.len(), self.config.max_positions));
+            }
+        }
+        
+        if current_performance.portfolio_var / self.config.capital_allocation > config_max_risk {
+            recommendations.push("Risk exposure too high - reduce position sizes".to_string());
+            parameter_adjustments.insert("position_size_multiplier".to_string(), 0.9);
+        }
+        
+        // Optimización de hold times basada en config
+        if current_performance.average_holding_period.num_minutes() > 60 {
+            recommendations.push("Consider shorter holding periods for better capital efficiency".to_string());
+            parameter_adjustments.insert("max_hold_time_minutes".to_string(), 45.0);
+        }
+
+        let optimization = StrategyOptimization {
+            current_performance_score: performance_vs_target,
+            target_performance_score: 1.0,
+            recommendations,
+            parameter_adjustments,
+            expected_improvement: if performance_vs_target < 1.0 { 0.2 } else { 0.05 },
+            confidence_level: 0.75,
+        };
+
+        debug!("🎯 Strategy optimization complete: score={:.2}, {} recommendations", 
+               optimization.current_performance_score, optimization.recommendations.len());
+        
+        Ok(optimization)
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Monitoreo avanzado usando performance_analyzer
+    pub async fn advanced_monitoring_with_analyzer(&self) -> Result<Vec<MonitoringAlert>> {
+        debug!("👀 Advanced monitoring using performance analyzer");
+        
+        let mut alerts = Vec::new();
+        
+        // Usar risk_metrics para detectar anomalías
+        let current_var = self.performance_analyzer.risk_metrics.calculate_var().await?;
+        let historical_var = self.calculate_historical_average_var().await?;
+        
+        if current_var > historical_var * 1.5 {
+            alerts.push(MonitoringAlert {
+                level: AlertLevel::High,
+                message: format!("VaR significantly elevated: {:.4} vs historical {:.4}", 
+                               current_var, historical_var),
+                position_id: None,
+                timestamp: Utc::now(),
+                action_required: Some("Review position sizing and risk exposure".to_string()),
+            });
+        }
+        
+        // Usar attribution_analyzer para detectar concentración de factores
+        let factor_concentrations = self.performance_analyzer.attribution_analyzer
+            .analyze_factor_concentrations(&self.active_positions).await?;
+        
+        for (factor, concentration) in factor_concentrations {
+            if concentration > 0.6 { // Más del 60% en un factor
+                alerts.push(MonitoringAlert {
+                    level: AlertLevel::Medium,
+                    message: format!("High concentration in factor '{}': {:.1}%", 
+                                   factor, concentration * 100.0),
+                    position_id: None,
+                    timestamp: Utc::now(),
+                    action_required: Some("Consider diversifying across factors".to_string()),
+                });
+            }
+        }
+        
+        // Monitoreo de performance por posición individual
+        for position in self.active_positions.values() {
+            let position_var = self.performance_analyzer.risk_metrics
+                .calculate_position_var(position).await?;
+            
+            if position_var > current_var * 0.3 { // Posición representa >30% del VaR total
+                alerts.push(MonitoringAlert {
+                    level: AlertLevel::High,
+                    message: format!("Position {} has high VaR contribution: {:.4}", 
+                                   position.id, position_var),
+                    position_id: Some(position.id),
+                    timestamp: Utc::now(),
+                    action_required: Some("Consider reducing position size".to_string()),
+                });
+            }
+        }
+
+        debug!("🚨 Monitoring complete: {} alerts generated", alerts.len());
+        Ok(alerts)
+    }
+
+    /// Métodos auxiliares para los nuevos análisis
+    async fn calculate_total_exposure(&self) -> Result<f64> {
+        Ok(self.active_positions.values()
+            .map(|p| p.position_size_sol)
+            .sum())
+    }
+
+    async fn calculate_total_unrealized_pnl(&self) -> Result<f64> {
+        Ok(self.active_positions.values()
+            .map(|p| p.performance.unrealized_pnl_sol)
+            .sum())
+    }
+
+    async fn calculate_sharpe_ratio(&self) -> Result<f64> {
+        // Cálculo simplificado del ratio de Sharpe
+        let returns = self.metrics.total_pnl_percent / 100.0;
+        let risk_free_rate = 0.02; // 2% anual
+        let volatility = 0.15; // Estimación de volatilidad
+        
+        Ok((returns - risk_free_rate) / volatility)
+    }
+
+    async fn calculate_historical_average_var(&self) -> Result<f64> {
+        // Placeholder para VaR histórico promedio
+        Ok(self.config.capital_allocation * 0.03) // 3% del capital
+    }
 }
 
 /// Closed position record
@@ -925,6 +1133,70 @@ impl PositionTracker {
             },
         })
     }
+
+    /// 🚀 ENRIQUECIMIENTO: Update current prices using price_monitor
+    pub fn update_price(&mut self, token_address: &str, price: f64) -> Result<()> {
+        self.price_monitor.current_prices.insert(token_address.to_string(), price);
+        debug!("📊 Updated price for {}: {:.6}", token_address, price);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Get current price from price_monitor
+    pub fn get_current_price(&self, token_address: &str) -> Option<f64> {
+        self.price_monitor.current_prices.get(token_address).copied()
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set liquidity threshold using liquidity_monitor
+    pub fn set_liquidity_threshold(&mut self, token_address: &str, threshold: f64) -> Result<()> {
+        self.liquidity_monitor.liquidity_thresholds.insert(token_address.to_string(), threshold);
+        debug!("🎯 Set liquidity threshold for {}: {:.2}", token_address, threshold);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Check liquidity against thresholds
+    pub fn check_liquidity_threshold(&self, token_address: &str, current_liquidity: f64) -> Result<bool> {
+        if let Some(&threshold) = self.liquidity_monitor.liquidity_thresholds.get(token_address) {
+            let meets_threshold = current_liquidity >= threshold;
+            debug!("💧 Liquidity check for {}: {:.2} >= {:.2} = {}", 
+                   token_address, current_liquidity, threshold, meets_threshold);
+            Ok(meets_threshold)
+        } else {
+            Ok(true) // No threshold set, assume OK
+        }
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set volume threshold using volume_monitor
+    pub fn set_volume_threshold(&mut self, token_address: &str, threshold: f64) -> Result<()> {
+        self.volume_monitor.volume_thresholds.insert(token_address.to_string(), threshold);
+        debug!("📈 Set volume threshold for {}: {:.2}", token_address, threshold);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Monitor volume using volume_monitor
+    pub fn monitor_volume(&mut self, token_address: &str, current_volume: f64) -> Result<()> {
+        if let Some(&threshold) = self.volume_monitor.volume_thresholds.get(token_address) {
+            if current_volume < threshold * 0.5 { // Alert if volume drops below 50% of threshold
+                let alert = VolumeAlert {
+                    token_address: token_address.to_string(),
+                    timestamp: chrono::Utc::now(),
+                    alert_type: "Low Volume".to_string(),
+                    current_volume,
+                    threshold,
+                    message: format!("Volume dropped to {:.2}, below 50% of threshold {:.2}", 
+                                   current_volume, threshold),
+                };
+                self.volume_monitor.volume_alerts.push(alert);
+                debug!("⚠️ Volume alert triggered for {}: {:.2} < {:.2}", 
+                       token_address, current_volume, threshold * 0.5);
+            }
+        }
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Get recent volume alerts
+    pub fn get_volume_alerts(&self) -> &Vec<VolumeAlert> {
+        &self.volume_monitor.volume_alerts
+    }
 }
 
 impl ExitManager {
@@ -948,6 +1220,90 @@ impl ExitManager {
                 liquidity_degradation_limits: HashMap::new(),
             },
         })
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set hard stop loss using stop_loss_engine
+    pub fn set_hard_stop(&mut self, position_id: &str, stop_price: f64) -> Result<()> {
+        self.stop_loss_engine.hard_stops.insert(position_id.to_string(), stop_price);
+        debug!("🛑 Set hard stop for position {}: {:.6}", position_id, stop_price);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Check if hard stop triggered
+    pub fn check_hard_stop(&self, position_id: &str, current_price: f64) -> Result<bool> {
+        if let Some(&stop_price) = self.stop_loss_engine.hard_stops.get(position_id) {
+            let stop_triggered = current_price <= stop_price;
+            if stop_triggered {
+                debug!("⚠️ Hard stop triggered for {}: {:.6} <= {:.6}", 
+                       position_id, current_price, stop_price);
+            }
+            Ok(stop_triggered)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set profit target using take_profit_engine
+    pub fn set_profit_target(&mut self, position_id: &str, target_price: f64) -> Result<()> {
+        self.take_profit_engine.profit_targets.insert(position_id.to_string(), target_price);
+        debug!("💰 Set profit target for position {}: {:.6}", position_id, target_price);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Check if profit target reached
+    pub fn check_profit_target(&self, position_id: &str, current_price: f64) -> Result<bool> {
+        if let Some(&target_price) = self.take_profit_engine.profit_targets.get(position_id) {
+            let target_reached = current_price >= target_price;
+            if target_reached {
+                debug!("🎯 Profit target reached for {}: {:.6} >= {:.6}", 
+                       position_id, current_price, target_price);
+            }
+            Ok(target_reached)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set max hold time using time_based_exits
+    pub fn set_max_hold_time(&mut self, position_id: &str, max_duration: chrono::Duration) -> Result<()> {
+        let exit_time = chrono::Utc::now() + max_duration;
+        self.time_based_exits.max_hold_times.insert(position_id.to_string(), exit_time);
+        debug!("⏰ Set max hold time for position {}: until {:?}", position_id, exit_time);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Check if position should exit based on time
+    pub fn should_time_exit(&self, position_id: &str) -> Result<bool> {
+        if let Some(&exit_time) = self.time_based_exits.max_hold_times.get(position_id) {
+            let should_exit = chrono::Utc::now() >= exit_time;
+            if should_exit {
+                debug!("⏰ Time-based exit triggered for position {}", position_id);
+            }
+            Ok(should_exit)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Set liquidity threshold using liquidity_exits
+    pub fn set_liquidity_threshold(&mut self, position_id: &str, min_liquidity: f64) -> Result<()> {
+        self.liquidity_exits.min_liquidity_thresholds.insert(position_id.to_string(), min_liquidity);
+        debug!("💧 Set liquidity threshold for position {}: {:.2}", position_id, min_liquidity);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Check if should exit due to low liquidity
+    pub fn should_liquidity_exit(&self, position_id: &str, current_liquidity: f64) -> Result<bool> {
+        if let Some(&min_liquidity) = self.liquidity_exits.min_liquidity_thresholds.get(position_id) {
+            let should_exit = current_liquidity < min_liquidity;
+            if should_exit {
+                debug!("⚠️ Liquidity exit triggered for {}: {:.2} < {:.2}", 
+                       position_id, current_liquidity, min_liquidity);
+            }
+            Ok(should_exit)
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -973,6 +1329,221 @@ impl PerformanceAnalyzer {
                 strategy_performance: HashMap::new(),
             },
         })
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Update realized PnL using pnl_calculator
+    pub fn update_realized_pnl(&mut self, pnl_change: f64) -> Result<()> {
+        self.pnl_calculator.realized_pnl += pnl_change;
+        debug!("💰 Updated realized PnL: +{:.6} | Total: {:.6}", 
+               pnl_change, self.pnl_calculator.realized_pnl);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Update unrealized PnL using pnl_calculator
+    pub fn update_unrealized_pnl(&mut self, current_unrealized: f64) -> Result<()> {
+        self.pnl_calculator.unrealized_pnl = current_unrealized;
+        debug!("📊 Updated unrealized PnL: {:.6}", current_unrealized);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Get total PnL from pnl_calculator
+    pub fn get_total_pnl(&self) -> f64 {
+        self.pnl_calculator.realized_pnl + self.pnl_calculator.unrealized_pnl
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Calculate VaR using var_calculator
+    pub fn calculate_var(&self, portfolio_value: f64) -> Result<f64> {
+        let var_estimate = portfolio_value * 0.05; // Simple 5% VaR estimate
+        debug!("📉 VaR calculated at {:.2}% confidence: {:.6}", 
+               self.risk_metrics.var_calculator.confidence_level * 100.0, var_estimate);
+        Ok(var_estimate)
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Update peak value for drawdown calculation
+    pub fn update_peak_value(&mut self, position_id: &str, current_value: f64) -> Result<()> {
+        let peak = self.risk_metrics.drawdown_calculator.peak_values
+            .entry(position_id.to_string())
+            .or_insert(current_value);
+        
+        if current_value > *peak {
+            *peak = current_value;
+            debug!("📈 New peak value for {}: {:.6}", position_id, current_value);
+        }
+
+        // Calculate current drawdown
+        let drawdown = (*peak - current_value) / *peak * 100.0;
+        self.risk_metrics.drawdown_calculator.current_drawdowns
+            .insert(position_id.to_string(), drawdown);
+        
+        if drawdown > 5.0 {
+            debug!("⚠️ Significant drawdown for {}: {:.2}%", position_id, drawdown);
+        }
+        
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Add factor contribution using attribution_analyzer
+    pub fn add_factor_contribution(&mut self, factor: &str, contribution: f64) -> Result<()> {
+        *self.attribution_analyzer.factor_contributions
+            .entry(factor.to_string())
+            .or_insert(0.0) += contribution;
+        debug!("📊 Factor {} contributed: {:.6}", factor, contribution);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Update strategy performance using attribution_analyzer
+    pub fn update_strategy_performance(&mut self, strategy: &str, performance: f64) -> Result<()> {
+        self.attribution_analyzer.strategy_performance
+            .insert(strategy.to_string(), performance);
+        debug!("🎯 Strategy {} performance: {:.6}", strategy, performance);
+        Ok(())
+    }
+
+    /// 🚀 ENRIQUECIMIENTO: Get performance summary
+    pub fn get_performance_summary(&self) -> (f64, f64, f64) {
+        let total_pnl = self.get_total_pnl();
+        let max_drawdown = self.risk_metrics.drawdown_calculator.current_drawdowns
+            .values()
+            .cloned()
+            .fold(0.0_f64, f64::max);
+        let factor_total = self.attribution_analyzer.factor_contributions
+            .values()
+            .sum::<f64>();
+        
+        (total_pnl, max_drawdown, factor_total)
+    }
+}
+
+/// 🚀 ENRIQUECIMIENTO: Estructuras para análisis avanzado de performance
+#[derive(Debug, Clone)]
+pub struct PerformanceReport {
+    pub total_realized_pnl: f64,
+    pub total_unrealized_pnl: f64,
+    pub portfolio_var: f64,
+    pub max_drawdown: f64,
+    pub factor_contributions: HashMap<String, f64>,
+    pub strategy_performance: HashMap<String, f64>,
+    pub sharpe_ratio: f64,
+    pub win_rate: f64,
+    pub average_holding_period: Duration,
+    pub risk_adjusted_return: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct StrategyOptimization {
+    pub current_performance_score: f64,
+    pub target_performance_score: f64,
+    pub recommendations: Vec<String>,
+    pub parameter_adjustments: HashMap<String, f64>,
+    pub expected_improvement: f64,
+    pub confidence_level: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct MonitoringAlert {
+    pub level: AlertLevel,
+    pub message: String,
+    pub position_id: Option<Uuid>,
+    pub timestamp: DateTime<Utc>,
+    pub action_required: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum AlertLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// 🚀 ENRIQUECIMIENTO: Implementaciones para PerformanceAnalyzer components
+impl RiskMetricsCalculator {
+    pub async fn calculate_var(&self) -> Result<f64> {
+        // Cálculo de VaR usando el confidence_level
+        let confidence = self.var_calculator.confidence_level;
+        let base_var = 0.05; // 5% base
+        Ok(base_var * (1.0 - confidence))
+    }
+
+    pub async fn calculate_max_drawdown(&self) -> Result<f64> {
+        // Cálculo de máximo drawdown
+        let mut max_dd = 0.0;
+        for dd in self.drawdown_calculator.current_drawdowns.values() {
+            if *dd > max_dd {
+                max_dd = *dd;
+            }
+        }
+        Ok(max_dd)
+    }
+
+    pub async fn calculate_position_var(&self, position: &Position) -> Result<f64> {
+        // VaR específico de una posición
+        let position_volatility = position.performance.unrealized_pnl_percent.abs() / 100.0;
+        let position_value = position.position_size_sol;
+        Ok(position_value * position_volatility * 2.33) // 99% confidence
+    }
+}
+
+impl AttributionAnalyzer {
+    pub async fn analyze_factor_contributions(&self, positions: &HashMap<Uuid, Position>) -> Result<HashMap<String, f64>> {
+        let mut contributions = HashMap::new();
+        
+        // Análisis simplificado de factores
+        let total_pnl: f64 = positions.values()
+            .map(|p| p.performance.unrealized_pnl_sol)
+            .sum();
+        
+        if total_pnl != 0.0 {
+            // Factor de liquidez
+            let high_liquidity_pnl: f64 = positions.values()
+                .filter(|p| p.entry_price > 100000.0)
+                .map(|p| p.performance.unrealized_pnl_sol)
+                .sum();
+            contributions.insert("High Liquidity".to_string(), high_liquidity_pnl / total_pnl);
+            
+            // Factor de volatilidad
+            let low_risk_pnl: f64 = positions.values()
+                .filter(|p| p.risk_assessment.risk_score < 0.5)
+                .map(|p| p.performance.unrealized_pnl_sol)
+                .sum();
+            contributions.insert("Low Risk".to_string(), low_risk_pnl / total_pnl);
+        }
+        
+        Ok(contributions)
+    }
+
+    pub async fn analyze_strategy_performance(&self, metrics: &PositionMetrics) -> Result<HashMap<String, f64>> {
+        let mut performance = HashMap::new();
+        
+        // Performance por estrategia
+        performance.insert("Win Rate".to_string(), metrics.win_rate);
+        performance.insert("Average Profit".to_string(), metrics.average_profit_percent);
+        performance.insert("Average Loss".to_string(), -metrics.average_loss_percent);
+        performance.insert("Hold Time Efficiency".to_string(), 
+                         1.0 / (metrics.average_hold_time_minutes / 60.0)); // positions per hour
+        
+        Ok(performance)
+    }
+
+    pub async fn analyze_factor_concentrations(&self, positions: &HashMap<Uuid, Position>) -> Result<HashMap<String, f64>> {
+        let mut concentrations = HashMap::new();
+        let total_positions = positions.len() as f64;
+        
+        if total_positions > 0.0 {
+            // Concentración por tipo de liquidez
+            let high_liquidity_count = positions.values()
+                .filter(|p| p.entry_price > 100000.0)
+                .count() as f64;
+            concentrations.insert("High Liquidity".to_string(), high_liquidity_count / total_positions);
+            
+            // Concentración por nivel de riesgo
+            let high_risk_count = positions.values()
+                .filter(|p| p.risk_assessment.risk_score > 0.7)
+                .count() as f64;
+            concentrations.insert("High Risk".to_string(), high_risk_count / total_positions);
+        }
+        
+        Ok(concentrations)
     }
 }
 

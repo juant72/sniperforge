@@ -1,13 +1,13 @@
 //! Bot Factory - Creates and manages bot instances for the containerized ecosystem
 
 use crate::api::bot_interface::{BotInterface, BotType, BotConfig, BotError};
-use crate::bots::liquidity_sniper::LiquiditySniperBot;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
+use tracing::info;
 
 /// Factory for creating and managing bot instances
 pub struct BotFactory {
@@ -140,8 +140,22 @@ impl BotFactory {
         
         // Liquidity Sniper Bot
         self.register_constructor(BotType::LiquiditySniper, |config| {
-            // For now, return a placeholder until we implement the actual constructor
-            Err(BotError::Configuration("LiquiditySniperBot constructor not yet implemented".to_string()))
+            use crate::bots::liquidity_sniper::LiquiditySniperBot;
+            
+            info!("🎯 Creating LiquiditySniper bot with config: {:?}", config.metadata.name);
+            
+            // Crear configuración específica del sniper desde BotConfig
+            let sniper_config = crate::bots::liquidity_sniper::SniperConfig::from_bot_config(&config);
+            
+            // Crear el bot usando tokio::runtime para manejar async en sync context
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| BotError::Configuration(format!("Failed to create runtime: {}", e)))?;
+            
+            let sniper_bot = rt.block_on(async {
+                LiquiditySniperBot::new(config.bot_id, sniper_config).await
+            }).map_err(|e| BotError::Configuration(format!("Failed to create LiquiditySniper: {}", e)))?;
+            
+            Ok(Box::new(sniper_bot) as Box<dyn BotInterface>)
         });
     }
 }

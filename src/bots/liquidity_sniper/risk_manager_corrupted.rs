@@ -713,149 +713,6 @@ impl RiskManager {
     pub async fn get_risk_metrics(&self) -> RiskMetrics {
         self.risk_metrics.clone()
     }
-
-    /// Utiliza el modelo de liquidez para análisis avanzado
-    pub async fn analyze_liquidity_with_model(&self, opportunity: &OpportunityData) -> Result<f64> {
-        debug!("💧 Analyzing liquidity using advanced model");
-        
-        // Usar el liquidity_model para análisis detallado
-        let impact_score = self.risk_models.liquidity_model.calculate_market_impact(
-            opportunity.liquidity_usd,
-            opportunity.price_impact
-        )?;
-        
-        let execution_cost = self.risk_models.liquidity_model.estimate_execution_costs(
-            opportunity.liquidity_usd
-        )?;
-        
-        // Combinar factores
-        let liquidity_score = (impact_score * 0.6) + (execution_cost * 0.4);
-        
-        debug!("📊 Liquidity analysis complete: score={:.4}", liquidity_score);
-        Ok(liquidity_score)
-    }
-
-    /// Utiliza el modelo de volatilidad para predicciones
-    pub async fn predict_volatility_with_model(&self, opportunity: &OpportunityData) -> Result<f64> {
-        debug!("📈 Predicting volatility using advanced model");
-        
-        // Usar el volatility_model para predicción
-        let current_vol = self.risk_models.volatility_model.calculate_realized_volatility(
-            &opportunity.token_address
-        ).await?;
-        
-        let vol_forecast = self.risk_models.volatility_model.forecast_volatility(
-            current_vol,
-            std::time::Duration::from_secs(24 * 3600) // 24 horas
-        )?;
-        
-        // Factor de vol-of-vol para ajustes dinámicos
-        let vol_of_vol_adjustment = self.risk_models.volatility_model.vol_of_vol * 0.1;
-        let adjusted_forecast = vol_forecast * (1.0 + vol_of_vol_adjustment);
-        
-        debug!("📊 Volatility forecast: {:.4} (adjusted: {:.4})", vol_forecast, adjusted_forecast);
-        Ok(adjusted_forecast)
-    }
-
-    /// Utiliza el modelo de correlación para análisis de portafolio
-    pub async fn analyze_portfolio_correlations(&self, new_token: &str) -> Result<f64> {
-        debug!("🔗 Analyzing portfolio correlations");
-        
-        // Usar el correlation_model para análisis
-        let mut total_correlation = 0.0;
-        let mut correlation_count = 0;
-
-        for (existing_token, _position) in &self.portfolio_monitor.current_positions {
-            let correlation = self.risk_models.correlation_model.get_correlation(
-                existing_token,
-                new_token
-            ).await?;
-            
-            // Usar dynamic correlation para ajustes temporales
-            let dynamic_correlation = self.risk_models.correlation_model.dynamic_correlation
-                .calculate_dynamic_correlation(existing_token, new_token).await?;
-            
-            let weighted_correlation = (correlation * 0.7) + (dynamic_correlation * 0.3);
-            total_correlation += weighted_correlation;
-            correlation_count += 1;
-        }
-
-        let average_correlation = if correlation_count > 0 {
-            total_correlation / correlation_count as f64
-        } else {
-            0.0
-        };
-
-        debug!("📊 Portfolio correlation analysis: average={:.4}", average_correlation);
-        Ok(average_correlation)
-    }
-
-    /// Utiliza el modelo de mercado para análisis sistémico
-    pub async fn analyze_market_risk_with_model(&self, _opportunity: &OpportunityData) -> Result<f64> {
-        debug!("🌐 Analyzing market risk using advanced model");
-        
-        // Usar el market_model para análisis sistémico
-        let market_beta = self.risk_models.market_model.market_beta;
-        let sector_beta = self.risk_models.market_model.sector_beta;
-        
-        // Calcular riesgo sistémico vs idiosincrático
-        let systematic_component = self.risk_models.market_model.systematic_risk * market_beta;
-        let idiosyncratic_component = self.risk_models.market_model.idiosyncratic_risk * sector_beta;
-        
-        // Combinar componentes con pesos basados en condiciones de mercado
-        let market_stress_factor = self.get_market_stress_factor().await?;
-        let total_market_risk = (systematic_component * market_stress_factor) + 
-                               (idiosyncratic_component * (1.0 - market_stress_factor * 0.5));
-
-        debug!("📊 Market risk analysis: systematic={:.4}, idiosyncratic={:.4}, total={:.4}", 
-               systematic_component, idiosyncratic_component, total_market_risk);
-        Ok(total_market_risk)
-    }
-
-    /// Utiliza el modelo de crédito para análisis de contraparte
-    pub async fn analyze_credit_risk_with_model(&self, opportunity: &OpportunityData) -> Result<f64> {
-        debug!("🏦 Analyzing credit risk using advanced model");
-        
-        // Usar el credit_model para análisis de contraparte
-        let counterparty_risk = self.risk_models.credit_model.counterparty_risk;
-        let smart_contract_risk = self.risk_models.credit_model.smart_contract_risk;
-        let protocol_risk = self.risk_models.credit_model.protocol_risk;
-        let lp_risk = self.risk_models.credit_model.liquidity_provider_risk;
-        
-        // Análisis específico del token
-        let token_specific_risk = self.assess_token_credit_risk(&opportunity.token_address).await?;
-        
-        // Combinar todos los componentes de riesgo crediticio
-        let total_credit_risk = (counterparty_risk * 0.2) + 
-                               (smart_contract_risk * 0.3) + 
-                               (protocol_risk * 0.2) + 
-                               (lp_risk * 0.1) + 
-                               (token_specific_risk * 0.2);
-
-        debug!("📊 Credit risk analysis: counterparty={:.4}, contract={:.4}, protocol={:.4}, total={:.4}", 
-               counterparty_risk, smart_contract_risk, protocol_risk, total_credit_risk);
-        Ok(total_credit_risk)
-    }
-
-    /// Obtiene el factor de estrés del mercado
-    async fn get_market_stress_factor(&self) -> Result<f64> {
-        // Simular análisis de estrés del mercado
-        // En producción esto analizaría VIX, correlaciones, volatilidad, etc.
-        Ok(0.3) // Factor de estrés moderado
-    }
-
-    /// Evalúa el riesgo crediticio específico del token
-    async fn assess_token_credit_risk(&self, token_address: &str) -> Result<f64> {
-        // Simular análisis de riesgo crediticio del token
-        // En producción esto analizaría auditorías, capitalización, historial, etc.
-        let base_risk = match token_address.len() % 3 {
-            0 => 0.1, // Riesgo bajo
-            1 => 0.3, // Riesgo medio
-            _ => 0.5, // Riesgo alto
-        };
-        
-        Ok(base_risk)
-    }
 }
 
 /// Risk component analysis
@@ -971,75 +828,6 @@ impl PortfolioMonitor {
             },
         })
     }
-
-    /// 🚀 ENRIQUECIMIENTO: Calculate total portfolio exposure
-    pub fn calculate_total_exposure(&mut self) -> Result<f64> {
-        self.total_exposure = self.current_positions.values()
-            .map(|pos| pos.amount_sol_invested) // Use actual field name
-            .sum();
-        
-        debug!("📊 Total portfolio exposure calculated: {:.4} SOL", self.total_exposure);
-        Ok(self.total_exposure)
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Update sector exposure tracking
-    pub fn update_sector_exposure(&mut self, sector: &str, position_value: f64) -> Result<()> {
-        let current_exposure = self.sector_exposure.entry(sector.to_string()).or_insert(0.0);
-        *current_exposure += position_value;
-        
-        debug!("📈 Updated {} sector exposure: {:.4} SOL", sector, current_exposure);
-        Ok(())
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Calculate portfolio VaR using var_calculator
-    pub fn calculate_portfolio_var(&self) -> Result<f64> {
-        let confidence = self.var_calculator.confidence_level;
-        let time_horizon = self.var_calculator.time_horizon_days;
-        
-        // Simple VaR calculation based on portfolio value and estimated volatility
-        let portfolio_value = self.total_exposure;
-        let estimated_volatility = 0.15; // 15% daily volatility estimate for crypto
-        
-        // VaR = Portfolio Value * Z-score * Volatility * sqrt(time_horizon)
-        let z_score = match confidence {
-            x if x >= 0.99 => 2.33,
-            x if x >= 0.95 => 1.65,
-            _ => 1.28,
-        };
-        
-        let var = portfolio_value * z_score * estimated_volatility * time_horizon.sqrt();
-        
-        debug!("⚠️ Portfolio VaR calculated: {:.4} SOL ({:.1}% confidence, {:.1} day horizon)", 
-               var, confidence * 100.0, time_horizon);
-        
-        Ok(var)
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Update correlation matrix
-    pub fn update_correlation(&mut self, asset1: &str, asset2: &str, correlation: f64) -> Result<()> {
-        let key = if asset1 < asset2 {
-            (asset1.to_string(), asset2.to_string())
-        } else {
-            (asset2.to_string(), asset1.to_string())
-        };
-        
-        self.correlation_matrix.correlations.insert(key, correlation);
-        self.correlation_matrix.last_updated = Utc::now();
-        
-        debug!("🔗 Updated correlation between {} and {}: {:.3}", asset1, asset2, correlation);
-        Ok(())
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Get correlation between two assets
-    pub fn get_correlation(&self, asset1: &str, asset2: &str) -> Option<f64> {
-        let key = if asset1 < asset2 {
-            (asset1.to_string(), asset2.to_string())
-        } else {
-            (asset2.to_string(), asset1.to_string())
-        };
-        
-        self.correlation_matrix.correlations.get(&key).copied()
-    }
 }
 
 impl ExposureCalculator {
@@ -1054,53 +842,6 @@ impl ExposureCalculator {
                 max_correlation_group: config.capital_allocation * 0.3, // 30% max
             },
         })
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Calculate net exposure from positions
-    pub fn calculate_net_exposure(&mut self, positions: &HashMap<String, f64>) -> Result<f64> {
-        // Net exposure considers directional bias (long vs short)
-        // For spot trading, net exposure = gross exposure
-        self.net_exposure = positions.values().sum();
-        self.gross_exposure = positions.values().map(|v| v.abs()).sum();
-        
-        debug!("📊 Exposure calculated - Gross: {:.4} SOL, Net: {:.4} SOL", 
-               self.gross_exposure, self.net_exposure);
-        
-        Ok(self.net_exposure)
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Set sector limits for risk management
-    pub fn set_sector_limit(&mut self, sector: &str, limit: f64) -> Result<()> {
-        self.sector_limits.insert(sector.to_string(), limit);
-        debug!("🎯 Set sector limit for {}: {:.4} SOL", sector, limit);
-        Ok(())
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Check if sector exposure is within limits
-    pub fn check_sector_compliance(&self, sector: &str, proposed_exposure: f64) -> Result<bool> {
-        if let Some(&limit) = self.sector_limits.get(sector) {
-            let compliant = proposed_exposure <= limit;
-            debug!("🔍 Sector compliance check for {}: {:.4} SOL <= {:.4} SOL = {}", 
-                   sector, proposed_exposure, limit, compliant);
-            Ok(compliant)
-        } else {
-            // No limit set, assume compliant
-            Ok(true)
-        }
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Check concentration limits
-    pub fn check_concentration_limits(&self, position_size: f64, sector_exposure: f64, correlation_group_exposure: f64) -> Result<bool> {
-        let position_ok = position_size <= self.concentration_limits.max_single_position;
-        let sector_ok = sector_exposure <= self.concentration_limits.max_sector_exposure;
-        let correlation_ok = correlation_group_exposure <= self.concentration_limits.max_correlation_group;
-        
-        debug!("🎯 Concentration limits check:");
-        debug!("   Position: {:.4} <= {:.4} = {}", position_size, self.concentration_limits.max_single_position, position_ok);
-        debug!("   Sector: {:.4} <= {:.4} = {}", sector_exposure, self.concentration_limits.max_sector_exposure, sector_ok);
-        debug!("   Correlation: {:.4} <= {:.4} = {}", correlation_group_exposure, self.concentration_limits.max_correlation_group, correlation_ok);
-        
-        Ok(position_ok && sector_ok && correlation_ok)
     }
 }
 
@@ -1135,76 +876,6 @@ impl ComplianceChecker {
     }
 }
 
-/// 🚀 ENRIQUECIMIENTO: Implementaciones para LiquidityRiskModel
-impl LiquidityRiskModel {
-    /// Calcula el impacto de mercado basado en liquidez
-    pub fn calculate_market_impact(&self, liquidity_usd: f64, price_impact: f64) -> Result<f64> {
-        // Usar el modelo de impacto temporal y permanente
-        let temporary_component = self.impact_model.temporary_impact * (1.0 / liquidity_usd.sqrt());
-        let permanent_component = self.impact_model.permanent_impact * price_impact;
-        
-        let total_impact = temporary_component + permanent_component;
-        Ok(total_impact.min(1.0)) // Cap at 100%
-    }
-
-    /// Estima los costos de ejecución
-    pub fn estimate_execution_costs(&self, liquidity_usd: f64) -> Result<f64> {
-        let base_spread = self.execution_cost_model.spread_cost;
-        let impact_cost = self.execution_cost_model.market_impact_cost * (1.0 / liquidity_usd.log10());
-        let timing_cost = self.execution_cost_model.timing_cost;
-        
-        let total_cost = base_spread + impact_cost + timing_cost;
-        Ok(total_cost)
-    }
-}
-
-/// 🚀 ENRIQUECIMIENTO: Implementaciones para VolatilityRiskModel  
-impl VolatilityRiskModel {
-    /// Calcula la volatilidad realizada
-    pub async fn calculate_realized_volatility(&self, _token_address: &str) -> Result<f64> {
-        // En producción esto calcularía volatilidad histórica real
-        Ok(self.historical_vol.max(0.05)) // Mínimo 5% de volatilidad
-    }
-
-    /// Proyecta volatilidad futura
-    pub fn forecast_volatility(&self, current_vol: f64, horizon: std::time::Duration) -> Result<f64> {
-        let time_factor = horizon.as_secs_f64() / (24.0 * 3600.0); // days
-        let vol_persistence = 0.95_f64.powf(time_factor);
-        let long_term_vol = 0.2; // 20% long-term average
-        
-        let forecast = current_vol * vol_persistence + long_term_vol * (1.0 - vol_persistence);
-        Ok(forecast)
-    }
-}
-
-/// 🚀 ENRIQUECIMIENTO: Implementaciones para CorrelationRiskModel
-impl CorrelationRiskModel {
-    /// Obtiene correlación entre dos tokens
-    pub async fn get_correlation(&self, token1: &str, token2: &str) -> Result<f64> {
-        let key = if token1 < token2 {
-            (token1.to_string(), token2.to_string())
-        } else {
-            (token2.to_string(), token1.to_string())
-        };
-        
-        // Buscar en matriz de correlación
-        Ok(self.correlation_matrix.correlations.get(&key).copied().unwrap_or(0.3))
-    }
-}
-
-/// 🚀 ENRIQUECIMIENTO: Implementaciones para DynamicCorrelation
-impl DynamicCorrelation {
-    /// Calcula correlación dinámica
-    pub async fn calculate_dynamic_correlation(&self, _token1: &str, _token2: &str) -> Result<f64> {
-        // Simular correlación dinámica usando factor EMA
-        let base_correlation = 0.2; // Correlación base
-        let dynamic_adjustment = rand::random::<f64>() * 0.1 - 0.05; // ±5% adjustment
-        
-        let dynamic_corr = base_correlation + (dynamic_adjustment * self.ema_factor);
-        Ok(dynamic_corr.max(-1.0).min(1.0))
-    }
-}
-
 /// 🚀 ENRIQUECIMIENTO: Additional structures needed for enhanced risk management
 #[derive(Debug)]
 pub struct PortfolioImpact {
@@ -1219,7 +890,131 @@ pub struct ExposureAnalysis {
     pub volatility_exposure: f64,
 }
 
+
+/// � ENRIQUECIMIENTO: Enhanced implementations for VolatilityRiskModel
+        debug!("💧 Comprehensive liquidity risk assessment");
+        
+        let mut risk_score = 0.0;
+        let mut factors = Vec::new();
+        
+        // Absolute liquidity assessment
+        let liquidity_ratio = opportunity.liquidity_usd / self.liquidity_model.liquidity_threshold;
+        if liquidity_ratio < 1.0 {
+            let penalty = (1.0 - liquidity_ratio) * 0.5;
+            risk_score += penalty;
+            factors.push(format!("Below threshold liquidity: ${:.0}", opportunity.liquidity_usd));
+        }
+        
+        // Price impact assessment
+        if opportunity.price_impact > 0.03 {
+            risk_score += opportunity.price_impact * 10.0; // Scale to 0-1 range
+            factors.push(format!("High price impact: {:.2}%", opportunity.price_impact * 100.0));
+        }
+        
+        // Volume-to-liquidity ratio
+        let vol_liq_ratio = opportunity.volume_24h_usd / opportunity.liquidity_usd;
+        if vol_liq_ratio < 0.1 {
+            risk_score += 0.2;
+            factors.push("Low volume relative to liquidity".to_string());
+        }
+        
+        Ok(RiskComponent {
+            score: risk_score.min(1.0),
+            weight: 0.25,
+            confidence: 0.9,
+            factors,
+        })
+    }
+
+    pub async fn assess_volatility_risk_comprehensive(&self, opportunity: &OpportunityData) -> Result<RiskComponent> {
+        debug!("📈 Comprehensive volatility risk assessment");
+        
+        let mut risk_score = 0.0;
+        let mut factors = Vec::new();
+        
+        // Age-based volatility (newer = more volatile)
+        if opportunity.age_minutes < 60 {
+            let volatility_penalty = (60.0 - opportunity.age_minutes as f64) / 60.0 * 0.4;
+            risk_score += volatility_penalty;
+            factors.push(format!("New token volatility (age: {} min)", opportunity.age_minutes));
+        }
+        
+        // Market cap stability
+        if opportunity.market_cap_usd < 1000000.0 {
+            risk_score += 0.3;
+            factors.push("Low market cap instability".to_string());
+        }
+        
+        // Using GARCH model for volatility prediction
+        let garch_volatility = self.volatility_model.calculate_garch_volatility().await?;
+        risk_score += garch_volatility * 0.3;
+        factors.push(format!("GARCH volatility estimate: {:.2}%", garch_volatility * 100.0));
+        
+        Ok(RiskComponent {
+            score: risk_score.min(1.0),
+            weight: 0.20,
+            confidence: 0.85,
+            factors,
+        })
+    }
+
+    pub async fn assess_correlation_risk(&self, token_address: &str) -> Result<RiskComponent> {
+        debug!("🔗 Assessing correlation risk for {}", token_address);
+        
+        // In real implementation: calculate correlations with existing portfolio
+        let risk_score = 0.3; // Moderate correlation risk
+        
+        Ok(RiskComponent {
+            score: risk_score,
+            weight: 0.15,
+            confidence: 0.75,
+            factors: vec!["Portfolio correlation analysis".to_string()],
+        })
+    }
+
+    pub async fn assess_market_risk(&self) -> Result<RiskComponent> {
+        debug!("🌍 Assessing market risk");
+        
+        // Market beta assessment
+        let market_risk = self.market_model.market_beta * 0.2; // Convert to risk score
+        
+        Ok(RiskComponent {
+            score: market_risk.min(1.0),
+            weight: 0.15,
+            confidence: 0.8,
+            factors: vec![format!("Market beta: {:.2}", self.market_model.market_beta)],
+        })
+    }
+
+    pub async fn assess_credit_risk(&self, _opportunity: &OpportunityData) -> Result<RiskComponent> {
+        debug!("🏦 Assessing credit risk");
+        
+        // Smart contract and protocol risk
+        let credit_risk = (self.credit_model.smart_contract_risk + self.credit_model.protocol_risk) / 2.0;
+        
+        Ok(RiskComponent {
+            score: credit_risk,
+            weight: 0.10,
+            confidence: 0.7,
+            factors: vec!["Smart contract and protocol risk".to_string()],
+        })
+    }
+}
+
 /// 🚀 ENRIQUECIMIENTO: Enhanced implementations for VolatilityRiskModel
+impl VolatilityRiskModel {
+    pub async fn calculate_garch_volatility(&self) -> Result<f64> {
+        // GARCH(1,1) volatility calculation
+        let current_volatility = self.historical_vol;
+        let garch_vol = self.garch_model.omega + 
+                       self.garch_model.alpha * current_volatility.powi(2) + 
+                       self.garch_model.beta * self.implied_vol.powi(2);
+        
+        Ok(garch_vol.sqrt())
+    }
+}
+
+#[cfg(test)]
 impl VolatilityRiskModel {
     pub async fn calculate_garch_volatility(&self) -> Result<f64> {
         // GARCH(1,1) volatility calculation

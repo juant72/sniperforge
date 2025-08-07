@@ -4,9 +4,8 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
-use tracing::{info, warn, error, debug};
+use tracing::{info, error, debug};
 use uuid::Uuid;
 
 use super::{DexType, OpportunityData, SniperConfig};

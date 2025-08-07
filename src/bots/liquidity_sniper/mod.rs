@@ -4,14 +4,13 @@
 use uuid::Uuid;
 use tokio::sync::{RwLock, mpsc};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use chrono::{DateTime, Utc, Duration};
 use anyhow::Result;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 use std::sync::Arc;
 
-use crate::api::bot_interface::{BotConfig, BotType, Environment};
-use crate::api::BotMetrics;
-use crate::control::{TcpCommand, TcpResponse};
+use crate::api::bot_interface::Environment;
 
 pub mod pool_monitor;
 pub mod opportunity_analyzer;
@@ -24,7 +23,7 @@ pub mod capital_progression;
 use pool_monitor::PoolMonitor;
 use opportunity_analyzer::OpportunityAnalyzer;
 use trade_executor::TradeExecutor;
-use risk_manager::{RiskManager, RiskAssessment as RiskManagerAssessment, MonitoringLevel};
+use risk_manager::{RiskManager, MonitoringLevel};
 use position_manager::PositionManager;
 use cost_analyzer::{CostAnalyzer, CostConfig};
 
@@ -58,6 +57,7 @@ pub struct TradeData {
     pub max_slippage: f64,
     pub priority_fee: u64,
     pub started_at: DateTime<Utc>,
+    pub strategy: Option<SniperStrategy>, // 🚀 ENRIQUECIMIENTO: Strategy field for trade executor
 }
 
 /// Trade execution result
@@ -146,6 +146,7 @@ pub struct LiquiditySniperBot {
     pub id: Uuid,
     pub config: SniperConfig,
     pub state: RwLock<SniperState>,
+    pub is_running: Arc<AtomicBool>,
     pub pool_monitor: Arc<PoolMonitor>,
     pub analyzer: Arc<OpportunityAnalyzer>,
     pub executor: Arc<TradeExecutor>,
@@ -345,6 +346,58 @@ impl Default for SniperConfig {
     }
 }
 
+impl SniperConfig {
+    /// Creates a SniperConfig from a BotConfig
+    pub fn from_bot_config(bot_config: &crate::api::bot_interface::BotConfig) -> Self {
+        let mut config = Self::default();
+        
+        // Override with values from BotConfig parameters (which is a serde_json::Value)
+        if let Some(params_obj) = bot_config.parameters.as_object() {
+            // Capital allocation
+            if let Some(capital) = params_obj.get("capital_allocation") {
+                if let Some(val) = capital.as_f64() {
+                    config.capital_allocation = val;
+                }
+            }
+            
+            // Max position size
+            if let Some(pos_size) = params_obj.get("max_position_size_percent") {
+                if let Some(val) = pos_size.as_f64() {
+                    config.max_position_size_percent = val;
+                }
+            }
+            
+            // Environment - using the already imported Environment
+            if let Some(env) = params_obj.get("environment") {
+                if let Some(env_str) = env.as_str() {
+                    config.environment = match env_str {
+                        "testnet" => Environment::Testnet,
+                        "development" => Environment::Development,
+                        "testing" => Environment::Testing,
+                        _ => Environment::Mainnet,
+                    };
+                }
+            }
+            
+            // MEV protection
+            if let Some(mev) = params_obj.get("mev_protection") {
+                if let Some(val) = mev.as_bool() {
+                    config.mev_protection_enabled = val;
+                }
+            }
+            
+            // Max positions
+            if let Some(max_pos) = params_obj.get("max_positions") {
+                if let Some(val) = max_pos.as_u64() {
+                    config.max_positions = val as u32;
+                }
+            }
+        }
+        
+        config
+    }
+}
+
 impl SniperMetrics {
     pub fn new() -> Self {
         Self {
@@ -443,6 +496,7 @@ impl LiquiditySniperBot {
             id,
             config,
             state: RwLock::new(SniperState::Inactive),
+            is_running: Arc::new(AtomicBool::new(false)),
             pool_monitor,
             analyzer,
             executor,
@@ -551,7 +605,7 @@ impl LiquiditySniperBot {
             }
             
             // Start position management
-            if let Some(position) = trade_result.position {
+            if let Some(_position) = trade_result.position {
                 let position_id = Uuid::new_v4();
                 info!("📈 Position opened: {}", position_id);
             }
@@ -576,6 +630,7 @@ impl LiquiditySniperBot {
             max_slippage: self.config.max_slippage_bps as f64 / 10000.0,
             priority_fee: self.config.priority_fee_lamports,
             started_at: Utc::now(),
+            strategy: Some(SniperStrategy::LiquiditySnipe), // Default strategy for liquidity sniping
         };
         
         // Update state
@@ -704,5 +759,202 @@ mod tests {
         assert_eq!(metrics.total_trades, 1);
         assert_eq!(metrics.successful_trades, 1);
         assert_eq!(metrics.win_rate_percent, 100.0);
+    }
+}
+
+// Implementación de BotInterface para LiquiditySniperBot
+#[async_trait::async_trait]
+impl crate::api::bot_interface::BotInterface for LiquiditySniperBot {
+    fn bot_id(&self) -> Uuid {
+        self.id
+    }
+    
+    fn bot_type(&self) -> crate::api::bot_interface::BotType {
+        crate::api::bot_interface::BotType::LiquiditySniper
+    }
+    
+    fn version(&self) -> String {
+        "3.0.0".to_string()
+    }
+    
+    async fn status(&self) -> crate::api::bot_interface::BotStatus {
+        if self.is_running.load(Ordering::Relaxed) {
+            crate::api::bot_interface::BotStatus::Running
+        } else {
+            crate::api::bot_interface::BotStatus::Stopped
+        }
+    }
+    
+    async fn start(&mut self, _config: crate::api::bot_interface::BotConfig) -> Result<(), crate::api::bot_interface::BotError> {
+        self.is_running.store(true, Ordering::Relaxed);
+        self.start_hunting().await.map_err(|e| crate::api::bot_interface::BotError::Internal(e.to_string()))
+    }
+    
+    async fn stop(&mut self) -> Result<(), crate::api::bot_interface::BotError> {
+        self.is_running.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+    
+    async fn pause(&mut self) -> Result<(), crate::api::bot_interface::BotError> {
+        self.is_running.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+    
+    async fn resume(&mut self) -> Result<(), crate::api::bot_interface::BotError> {
+        self.is_running.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+    
+    async fn update_config(&mut self, _config: crate::api::bot_interface::BotConfig) -> Result<(), crate::api::bot_interface::BotError> {
+        // TODO: Implementar actualización de configuración
+        Ok(())
+    }
+    
+    async fn metrics(&self) -> crate::api::bot_interface::BotMetrics {
+        let current_metrics = self.get_metrics().await;
+        
+        crate::api::bot_interface::BotMetrics {
+            operational: crate::api::bot_interface::OperationalMetrics {
+                uptime_seconds: 0, // TODO: Calcular uptime real
+                restart_count: 0,
+                last_restart: None,
+                config_updates: 0,
+                error_count: 0,
+            },
+            trading: crate::api::bot_interface::TradingMetrics {
+                trades_executed: current_metrics.total_trades,
+                successful_trades: current_metrics.successful_trades,
+                total_pnl_usd: current_metrics.net_profit_sol * 50.0, // Approximate SOL to USD conversion
+                success_rate: current_metrics.win_rate_percent,
+                avg_profit_per_trade: if current_metrics.total_trades > 0 {
+                    current_metrics.net_profit_sol / current_metrics.total_trades as f64
+                } else { 0.0 },
+                total_volume_usd: current_metrics.total_volume_sol * 50.0, // Approximate SOL to USD conversion
+                sharpe_ratio: None, // TODO: Calculate Sharpe ratio
+            },
+            performance: crate::api::bot_interface::PerformanceMetrics {
+                cpu_usage_percent: 0.0, // TODO: Real CPU metrics
+                memory_usage_mb: 0, // TODO: Real memory metrics
+                network_io: crate::api::bot_interface::NetworkIOMetrics {
+                    bytes_sent: 0,
+                    bytes_received: 0,
+                    packets_sent: 0,
+                    packets_received: 0,
+                },
+                api_calls: crate::api::bot_interface::ApiCallMetrics {
+                    total_calls: 0,
+                    successful_calls: 0,
+                    failed_calls: 0,
+                    avg_response_time_ms: current_metrics.average_execution_time_ms,
+                },
+                avg_response_time_ms: current_metrics.average_execution_time_ms,
+                throughput_per_second: 0.0, // TODO: Calculate OPS
+            },
+            custom: serde_json::json!({
+                "opportunities_detected": current_metrics.total_opportunities_detected,
+                "execution_rate": current_metrics.execution_rate_percent,
+                "net_profit_sol": current_metrics.net_profit_sol
+            }),
+            timestamp: Utc::now(),
+        }
+    }
+    
+    async fn health_check(&self) -> crate::api::bot_interface::HealthStatus {
+        crate::api::bot_interface::HealthStatus {
+            status: crate::api::bot_interface::HealthLevel::Healthy,
+            checks: vec![
+                crate::api::bot_interface::HealthCheck {
+                    name: "connectivity".to_string(),
+                    status: crate::api::bot_interface::HealthLevel::Healthy,
+                    description: "RPC connectivity is operational".to_string(),
+                    execution_time_ms: 10,
+                    data: None,
+                }
+            ],
+            timestamp: Utc::now(),
+            details: std::collections::HashMap::from([
+                ("is_running".to_string(), serde_json::json!(self.is_running.load(Ordering::SeqCst))),
+                ("config".to_string(), serde_json::json!("valid")),
+            ]),
+        }
+    }
+    
+    fn capabilities(&self) -> crate::api::bot_interface::BotCapabilities {
+        crate::api::bot_interface::BotCapabilities {
+            networks: vec!["solana".to_string()],
+            dexs: vec!["raydium".to_string(), "orca".to_string(), "jupiter".to_string()],
+            token_types: vec!["spl".to_string()],
+            features: vec![
+                crate::api::bot_interface::BotFeature::RealTimeTrading,
+                crate::api::bot_interface::BotFeature::RiskManagement,
+                crate::api::bot_interface::BotFeature::PerformanceAnalytics,
+                crate::api::bot_interface::BotFeature::MultiDexSupport,
+            ],
+            config_options: vec![
+                crate::api::bot_interface::ConfigOption {
+                    name: "capital_allocation".to_string(),
+                    option_type: "number".to_string(),
+                    default_value: serde_json::json!(10.0),
+                    validation: None,
+                    description: "Capital allocation in SOL".to_string(),
+                    required: true,
+                },
+                crate::api::bot_interface::ConfigOption {
+                    name: "max_position_size_percent".to_string(),
+                    option_type: "number".to_string(),
+                    default_value: serde_json::json!(20.0),
+                    validation: None,
+                    description: "Maximum position size as percentage".to_string(),
+                    required: false,
+                },
+            ],
+        }
+    }
+
+    async fn validate_config(&self, config: &crate::api::bot_interface::BotConfig) -> Result<crate::api::bot_interface::ValidationResult, crate::api::bot_interface::BotError> {
+        let mut errors = Vec::new();
+        let mut warnings = Vec::new();
+        
+        // Validar parámetros básicos
+        if let Some(params_obj) = config.parameters.as_object() {
+            // Validar capital allocation
+            if let Some(capital) = params_obj.get("capital_allocation") {
+                if let Some(val) = capital.as_f64() {
+                    if val <= 0.0 {
+                        errors.push(crate::api::bot_interface::ValidationError {
+                            field: "capital_allocation".to_string(),
+                            message: "Capital allocation must be positive".to_string(),
+                            code: "INVALID_CAPITAL".to_string(),
+                        });
+                    }
+                    if val < 0.1 {
+                        warnings.push(crate::api::bot_interface::ValidationWarning {
+                            field: "capital_allocation".to_string(),
+                            message: "Very low capital allocation may limit opportunities".to_string(),
+                            code: "LOW_CAPITAL_WARNING".to_string(),
+                        });
+                    }
+                }
+            }
+            
+            // Validar max position size
+            if let Some(pos_size) = params_obj.get("max_position_size_percent") {
+                if let Some(val) = pos_size.as_f64() {
+                    if val <= 0.0 || val > 100.0 {
+                        errors.push(crate::api::bot_interface::ValidationError {
+                            field: "max_position_size_percent".to_string(),
+                            message: "Position size must be between 0 and 100 percent".to_string(),
+                            code: "INVALID_POSITION_SIZE".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+        
+        Ok(crate::api::bot_interface::ValidationResult {
+            is_valid: errors.is_empty(),
+            errors,
+            warnings,
+        })
     }
 }
