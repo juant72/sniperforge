@@ -49,6 +49,9 @@ pub mod bots;       // Bot factory and implementations
 pub mod control;    // Bot control and management system
 pub mod orchestration; // Container orchestration (future)
 
+// 🚀 ENTERPRISE SHARED MODULES: Cross-bot reusable components
+pub mod shared;     // Enterprise swap builders, whirlpool builders, aggregators
+
 // Re-export commonly used types
 pub use config::{SimpleConfig, EnterpriseConfig};
 pub use trading::{
@@ -61,6 +64,14 @@ pub use monitoring::{EnterpriseMonitor, SystemStatus, TradingMetrics, SystemMetr
 pub use intelligence::{AdvancedAiEngine, IntelligenceSystem, AutonomousTrader, IntelligenceConfig, MarketIntelligence, TradingAction};
 pub use types::*;
 pub use errors::{SniperForgeError, SniperResult, ErrorExt};
+
+// 🚀 Re-export shared enterprise components for easy access across bots
+pub use shared::{
+    EnterpriseSwapBuilder, SwapSafetyConfig, SwapInstruction,
+    EnterpriseWhirlpoolBuilder, WhirlpoolRoutingConfig, WhirlpoolSwapInstruction,
+    EnterpriseAggregatorInterface, AggregatedQuote, ArbitrageOpportunity, OptimizationStrategy,
+    BotOptimized,
+};
 
 /// Current version of the SniperForge Core library
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

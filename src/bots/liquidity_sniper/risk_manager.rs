@@ -264,15 +264,33 @@ impl RiskManager {
     fn check_emergency_trigger(&self, trigger: &EmergencyTrigger, opportunity: &OpportunityData) -> bool {
         match trigger {
             EmergencyTrigger::LiquidityDrop(threshold) => {
-                // Comparar con liquidez histórica (simplificado)
-                false // Requiere datos históricos
+                // 🚀 USAR THRESHOLD: Comparar liquidez actual con threshold
+                let current_liquidity = opportunity.liquidity_usd;
+                let baseline_liquidity = 100000.0; // Baseline temporal
+                let drop_percentage = ((baseline_liquidity - current_liquidity) / baseline_liquidity) * 100.0;
+                
+                let is_triggered = drop_percentage > *threshold;
+                if is_triggered {
+                    debug!("🚨 Liquidity drop trigger activated: {:.1}% drop (threshold: {:.1}%)", 
+                           drop_percentage, threshold);
+                }
+                is_triggered
             },
             EmergencyTrigger::SlippageSpike(threshold) => {
                 self.calculate_expected_slippage(opportunity) > *threshold
             },
             EmergencyTrigger::VolumeAnomaly(multiplier) => {
-                // Comparar con volumen promedio (simplificado)
-                false // Requiere datos históricos
+                // 🚀 USAR MULTIPLIER: Comparar volumen actual con baseline
+                let current_volume = opportunity.volume_24h_usd;
+                let baseline_volume = 50000.0; // Baseline temporal
+                let volume_ratio = current_volume / baseline_volume;
+                
+                let is_anomaly = volume_ratio > *multiplier || volume_ratio < (1.0 / multiplier);
+                if is_anomaly {
+                    debug!("🚨 Volume anomaly trigger activated: {:.2}x ratio (multiplier: {:.2}x)", 
+                           volume_ratio, multiplier);
+                }
+                is_anomaly
             },
             EmergencyTrigger::PriceManipulation => {
                 // Algoritmos de detección de manipulación

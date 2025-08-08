@@ -5,6 +5,7 @@
 
 use anyhow::Result;
 use chrono::Utc;
+use solana_sdk::signer::Signer;
 use sniperforge::{
     analytics::{
         EnterpriseAIEngine, EnterpriseAIConfig,
@@ -461,6 +462,17 @@ impl EnterpriseMultiBotSystem {
         
         // ✅ ENTERPRISE: Professional Bot Control System
         info!("🏢 Initializing Enterprise Bot Control System...");
+        
+        // 🚀 COMPLETAR FUNCIONALIDAD: Initialize SecureWalletManager and load secure wallet
+        info!("🔐 Initializing Secure Wallet Management...");
+        let _secure_wallet_manager = SecureWalletManager::new()?;
+        info!("✅ SecureWalletManager initialized successfully");
+        
+        // Load secure wallet with default configuration
+        let secure_wallet = load_secure_wallet()?;
+        info!("✅ Secure wallet loaded from keypair file");
+        info!("🔐 Wallet public key: {}", secure_wallet.pubkey());
+        
         let bot_controller = BotController::new().await?;
         let bot_controller = Arc::new(bot_controller);
         info!("✅ Enterprise Bot Control System initialized");

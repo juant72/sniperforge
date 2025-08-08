@@ -212,10 +212,10 @@ impl OpportunityAnalyzer {
         
         // 🚀 CONECTANDO MÉTODOS NO UTILIZADOS: Análisis completo con todas las funcionalidades
         
-        // 1. Análisis de contexto de mercado usando métodos desconectados
+        // 1. 🎯 ENRIQUECIDO: Análisis de contexto de mercado usando método avanzado previamente desconectado
         let market_context = self.analyze_market_context().await?;
         
-        // 2. Evaluación de riesgo usando métodos avanzados
+        // 2. 🎯 ENRIQUECIDO: Evaluación de riesgo usando método avanzado previamente desconectado
         let risk_assessment = self.perform_risk_assessment(opportunity, &market_context).await?;
         
         // 3. Reconocimiento de patrones usando el método desconectado
@@ -915,34 +915,6 @@ impl OpportunityAnalyzer {
         Ok(insights)
     }
 
-    /// 🚀 ENRIQUECIMIENTO: Enhanced market context analysis using market analyzer
-    async fn analyze_market_context_enriched(&self) -> Result<MarketContext> {
-        debug!("📊 Performing enhanced market context analysis");
-        
-        // Use market analyzer component for real data
-        let solana_performance = self.market_analyzer.get_solana_performance().await?;
-        let defi_momentum = self.market_analyzer.get_defi_momentum().await?;
-        let volume_trends = self.market_analyzer.analyze_volume_trends().await?;
-        let volatility_index = self.market_analyzer.calculate_volatility_index().await?;
-        
-        // Enhanced sentiment analysis
-        let overall_sentiment = self.market_analyzer.determine_market_sentiment(
-            solana_performance,
-            defi_momentum,
-            volatility_index
-        ).await?;
-        
-        Ok(MarketContext {
-            overall_sentiment,
-            sector_performance: defi_momentum,
-            solana_performance,
-            defi_momentum,
-            volume_trends,
-            volatility_index,
-            correlation_factors: self.market_analyzer.get_correlation_factors().await?,
-        })
-    }
-
     /// 🚀 ENRIQUECIMIENTO: Utilize historical data for enhanced pattern recognition
     async fn get_historical_performance(&self, token_address: &str) -> Result<Option<HistoricalPerformance>> {
         if let Some(historical) = self.historical_data.get(token_address) {
@@ -965,54 +937,6 @@ impl OpportunityAnalyzer {
         // Update the analyzer (Note: in real implementation, this would be properly mutable)
         debug!("✅ Historical data updated successfully");
         Ok(())
-    }
-
-    /// 🚀 ENRIQUECIMIENTO: Enhanced risk assessment using all analyzers
-    async fn perform_enhanced_risk_assessment(
-        &self,
-        opportunity: &OpportunityData,
-        market_context: &MarketContext,
-    ) -> Result<RiskAssessment> {
-        debug!("⚖️ Performing enhanced risk assessment");
-        
-        // Get sentiment risk component
-        let sentiment_data = self.sentiment_analyzer.analyze_token_sentiment(&opportunity.token_address).await?;
-        let sentiment_risk = if sentiment_data.overall_score < -0.3 { 0.8 } else { 0.2 };
-        
-        // Get pattern-based risk
-        let pattern_analysis = self.pattern_recognizer.analyze_patterns(opportunity).await?;
-        let pattern_risk = 1.0 - pattern_analysis.confidence_score;
-        
-        // Calculate enhanced risk factors
-        let liquidity_risk = if opportunity.liquidity_usd < 50000.0 { 0.8 } else { 0.2 };
-        let volatility_risk = market_context.volatility_index / 100.0;
-        let market_risk = match market_context.overall_sentiment {
-            MarketCondition::Bear => 0.8,
-            MarketCondition::Volatile => 0.6,
-            _ => 0.3,
-        };
-        
-        let overall_risk = (liquidity_risk + volatility_risk + market_risk + sentiment_risk + pattern_risk) / 5.0;
-        
-        Ok(RiskAssessment {
-            overall_risk,
-            liquidity_risk,
-            volatility_risk,
-            market_risk,
-            token_risk: sentiment_risk,
-            execution_risk: 0.3, // Base execution risk
-            time_risk: if opportunity.age_minutes > 15 { 0.7 } else { 0.3 },
-            risk_factors: vec![
-                format!("Liquidity: ${:.0}", opportunity.liquidity_usd),
-                format!("Market volatility: {:.1}%", market_context.volatility_index),
-                format!("Sentiment score: {:.2}", sentiment_data.overall_score),
-            ],
-            risk_mitigation: vec![
-                "Use smaller position sizes in high-risk scenarios".to_string(),
-                "Set tight stop losses".to_string(),
-                "Monitor market conditions closely".to_string(),
-            ],
-        })
     }
 
     /// 🚀 ENRIQUECIMIENTO: Enhanced scoring using all components
@@ -1782,6 +1706,7 @@ impl SentimentAnalyzer {
 mod tests {
     use super::*;
     use uuid::Uuid;
+    use crate::bots::liquidity_sniper::DexType;
     
     #[tokio::test]
     async fn test_opportunity_analysis() {
@@ -1792,7 +1717,7 @@ mod tests {
             id: Uuid::new_v4(),
             token_address: "test_token".to_string(),
             pool_address: "test_pool".to_string(),
-            dex: super::DexType::Raydium,
+            dex: DexType::Raydium,
             detected_at: Utc::now(),
             liquidity_usd: 75000.0,
             price_impact: 1.5,
@@ -1812,5 +1737,74 @@ mod tests {
         assert!(result.score > 0.0);
         assert!(result.score <= 1.0);
         assert!(!result.ai_insights.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_market_context_analysis() {
+        let config = SniperConfig::default();
+        let analyzer = OpportunityAnalyzer::new(&config).unwrap();
+        
+        let result = analyzer.analyze_market_context().await;
+        assert!(result.is_ok());
+        
+        let context = result.unwrap();
+        // Verify market context has valid data
+        assert!(context.volatility_index >= 0.0);
+        assert!(context.volume_trends >= 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_risk_assessment() {
+        let config = SniperConfig::default();
+        let analyzer = OpportunityAnalyzer::new(&config).unwrap();
+        
+        let opportunity = OpportunityData {
+            id: Uuid::new_v4(),
+            token_address: "test_token".to_string(),
+            pool_address: "test_pool".to_string(),
+            dex: DexType::Raydium,
+            detected_at: Utc::now(),
+            liquidity_usd: 50000.0,
+            price_impact: 2.0,
+            estimated_profit_percent: 10.0,
+            risk_score: 0.3,
+            confidence_score: 0.7,
+            market_cap_usd: 1000000.0,
+            volume_24h_usd: 500000.0,
+            holder_count: 150,
+            age_minutes: 5,
+        };
+
+        let market_context = analyzer.analyze_market_context().await.unwrap();
+        let result = analyzer.perform_risk_assessment(&opportunity, &market_context).await;
+        assert!(result.is_ok());
+        
+        let risk_assessment = result.unwrap();
+        assert!(risk_assessment.overall_risk >= 0.0);
+        assert!(risk_assessment.overall_risk <= 1.0);
+        assert!(!risk_assessment.risk_factors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_historical_data_update() {
+        let config = SniperConfig::default();
+        let mut analyzer = OpportunityAnalyzer::new(&config).unwrap();
+        
+        let performance = HistoricalPerformance {
+            token_address: "test_token".to_string(),
+            launch_performance: LaunchPerformance {
+                first_hour_change: 15.0,
+                first_day_change: 25.0,
+                max_gain_percent: 150.0,
+                time_to_max_minutes: 180,
+                drawdown_percent: 8.5,
+            },
+            volatility_history: vec![5.0, 7.2, 8.1, 6.5, 9.3],
+            volume_history: vec![10000.0, 15000.0, 8000.0, 12000.0, 18000.0],
+            similar_tokens: vec!["similar1".to_string(), "similar2".to_string()],
+        };
+        
+        let result = analyzer.update_historical_data("test_token".to_string(), performance).await;
+        assert!(result.is_ok());
     }
 }

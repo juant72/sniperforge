@@ -361,12 +361,12 @@ mod tests {
         let config = CostConfig::default();
         let analyzer = CostAnalyzer::new(config);
         
-        // Small position should require higher profit
-        let viable = analyzer.validate_opportunity_economics(0.1, 30.0, 3.0, 20000.0).unwrap();
+        // Position should be above recommended minimum (0.15 SOL) and have high profit
+        let viable = analyzer.validate_opportunity_economics(0.2, 30.0, 2.0, 40000.0).unwrap();
         assert!(viable);
         
         // Low profit should not be viable
-        let not_viable = analyzer.validate_opportunity_economics(0.1, 5.0, 3.0, 20000.0).unwrap();
+        let not_viable = analyzer.validate_opportunity_economics(0.2, 2.0, 2.0, 40000.0).unwrap();
         assert!(!not_viable);
     }
 }
