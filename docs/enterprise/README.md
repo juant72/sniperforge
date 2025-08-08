@@ -2,7 +2,14 @@
 
 ## 📋 Executive Summary
 
-**SniperForge Enterprise** is a professional-grade automated trading platform for Solana DeFi protocols. This comprehensive API documentation provides complete technical specifications for enterprise deployment.
+**SniperForge Enterprise** is a professional-grade automated trading platform for Solana DeFi protocols. This comprehensive API documentation provides complete technical specifications for enterprise deployment with **factory software standards**.
+
+## 📂 Navegación Rápida
+
+- **[📋 Índice Completo](INDEX.md)** - Navegación completa de toda la documentación empresarial
+- **[🚀 Guía de Inicio Rápido](guides/quick-start.md)** - Sistema funcionando en 5 minutos
+- **[💻 Ejemplos de Código](examples/)** - Implementaciones en TypeScript, Python y Rust
+- **[📖 APIs Documentadas](api/)** - 115+ funciones completamente documentadas
 
 ---
 
@@ -118,9 +125,10 @@ graph TB
 | [LiquiditySniperBot](api/bots/liquidity_sniper.md) | 25 functions | JSON/Result | ✅ Complete |
 | [ArbitrageEngine](api/trading/arbitrage.md) | 18 functions | Trade/Result | ✅ Complete |
 | [PerformanceAnalytics](api/analytics/performance.md) | 22 functions | Metrics/JSON | ✅ Complete |
-| [SecurityManager](api/security/security.md) | 15 functions | Config/Boolean | ✅ Complete |
-| [BotController](api/control/bot_management.md) | 12 functions | Commands/Status | ✅ Complete |
-| [ConfigManager](api/config/management.md) | 20 functions | YAML/Config | ✅ Complete |
+| [BotController](api/control/bot_controller.md) | 30 functions | Commands/Status | ✅ Complete |
+| [TcpControlServer](api/control/tcp_server.md) | 20 commands | JSON/Response | ✅ Complete |
+| [SecurityManager](api/security/security.md) | 15 functions | Config/Boolean | 🔄 Pending |
+| [ConfigManager](api/config/management.md) | 20 functions | YAML/Config | 🔄 Pending |
 
 ---
 
