@@ -210,14 +210,57 @@ impl OpportunityAnalyzer {
     pub async fn analyze_opportunity(&self, opportunity: &OpportunityData) -> Result<OpportunityAnalysis> {
         info!("🔍 Analyzing opportunity: {}", opportunity.token_address);
         
-        // 🚀 ENRIQUECIMIENTO: Use market analyzer with real data
-        let market_context = self.analyze_market_context_enriched().await?;
+        // 🚀 CONECTANDO MÉTODOS NO UTILIZADOS: Análisis completo con todas las funcionalidades
         
-        // 🚀 ENRIQUECIMIENTO: Enhanced risk assessment using all analyzers
-        let risk_assessment = self.perform_enhanced_risk_assessment(opportunity, &market_context).await?;
+        // 1. Análisis de contexto de mercado usando métodos desconectados
+        let market_context = self.analyze_market_context().await?;
         
-        // Profit potential analysis
+        // 2. Evaluación de riesgo usando métodos avanzados
+        let risk_assessment = self.perform_risk_assessment(opportunity, &market_context).await?;
+        
+        // 3. Reconocimiento de patrones usando el método desconectado
+        let pattern_score = self.recognize_patterns(opportunity).await?;
+        info!("📊 Pattern recognition score: {:.3}", pattern_score);
+        
+        // 4. Análisis de sentimiento usando el método desconectado
+        let sentiment_score = self.analyze_sentiment(opportunity).await?;
+        info!("💭 Sentiment analysis score: {:.3}", sentiment_score);
+        
+        // 5. Obtener métricas de rendimiento de Solana
+        let solana_performance = self.get_solana_performance().await?;
+        info!("⚡ SOL performance: {:.2}%", solana_performance);
+        
+        // 6. Analizar momentum de DeFi
+        let defi_momentum = self.get_defi_momentum().await?;
+        info!("🌊 DeFi momentum: {:.2}x", defi_momentum);
+        
+        // 7. Tendencias de volumen
+        let volume_trends = self.get_volume_trends().await?;
+        info!("📈 Volume trends: {:.2}x", volume_trends);
+        
+        // 8. Índice de volatilidad
+        let volatility_index = self.get_volatility_index().await?;
+        info!("📊 Volatility index: {:.1}%", volatility_index);
+        
+        // Análisis de potencial de ganancia (MOVED BEFORE calculate_overall_score)
         let profit_potential = self.analyze_profit_potential(opportunity, &market_context).await?;
+        
+        // 9. Calcular score general usando todos los componentes
+        let overall_score = self.calculate_overall_score(
+            opportunity, 
+            &risk_assessment,
+            &profit_potential,
+            &market_context, 
+            &pattern_score, 
+            &sentiment_score
+        ).await?;
+        info!("🎯 Overall opportunity score: {:.3}", overall_score);
+        
+        // 10. Obtener rendimiento histórico si está disponible
+        let historical_performance = self.get_historical_performance(&opportunity.token_address).await?;
+        if let Some(ref hist) = historical_performance {
+            info!("📈 Historical performance available: {:.2}% max gain", hist.launch_performance.max_gain_percent);
+        }
         
         // 🚀 ENRIQUECIMIENTO: Use pattern recognizer component
         let pattern_analysis = self.pattern_recognizer.analyze_patterns(opportunity).await?;
@@ -225,7 +268,7 @@ impl OpportunityAnalyzer {
         // 🚀 ENRIQUECIMIENTO: Use sentiment analyzer component  
         let sentiment_analysis = self.sentiment_analyzer.analyze_token_sentiment(&opportunity.token_address).await?;
         
-        // Strategy recommendation
+        // Recomendación de estrategia
         let recommended_strategy = self.recommend_strategy(
             opportunity, 
             &risk_assessment, 

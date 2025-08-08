@@ -2,7 +2,7 @@
 // World-class implementation with enterprise guarantees
 
 use uuid::Uuid;
-use tokio::sync::{RwLock, mpsc};
+use tokio::sync::{RwLock, mpsc, Mutex};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use chrono::{DateTime, Utc, Duration};
@@ -150,7 +150,7 @@ pub struct LiquiditySniperBot {
     pub pool_monitor: Arc<PoolMonitor>,
     pub analyzer: Arc<OpportunityAnalyzer>,
     pub executor: Arc<TradeExecutor>,
-    pub risk_manager: Arc<RiskManager>,
+    pub risk_manager: Arc<Mutex<RiskManager>>,
     pub position_manager: Arc<PositionManager>,
     pub cost_analyzer: Arc<CostAnalyzer>,
     pub metrics: RwLock<SniperMetrics>,
@@ -488,7 +488,7 @@ impl LiquiditySniperBot {
         let pool_monitor = Arc::new(PoolMonitor::new(&config).await?);
         let analyzer = Arc::new(OpportunityAnalyzer::new(&config)?);
         let executor = Arc::new(TradeExecutor::new(&config).await?);
-        let risk_manager = Arc::new(RiskManager::new(&config)?);
+        let risk_manager = Arc::new(Mutex::new(RiskManager::new(config.clone())?));
         let position_manager = Arc::new(PositionManager::new(&config)?);
         let cost_analyzer = Arc::new(CostAnalyzer::new(CostConfig::default()));
         
@@ -568,10 +568,15 @@ impl LiquiditySniperBot {
         }
         
         // Enterprise risk assessment
-        let risk_assessment = self.risk_manager.assess_opportunity(&opportunity).await?;
+        let risk_assessment = self.risk_manager.lock().await.assess_opportunity(&opportunity).await?;
         
         if !risk_assessment.approved {
-            warn!("⚠️ Opportunity rejected by risk manager: {}", risk_assessment.reason);
+            let reason = if risk_assessment.warnings.is_empty() {
+                "Risk assessment failed".to_string()
+            } else {
+                risk_assessment.warnings.join("; ")
+            };
+            warn!("⚠️ Opportunity rejected by risk manager: {}", reason);
             return Ok(());
         }
         
