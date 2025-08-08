@@ -127,8 +127,9 @@ graph TB
 | [PerformanceAnalytics](api/analytics/performance.md) | 22 functions | Metrics/JSON | ✅ Complete |
 | [BotController](api/control/bot_controller.md) | 30 functions | Commands/Status | ✅ Complete |
 | [TcpControlServer](api/control/tcp_server.md) | 20 commands | JSON/Response | ✅ Complete |
-| [SecurityManager](api/security/security.md) | 15 functions | Config/Boolean | 🔄 Pending |
-| [ConfigManager](api/config/management.md) | 20 functions | YAML/Config | 🔄 Pending |
+| [SecurityManager](api/security/security_manager.md) | 25 functions | Security/Auth | ✅ Complete |
+| [ConfigManager](api/config/config_manager.md) | 28 functions | YAML/Config | ✅ Complete |
+| [EnterpriseMonitor](api/monitoring/enterprise_monitor.md) | 22 functions | Metrics/Alerts | ✅ Complete |
 
 ---
 
