@@ -130,6 +130,9 @@ graph TB
 | [SecurityManager](api/security/security_manager.md) | 25 functions | Security/Auth | ✅ Complete |
 | [ConfigManager](api/config/config_manager.md) | 28 functions | YAML/Config | ✅ Complete |
 | [EnterpriseMonitor](api/monitoring/enterprise_monitor.md) | 22 functions | Metrics/Alerts | ✅ Complete |
+| [IntelligenceSystem](api/intelligence/intelligence_system.md) | 35 functions | AI/ML Analysis | ✅ Complete |
+| [AdvancedMLEngine](api/ml/advanced_ml_engine.md) | 28 functions | ML/Predictions | ✅ Complete |
+| [APIsIntegration](api/apis/integration_system.md) | 18 functions | External APIs | ✅ Complete |
 
 ---
 

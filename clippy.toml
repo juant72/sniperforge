@@ -1,6 +1,0 @@
-# SniperForge Clippy Configuration
-cognitive-complexity-threshold = 30
-type-complexity-threshold = 250
-too-many-arguments-threshold = 8
-trivial-copy-size-limit = 64
-pass-by-value-size-limit = 256
